@@ -14,7 +14,7 @@ import {
   ContractUnionCaseKind,
 } from "@groundhogchain/contract-spec";
 import type { ContractSpec, ContractTypeDef } from "./spec.js";
-import { encodeCalldata } from "./encode.js";
+import { encodeCalldata, decodeCalldata } from "./encode.js";
 import { buildNamedCodecs } from "./codegen.js";
 
 const s = contractSpecString;
@@ -74,13 +74,10 @@ describe("encodeCalldata", () => {
     const amount = 1000n;
 
     const data = encodeCalldata(erc20Spec, "ERC20", "transfer", [to, amount]);
+    const decoded = decodeCalldata(erc20Spec, "ERC20", "transfer", data);
 
-    const r = new CxsReader(data);
-    const decodedTo = codec.ContractAddress.decode(r);
-    const decodedAmount = Uint128Codec.decode(r);
-
-    expect(decodedTo).toEqual(to);
-    expect(decodedAmount).toBe(amount);
+    expect(decoded.to).toEqual(to);
+    expect(decoded.amount).toBe(amount);
   });
 
   it("encodes get_balance() with no args", () => {
@@ -106,6 +103,37 @@ describe("encodeCalldata", () => {
     expect(() => encodeCalldata(erc20Spec, "Unknown", "transfer", [])).toThrow(
       'Interface "Unknown" not found',
     );
+  });
+});
+
+describe("decodeCalldata", () => {
+  it("decodes get_balance_of(address) round-trip", () => {
+    const addr = contractAddress(new Uint8Array(32).fill(0xcc));
+    const data = encodeCalldata(erc20Spec, "ERC20", "get_balance_of", [addr]);
+    const decoded = decodeCalldata(erc20Spec, "ERC20", "get_balance_of", data);
+
+    expect(decoded.addr).toEqual(addr);
+  });
+
+  it("decodes empty calldata for no-arg methods", () => {
+    const data = encodeCalldata(erc20Spec, "ERC20", "get_balance", []);
+    const decoded = decodeCalldata(erc20Spec, "ERC20", "get_balance", data);
+
+    expect(decoded).toEqual({});
+  });
+
+  it("throws on trailing data", () => {
+    const to = contractAddress(new Uint8Array(32).fill(0xab));
+    const amount = 1000n;
+    const data = encodeCalldata(erc20Spec, "ERC20", "transfer", [to, amount]);
+
+    const padded = new Uint8Array(data.length + 5);
+    padded.set(data);
+    padded.set([0xff, 0xff, 0xff, 0xff, 0xff], data.length);
+
+    expect(() =>
+      decodeCalldata(erc20Spec, "ERC20", "transfer", padded),
+    ).toThrow("Trailing data");
   });
 });
 

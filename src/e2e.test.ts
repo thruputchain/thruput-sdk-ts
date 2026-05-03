@@ -8,10 +8,7 @@ import {
   bitMap,
   weight,
   serialize,
-  deserialize,
   codec,
-  CxsReader,
-  Uint128Codec,
 } from "@groundhogchain/protocol";
 import {
   deriveEntrypointID,
@@ -29,8 +26,7 @@ import {
   serializeSignedTransaction,
   deserializeSignedTransaction,
 } from "./transaction/serialize.js";
-import { encodeCalldata } from "./contract/encode.js";
-import { buildNamedCodecs } from "./contract/codegen.js";
+import { encodeCalldata, decodeCalldata } from "./contract/encode.js";
 import type { ContractSpec } from "./contract/spec.js";
 
 const s = contractSpecString;
@@ -76,29 +72,21 @@ const erc20Spec: ContractSpec = {
 
 describe("end-to-end: build, sign, serialize an ERC20 transfer", () => {
   it("round-trips a complete signed transaction", async () => {
-    // 1. Set up signer
     const secretKey = new Uint8Array(32);
     secretKey[0] = 0xde;
     secretKey[1] = 0xad;
     const signer = new PrivateKeySigner(secretKey);
 
-    // 2. Encode calldata from spec
     const tokenAddress = contractAddress(new Uint8Array(32).fill(0x11));
     const recipient = contractAddress(new Uint8Array(32).fill(0x22));
     const amount = 500n;
-    const namedCodecs = buildNamedCodecs(erc20Spec.type_defs);
-    const data = encodeCalldata(
-      erc20Spec,
-      "ERC20",
-      "transfer",
-      [recipient, amount],
-      namedCodecs,
-    );
 
-    // 3. Derive entrypoint ID
+    const data = encodeCalldata(erc20Spec, "ERC20", "transfer", [
+      recipient,
+      amount,
+    ]);
     const entrypoint = await deriveEntrypointID("ERC20", "0.1.0", "transfer");
 
-    // 4. Build invocation and transaction
     const invocation = createInvocation({
       invoked_address: tokenAddress,
       entrypoint,
@@ -122,19 +110,17 @@ describe("end-to-end: build, sign, serialize an ERC20 transfer", () => {
       },
     });
 
-    // 5. Sign
     const signed = await signTransaction(tx, [{ signer, publicKeyId: 0n }]);
 
-    // 6. Verify signature independently
+    // Verify signature
     const txBytes = serialize(tx, codec.Transaction);
     const sig = signed.signatures[0].signature;
     expect(verify(sig.ed25519, txBytes, signer.publicKey)).toBe(true);
 
-    // 7. Serialize and deserialize the signed transaction
+    // Round-trip through serialization
     const wireBytes = serializeSignedTransaction(signed);
     const restored = deserializeSignedTransaction(wireBytes);
 
-    // 8. Verify the restored transaction matches
     expect(restored.tx.invocation.invoked_address).toEqual(tokenAddress);
     expect(restored.tx.invocation.entrypoint).toEqual(entrypoint);
     expect(restored.tx.invocation.gas_limit).toBe(1_000_000n);
@@ -143,18 +129,19 @@ describe("end-to-end: build, sign, serialize an ERC20 transfer", () => {
     expect(restored.signatures).toHaveLength(1);
     expect(restored.signatures[0].signature.ed25519).toEqual(sig.ed25519);
 
-    // 9. Decode the calldata back from the restored transaction
-    const r = new CxsReader(restored.tx.invocation.calldata);
-    const decodedRecipient = codec.ContractAddress.decode(r);
-    const decodedAmount = Uint128Codec.decode(r);
-    expect(decodedRecipient).toEqual(recipient);
-    expect(decodedAmount).toBe(amount);
+    // Decode calldata from the restored transaction
+    const decoded = decodeCalldata(
+      erc20Spec,
+      "ERC20",
+      "transfer",
+      restored.tx.invocation.calldata,
+    );
+    expect(decoded.to).toEqual(recipient);
+    expect(decoded.amount).toBe(amount);
 
-    // 10. Hash the signed transaction to get a canonical ID
+    // Hash is deterministic
     const txHash = await hashSignedTransaction(signed);
     expect(txHash.length).toBe(32);
-
-    // Hashing is deterministic
     const txHash2 = await hashSignedTransaction(restored);
     expect(txHash2).toEqual(txHash);
   });

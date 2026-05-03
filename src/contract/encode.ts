@@ -12,12 +12,14 @@ import {
   Uint128Codec,
   Int128Codec,
   CxsWriter,
+  CxsReader,
   OptionCodec,
   VarArrayCodec,
   FixedArrayCodec,
 } from "@groundhogchain/protocol";
-import type { ContractType, ContractSpec } from "./spec.js";
+import type { ContractType, ContractSpec, ContractSpecMethod } from "./spec.js";
 import { ContractTypeKind } from "./spec.js";
+import { buildNamedCodecs } from "./codegen.js";
 
 const BytesCodec: XdrCodec<Uint8Array> = {
   encode(w, val) {
@@ -106,14 +108,29 @@ export function resolveCodec(
     case ContractTypeKind.Named: {
       const c = namedCodecs?.[ty.named];
       if (!c) {
-        throw new Error(
-          `No codec for named type "${ty.named}". ` +
-            `Call buildNamedCodecs() first.`,
-        );
+        throw new Error(`No codec for named type "${ty.named}".`);
       }
       return c;
     }
   }
+}
+
+function lookupMethod(
+  spec: ContractSpec,
+  interfaceName: string,
+  methodName: string,
+): ContractSpecMethod {
+  const iface = spec.interfaces.find((i) => i.name === interfaceName);
+  if (!iface) {
+    throw new Error(`Interface "${interfaceName}" not found in spec`);
+  }
+  const method = iface.methods.find((m) => m.name === methodName);
+  if (!method) {
+    throw new Error(
+      `Method "${methodName}" not found in interface "${interfaceName}"`,
+    );
+  }
+  return method;
 }
 
 export function encodeCalldata(
@@ -121,19 +138,9 @@ export function encodeCalldata(
   interfaceName: string,
   methodName: string,
   args: unknown[],
-  namedCodecs?: Record<string, XdrCodec<unknown>>,
 ): Calldata {
-  const iface = spec.interfaces.find((i) => i.name === interfaceName);
-  if (!iface) {
-    throw new Error(`Interface "${interfaceName}" not found in spec`);
-  }
-
-  const method = iface.methods.find((m) => m.name === methodName);
-  if (!method) {
-    throw new Error(
-      `Method "${methodName}" not found in interface "${interfaceName}"`,
-    );
-  }
+  const method = lookupMethod(spec, interfaceName, methodName);
+  const namedCodecs = buildNamedCodecs(spec.type_defs);
 
   if (args.length !== method.args.length) {
     throw new Error(
@@ -147,4 +154,27 @@ export function encodeCalldata(
     argCodec.encode(w, args[i]);
   }
   return calldata(w.finish());
+}
+
+export function decodeCalldata(
+  spec: ContractSpec,
+  interfaceName: string,
+  methodName: string,
+  data: Uint8Array,
+): Record<string, unknown> {
+  const method = lookupMethod(spec, interfaceName, methodName);
+  const namedCodecs = buildNamedCodecs(spec.type_defs);
+
+  const r = new CxsReader(data);
+  const result: Record<string, unknown> = {};
+  for (const arg of method.args) {
+    const argCodec = resolveCodec(arg.ty, namedCodecs);
+    result[arg.name] = argCodec.decode(r);
+  }
+  if (r.remaining !== 0) {
+    throw new Error(
+      `Trailing data after decoding "${methodName}": ${r.remaining} bytes remaining`,
+    );
+  }
+  return result;
 }
