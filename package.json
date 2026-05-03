@@ -46,7 +46,7 @@
   },
   "dependencies": {
     "@groundhogchain/contract-spec": "^0.2.4",
-    "@groundhogchain/protocol": "^0.2.3",
+    "@groundhogchain/protocol": "^0.2.5",
     "@noble/ed25519": "^3.1.0",
     "@noble/hashes": "^2.2.0"
   }
