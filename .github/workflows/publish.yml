@@ -1,0 +1,69 @@
+name: Release package
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    permissions:
+      contents: write
+      packages: write
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://npm.pkg.github.com
+          scope: "@groundhogchain"
+
+      - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read version
+        run: |
+          VERSION=$(jq -r '.version' package.json)
+          echo "All packages at version $VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - run: npm run build
+      - run: npm run test
+      - run: npm run typecheck
+
+      - name: Tag commit with version
+        id: tag
+        run: |
+          set -euo pipefail
+          TAG="v${VERSION}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "ERROR: Tag $TAG already exists!"
+            exit 1
+          fi
+          git tag "$TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Push tag
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.tag.outputs.tag }}"
+          git remote set-url origin https://${{ github.actor }}:${{ github.token }}@github.com/${{ github.repository }}.git
+          REMOTE_TAG_REF=$(git ls-remote origin "refs/tags/$TAG" | cut -f1)
+          if [ -n "$REMOTE_TAG_REF" ]; then
+            LOCAL_COMMIT=$(git rev-parse "$TAG")
+            if [ "$REMOTE_TAG_REF" = "$LOCAL_COMMIT" ]; then
+              echo "Tag $TAG already exists on remote at same commit. Skipping push."
+            else
+              echo "ERROR: Tag $TAG exists on remote but points to different commit!"
+              exit 1
+            fi
+          else
+            git push origin "$TAG"
+          fi
+
+      - name: Publish package
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
