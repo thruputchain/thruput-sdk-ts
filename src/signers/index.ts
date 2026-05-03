@@ -1,2 +1,2 @@
 export type { Signer } from "./types.js";
-// export { PrivateKeySigner } from "./privateKey.js";
+export { PrivateKeySigner } from "./privateKey.js";
