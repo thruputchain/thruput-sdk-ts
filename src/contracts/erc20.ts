@@ -5,14 +5,8 @@ import type {
   ContractAddress,
   GasAmount,
   Invocation,
-  Calldata,
-  ContractEntrypointID,
 } from "@groundhogchain/protocol";
-import {
-  contractEntrypointID,
-  calldata,
-  gasAmount,
-} from "@groundhogchain/protocol";
+import { contractEntrypointID } from "@groundhogchain/protocol";
 import { fromHex } from "@groundhogchain/protocol/utils";
 import {
   ContractTypeKind,

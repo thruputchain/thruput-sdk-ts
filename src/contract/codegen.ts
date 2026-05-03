@@ -1,6 +1,6 @@
 import type { XdrCodec } from "@groundhogchain/xdr";
 import { Uint32Codec } from "@groundhogchain/protocol";
-import type { ContractTypeDef } from "./spec.js";
+import type { ContractTypeDef, ContractUnionCaseType } from "./spec.js";
 import { ContractTypeDefKind, ContractUnionCaseKind } from "./spec.js";
 import { resolveCodec } from "./encode.js";
 
@@ -51,26 +51,7 @@ export function buildNamedCodecs(
                 `Unknown discriminant ${obj.discriminant} for union "${unionDef.name}"`,
               );
             }
-            switch (caseSpec.case_type.v) {
-              case ContractUnionCaseKind.UnionCaseVoid:
-                break;
-              case ContractUnionCaseKind.UnionCaseTuple: {
-                const arr = obj.value as unknown[];
-                for (let i = 0; i < caseSpec.case_type.tuple.length; i++) {
-                  const c = resolveCodec(caseSpec.case_type.tuple[i], codecs);
-                  c.encode(w, arr[i]);
-                }
-                break;
-              }
-              case ContractUnionCaseKind.UnionCaseStruct: {
-                const fields = obj.value as Record<string, unknown>;
-                for (const field of caseSpec.case_type.struct_fields) {
-                  const c = resolveCodec(field.ty, codecs);
-                  c.encode(w, fields[field.name]);
-                }
-                break;
-              }
-            }
+            encodeUnionCase(caseSpec.case_type, obj.value, w, codecs);
           },
           decode(r) {
             const discriminant = r.readUint32();
@@ -82,31 +63,87 @@ export function buildNamedCodecs(
                 `Unknown discriminant ${discriminant} for union "${unionDef.name}"`,
               );
             }
-            switch (caseSpec.case_type.v) {
-              case ContractUnionCaseKind.UnionCaseVoid:
-                return { discriminant };
-              case ContractUnionCaseKind.UnionCaseTuple: {
-                const value = caseSpec.case_type.tuple.map((ty) => {
-                  const c = resolveCodec(ty, codecs);
-                  return c.decode(r);
-                });
-                return { discriminant, value };
-              }
-              case ContractUnionCaseKind.UnionCaseStruct: {
-                const value: Record<string, unknown> = {};
-                for (const field of caseSpec.case_type.struct_fields) {
-                  const c = resolveCodec(field.ty, codecs);
-                  value[field.name] = c.decode(r);
-                }
-                return { discriminant, value };
-              }
-            }
+            return decodeUnionCase(caseSpec.case_type, discriminant, r, codecs);
           },
         };
         break;
+      }
+
+      default: {
+        const _exhaustive: never = def;
+        throw new Error(
+          `Unsupported ContractTypeDefKind: ${(_exhaustive as ContractTypeDef).v}`,
+        );
       }
     }
   }
 
   return codecs;
+}
+
+function encodeUnionCase(
+  caseType: ContractUnionCaseType,
+  value: unknown,
+  w: Parameters<XdrCodec<unknown>["encode"]>[0],
+  codecs: Record<string, XdrCodec<unknown>>,
+): void {
+  switch (caseType.v) {
+    case ContractUnionCaseKind.UnionCaseVoid:
+      break;
+    case ContractUnionCaseKind.UnionCaseTuple: {
+      const arr = value as unknown[];
+      for (let i = 0; i < caseType.tuple.length; i++) {
+        const c = resolveCodec(caseType.tuple[i], codecs);
+        c.encode(w, arr[i]);
+      }
+      break;
+    }
+    case ContractUnionCaseKind.UnionCaseStruct: {
+      const fields = value as Record<string, unknown>;
+      for (const field of caseType.struct_fields) {
+        const c = resolveCodec(field.ty, codecs);
+        c.encode(w, fields[field.name]);
+      }
+      break;
+    }
+    default: {
+      const _exhaustive: never = caseType;
+      throw new Error(
+        `Unsupported ContractUnionCaseKind: ${(_exhaustive as ContractUnionCaseType).v}`,
+      );
+    }
+  }
+}
+
+function decodeUnionCase(
+  caseType: ContractUnionCaseType,
+  discriminant: bigint,
+  r: Parameters<XdrCodec<unknown>["decode"]>[0],
+  codecs: Record<string, XdrCodec<unknown>>,
+): unknown {
+  switch (caseType.v) {
+    case ContractUnionCaseKind.UnionCaseVoid:
+      return { discriminant };
+    case ContractUnionCaseKind.UnionCaseTuple: {
+      const value = caseType.tuple.map((ty) => {
+        const c = resolveCodec(ty, codecs);
+        return c.decode(r);
+      });
+      return { discriminant, value };
+    }
+    case ContractUnionCaseKind.UnionCaseStruct: {
+      const value: Record<string, unknown> = {};
+      for (const field of caseType.struct_fields) {
+        const c = resolveCodec(field.ty, codecs);
+        value[field.name] = c.decode(r);
+      }
+      return { discriminant, value };
+    }
+    default: {
+      const _exhaustive: never = caseType;
+      throw new Error(
+        `Unsupported ContractUnionCaseKind: ${(_exhaustive as ContractUnionCaseType).v}`,
+      );
+    }
+  }
 }
