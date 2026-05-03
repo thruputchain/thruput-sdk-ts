@@ -205,6 +205,24 @@ const rgbSpec: ContractSpec = {
           ],
           return_type: { v: ContractTypeKind.Void },
         },
+        {
+          name: s("set_pixel_rgba"),
+          args: [
+            { name: s("x"), ty: { v: ContractTypeKind.U32 } },
+            { name: s("y"), ty: { v: ContractTypeKind.U32 } },
+            {
+              name: s("color"),
+              ty: {
+                v: ContractTypeKind.Array,
+                array: {
+                  element: { v: ContractTypeKind.U8 },
+                  len: 4n,
+                },
+              },
+            },
+          ],
+          return_type: { v: ContractTypeKind.Void },
+        },
       ],
     },
   ],
@@ -272,6 +290,41 @@ describe("U8 codec", () => {
         rgbCodecs,
       ),
     ).toThrow("U8 value out of range: -1");
+  });
+
+  it("encodes and decodes a [u8; 4] fixed array", () => {
+    const color = [255n, 128n, 0n, 200n];
+    const data = encodeCalldata(
+      rgbSpec,
+      "RGB",
+      "set_pixel_rgba",
+      [5n, 10n, color],
+      rgbCodecs,
+    );
+    const decoded = decodeCalldata(
+      rgbSpec,
+      "RGB",
+      "set_pixel_rgba",
+      data,
+      rgbCodecs,
+    );
+
+    expect(decoded.x).toBe(5n);
+    expect(decoded.y).toBe(10n);
+    expect(decoded.color).toEqual(color);
+  });
+
+  it("[u8; 4] wire format is exactly 4 bytes for the array", () => {
+    const color = [0n, 0n, 0n, 0n];
+    const data = encodeCalldata(
+      rgbSpec,
+      "RGB",
+      "set_pixel_rgba",
+      [0n, 0n, color],
+      rgbCodecs,
+    );
+    // 2 u32 CXS(0) = 1 byte each, + 4 u8 = 4 bytes = 6 total
+    expect(data.length).toBe(6);
   });
 });
 
