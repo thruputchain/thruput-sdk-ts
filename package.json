@@ -19,6 +19,16 @@
       "import": "./dist/transport.js",
       "require": "./dist/transport.cjs"
     },
+    "./contract": {
+      "types": "./dist/contract.d.ts",
+      "import": "./dist/contract.js",
+      "require": "./dist/contract.cjs"
+    },
+    "./signers": {
+      "types": "./dist/signers.d.ts",
+      "import": "./dist/signers.js",
+      "require": "./dist/signers.cjs"
+    },
     "./actions": {
       "types": "./dist/actions.d.ts",
       "import": "./dist/actions.js",

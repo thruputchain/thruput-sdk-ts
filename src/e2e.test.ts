@@ -27,6 +27,7 @@ import {
   deserializeSignedTransaction,
 } from "./transaction/serialize.js";
 import { encodeCalldata, decodeCalldata } from "./contract/encode.js";
+import { buildNamedCodecs } from "./contract/codegen.js";
 import type { ContractSpec } from "./contract/spec.js";
 
 const s = contractSpecString;
@@ -80,11 +81,15 @@ describe("end-to-end: build, sign, serialize an ERC20 transfer", () => {
     const tokenAddress = contractAddress(new Uint8Array(32).fill(0x11));
     const recipient = contractAddress(new Uint8Array(32).fill(0x22));
     const amount = 500n;
+    const namedCodecs = buildNamedCodecs(erc20Spec.type_defs);
 
-    const data = encodeCalldata(erc20Spec, "ERC20", "transfer", [
-      recipient,
-      amount,
-    ]);
+    const data = encodeCalldata(
+      erc20Spec,
+      "ERC20",
+      "transfer",
+      [recipient, amount],
+      namedCodecs,
+    );
     const entrypoint = await deriveEntrypointID("ERC20", "0.1.0", "transfer");
 
     const invocation = createInvocation({
@@ -115,7 +120,7 @@ describe("end-to-end: build, sign, serialize an ERC20 transfer", () => {
     // Verify signature
     const txBytes = serialize(tx, codec.Transaction);
     const sig = signed.signatures[0].signature;
-    expect(verify(sig.ed25519, txBytes, signer.publicKey)).toBe(true);
+    expect(verify(sig.ed25519, txBytes, signer.publicKey.ed25519)).toBe(true);
 
     // Round-trip through serialization
     const wireBytes = serializeSignedTransaction(signed);
@@ -135,6 +140,7 @@ describe("end-to-end: build, sign, serialize an ERC20 transfer", () => {
       "ERC20",
       "transfer",
       restored.tx.invocation.calldata,
+      namedCodecs,
     );
     expect(decoded.to).toEqual(recipient);
     expect(decoded.amount).toBe(amount);

@@ -15,6 +15,7 @@ import {
 } from "@groundhogchain/contract-spec";
 import type { ContractSpec } from "../contract/spec.js";
 import { encodeCalldata } from "../contract/encode.js";
+import { buildNamedCodecs } from "../contract/codegen.js";
 import { createInvocation } from "../transaction/build.js";
 
 const s = contractSpecString;
@@ -123,6 +124,8 @@ export const spec: ContractSpec = {
   ],
 };
 
+const namedCodecs = buildNamedCodecs(spec.type_defs);
+
 export function depth(
   contract: ContractAddress,
   gasLimit: GasAmount,
@@ -132,9 +135,13 @@ export function depth(
     invoked_address: contract,
     entrypoint: entrypoints.depth,
     gas_limit: gasLimit,
-    calldata: encodeCalldata(spec, "RecursiveTypeContract", "depth", [
-      args.tree,
-    ]),
+    calldata: encodeCalldata(
+      spec,
+      "RecursiveTypeContract",
+      "depth",
+      [args.tree],
+      namedCodecs,
+    ),
   });
 }
 
@@ -147,9 +154,13 @@ export function forestDepth(
     invoked_address: contract,
     entrypoint: entrypoints.forest_depth,
     gas_limit: gasLimit,
-    calldata: encodeCalldata(spec, "RecursiveTypeContract", "forest_depth", [
-      args.forest,
-    ]),
+    calldata: encodeCalldata(
+      spec,
+      "RecursiveTypeContract",
+      "forest_depth",
+      [args.forest],
+      namedCodecs,
+    ),
   });
 }
 
@@ -162,8 +173,12 @@ export function unbox(
     invoked_address: contract,
     entrypoint: entrypoints.unbox,
     gas_limit: gasLimit,
-    calldata: encodeCalldata(spec, "RecursiveTypeContract", "unbox", [
-      args.val,
-    ]),
+    calldata: encodeCalldata(
+      spec,
+      "RecursiveTypeContract",
+      "unbox",
+      [args.val],
+      namedCodecs,
+    ),
   });
 }
