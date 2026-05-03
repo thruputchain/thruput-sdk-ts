@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   contractAddress,
-  deserializeCxs,
+  CxsReader,
   codec,
+  Uint128Codec,
 } from "@groundhogchain/protocol";
 import type { ContractSpec } from "./spec.js";
 import { encodeCalldata } from "./encode.js";
@@ -56,14 +57,18 @@ const erc20Spec: ContractSpec = {
 };
 
 describe("encodeCalldata", () => {
-  it("encodes transfer(address, u128)", () => {
+  it("encodes transfer(address, u128) and decodes back", () => {
     const to = contractAddress(new Uint8Array(32).fill(0xab));
     const amount = 1000n;
 
     const data = encodeCalldata(erc20Spec, "ERC20", "transfer", [to, amount]);
 
-    expect(data).toBeInstanceOf(Uint8Array);
-    expect(data.length).toBeGreaterThan(0);
+    const r = new CxsReader(data);
+    const decodedTo = codec.ContractAddress.decode(r);
+    const decodedAmount = Uint128Codec.decode(r);
+
+    expect(decodedTo).toEqual(to);
+    expect(decodedAmount).toBe(amount);
   });
 
   it("encodes get_balance() with no args", () => {
