@@ -80,4 +80,41 @@ describe("signTransaction", () => {
       signed.signatures[0].signature.ed25519,
     );
   });
+
+  it("supports multiple signers with distinct key IDs", async () => {
+    const sk1 = new Uint8Array(32);
+    sk1[0] = 10;
+    const sk2 = new Uint8Array(32);
+    sk2[0] = 20;
+    const signer1 = new PrivateKeySigner(sk1);
+    const signer2 = new PrivateKeySigner(sk2);
+
+    const tx = makeDummyTransaction();
+    const signed = await signTransaction(tx, [
+      { signer: signer1, publicKeyId: 0n },
+      { signer: signer2, publicKeyId: 1n },
+    ]);
+
+    expect(signed.signatures).toHaveLength(2);
+    expect(signed.signatures[0].public_key_id).toBe(0n);
+    expect(signed.signatures[1].public_key_id).toBe(1n);
+
+    const txBytes = serialize(tx, codec.Transaction);
+    const valid1 = verify(
+      signed.signatures[0].signature.ed25519,
+      txBytes,
+      signer1.publicKey.ed25519,
+    );
+    const valid2 = verify(
+      signed.signatures[1].signature.ed25519,
+      txBytes,
+      signer2.publicKey.ed25519,
+    );
+    expect(valid1).toBe(true);
+    expect(valid2).toBe(true);
+
+    expect(signed.signatures[0].signature.ed25519).not.toEqual(
+      signed.signatures[1].signature.ed25519,
+    );
+  });
 });

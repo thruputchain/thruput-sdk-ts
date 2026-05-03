@@ -328,6 +328,90 @@ describe("U8 codec", () => {
   });
 });
 
+const signedSpec: ContractSpec = {
+  interfaces: [
+    {
+      name: s("SignedMath"),
+      vers: s("0.1.0"),
+      throws: [],
+      methods: [
+        {
+          name: s("compute"),
+          args: [
+            { name: s("a"), ty: { v: ContractTypeKind.I32 } },
+            { name: s("b"), ty: { v: ContractTypeKind.I128 } },
+          ],
+          return_type: { v: ContractTypeKind.Void },
+        },
+      ],
+    },
+  ],
+  type_defs: [],
+};
+
+const signedCodecs = buildNamedCodecs(signedSpec.type_defs);
+
+describe("signed integer codecs", () => {
+  it("round-trips negative I32 values", () => {
+    const data = encodeCalldata(
+      signedSpec,
+      "SignedMath",
+      "compute",
+      [-1n, 0n],
+      signedCodecs,
+    );
+    const decoded = decodeCalldata(
+      signedSpec,
+      "SignedMath",
+      "compute",
+      data,
+      signedCodecs,
+    );
+    expect(decoded.a).toBe(-1n);
+    expect(decoded.b).toBe(0n);
+  });
+
+  it("round-trips large negative I128 values", () => {
+    const largeNeg = -(2n ** 127n);
+    const data = encodeCalldata(
+      signedSpec,
+      "SignedMath",
+      "compute",
+      [0n, largeNeg],
+      signedCodecs,
+    );
+    const decoded = decodeCalldata(
+      signedSpec,
+      "SignedMath",
+      "compute",
+      data,
+      signedCodecs,
+    );
+    expect(decoded.a).toBe(0n);
+    expect(decoded.b).toBe(largeNeg);
+  });
+
+  it("round-trips max positive I128", () => {
+    const maxPos = 2n ** 127n - 1n;
+    const data = encodeCalldata(
+      signedSpec,
+      "SignedMath",
+      "compute",
+      [2147483647n, maxPos],
+      signedCodecs,
+    );
+    const decoded = decodeCalldata(
+      signedSpec,
+      "SignedMath",
+      "compute",
+      data,
+      signedCodecs,
+    );
+    expect(decoded.a).toBe(2147483647n);
+    expect(decoded.b).toBe(maxPos);
+  });
+});
+
 describe("buildNamedCodecs", () => {
   it("generates a working codec for an enum type", () => {
     const codecs = buildNamedCodecs(erc20Spec.type_defs);
