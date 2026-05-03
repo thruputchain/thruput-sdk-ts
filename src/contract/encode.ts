@@ -12,8 +12,12 @@ import {
   Uint128Codec,
   Int128Codec,
   CxsWriter,
+  OptionCodec,
+  VarArrayCodec,
+  FixedArrayCodec,
 } from "@groundhogchain/protocol";
-import type { TypeRef, ContractSpec } from "./spec.js";
+import type { ContractType, ContractSpec } from "./spec.js";
+import { ContractTypeKind } from "./spec.js";
 
 const BytesCodec: XdrCodec<Uint8Array> = {
   encode(w, val) {
@@ -24,37 +28,87 @@ const BytesCodec: XdrCodec<Uint8Array> = {
   },
 };
 
-function resolveCodec(
-  typeRef: TypeRef,
+const StringCodec: XdrCodec<string> = {
+  encode(w, val) {
+    w.writeString(val, 0xffffffff);
+  },
+  decode(r) {
+    return r.readString(0xffffffff);
+  },
+};
+
+const Uint8Codec: XdrCodec<bigint> = {
+  encode(w, val) {
+    w.writeUint32(val & 0xffn);
+  },
+  decode(r) {
+    return r.readUint32() & 0xffn;
+  },
+};
+
+export function resolveCodec(
+  ty: ContractType,
   namedCodecs?: Record<string, XdrCodec<unknown>>,
 ): XdrCodec<unknown> {
-  switch (typeRef.kind) {
-    case "address":
+  switch (ty.v) {
+    case ContractTypeKind.Address:
       return codec.ContractAddress as XdrCodec<unknown>;
-    case "u128":
+    case ContractTypeKind.U128:
       return Uint128Codec as XdrCodec<unknown>;
-    case "i128":
+    case ContractTypeKind.I128:
       return Int128Codec as XdrCodec<unknown>;
-    case "u64":
+    case ContractTypeKind.U64:
       return Uint64Codec as XdrCodec<unknown>;
-    case "i64":
+    case ContractTypeKind.I64:
       return Int64Codec as XdrCodec<unknown>;
-    case "u32":
+    case ContractTypeKind.U32:
       return Uint32Codec as XdrCodec<unknown>;
-    case "i32":
+    case ContractTypeKind.I32:
       return Int32Codec as XdrCodec<unknown>;
-    case "bool":
+    case ContractTypeKind.U8:
+      return Uint8Codec as XdrCodec<unknown>;
+    case ContractTypeKind.Bool:
       return BoolCodec as XdrCodec<unknown>;
-    case "void":
+    case ContractTypeKind.Void:
       return VoidCodec as XdrCodec<unknown>;
-    case "bytes":
+    case ContractTypeKind.Bytes:
       return BytesCodec as XdrCodec<unknown>;
-    case "named": {
-      const c = namedCodecs?.[typeRef.name];
+    case ContractTypeKind.String:
+      return StringCodec as XdrCodec<unknown>;
+    case ContractTypeKind.Option:
+      return OptionCodec(
+        resolveCodec(ty.option_inner!, namedCodecs),
+      ) as XdrCodec<unknown>;
+    case ContractTypeKind.Vector:
+      return VarArrayCodec(
+        resolveCodec(ty.vector.element!, namedCodecs),
+        Number(ty.vector.max_len),
+      ) as XdrCodec<unknown>;
+    case ContractTypeKind.Array:
+      return FixedArrayCodec(
+        resolveCodec(ty.array.element!, namedCodecs),
+        Number(ty.array.len),
+      ) as XdrCodec<unknown>;
+    case ContractTypeKind.Tuple: {
+      const innerCodecs = ty.tuple.map((t) => resolveCodec(t, namedCodecs));
+      return {
+        encode(w, val: unknown) {
+          const arr = val as unknown[];
+          for (let i = 0; i < innerCodecs.length; i++) {
+            innerCodecs[i].encode(w, arr[i]);
+          }
+        },
+        decode(r) {
+          return innerCodecs.map((c) => c.decode(r));
+        },
+      } as XdrCodec<unknown>;
+    }
+    case ContractTypeKind.Named: {
+      const c = namedCodecs?.[ty.named];
       if (!c) {
         throw new Error(
-          `No codec provided for named type "${typeRef.name}". ` +
-            `Add it to spec.codecs.`,
+          `No codec for named type "${ty.named}". ` +
+            `Call buildNamedCodecs() first.`,
         );
       }
       return c;
@@ -67,6 +121,7 @@ export function encodeCalldata(
   interfaceName: string,
   methodName: string,
   args: unknown[],
+  namedCodecs?: Record<string, XdrCodec<unknown>>,
 ): Calldata {
   const iface = spec.interfaces.find((i) => i.name === interfaceName);
   if (!iface) {
@@ -88,7 +143,7 @@ export function encodeCalldata(
 
   const w = new CxsWriter();
   for (let i = 0; i < method.args.length; i++) {
-    const argCodec = resolveCodec(method.args[i].ty, spec.codecs);
+    const argCodec = resolveCodec(method.args[i].ty, namedCodecs);
     argCodec.encode(w, args[i]);
   }
   return calldata(w.finish());
