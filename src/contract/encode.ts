@@ -40,10 +40,13 @@ const StringCodec: XdrCodec<string> = {
 
 const Uint8Codec: XdrCodec<bigint> = {
   encode(w, val) {
-    w.writeUint32(val & 0xffn);
+    if (val < 0n || val > 255n) {
+      throw new Error(`U8 value out of range: ${val}`);
+    }
+    (w as unknown as { putByte(b: number): void }).putByte(Number(val));
   },
   decode(r) {
-    return r.readUint32() & 0xffn;
+    return BigInt((r as unknown as { readByte(): number }).readByte());
   },
 };
 
@@ -110,6 +113,12 @@ export function resolveCodec(
         throw new Error(`No codec for named type "${ty.named}".`);
       }
       return c;
+    }
+    default: {
+      const _exhaustive: never = ty;
+      throw new Error(
+        `Unsupported ContractType kind: ${(_exhaustive as ContractType).v}`,
+      );
     }
   }
 }

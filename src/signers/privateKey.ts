@@ -8,14 +8,16 @@ import {
 } from "@groundhogchain/protocol";
 import type { Signer } from "./types.js";
 
-hashes.sha512 = sha512;
+if (!hashes.sha512) {
+  hashes.sha512 = sha512;
+}
 
 export class PrivateKeySigner implements Signer {
   publicKey: PublicKey;
-  private secretKey: Uint8Array;
+  #secretKey: Uint8Array;
 
   constructor(secretKey: Uint8Array) {
-    this.secretKey = secretKey;
+    this.#secretKey = secretKey;
     this.publicKey = {
       scheme: CryptographicScheme.Ed25519,
       ed25519: ed25519PublicKey(new Uint8Array(getPublicKey(secretKey))),
@@ -25,7 +27,7 @@ export class PrivateKeySigner implements Signer {
   async sign(message: Uint8Array): Promise<Signature> {
     return {
       scheme: CryptographicScheme.Ed25519,
-      ed25519: ed25519Signature(new Uint8Array(sign(message, this.secretKey))),
+      ed25519: ed25519Signature(new Uint8Array(sign(message, this.#secretKey))),
     };
   }
 }

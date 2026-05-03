@@ -298,7 +298,7 @@ export function getBalanceOf(
 export function initialize(
   contract: ContractAddress,
   gasLimit: GasAmount,
-  args: { contractOwner: ContractAddress },
+  args: { contract_owner: ContractAddress },
 ): Invocation {
   return createInvocation({
     invoked_address: contract,
@@ -308,7 +308,7 @@ export function initialize(
       spec,
       "ERC20",
       "initialize",
-      [args.contractOwner],
+      [args.contract_owner],
       namedCodecs,
     ),
   });
