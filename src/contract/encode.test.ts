@@ -187,6 +187,94 @@ describe("decodeCalldata", () => {
   });
 });
 
+const rgbSpec: ContractSpec = {
+  interfaces: [
+    {
+      name: s("RGB"),
+      vers: s("0.1.0"),
+      throws: [],
+      methods: [
+        {
+          name: s("set_pixel"),
+          args: [
+            { name: s("x"), ty: { v: ContractTypeKind.U32 } },
+            { name: s("y"), ty: { v: ContractTypeKind.U32 } },
+            { name: s("r"), ty: { v: ContractTypeKind.U8 } },
+            { name: s("g"), ty: { v: ContractTypeKind.U8 } },
+            { name: s("b"), ty: { v: ContractTypeKind.U8 } },
+          ],
+          return_type: { v: ContractTypeKind.Void },
+        },
+      ],
+    },
+  ],
+  type_defs: [],
+};
+
+const rgbCodecs = buildNamedCodecs(rgbSpec.type_defs);
+
+describe("U8 codec", () => {
+  it("encodes and decodes u8 values", () => {
+    const data = encodeCalldata(
+      rgbSpec,
+      "RGB",
+      "set_pixel",
+      [10n, 20n, 255n, 0n, 128n],
+      rgbCodecs,
+    );
+    const decoded = decodeCalldata(
+      rgbSpec,
+      "RGB",
+      "set_pixel",
+      data,
+      rgbCodecs,
+    );
+
+    expect(decoded.x).toBe(10n);
+    expect(decoded.y).toBe(20n);
+    expect(decoded.r).toBe(255n);
+    expect(decoded.g).toBe(0n);
+    expect(decoded.b).toBe(128n);
+  });
+
+  it("encodes u8 as a single byte", () => {
+    const data = encodeCalldata(
+      rgbSpec,
+      "RGB",
+      "set_pixel",
+      [0n, 0n, 42n, 0n, 0n],
+      rgbCodecs,
+    );
+    // 2 u32 args (variable-length CXS) + 3 u8 args (1 byte each)
+    // u32 CXS for 0 = 1 byte, so: 1 + 1 + 1 + 1 + 1 = 5 bytes
+    expect(data.length).toBe(5);
+  });
+
+  it("throws on u8 value > 255", () => {
+    expect(() =>
+      encodeCalldata(
+        rgbSpec,
+        "RGB",
+        "set_pixel",
+        [0n, 0n, 256n, 0n, 0n],
+        rgbCodecs,
+      ),
+    ).toThrow("U8 value out of range: 256");
+  });
+
+  it("throws on negative u8 value", () => {
+    expect(() =>
+      encodeCalldata(
+        rgbSpec,
+        "RGB",
+        "set_pixel",
+        [0n, 0n, -1n, 0n, 0n],
+        rgbCodecs,
+      ),
+    ).toThrow("U8 value out of range: -1");
+  });
+});
+
 describe("buildNamedCodecs", () => {
   it("generates a working codec for an enum type", () => {
     const codecs = buildNamedCodecs(erc20Spec.type_defs);
