@@ -20,7 +20,8 @@ import {
   contractSpecString,
 } from "@groundhogchain/contract-spec";
 import type { ContractSpec } from "../contract/spec.js";
-import { encodeCalldata, decodeCalldata } from "../contract/encode.js";
+import { encodeCalldata } from "../contract/encode.js";
+import { buildNamedCodecs } from "../contract/codegen.js";
 import { createInvocation } from "../transaction/build.js";
 
 const s = contractSpecString;
@@ -143,6 +144,8 @@ export const spec: ContractSpec = {
   ],
 };
 
+const namedCodecs = buildNamedCodecs(spec.type_defs);
+
 export function transfer(
   contract: ContractAddress,
   gasLimit: GasAmount,
@@ -152,7 +155,13 @@ export function transfer(
     invoked_address: contract,
     entrypoint: entrypoints.transfer,
     gas_limit: gasLimit,
-    calldata: encodeCalldata(spec, "ERC20", "transfer", [args.to, args.amount]),
+    calldata: encodeCalldata(
+      spec,
+      "ERC20",
+      "transfer",
+      [args.to, args.amount],
+      namedCodecs,
+    ),
   });
 }
 
@@ -169,11 +178,13 @@ export function transferFrom(
     invoked_address: contract,
     entrypoint: entrypoints.transfer_from,
     gas_limit: gasLimit,
-    calldata: encodeCalldata(spec, "ERC20", "transfer_from", [
-      args.owner,
-      args.receiver,
-      args.amount,
-    ]),
+    calldata: encodeCalldata(
+      spec,
+      "ERC20",
+      "transfer_from",
+      [args.owner, args.receiver, args.amount],
+      namedCodecs,
+    ),
   });
 }
 
@@ -186,10 +197,13 @@ export function mint(
     invoked_address: contract,
     entrypoint: entrypoints.mint,
     gas_limit: gasLimit,
-    calldata: encodeCalldata(spec, "ERC20", "mint", [
-      args.receiver,
-      args.amount,
-    ]),
+    calldata: encodeCalldata(
+      spec,
+      "ERC20",
+      "mint",
+      [args.receiver, args.amount],
+      namedCodecs,
+    ),
   });
 }
 
@@ -202,7 +216,13 @@ export function burn(
     invoked_address: contract,
     entrypoint: entrypoints.burn,
     gas_limit: gasLimit,
-    calldata: encodeCalldata(spec, "ERC20", "burn", [args.owner, args.amount]),
+    calldata: encodeCalldata(
+      spec,
+      "ERC20",
+      "burn",
+      [args.owner, args.amount],
+      namedCodecs,
+    ),
   });
 }
 
@@ -215,10 +235,13 @@ export function adjustAllowance(
     invoked_address: contract,
     entrypoint: entrypoints.adjust_allowance,
     gas_limit: gasLimit,
-    calldata: encodeCalldata(spec, "ERC20", "adjust_allowance", [
-      args.spender,
-      args.diff,
-    ]),
+    calldata: encodeCalldata(
+      spec,
+      "ERC20",
+      "adjust_allowance",
+      [args.spender, args.diff],
+      namedCodecs,
+    ),
   });
 }
 
@@ -231,10 +254,13 @@ export function allowance(
     invoked_address: contract,
     entrypoint: entrypoints.allowance,
     gas_limit: gasLimit,
-    calldata: encodeCalldata(spec, "ERC20", "allowance", [
-      args.owner,
-      args.spender,
-    ]),
+    calldata: encodeCalldata(
+      spec,
+      "ERC20",
+      "allowance",
+      [args.owner, args.spender],
+      namedCodecs,
+    ),
   });
 }
 
@@ -246,7 +272,7 @@ export function getBalance(
     invoked_address: contract,
     entrypoint: entrypoints.get_balance,
     gas_limit: gasLimit,
-    calldata: encodeCalldata(spec, "ERC20", "get_balance", []),
+    calldata: encodeCalldata(spec, "ERC20", "get_balance", [], namedCodecs),
   });
 }
 
@@ -259,7 +285,13 @@ export function getBalanceOf(
     invoked_address: contract,
     entrypoint: entrypoints.get_balance_of,
     gas_limit: gasLimit,
-    calldata: encodeCalldata(spec, "ERC20", "get_balance_of", [args.addr]),
+    calldata: encodeCalldata(
+      spec,
+      "ERC20",
+      "get_balance_of",
+      [args.addr],
+      namedCodecs,
+    ),
   });
 }
 
@@ -272,7 +304,13 @@ export function initialize(
     invoked_address: contract,
     entrypoint: entrypoints.initialize,
     gas_limit: gasLimit,
-    calldata: encodeCalldata(spec, "ERC20", "initialize", [args.contractOwner]),
+    calldata: encodeCalldata(
+      spec,
+      "ERC20",
+      "initialize",
+      [args.contractOwner],
+      namedCodecs,
+    ),
   });
 }
 
@@ -284,6 +322,6 @@ export function totalSupply(
     invoked_address: contract,
     entrypoint: entrypoints.total_supply,
     gas_limit: gasLimit,
-    calldata: encodeCalldata(spec, "ERC20", "total_supply", []),
+    calldata: encodeCalldata(spec, "ERC20", "total_supply", [], namedCodecs),
   });
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { contractAddress, gasAmount } from "@groundhogchain/protocol";
 import { decodeCalldata } from "../contract/encode.js";
+import { buildNamedCodecs } from "../contract/codegen.js";
 import {
   depth,
   forestDepth,
@@ -12,6 +13,7 @@ import {
 
 const contract = contractAddress(new Uint8Array(32).fill(0x33));
 const gas = gasAmount(1_000_000n);
+const namedCodecs = buildNamedCodecs(spec.type_defs);
 
 describe("generated RecursiveTypeContract bindings", () => {
   it("depth() encodes a nested Tree and decodes back", () => {
@@ -39,6 +41,7 @@ describe("generated RecursiveTypeContract bindings", () => {
       "RecursiveTypeContract",
       "depth",
       invocation.calldata,
+      namedCodecs,
     );
     expect(decoded.tree).toEqual(tree);
   });
@@ -52,6 +55,7 @@ describe("generated RecursiveTypeContract bindings", () => {
       "RecursiveTypeContract",
       "depth",
       invocation.calldata,
+      namedCodecs,
     );
     expect(decoded.tree).toEqual(leaf);
   });
@@ -74,6 +78,7 @@ describe("generated RecursiveTypeContract bindings", () => {
       "RecursiveTypeContract",
       "forest_depth",
       invocation.calldata,
+      namedCodecs,
     );
     expect(decoded.forest).toEqual(forest);
   });
@@ -87,6 +92,7 @@ describe("generated RecursiveTypeContract bindings", () => {
       "RecursiveTypeContract",
       "forest_depth",
       invocation.calldata,
+      namedCodecs,
     );
     expect(decoded.forest).toEqual(forest);
   });
@@ -98,6 +104,7 @@ describe("generated RecursiveTypeContract bindings", () => {
       "RecursiveTypeContract",
       "unbox",
       invocation.calldata,
+      namedCodecs,
     );
     expect(decoded.val).toBe(99n);
   });

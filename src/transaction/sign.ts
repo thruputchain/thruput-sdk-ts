@@ -3,12 +3,7 @@ import type {
   SignedTransaction,
   DecoratedSignature,
 } from "@groundhogchain/protocol";
-import {
-  serialize,
-  codec,
-  CryptographicScheme,
-  ed25519Signature,
-} from "@groundhogchain/protocol";
+import { serialize, codec } from "@groundhogchain/protocol";
 import type { Signer } from "../signers/types.js";
 
 export interface SignerEntry {
@@ -24,13 +19,10 @@ export async function signTransaction(
 
   const signatures: DecoratedSignature[] = await Promise.all(
     signers.map(async (entry) => {
-      const sig = await entry.signer.sign(txBytes);
+      const signature = await entry.signer.sign(txBytes);
       return {
         public_key_id: entry.publicKeyId,
-        signature: {
-          scheme: CryptographicScheme.Ed25519,
-          ed25519: ed25519Signature(new Uint8Array(sig)),
-        },
+        signature,
       };
     }),
   );

@@ -58,7 +58,7 @@ describe("signTransaction", () => {
     const txBytes = serialize(tx, codec.Transaction);
     const sig = signed.signatures[0].signature;
     expect(sig.scheme).toBe(0);
-    const valid = verify(sig.ed25519, txBytes, signer.publicKey);
+    const valid = verify(sig.ed25519, txBytes, signer.publicKey.ed25519);
     expect(valid).toBe(true);
   });
 

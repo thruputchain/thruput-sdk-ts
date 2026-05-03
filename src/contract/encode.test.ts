@@ -68,56 +68,100 @@ const erc20Spec: ContractSpec = {
   ],
 };
 
+const erc20Codecs = buildNamedCodecs(erc20Spec.type_defs);
+
 describe("encodeCalldata", () => {
   it("encodes transfer(address, u128) and decodes back", () => {
     const to = contractAddress(new Uint8Array(32).fill(0xab));
     const amount = 1000n;
 
-    const data = encodeCalldata(erc20Spec, "ERC20", "transfer", [to, amount]);
-    const decoded = decodeCalldata(erc20Spec, "ERC20", "transfer", data);
+    const data = encodeCalldata(
+      erc20Spec,
+      "ERC20",
+      "transfer",
+      [to, amount],
+      erc20Codecs,
+    );
+    const decoded = decodeCalldata(
+      erc20Spec,
+      "ERC20",
+      "transfer",
+      data,
+      erc20Codecs,
+    );
 
     expect(decoded.to).toEqual(to);
     expect(decoded.amount).toBe(amount);
   });
 
   it("encodes get_balance() with no args", () => {
-    const data = encodeCalldata(erc20Spec, "ERC20", "get_balance", []);
+    const data = encodeCalldata(
+      erc20Spec,
+      "ERC20",
+      "get_balance",
+      [],
+      erc20Codecs,
+    );
 
     expect(data).toBeInstanceOf(Uint8Array);
     expect(data.length).toBe(0);
   });
 
   it("throws on wrong arg count", () => {
-    expect(() => encodeCalldata(erc20Spec, "ERC20", "transfer", [])).toThrow(
-      'Expected 2 args for "transfer", got 0',
-    );
+    expect(() =>
+      encodeCalldata(erc20Spec, "ERC20", "transfer", [], erc20Codecs),
+    ).toThrow('Expected 2 args for "transfer", got 0');
   });
 
   it("throws on unknown method", () => {
-    expect(() => encodeCalldata(erc20Spec, "ERC20", "nonexistent", [])).toThrow(
-      'Method "nonexistent" not found',
-    );
+    expect(() =>
+      encodeCalldata(erc20Spec, "ERC20", "nonexistent", [], erc20Codecs),
+    ).toThrow('Method "nonexistent" not found');
   });
 
   it("throws on unknown interface", () => {
-    expect(() => encodeCalldata(erc20Spec, "Unknown", "transfer", [])).toThrow(
-      'Interface "Unknown" not found',
-    );
+    expect(() =>
+      encodeCalldata(erc20Spec, "Unknown", "transfer", [], erc20Codecs),
+    ).toThrow('Interface "Unknown" not found');
   });
 });
 
 describe("decodeCalldata", () => {
   it("decodes get_balance_of(address) round-trip", () => {
     const addr = contractAddress(new Uint8Array(32).fill(0xcc));
-    const data = encodeCalldata(erc20Spec, "ERC20", "get_balance_of", [addr]);
-    const decoded = decodeCalldata(erc20Spec, "ERC20", "get_balance_of", data);
+    const data = encodeCalldata(
+      erc20Spec,
+      "ERC20",
+      "get_balance_of",
+      [addr],
+      erc20Codecs,
+    );
+    const decoded = decodeCalldata(
+      erc20Spec,
+      "ERC20",
+      "get_balance_of",
+      data,
+      erc20Codecs,
+    );
 
     expect(decoded.addr).toEqual(addr);
   });
 
   it("decodes empty calldata for no-arg methods", () => {
-    const data = encodeCalldata(erc20Spec, "ERC20", "get_balance", []);
-    const decoded = decodeCalldata(erc20Spec, "ERC20", "get_balance", data);
+    const data = encodeCalldata(
+      erc20Spec,
+      "ERC20",
+      "get_balance",
+      [],
+      erc20Codecs,
+    );
+    const decoded = decodeCalldata(
+      erc20Spec,
+      "ERC20",
+      "get_balance",
+      data,
+      erc20Codecs,
+    );
 
     expect(decoded).toEqual({});
   });
@@ -125,14 +169,20 @@ describe("decodeCalldata", () => {
   it("throws on trailing data", () => {
     const to = contractAddress(new Uint8Array(32).fill(0xab));
     const amount = 1000n;
-    const data = encodeCalldata(erc20Spec, "ERC20", "transfer", [to, amount]);
+    const data = encodeCalldata(
+      erc20Spec,
+      "ERC20",
+      "transfer",
+      [to, amount],
+      erc20Codecs,
+    );
 
     const padded = new Uint8Array(data.length + 5);
     padded.set(data);
     padded.set([0xff, 0xff, 0xff, 0xff, 0xff], data.length);
 
     expect(() =>
-      decodeCalldata(erc20Spec, "ERC20", "transfer", padded),
+      decodeCalldata(erc20Spec, "ERC20", "transfer", padded, erc20Codecs),
     ).toThrow("Trailing data");
   });
 });

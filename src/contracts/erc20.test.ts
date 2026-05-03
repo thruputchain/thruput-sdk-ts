@@ -12,7 +12,10 @@ import { PrivateKeySigner } from "../signers/privateKey.js";
 import { createTransaction } from "../transaction/build.js";
 import { signTransaction } from "../transaction/sign.js";
 import { decodeCalldata } from "../contract/encode.js";
+import { buildNamedCodecs } from "../contract/codegen.js";
 import { transfer, getBalance, spec } from "./erc20.js";
+
+const namedCodecs = buildNamedCodecs(spec.type_defs);
 
 describe("generated ERC20 contract bindings", () => {
   it("transfer() builds a valid invocation", () => {
@@ -33,6 +36,7 @@ describe("generated ERC20 contract bindings", () => {
       "ERC20",
       "transfer",
       invocation.calldata,
+      namedCodecs,
     );
     expect(decoded.to).toEqual(recipient);
     expect(decoded.amount).toBe(500n);

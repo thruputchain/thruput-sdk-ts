@@ -19,7 +19,6 @@ import {
 } from "@groundhogchain/protocol";
 import type { ContractType, ContractSpec, ContractSpecMethod } from "./spec.js";
 import { ContractTypeKind } from "./spec.js";
-import { buildNamedCodecs } from "./codegen.js";
 
 const BytesCodec: XdrCodec<Uint8Array> = {
   encode(w, val) {
@@ -138,9 +137,9 @@ export function encodeCalldata(
   interfaceName: string,
   methodName: string,
   args: unknown[],
+  namedCodecs: Record<string, XdrCodec<unknown>>,
 ): Calldata {
   const method = lookupMethod(spec, interfaceName, methodName);
-  const namedCodecs = buildNamedCodecs(spec.type_defs);
 
   if (args.length !== method.args.length) {
     throw new Error(
@@ -161,9 +160,9 @@ export function decodeCalldata(
   interfaceName: string,
   methodName: string,
   data: Uint8Array,
+  namedCodecs: Record<string, XdrCodec<unknown>>,
 ): Record<string, unknown> {
   const method = lookupMethod(spec, interfaceName, methodName);
-  const namedCodecs = buildNamedCodecs(spec.type_defs);
 
   const r = new CxsReader(data);
   const result: Record<string, unknown> = {};
