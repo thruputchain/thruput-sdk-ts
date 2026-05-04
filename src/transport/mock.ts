@@ -38,11 +38,8 @@ export class MockTransport implements Transport {
     };
   }
 
-  #sendRawTransaction(
-    params?: unknown[],
-  ): { txHash: string } {
-    const rawTx =
-      params && params.length > 0 ? String(params[0]) : "";
+  #sendRawTransaction(params?: unknown[]): { txHash: string } {
+    const rawTx = params && params.length > 0 ? String(params[0]) : "";
     this.#txCounter++;
     this.#height++;
 
@@ -67,8 +64,7 @@ export class MockTransport implements Transport {
     events: never[];
     returnData: null;
   } | null {
-    const txHash =
-      params && params.length > 0 ? String(params[0]) : "";
+    const txHash = params && params.length > 0 ? String(params[0]) : "";
     const tx = this.#transactions.get(txHash);
     if (!tx) return null;
     return {
@@ -84,8 +80,7 @@ export class MockTransport implements Transport {
     status: string;
     height?: string;
   } {
-    const txHash =
-      params && params.length > 0 ? String(params[0]) : "";
+    const txHash = params && params.length > 0 ? String(params[0]) : "";
     const tx = this.#transactions.get(txHash);
     if (!tx) return { status: "unknown" };
     return { status: "committed", height: "0x" + tx.height.toString(16) };
@@ -122,7 +117,7 @@ export class MockTransport implements Transport {
         address: "0x" + toHex(addressBytes),
         publicKey: "0x" + toHex(pubSeed),
         privateKey: "0x" + toHex(privSeed),
-        storageTokens: "0x" + (1000000n).toString(16),
+        storageTokens: "0x" + 1000000n.toString(16),
       });
     }
     return accounts;

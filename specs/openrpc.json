@@ -87,11 +87,7 @@
                   "type": "array"
                 }
               },
-              "required": [
-                "contractAddress",
-                "topics",
-                "data"
-              ],
+              "required": ["contractAddress", "topics", "data"],
               "type": "object"
             },
             "ExecStatus": {
@@ -105,9 +101,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "result"
-                  ],
+                  "required": ["result"],
                   "type": "object"
                 },
                 {
@@ -115,19 +109,14 @@
                   "properties": {
                     "message": {
                       "description": "Abort buffer from the contract, if any.",
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "result": {
                       "const": "reverted",
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "result"
-                  ],
+                  "required": ["result"],
                   "type": "object"
                 },
                 {
@@ -142,10 +131,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "result",
-                    "kind"
-                  ],
+                  "required": ["result", "kind"],
                   "type": "object"
                 },
                 {
@@ -156,9 +142,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "result"
-                  ],
+                  "required": ["result"],
                   "type": "object"
                 },
                 {
@@ -169,9 +153,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "result"
-                  ],
+                  "required": ["result"],
                   "type": "object"
                 },
                 {
@@ -182,9 +164,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "result"
-                  ],
+                  "required": ["result"],
                   "type": "object"
                 }
               ]
@@ -239,12 +219,7 @@
                   "description": "Canonical transaction hash."
                 }
               },
-              "required": [
-                "txHash",
-                "height",
-                "status",
-                "events"
-              ],
+              "required": ["txHash", "height", "status", "events"],
               "type": "object"
             },
             "TxHash": {
@@ -312,9 +287,7 @@
                   "type": "string"
                 }
               },
-              "required": [
-                "status"
-              ],
+              "required": ["status"],
               "type": "object"
             },
             {
@@ -328,10 +301,7 @@
                   "type": "string"
                 }
               },
-              "required": [
-                "status",
-                "height"
-              ],
+              "required": ["status", "height"],
               "type": "object"
             },
             {
@@ -345,10 +315,7 @@
                   "type": "string"
                 }
               },
-              "required": [
-                "status",
-                "reason"
-              ],
+              "required": ["status", "reason"],
               "type": "object"
             },
             {
@@ -359,9 +326,7 @@
                   "type": "string"
                 }
               },
-              "required": [
-                "status"
-              ],
+              "required": ["status"],
               "type": "object"
             }
           ],
@@ -402,10 +367,7 @@
               "$ref": "#/$defs/BlockHeight"
             }
           },
-          "required": [
-            "height",
-            "blockHash"
-          ],
+          "required": ["height", "blockHash"],
           "title": "ChainTip",
           "type": "object"
         }
@@ -534,10 +496,7 @@
               "BlockAnchor": {
                 "oneOf": [
                   {
-                    "enum": [
-                      "AnchorAtBeginning",
-                      "AnchorAtEnd"
-                    ],
+                    "enum": ["AnchorAtBeginning", "AnchorAtEnd"],
                     "type": "string"
                   },
                   {
@@ -549,15 +508,11 @@
                             "$ref": "#/$defs/BlockHeight"
                           }
                         },
-                        "required": [
-                          "height"
-                        ],
+                        "required": ["height"],
                         "type": "object"
                       }
                     },
-                    "required": [
-                      "AnchorAtHeight"
-                    ],
+                    "required": ["AnchorAtHeight"],
                     "type": "object"
                   }
                 ]
@@ -591,10 +546,7 @@
                     "$ref": "#/$defs/EventTopicFilter"
                   }
                 },
-                "required": [
-                  "contract_addresses",
-                  "topics"
-                ],
+                "required": ["contract_addresses", "topics"],
                 "type": "object"
               },
               "EventTopicFilter": {
@@ -610,11 +562,7 @@
                     "$ref": "#/$defs/VecM%3CTopic,%204294967295%3E"
                   }
                 },
-                "required": [
-                  "topic0",
-                  "topic1",
-                  "topic2"
-                ],
+                "required": ["topic0", "topic1", "topic2"],
                 "type": "object"
               },
               "IterationOrder": {
@@ -674,13 +622,7 @@
                 "$ref": "#/$defs/IterationOrder"
               }
             },
-            "required": [
-              "filters",
-              "order",
-              "anchor",
-              "cursor",
-              "limit"
-            ],
+            "required": ["filters", "order", "anchor", "cursor", "limit"],
             "title": "EventQuery",
             "type": "object"
           }
@@ -721,11 +663,7 @@
                   "type": "array"
                 }
               },
-              "required": [
-                "contractAddress",
-                "topics",
-                "data"
-              ],
+              "required": ["contractAddress", "topics", "data"],
               "type": "object"
             },
             "Hex0x_ContractAddress": {
@@ -762,12 +700,7 @@
                   "description": "Transaction that emitted this event."
                 }
               },
-              "required": [
-                "txHash",
-                "blockHeight",
-                "sequenceNumber",
-                "event"
-              ],
+              "required": ["txHash", "blockHeight", "sequenceNumber", "event"],
               "type": "object"
             },
             "Topic": {
@@ -802,12 +735,7 @@
               "description": "Oldest block height the indexer still retains data for at\nresponse time.  Today always 0; meaningful once retention/\npruning lands."
             }
           },
-          "required": [
-            "events",
-            "cursor",
-            "latestBlock",
-            "oldestBlock"
-          ],
+          "required": ["events", "cursor", "latestBlock", "oldestBlock"],
           "title": "EventPage",
           "type": "object"
         }
@@ -946,11 +874,7 @@
                   "type": "array"
                 }
               },
-              "required": [
-                "contractAddress",
-                "topics",
-                "data"
-              ],
+              "required": ["contractAddress", "topics", "data"],
               "type": "object"
             },
             "ExecStatus": {
@@ -964,9 +888,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "result"
-                  ],
+                  "required": ["result"],
                   "type": "object"
                 },
                 {
@@ -974,19 +896,14 @@
                   "properties": {
                     "message": {
                       "description": "Abort buffer from the contract, if any.",
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     },
                     "result": {
                       "const": "reverted",
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "result"
-                  ],
+                  "required": ["result"],
                   "type": "object"
                 },
                 {
@@ -1001,10 +918,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "result",
-                    "kind"
-                  ],
+                  "required": ["result", "kind"],
                   "type": "object"
                 },
                 {
@@ -1015,9 +929,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "result"
-                  ],
+                  "required": ["result"],
                   "type": "object"
                 },
                 {
@@ -1028,9 +940,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "result"
-                  ],
+                  "required": ["result"],
                   "type": "object"
                 },
                 {
@@ -1041,9 +951,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "result"
-                  ],
+                  "required": ["result"],
                   "type": "object"
                 }
               ]
@@ -1061,10 +969,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "result",
-                    "buffer"
-                  ],
+                  "required": ["result", "buffer"],
                   "type": "object"
                 },
                 {
@@ -1077,10 +982,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "result",
-                    "buffer"
-                  ],
+                  "required": ["result", "buffer"],
                   "type": "object"
                 },
                 {
@@ -1090,9 +992,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "result"
-                  ],
+                  "required": ["result"],
                   "type": "object"
                 }
               ]
@@ -1124,17 +1024,10 @@
                 "gasLimit": {
                   "format": "uint64",
                   "minimum": 0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
+                  "type": ["integer", "null"]
                 }
               },
-              "required": [
-                "address",
-                "entrypoint",
-                "calldata"
-              ],
+              "required": ["address", "entrypoint", "calldata"],
               "type": "object"
             },
             "StorageDeltaInfo": {
@@ -1237,10 +1130,7 @@
                   "type": "string"
                 }
               },
-              "required": [
-                "code",
-                "label"
-              ],
+              "required": ["code", "label"],
               "type": "object"
             },
             "Topic": {
@@ -1294,10 +1184,7 @@
                   "description": "Configured gas limit from the transaction, if one was set.",
                   "format": "uint64",
                   "minimum": 0,
-                  "type": [
-                    "integer",
-                    "null"
-                  ]
+                  "type": ["integer", "null"]
                 },
                 "receipt": {
                   "$ref": "#/$defs/TransactionReceipt",
@@ -1322,11 +1209,7 @@
                   "description": "Full root trace, including child invocations when present."
                 }
               },
-              "required": [
-                "receipt",
-                "gasConsumed",
-                "storageDeltas"
-              ],
+              "required": ["receipt", "gasConsumed", "storageDeltas"],
               "type": "object"
             },
             "TransactionReceipt": {
@@ -1363,12 +1246,7 @@
                   "description": "Canonical transaction hash."
                 }
               },
-              "required": [
-                "txHash",
-                "height",
-                "status",
-                "events"
-              ],
+              "required": ["txHash", "height", "status", "events"],
               "type": "object"
             },
             "TxHash": {
@@ -1443,11 +1321,7 @@
                   "type": "string"
                 }
               },
-              "required": [
-                "kind",
-                "summary",
-                "itemXdr"
-              ],
+              "required": ["kind", "summary", "itemXdr"],
               "type": "object"
             }
           },

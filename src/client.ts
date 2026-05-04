@@ -1,6 +1,11 @@
 import type { Transport } from "./transport/types.js";
 import type { SHA256Hash, SignedTransaction } from "@groundhogchain/protocol";
-import type { ChainTip, TransactionReceipt, TransactionStatus, DevAccount } from "./types/rpc.js";
+import type {
+  ChainTip,
+  TransactionReceipt,
+  TransactionStatus,
+  DevAccount,
+} from "./types/rpc.js";
 import { getChainTip } from "./actions/public/getChainTip.js";
 import { getTransactionReceipt } from "./actions/public/getTransactionReceipt.js";
 import { getTransactionStatus } from "./actions/public/getTransactionStatus.js";

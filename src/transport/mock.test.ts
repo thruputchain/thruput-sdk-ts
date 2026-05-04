@@ -46,10 +46,9 @@ describe("MockTransport", () => {
 
   it("returns null receipt for unknown transaction", async () => {
     const transport = new MockTransport();
-    const receipt = await transport.request(
-      "groundhog_getTransactionReceipt",
-      ["0x" + "00".repeat(32)],
-    );
+    const receipt = await transport.request("groundhog_getTransactionReceipt", [
+      "0x" + "00".repeat(32),
+    ]);
     expect(receipt).toBeNull();
   });
 
@@ -113,9 +112,9 @@ describe("MockTransport", () => {
     }
 
     // Verify determinism: calling again returns the same accounts
-    const accounts2 = await transport.request<
-      { address: string }[]
-    >("groundhog_dev_getAccounts");
+    const accounts2 = await transport.request<{ address: string }[]>(
+      "groundhog_dev_getAccounts",
+    );
     expect(accounts2[0].address).toBe(accounts[0].address);
   });
 
