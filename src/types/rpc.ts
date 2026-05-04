@@ -1,4 +1,4 @@
-import type { SHA256Hash } from "@groundhogchain/protocol";
+import type { SHA256Hash, ContractAddress } from "@groundhogchain/protocol";
 
 export interface ChainTip {
   height: bigint;
@@ -27,13 +27,13 @@ export type ExecStatus =
   | { result: "systemError" };
 
 export interface EmittedEvent {
-  contractAddress: SHA256Hash;
+  contractAddress: ContractAddress;
   topics: Uint8Array[];
   data: Uint8Array;
 }
 
 export interface DevAccount {
-  address: SHA256Hash;
+  address: ContractAddress;
   publicKey: Uint8Array;
   privateKey: Uint8Array;
   storageTokens: bigint;
