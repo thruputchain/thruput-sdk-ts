@@ -1,3 +1,3 @@
 export interface Transport {
-  request(method: string, params?: unknown): Promise<unknown>;
+  request<T = unknown>(method: string, params?: unknown[]): Promise<T>;
 }

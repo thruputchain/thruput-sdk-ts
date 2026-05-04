@@ -9,6 +9,7 @@ import {
   weight,
   serialize,
   codec,
+  ExecResult,
 } from "@groundhogchain/protocol";
 import {
   deriveEntrypointID,
@@ -29,6 +30,9 @@ import {
 import { encodeCalldata, decodeCalldata } from "./contract/encode.js";
 import { buildNamedCodecs } from "./contract/codegen.js";
 import type { ContractSpec } from "./contract/spec.js";
+import { MockTransport } from "./transport/mock.js";
+import { createGroundhogClient } from "./client.js";
+import { transfer } from "./contracts/erc20.js";
 
 const s = contractSpecString;
 
@@ -150,5 +154,63 @@ describe("end-to-end: build, sign, serialize an ERC20 transfer", () => {
     expect(txHash.length).toBe(32);
     const txHash2 = await hashSignedTransaction(restored);
     expect(txHash2).toEqual(txHash);
+  });
+});
+
+describe("end-to-end: full pipeline via MockTransport client", () => {
+  it("builds ERC20 transfer, sends, and retrieves receipt via client", async () => {
+    const transport = new MockTransport();
+    const client = createGroundhogClient(transport);
+
+    // Initial chain tip should be at height 0
+    const initialTip = await client.getChainTip();
+    expect(initialTip.height).toBe(0n);
+
+    // Build an ERC20 transfer invocation
+    const tokenAddress = contractAddress(new Uint8Array(32).fill(0xaa));
+    const recipient = contractAddress(new Uint8Array(32).fill(0xbb));
+    const invocation = transfer(tokenAddress, gasAmount(500_000n), {
+      to: recipient,
+      amount: 1000n,
+    });
+
+    // Wrap in a transaction
+    const tx = createTransaction({
+      invocation,
+      uniquifier: {
+        block_expiry_height: blockHeight(500n),
+        nonce: 99n,
+      },
+      contracts_to_deploy: [],
+      auth_claim: {
+        claim_type: AuthClaimType.kSourceAddressAuthData,
+        source_address_claim: {
+          allowed_keys: bitMap(0xffffffffn),
+          required_weight: weight(1n),
+        },
+      },
+    });
+
+    // Sign the transaction
+    const secretKey = new Uint8Array(32);
+    secretKey[0] = 0xfe;
+    const signer = new PrivateKeySigner(secretKey);
+    const signedTx = await signTransaction(tx, [{ signer, publicKeyId: 0n }]);
+
+    // Send via client
+    const txHash = await client.sendTransaction(signedTx);
+    expect(txHash).toBeInstanceOf(Uint8Array);
+    expect(txHash.length).toBe(32);
+
+    // Get receipt via client
+    const receipt = await client.getTransactionReceipt(txHash);
+    expect(receipt).not.toBeNull();
+    expect(receipt!.txHash).toEqual(txHash);
+    expect(receipt!.execResult).toBe(ExecResult.ExecResultOK);
+    expect(receipt!.height).toBe(1n);
+
+    // Chain tip should reflect the new block
+    const newTip = await client.getChainTip();
+    expect(newTip.height).toBe(1n);
   });
 });
