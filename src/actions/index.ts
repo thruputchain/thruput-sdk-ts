@@ -1,3 +1,3 @@
-// Re-export action groups as they're implemented
-// export * from "./public/index.js";
-// export * from "./wallet/index.js";
+export * from "./public/index.js";
+export * from "./wallet/index.js";
+export { devReset, devGetAccounts } from "./dev/index.js";
