@@ -19,6 +19,8 @@ export class MockTransport implements Transport {
         return this.#getTransactionReceipt(params) as T;
       case "groundhog_getTransactionStatus":
         return this.#getTransactionStatus(params) as T;
+      case "groundhog_getEvents":
+        return this.#getEvents() as T;
       case "groundhog_dev_reset":
         return this.#devReset() as T;
       case "groundhog_dev_getAccounts":
@@ -84,6 +86,15 @@ export class MockTransport implements Transport {
     const tx = this.#transactions.get(txHash);
     if (!tx) return { status: "unknown" };
     return { status: "committed", height: Number(tx.height) };
+  }
+
+  #getEvents() {
+    return {
+      events: [],
+      cursor: "",
+      latestBlock: Number(this.#height),
+      oldestBlock: 0,
+    };
   }
 
   #devReset(): null {

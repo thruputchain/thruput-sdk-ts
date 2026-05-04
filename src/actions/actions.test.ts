@@ -18,6 +18,7 @@ import { sendTransaction } from "./wallet/sendTransaction.js";
 import { getChainTip } from "./public/getChainTip.js";
 import { getTransactionReceipt } from "./public/getTransactionReceipt.js";
 import { getTransactionStatus } from "./public/getTransactionStatus.js";
+import { getEvents } from "./public/getEvents.js";
 import { devReset, devGetAccounts } from "./dev/index.js";
 
 function makeDummySignedTx() {
@@ -113,6 +114,38 @@ describe("getTransactionStatus", () => {
     const fakeHash = new Uint8Array(32) as any;
     const status = await getTransactionStatus(transport, fakeHash);
     expect(status.status).toBe("unknown");
+  });
+});
+
+describe("getEvents", () => {
+  it("returns empty event page from mock", async () => {
+    const transport = new MockTransport();
+    const page = await getEvents(transport, {
+      filters: [
+        {
+          contractAddresses: [contractAddress(new Uint8Array(32).fill(0x11))],
+        },
+      ],
+    });
+    expect(page.events).toEqual([]);
+    expect(page.latestBlock).toBe(0n);
+    expect(page.oldestBlock).toBe(0n);
+    expect(page.cursor.length).toBe(0);
+  });
+
+  it("latestBlock reflects chain height", async () => {
+    const transport = new MockTransport();
+    const signedTx = await makeDummySignedTx();
+    await sendTransaction(transport, signedTx);
+
+    const page = await getEvents(transport, {
+      filters: [
+        {
+          contractAddresses: [contractAddress(new Uint8Array(32).fill(0x11))],
+        },
+      ],
+    });
+    expect(page.latestBlock).toBe(1n);
   });
 });
 

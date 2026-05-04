@@ -31,6 +31,41 @@ export interface EmittedEvent {
   data: Uint8Array;
 }
 
+export interface IdentifiedEvent {
+  txHash: SHA256Hash;
+  blockHeight: bigint;
+  sequenceNumber: number;
+  event: EmittedEvent;
+}
+
+export interface EventPage {
+  events: IdentifiedEvent[];
+  cursor: Uint8Array;
+  latestBlock: bigint;
+  oldestBlock: bigint;
+}
+
+export interface EventFilter {
+  contractAddresses: ContractAddress[];
+  topics?: {
+    topic0?: Uint8Array[];
+    topic1?: Uint8Array[];
+    topic2?: Uint8Array[];
+  };
+}
+
+export type BlockAnchor = "beginning" | "end" | { height: bigint };
+
+export type IterationOrder = "ascending" | "descending";
+
+export interface EventQuery {
+  filters: EventFilter[];
+  order?: IterationOrder;
+  anchor?: BlockAnchor;
+  cursor?: Uint8Array;
+  limit?: number;
+}
+
 export interface DevAccount {
   address: ContractAddress;
   publicKey: Uint8Array;
