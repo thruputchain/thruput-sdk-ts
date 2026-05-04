@@ -1,0 +1,57 @@
+import { describe, expect, it } from "vitest";
+import {
+  contractAddress,
+  gasAmount,
+  blockHeight,
+  calldata,
+  contractEntrypointID,
+  AuthClaimType,
+  bitMap,
+  weight,
+} from "@groundhogchain/protocol";
+import { PrivateKeySigner } from "../signers/privateKey.js";
+import { createInvocation, createTransaction } from "../transaction/build.js";
+import { signTransaction } from "../transaction/sign.js";
+import { MockTransport } from "../transport/mock.js";
+import { sendTransaction } from "./wallet/sendTransaction.js";
+
+function makeDummySignedTx() {
+  const secretKey = new Uint8Array(32);
+  secretKey[0] = 1;
+  const signer = new PrivateKeySigner(secretKey);
+
+  const invocation = createInvocation({
+    invoked_address: contractAddress(new Uint8Array(32)),
+    entrypoint: contractEntrypointID(new Uint8Array(8)),
+    gas_limit: gasAmount(1_000_000n),
+    calldata: calldata(new Uint8Array([1, 2, 3, 4])),
+  });
+
+  const tx = createTransaction({
+    invocation,
+    uniquifier: {
+      block_expiry_height: blockHeight(100n),
+      nonce: 42n,
+    },
+    contracts_to_deploy: [],
+    auth_claim: {
+      claim_type: AuthClaimType.kSourceAddressAuthData,
+      source_address_claim: {
+        allowed_keys: bitMap(0xffffffffn),
+        required_weight: weight(1n),
+      },
+    },
+  });
+
+  return signTransaction(tx, [{ signer, publicKeyId: 0n }]);
+}
+
+describe("sendTransaction", () => {
+  it("sends a signed tx and returns a 32-byte hash", async () => {
+    const transport = new MockTransport();
+    const signedTx = await makeDummySignedTx();
+    const hash = await sendTransaction(transport, signedTx);
+    expect(hash).toBeInstanceOf(Uint8Array);
+    expect(hash.length).toBe(32);
+  });
+});
