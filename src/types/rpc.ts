@@ -1,4 +1,10 @@
-import type { SHA256Hash, ContractAddress } from "@groundhogchain/protocol";
+import type {
+  SHA256Hash,
+  ContractAddress,
+  ExecResult,
+} from "@groundhogchain/protocol";
+
+export type { ExecResult } from "@groundhogchain/protocol";
 
 export interface ChainTip {
   height: bigint;
@@ -14,17 +20,10 @@ export type TransactionStatus =
 export interface TransactionReceipt {
   txHash: SHA256Hash;
   height: bigint;
-  status: ExecStatus;
+  execResult: ExecResult;
   events: EmittedEvent[];
   returnData: Uint8Array | null;
 }
-
-export type ExecStatus =
-  | { result: "ok" }
-  | { result: "reverted"; message?: string }
-  | { result: "deterministicError"; kind: string }
-  | { result: "validationFailure"; kind: string }
-  | { result: "systemError" };
 
 export interface EmittedEvent {
   contractAddress: ContractAddress;

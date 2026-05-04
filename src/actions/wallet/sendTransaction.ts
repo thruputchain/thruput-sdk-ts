@@ -9,9 +9,9 @@ export async function sendTransaction(
 ): Promise<SHA256Hash> {
   const bytes = serialize(signedTx, codec.SignedTransaction);
   const hex = toHex0x(bytes);
-  const result = await transport.request<{ txHash: string }>(
+  const result = await transport.request<string>(
     "groundhog_sendRawTransaction",
     [hex],
   );
-  return hashFromHex(result.txHash);
+  return hashFromHex(result);
 }

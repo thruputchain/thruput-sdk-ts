@@ -8,6 +8,7 @@ import {
   AuthClaimType,
   bitMap,
   weight,
+  ExecResult,
 } from "@groundhogchain/protocol";
 import { PrivateKeySigner } from "./signers/privateKey.js";
 import { createInvocation, createTransaction } from "./transaction/build.js";
@@ -64,7 +65,7 @@ describe("createGroundhogClient", () => {
     const receipt = await client.getTransactionReceipt(txHash);
     expect(receipt).not.toBeNull();
     expect(receipt!.txHash).toEqual(txHash);
-    expect(receipt!.status.result).toBe("ok");
+    expect(receipt!.execResult).toBe(ExecResult.ExecResultOK);
   });
 
   it("dev.getAccounts returns accounts", async () => {

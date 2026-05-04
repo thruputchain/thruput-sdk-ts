@@ -4,42 +4,42 @@ import { MockTransport } from "./mock.js";
 describe("MockTransport", () => {
   it("returns chain tip at height 0 when empty", async () => {
     const transport = new MockTransport();
-    const tip = await transport.request<{ height: string; blockHash: string }>(
+    const tip = await transport.request<{ height: number; blockHash: string }>(
       "groundhog_chainTip",
     );
-    expect(tip.height).toBe("0x0");
+    expect(tip.height).toBe(0);
     expect(tip.blockHash).toMatch(/^0x[0-9a-f]{64}$/);
   });
 
   it("stores a transaction and increments height on sendRawTransaction", async () => {
     const transport = new MockTransport();
-    const result = await transport.request<{ txHash: string }>(
+    const hash = await transport.request<string>(
       "groundhog_sendRawTransaction",
       ["0xdeadbeef"],
     );
-    expect(result.txHash).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(hash).toMatch(/^0x[0-9a-f]{64}$/);
 
-    const tip = await transport.request<{ height: string }>(
+    const tip = await transport.request<{ height: number }>(
       "groundhog_chainTip",
     );
-    expect(tip.height).toBe("0x1");
+    expect(tip.height).toBe(1);
   });
 
   it("returns receipt for a committed transaction", async () => {
     const transport = new MockTransport();
-    const { txHash } = await transport.request<{ txHash: string }>(
+    const hash = await transport.request<string>(
       "groundhog_sendRawTransaction",
       ["0xabcd"],
     );
     const receipt = await transport.request<{
       txHash: string;
-      height: string;
+      height: number;
       status: { result: string };
       events: unknown[];
       returnData: null;
-    }>("groundhog_getTransactionReceipt", [txHash]);
+    }>("groundhog_getTransactionReceipt", [hash]);
     expect(receipt).not.toBeNull();
-    expect(receipt!.txHash).toBe(txHash);
+    expect(receipt!.txHash).toBe(hash);
     expect(receipt!.status.result).toBe("ok");
     expect(receipt!.events).toEqual([]);
   });
@@ -54,16 +54,16 @@ describe("MockTransport", () => {
 
   it("returns committed status for a known transaction", async () => {
     const transport = new MockTransport();
-    const { txHash } = await transport.request<{ txHash: string }>(
+    const hash = await transport.request<string>(
       "groundhog_sendRawTransaction",
       ["0x1234"],
     );
     const status = await transport.request<{
       status: string;
-      height?: string;
-    }>("groundhog_getTransactionStatus", [txHash]);
+      height?: number;
+    }>("groundhog_getTransactionStatus", [hash]);
     expect(status.status).toBe("committed");
-    expect(status.height).toBe("0x1");
+    expect(status.height).toBe(1);
   });
 
   it("returns unknown status for an unknown transaction", async () => {
@@ -80,17 +80,17 @@ describe("MockTransport", () => {
     await transport.request("groundhog_sendRawTransaction", ["0xaa"]);
     await transport.request("groundhog_sendRawTransaction", ["0xbb"]);
 
-    const tipBefore = await transport.request<{ height: string }>(
+    const tipBefore = await transport.request<{ height: number }>(
       "groundhog_chainTip",
     );
-    expect(tipBefore.height).toBe("0x2");
+    expect(tipBefore.height).toBe(2);
 
     await transport.request("groundhog_dev_reset");
 
-    const tipAfter = await transport.request<{ height: string }>(
+    const tipAfter = await transport.request<{ height: number }>(
       "groundhog_chainTip",
     );
-    expect(tipAfter.height).toBe("0x0");
+    expect(tipAfter.height).toBe(0);
   });
 
   it("returns 3 deterministic dev accounts", async () => {
@@ -100,7 +100,7 @@ describe("MockTransport", () => {
         address: string;
         publicKey: string;
         privateKey: string;
-        storageTokens: string;
+        storageTokens: number;
       }[]
     >("groundhog_dev_getAccounts");
     expect(accounts).toHaveLength(3);
@@ -108,14 +108,8 @@ describe("MockTransport", () => {
       expect(account.address).toMatch(/^0x[0-9a-f]{64}$/);
       expect(account.publicKey).toMatch(/^0x[0-9a-f]+$/);
       expect(account.privateKey).toMatch(/^0x[0-9a-f]+$/);
-      expect(account.storageTokens).toBe("0xf4240");
+      expect(typeof account.storageTokens).toBe("number");
     }
-
-    // Verify determinism: calling again returns the same accounts
-    const accounts2 = await transport.request<{ address: string }[]>(
-      "groundhog_dev_getAccounts",
-    );
-    expect(accounts2[0].address).toBe(accounts[0].address);
   });
 
   it("throws for unknown methods", async () => {

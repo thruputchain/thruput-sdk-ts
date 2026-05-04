@@ -8,6 +8,7 @@ import {
   AuthClaimType,
   bitMap,
   weight,
+  ExecResult,
 } from "@groundhogchain/protocol";
 import { PrivateKeySigner } from "../signers/privateKey.js";
 import { createInvocation, createTransaction } from "../transaction/build.js";
@@ -86,7 +87,7 @@ describe("getTransactionReceipt", () => {
     const receipt = await getTransactionReceipt(transport, txHash);
     expect(receipt).not.toBeNull();
     expect(receipt!.txHash).toEqual(txHash);
-    expect(receipt!.status.result).toBe("ok");
+    expect(receipt!.execResult).toBe(ExecResult.ExecResultOK);
     expect(receipt!.events).toEqual([]);
   });
 

@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-
-groundhog-open-rpc-spec > "$REPO_ROOT/specs/openrpc.json"
+cargo install groundhog-open-rpc-spec@0.3.0 --registry groundhog 2>/dev/null
+groundhog-open-rpc-spec > "$(git rev-parse --show-toplevel)/specs/openrpc.json"
 echo "Regenerated specs/openrpc.json"

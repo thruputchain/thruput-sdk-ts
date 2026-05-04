@@ -28,17 +28,17 @@ export class MockTransport implements Transport {
     }
   }
 
-  #chainTip(): { height: string; blockHash: string } {
+  #chainTip(): { height: number; blockHash: string } {
     const heightBytes = new Uint8Array(32);
     const view = new DataView(heightBytes.buffer);
     view.setBigUint64(24, this.#height > 0n ? this.#height : 0n);
     return {
-      height: "0x" + this.#height.toString(16),
+      height: Number(this.#height),
       blockHash: "0x" + toHex(sha256Hash(heightBytes)),
     };
   }
 
-  #sendRawTransaction(params?: unknown[]): { txHash: string } {
+  #sendRawTransaction(params?: unknown[]): string {
     const rawTx = params && params.length > 0 ? String(params[0]) : "";
     this.#txCounter++;
     this.#height++;
@@ -54,12 +54,12 @@ export class MockTransport implements Transport {
       hash,
     });
 
-    return { txHash: hash };
+    return hash;
   }
 
   #getTransactionReceipt(params?: unknown[]): {
     txHash: string;
-    height: string;
+    height: number;
     status: { result: string };
     events: never[];
     returnData: null;
@@ -69,7 +69,7 @@ export class MockTransport implements Transport {
     if (!tx) return null;
     return {
       txHash: tx.hash,
-      height: "0x" + tx.height.toString(16),
+      height: Number(tx.height),
       status: { result: "ok" },
       events: [],
       returnData: null,
@@ -78,26 +78,26 @@ export class MockTransport implements Transport {
 
   #getTransactionStatus(params?: unknown[]): {
     status: string;
-    height?: string;
+    height?: number;
   } {
     const txHash = params && params.length > 0 ? String(params[0]) : "";
     const tx = this.#transactions.get(txHash);
     if (!tx) return { status: "unknown" };
-    return { status: "committed", height: "0x" + tx.height.toString(16) };
+    return { status: "committed", height: Number(tx.height) };
   }
 
-  #devReset(): { success: boolean } {
+  #devReset(): null {
     this.#height = 0n;
     this.#transactions.clear();
     this.#txCounter = 0;
-    return { success: true };
+    return null;
   }
 
   #devGetAccounts(): {
     address: string;
     publicKey: string;
     privateKey: string;
-    storageTokens: string;
+    storageTokens: number;
   }[] {
     const accounts = [];
     for (let i = 0; i < 3; i++) {
@@ -117,7 +117,7 @@ export class MockTransport implements Transport {
         address: "0x" + toHex(addressBytes),
         publicKey: "0x" + toHex(pubSeed),
         privateKey: "0x" + toHex(privSeed),
-        storageTokens: "0x" + 1000000n.toString(16),
+        storageTokens: 1000000,
       });
     }
     return accounts;

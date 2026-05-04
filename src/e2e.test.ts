@@ -9,6 +9,7 @@ import {
   weight,
   serialize,
   codec,
+  ExecResult,
 } from "@groundhogchain/protocol";
 import {
   deriveEntrypointID,
@@ -205,7 +206,7 @@ describe("end-to-end: full pipeline via MockTransport client", () => {
     const receipt = await client.getTransactionReceipt(txHash);
     expect(receipt).not.toBeNull();
     expect(receipt!.txHash).toEqual(txHash);
-    expect(receipt!.status.result).toBe("ok");
+    expect(receipt!.execResult).toBe(ExecResult.ExecResultOK);
     expect(receipt!.height).toBe(1n);
 
     // Chain tip should reflect the new block

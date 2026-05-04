@@ -1,6 +1,12 @@
 export * from "./transaction/index.js";
 export * from "./contract/index.js";
 export * from "./actions/index.js";
+export {
+  toHex0x,
+  fromHex0x,
+  hashFromHex,
+  addressFromHex,
+} from "./actions/hex.js";
 export type { Transport } from "./transport/index.js";
 export {
   HttpTransport,
