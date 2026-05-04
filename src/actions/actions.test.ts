@@ -17,6 +17,7 @@ import { sendTransaction } from "./wallet/sendTransaction.js";
 import { getChainTip } from "./public/getChainTip.js";
 import { getTransactionReceipt } from "./public/getTransactionReceipt.js";
 import { getTransactionStatus } from "./public/getTransactionStatus.js";
+import { devReset, devGetAccounts } from "./dev/index.js";
 
 function makeDummySignedTx() {
   const secretKey = new Uint8Array(32);
@@ -111,5 +112,31 @@ describe("getTransactionStatus", () => {
     const fakeHash = new Uint8Array(32) as any;
     const status = await getTransactionStatus(transport, fakeHash);
     expect(status.status).toBe("unknown");
+  });
+});
+
+describe("devReset", () => {
+  it("clears state so chainTip height returns to 0n", async () => {
+    const transport = new MockTransport();
+    const signedTx = await makeDummySignedTx();
+    await sendTransaction(transport, signedTx);
+    const tipBefore = await getChainTip(transport);
+    expect(tipBefore.height).toBe(1n);
+
+    await devReset(transport);
+    const tipAfter = await getChainTip(transport);
+    expect(tipAfter.height).toBe(0n);
+  });
+});
+
+describe("devGetAccounts", () => {
+  it("returns typed accounts with correct field lengths", async () => {
+    const transport = new MockTransport();
+    const accounts = await devGetAccounts(transport);
+    expect(accounts.length).toBeGreaterThan(0);
+    for (const account of accounts) {
+      expect(account.address.length).toBe(32);
+      expect(account.publicKey.length).toBeGreaterThan(0);
+    }
   });
 });
