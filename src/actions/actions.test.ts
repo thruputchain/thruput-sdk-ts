@@ -14,6 +14,7 @@ import { createInvocation, createTransaction } from "../transaction/build.js";
 import { signTransaction } from "../transaction/sign.js";
 import { MockTransport } from "../transport/mock.js";
 import { sendTransaction } from "./wallet/sendTransaction.js";
+import { getChainTip } from "./public/getChainTip.js";
 
 function makeDummySignedTx() {
   const secretKey = new Uint8Array(32);
@@ -53,5 +54,23 @@ describe("sendTransaction", () => {
     const hash = await sendTransaction(transport, signedTx);
     expect(hash).toBeInstanceOf(Uint8Array);
     expect(hash.length).toBe(32);
+  });
+});
+
+describe("getChainTip", () => {
+  it("returns height 0n and 32-byte blockHash on empty mock", async () => {
+    const transport = new MockTransport();
+    const tip = await getChainTip(transport);
+    expect(tip.height).toBe(0n);
+    expect(tip.blockHash).toBeInstanceOf(Uint8Array);
+    expect(tip.blockHash.length).toBe(32);
+  });
+
+  it("reflects height 1n after sending a transaction", async () => {
+    const transport = new MockTransport();
+    const signedTx = await makeDummySignedTx();
+    await sendTransaction(transport, signedTx);
+    const tip = await getChainTip(transport);
+    expect(tip.height).toBe(1n);
   });
 });
