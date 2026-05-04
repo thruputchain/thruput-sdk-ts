@@ -147,6 +147,59 @@ describe("getEvents", () => {
     });
     expect(page.latestBlock).toBe(1n);
   });
+
+  it("serializes query with bare hex (no 0x prefix) for XDR-derived fields", async () => {
+    const calls: { method: string; params?: unknown[] }[] = [];
+    const spyTransport = {
+      async request<T>(method: string, params?: unknown[]): Promise<T> {
+        calls.push({ method, params });
+        return {
+          events: [],
+          cursor: "",
+          latestBlock: 0,
+          oldestBlock: 0,
+        } as T;
+      },
+    };
+
+    const addr = contractAddress(new Uint8Array(32).fill(0xab));
+    const topic = new Uint8Array(32).fill(0xcd);
+
+    await getEvents(spyTransport, {
+      filters: [
+        {
+          contractAddresses: [addr],
+          topics: { topic0: [topic] },
+        },
+      ],
+      order: "descending",
+      anchor: { height: 42n },
+      limit: 10,
+    });
+
+    expect(calls).toHaveLength(1);
+    const query = (calls[0].params as any[])[0];
+
+    // Contract addresses: bare hex, no 0x
+    expect(query.filters[0].contract_addresses[0]).toBe("ab".repeat(32));
+    expect(query.filters[0].contract_addresses[0]).not.toContain("0x");
+
+    // Topics: bare hex, no 0x
+    expect(query.filters[0].topics.topic0[0]).toBe("cd".repeat(32));
+    expect(query.filters[0].topics.topic0[0]).not.toContain("0x");
+
+    // Cursor: bare empty string
+    expect(query.cursor).toBe("");
+
+    // Order: 1 for descending
+    expect(query.order).toBe(1);
+
+    // Anchor: AnchorAtHeight
+    expect(query.anchor).toEqual({ AnchorAtHeight: { height: 42 } });
+
+    // Limit
+    expect(query.limit).toBe(10);
+  });
 });
 
 describe("devReset", () => {

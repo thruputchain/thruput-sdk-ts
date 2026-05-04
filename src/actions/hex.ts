@@ -6,6 +6,8 @@ import {
   contractAddress,
 } from "@groundhogchain/protocol";
 
+export { toHex, fromHex } from "@groundhogchain/protocol";
+
 export function toHex0x(bytes: Uint8Array): string {
   return "0x" + toHex(bytes);
 }

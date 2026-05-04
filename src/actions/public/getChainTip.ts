@@ -3,7 +3,7 @@ import type { ChainTip } from "../../types/rpc.js";
 import { hashFromHex } from "../hex.js";
 
 export async function getChainTip(transport: Transport): Promise<ChainTip> {
-  const result = await transport.request<{ height: string; blockHash: string }>(
+  const result = await transport.request<{ height: number; blockHash: string }>(
     "groundhog_chainTip",
   );
   return {
