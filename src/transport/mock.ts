@@ -21,6 +21,8 @@ export class MockTransport implements Transport {
         return this.#getTransactionStatus(params) as T;
       case "groundhog_getEvents":
         return this.#getEvents() as T;
+      case "groundhog_getStorageAt":
+        return this.#getStorageAt() as T;
       case "groundhog_dev_reset":
         return this.#devReset() as T;
       case "groundhog_dev_getAccounts":
@@ -97,6 +99,17 @@ export class MockTransport implements Transport {
     };
   }
 
+  #getStorageAt(): { blockHeight: number; item: null } {
+    // The mock has no committed storage state — every key probe returns
+    // `item: null` against the current snapshot height.  Tests that need
+    // a concrete StorageItemInfo shape should drive the action under a
+    // test-local Transport rather than this default mock.
+    return {
+      blockHeight: Number(this.#height),
+      item: null,
+    };
+  }
+
   #devReset(): null {
     this.#height = 0n;
     this.#transactions.clear();
@@ -108,7 +121,7 @@ export class MockTransport implements Transport {
     address: string;
     publicKey: string;
     privateKey: string;
-    storageTokens: number;
+    initialStorageTokens: number;
   }[] {
     const accounts = [];
     for (let i = 0; i < 3; i++) {
@@ -128,7 +141,7 @@ export class MockTransport implements Transport {
         address: "0x" + toHex(addressBytes),
         publicKey: "0x" + toHex(pubSeed),
         privateKey: "0x" + toHex(privSeed),
-        storageTokens: 1000000,
+        initialStorageTokens: 1000000,
       });
     }
     return accounts;

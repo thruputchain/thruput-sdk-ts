@@ -70,5 +70,24 @@ export interface DevAccount {
   address: ContractAddress;
   publicKey: Uint8Array;
   privateKey: Uint8Array;
-  storageTokens: bigint;
+  initialStorageTokens: bigint;
+}
+
+export type StorageItemInfo =
+  | { kind: "nonnegativeInt"; value: bigint }
+  | { kind: "bytestring"; bytes: Uint8Array }
+  | { kind: "authData" }
+  | { kind: "retrocausalQueue" }
+  | { kind: "replayCacheEntry" }
+  | {
+      kind: "deployedContract";
+      hash: SHA256Hash;
+      size: number;
+      contractType: number;
+    }
+  | { kind: "unknown"; typeId: number };
+
+export interface StorageItemRead {
+  blockHeight: bigint;
+  item: StorageItemInfo | null;
 }

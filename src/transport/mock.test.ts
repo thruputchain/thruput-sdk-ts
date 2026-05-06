@@ -100,7 +100,7 @@ describe("MockTransport", () => {
         address: string;
         publicKey: string;
         privateKey: string;
-        storageTokens: number;
+        initialStorageTokens: number;
       }[]
     >("groundhog_dev_getAccounts");
     expect(accounts).toHaveLength(3);
@@ -108,7 +108,7 @@ describe("MockTransport", () => {
       expect(account.address).toMatch(/^0x[0-9a-f]{64}$/);
       expect(account.publicKey).toMatch(/^0x[0-9a-f]+$/);
       expect(account.privateKey).toMatch(/^0x[0-9a-f]+$/);
-      expect(typeof account.storageTokens).toBe("number");
+      expect(typeof account.initialStorageTokens).toBe("number");
     }
   });
 

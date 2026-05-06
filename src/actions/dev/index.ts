@@ -14,6 +14,6 @@ export async function devGetAccounts(
     address: addressFromHex(a.address),
     publicKey: fromHex0x(a.publicKey),
     privateKey: fromHex0x(a.privateKey),
-    storageTokens: BigInt(a.storageTokens),
+    initialStorageTokens: BigInt(a.initialStorageTokens),
   }));
 }

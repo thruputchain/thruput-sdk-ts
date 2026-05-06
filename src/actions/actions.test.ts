@@ -19,7 +19,9 @@ import { getChainTip } from "./public/getChainTip.js";
 import { getTransactionReceipt } from "./public/getTransactionReceipt.js";
 import { getTransactionStatus } from "./public/getTransactionStatus.js";
 import { getEvents } from "./public/getEvents.js";
+import { getStorageAt } from "./public/getStorageAt.js";
 import { devReset, devGetAccounts } from "./dev/index.js";
+import type { Transport } from "../transport/types.js";
 
 function makeDummySignedTx() {
   const secretKey = new Uint8Array(32);
@@ -225,5 +227,122 @@ describe("devGetAccounts", () => {
       expect(account.address.length).toBe(32);
       expect(account.publicKey.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("getStorageAt", () => {
+  it("rejects a non-32-byte key before issuing a request", async () => {
+    const transport = new MockTransport();
+    await expect(
+      getStorageAt(
+        transport,
+        contractAddress(new Uint8Array(32)),
+        new Uint8Array(16),
+      ),
+    ).rejects.toThrow(/32 bytes/);
+  });
+
+  it("returns blockHeight and a null item for an unwritten key on the mock", async () => {
+    const transport = new MockTransport();
+    const read = await getStorageAt(
+      transport,
+      contractAddress(new Uint8Array(32)),
+      new Uint8Array(32),
+    );
+    expect(read.blockHeight).toBe(0n);
+    expect(read.item).toBeNull();
+  });
+
+  it("decodes each StorageItemInfo variant returned by the server", async () => {
+    // Hand-rolled transport that returns scripted shapes per call so we
+    // can exercise the per-variant demux without committing the mock to
+    // a fixed return.
+    const responses: unknown[] = [
+      { blockHeight: 7, item: { kind: "nonnegativeInt", value: "12345" } },
+      {
+        blockHeight: 8,
+        item: { kind: "bytestring", bytes: "0x0102deadbeef" },
+      },
+      { blockHeight: 9, item: { kind: "authData" } },
+      { blockHeight: 10, item: { kind: "retrocausalQueue" } },
+      { blockHeight: 11, item: { kind: "replayCacheEntry" } },
+      {
+        blockHeight: 12,
+        item: {
+          kind: "deployedContract",
+          hash: "0x" + "ab".repeat(32),
+          size: 4096,
+          contract_type: 1,
+        },
+      },
+      { blockHeight: 13, item: { kind: "unknown", type_id: 99 } },
+    ];
+    let i = 0;
+    const transport: Transport = {
+      async request<T>() {
+        const r = responses[i++];
+        return r as T;
+      },
+    };
+
+    const r0 = await getStorageAt(
+      transport,
+      contractAddress(new Uint8Array(32)),
+      new Uint8Array(32),
+    );
+    expect(r0.blockHeight).toBe(7n);
+    expect(r0.item).toEqual({ kind: "nonnegativeInt", value: 12345n });
+
+    const r1 = await getStorageAt(
+      transport,
+      contractAddress(new Uint8Array(32)),
+      new Uint8Array(32),
+    );
+    expect(r1.item?.kind).toBe("bytestring");
+    if (r1.item?.kind === "bytestring") {
+      expect(Array.from(r1.item.bytes)).toEqual([
+        0x01, 0x02, 0xde, 0xad, 0xbe, 0xef,
+      ]);
+    }
+
+    const r2 = await getStorageAt(
+      transport,
+      contractAddress(new Uint8Array(32)),
+      new Uint8Array(32),
+    );
+    expect(r2.item).toEqual({ kind: "authData" });
+
+    const r3 = await getStorageAt(
+      transport,
+      contractAddress(new Uint8Array(32)),
+      new Uint8Array(32),
+    );
+    expect(r3.item).toEqual({ kind: "retrocausalQueue" });
+
+    const r4 = await getStorageAt(
+      transport,
+      contractAddress(new Uint8Array(32)),
+      new Uint8Array(32),
+    );
+    expect(r4.item).toEqual({ kind: "replayCacheEntry" });
+
+    const r5 = await getStorageAt(
+      transport,
+      contractAddress(new Uint8Array(32)),
+      new Uint8Array(32),
+    );
+    expect(r5.item?.kind).toBe("deployedContract");
+    if (r5.item?.kind === "deployedContract") {
+      expect(r5.item.size).toBe(4096);
+      expect(r5.item.contractType).toBe(1);
+      expect(r5.item.hash.length).toBe(32);
+    }
+
+    const r6 = await getStorageAt(
+      transport,
+      contractAddress(new Uint8Array(32)),
+      new Uint8Array(32),
+    );
+    expect(r6.item).toEqual({ kind: "unknown", typeId: 99 });
   });
 });
