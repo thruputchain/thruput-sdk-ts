@@ -1,7 +1,7 @@
 {
   "info": {
     "title": "Groundhog JSON-RPC",
-    "version": "0.3.0"
+    "version": "0.3.1"
   },
   "methods": [
     {
@@ -748,6 +748,189 @@
       ]
     },
     {
+      "name": "groundhog_getStorageAt",
+      "params": [
+        {
+          "name": "address",
+          "required": true,
+          "schema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "pattern": "^0x[0-9a-f]*$",
+            "title": "Hex0x_ContractAddress",
+            "type": "string"
+          }
+        },
+        {
+          "name": "key",
+          "required": true,
+          "schema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "pattern": "^0x[0-9a-f]*$",
+            "title": "HexBytes",
+            "type": "string"
+          }
+        }
+      ],
+      "result": {
+        "name": "StorageItemRead",
+        "schema": {
+          "$defs": {
+            "BlockHeight": {
+              "description": "BlockHeight is the height of a block, measured as the number of blocks since the genesis of the chain.\nThe first block of transactions is at height 0.\nIt is signed to prevent overflows in\ncalculations.",
+              "format": "int64",
+              "type": "integer"
+            },
+            "Hex0x_SHA256Hash": {
+              "pattern": "^0x[0-9a-f]*$",
+              "type": "string"
+            },
+            "HexBytes": {
+              "pattern": "^0x[0-9a-f]*$",
+              "type": "string"
+            },
+            "StorageItemInfo": {
+              "description": "Latest-committed value at a single storage location, presented as\na tagged union so machine consumers can switch on `kind` without\nrunning an XDR codec for the common cases.",
+              "oneOf": [
+                {
+                  "description": "Non-negative int128 (e.g., HOG balance).  Encoded as a\ndecimal string because i128 exceeds JSON-number precision.",
+                  "properties": {
+                    "kind": {
+                      "const": "nonnegativeInt",
+                      "type": "string"
+                    },
+                    "value": {
+                      "description": "Decimal-string-encoded non-negative int128.",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["kind", "value"],
+                  "type": "object"
+                },
+                {
+                  "description": "Raw byte array stored at this key.",
+                  "properties": {
+                    "bytes": {
+                      "$ref": "#/$defs/HexBytes",
+                      "description": "The stored bytes."
+                    },
+                    "kind": {
+                      "const": "bytestring",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["kind", "bytes"],
+                  "type": "object"
+                },
+                {
+                  "description": "Authorization data is registered at this address.  Presence\nindicator only — querying signer details requires a contract\ninvocation.",
+                  "properties": {
+                    "kind": {
+                      "const": "authData",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["kind"],
+                  "type": "object"
+                },
+                {
+                  "description": "A retrocausal queue is registered at this address.  Presence\nindicator only — RCQ data is not held in a single storage\nitem, and per-item structure here would be misleading.\nWallets that need to interpret RCQ contents invoke a\ncontract that exposes them.",
+                  "properties": {
+                    "kind": {
+                      "const": "retrocausalQueue",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["kind"],
+                  "type": "object"
+                },
+                {
+                  "description": "Replay-cache entry exists at this key.  No payload — the\npresence is the signal.",
+                  "properties": {
+                    "kind": {
+                      "const": "replayCacheEntry",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["kind"],
+                  "type": "object"
+                },
+                {
+                  "description": "Deployed contract metadata.",
+                  "properties": {
+                    "contract_type": {
+                      "description": "Contract type tag (raw protocol value).",
+                      "format": "int32",
+                      "type": "integer"
+                    },
+                    "hash": {
+                      "$ref": "#/$defs/Hex0x_SHA256Hash",
+                      "description": "Hash of the deployed contract bytecode."
+                    },
+                    "kind": {
+                      "const": "deployedContract",
+                      "type": "string"
+                    },
+                    "size": {
+                      "description": "Bytecode size in bytes.",
+                      "format": "uint32",
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": ["kind", "hash", "size", "contract_type"],
+                  "type": "object"
+                },
+                {
+                  "description": "Storage variant unknown to this client.  Indicates the\nprotocol shipped a new variant that this build was not\nregenerated against — clients should treat as\n\"uninterpretable\" and fall back to alternative reads.",
+                  "properties": {
+                    "kind": {
+                      "const": "unknown",
+                      "type": "string"
+                    },
+                    "type_id": {
+                      "description": "Raw protocol type id of the unrecognized variant.",
+                      "format": "int32",
+                      "type": "integer"
+                    }
+                  },
+                  "required": ["kind", "type_id"],
+                  "type": "object"
+                }
+              ]
+            }
+          },
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "description": "Outcome of reading one storage location at the latest committed\nsnapshot.  `block_height` is always set to the snapshot the read\nwas performed against, even when no item exists at the requested\nkey — that lets callers compare against `chainTip` to gauge\nfreshness.",
+          "properties": {
+            "blockHeight": {
+              "$ref": "#/$defs/BlockHeight",
+              "description": "Committed block height the snapshot was read at."
+            },
+            "item": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/StorageItemInfo"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The item stored at the requested key, or `null` if the key\nhas no committed value at this snapshot."
+            }
+          },
+          "required": ["blockHeight"],
+          "title": "StorageItemRead",
+          "type": "object"
+        }
+      },
+      "summary": "Read the latest committed storage item at an address/key pair. `block_height` in the returned `StorageItemRead` always reflects the snapshot the read was performed against — even when no item is present at the key — so wallets can compare against `chainTip` to gauge freshness.",
+      "tags": [
+        {
+          "name": "Core API"
+        }
+      ]
+    },
+    {
       "name": "groundhog_dev_reset",
       "params": [],
       "result": {
@@ -773,11 +956,17 @@
         "schema": {
           "$defs": {
             "DevAccount": {
-              "description": "A pre-funded dev account, returned by `groundhog_dev_getAccounts`.",
+              "description": "A pre-funded dev account, returned by `groundhog_dev_getAccounts`.\n\nOnly emitted by local-node backends. The `private_key` and\n`initial_storage_tokens` fields are local-orchestration metadata with no\ntestnet/mainnet meaning: production backends do not retain private keys\nand have no concept of a \"bootstrap balance\".",
               "properties": {
                 "address": {
                   "$ref": "#/$defs/Hex0x_ContractAddress",
-                  "description": "Contract address derived from the public key."
+                  "description": "Local dev account/wallet contract address advertised by the backend."
+                },
+                "initialStorageTokens": {
+                  "description": "Storage-token balance at bootstrap. This is a snapshot taken when the\nlocal node started; it is not refreshed as the wallet spends tokens.\nUse a live balance read for current funding.",
+                  "format": "uint64",
+                  "minimum": 0,
+                  "type": "integer"
                 },
                 "privateKey": {
                   "$ref": "#/$defs/HexBytes",
@@ -786,19 +975,13 @@
                 "publicKey": {
                   "$ref": "#/$defs/HexBytes",
                   "description": "Ed25519 public key bytes."
-                },
-                "storageTokens": {
-                  "description": "Storage tokens granted at node startup.",
-                  "format": "uint64",
-                  "minimum": 0,
-                  "type": "integer"
                 }
               },
               "required": [
                 "address",
                 "publicKey",
                 "privateKey",
-                "storageTokens"
+                "initialStorageTokens"
               ],
               "type": "object"
             },
@@ -1267,77 +1450,6 @@
         }
       },
       "summary": "Full retained execution detail for a committed transaction.",
-      "tags": [
-        {
-          "name": "Dev API"
-        }
-      ]
-    },
-    {
-      "name": "groundhog_dev_getStorageAt",
-      "params": [
-        {
-          "name": "address",
-          "required": true,
-          "schema": {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "pattern": "^0x[0-9a-f]*$",
-            "title": "Hex0x_ContractAddress",
-            "type": "string"
-          }
-        },
-        {
-          "name": "key",
-          "required": true,
-          "schema": {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "pattern": "^0x[0-9a-f]*$",
-            "title": "HexBytes",
-            "type": "string"
-          }
-        }
-      ],
-      "result": {
-        "name": "Option",
-        "schema": {
-          "$defs": {
-            "HexBytes": {
-              "pattern": "^0x[0-9a-f]*$",
-              "type": "string"
-            },
-            "StorageItemInfo": {
-              "description": "Readable latest-state storage item plus raw encoded value for inspection.",
-              "properties": {
-                "itemXdr": {
-                  "$ref": "#/$defs/HexBytes",
-                  "description": "XDR-encoded wire storage item."
-                },
-                "kind": {
-                  "description": "Stable storage item kind identifier.",
-                  "type": "string"
-                },
-                "summary": {
-                  "description": "Human-readable summary used by future CLI/inspect output.",
-                  "type": "string"
-                }
-              },
-              "required": ["kind", "summary", "itemXdr"],
-              "type": "object"
-            }
-          },
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
-          "anyOf": [
-            {
-              "$ref": "#/$defs/StorageItemInfo"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "title": "Nullable_StorageItemInfo"
-        }
-      },
-      "summary": "Read the latest storage item at an address/key pair.",
       "tags": [
         {
           "name": "Dev API"
