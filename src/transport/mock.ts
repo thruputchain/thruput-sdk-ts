@@ -67,6 +67,7 @@ export class MockTransport implements Transport {
     status: { result: string };
     events: never[];
     returnData: null;
+    abortData: null;
   } | null {
     const txHash = params && params.length > 0 ? String(params[0]) : "";
     const tx = this.#transactions.get(txHash);
@@ -77,6 +78,7 @@ export class MockTransport implements Transport {
       status: { result: "ok" },
       events: [],
       returnData: null,
+      abortData: null,
     };
   }
 

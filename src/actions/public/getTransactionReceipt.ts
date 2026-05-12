@@ -37,5 +37,6 @@ export async function getTransactionReceipt(
       data: e.data ? fromHex0x(e.data) : new Uint8Array(0),
     })),
     returnData: result.returnData ? fromHex0x(result.returnData) : null,
+    abortData: result.abortData ? fromHex0x(result.abortData) : null,
   };
 }

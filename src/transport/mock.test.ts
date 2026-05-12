@@ -37,6 +37,7 @@ describe("MockTransport", () => {
       status: { result: string };
       events: unknown[];
       returnData: null;
+      abortData: null;
     }>("groundhog_getTransactionReceipt", [hash]);
     expect(receipt).not.toBeNull();
     expect(receipt!.txHash).toBe(hash);

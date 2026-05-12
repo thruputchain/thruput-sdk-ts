@@ -1,18 +1,737 @@
 {
+  "components": {
+    "errors": {
+      "BackendTimeout": {
+        "code": -32051,
+        "message": "Backend timeout",
+        "x-description": "The request timed out while waiting for a backend response; the backend outcome may be ambiguous.",
+        "x-name": "BackendTimeout"
+      },
+      "BackendUnavailable": {
+        "code": -32050,
+        "message": "Backend unavailable",
+        "x-description": "The gateway could not reach a required backend such as hogd, the scheduler, or the indexer.",
+        "x-name": "BackendUnavailable"
+      },
+      "BlockNotFound": {
+        "code": -32010,
+        "message": "Block not found",
+        "x-description": "The requested block height is out of range or beyond the current indexed chain tip.",
+        "x-name": "BlockNotFound"
+      },
+      "InvalidParams": {
+        "code": -32602,
+        "message": "Invalid params",
+        "x-description": "One or more JSON-RPC parameters are malformed, out of range, or otherwise invalid.",
+        "x-name": "InvalidParams"
+      },
+      "NotImplemented": {
+        "code": -32052,
+        "message": "Not implemented",
+        "x-description": "The JSON-RPC method exists but is not implemented by this gateway or backend capability shape.",
+        "x-name": "NotImplemented"
+      },
+      "Overloaded": {
+        "code": -32053,
+        "message": "Overloaded",
+        "x-description": "The gateway or backend is overloaded and rejected the request before it reached side-effecting backend execution.",
+        "x-name": "Overloaded"
+      },
+      "TxInvalid": {
+        "code": -32000,
+        "message": "Invalid transaction",
+        "x-description": "The submitted transaction is malformed, has invalid XDR, or fails local validation before backend submission.",
+        "x-name": "TxInvalid"
+      },
+      "TxNotFound": {
+        "code": -32002,
+        "message": "Transaction not found",
+        "x-description": "The requested transaction hash was not found in the mempool or committed index.",
+        "x-name": "TxNotFound"
+      },
+      "TxRejected": {
+        "code": -32001,
+        "message": "Transaction rejected",
+        "x-description": "The submitted transaction is well-formed but was rejected by the scheduler or execution backend.",
+        "x-name": "TxRejected"
+      }
+    },
+    "schemas": {
+      "BlockAnchor": {
+        "description": "Where to begin iteration on the initial call.",
+        "oneOf": [
+          {
+            "properties": {
+              "kind": {
+                "const": "atBeginning",
+                "type": "string"
+              }
+            },
+            "required": ["kind"],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "kind": {
+                "const": "atEnd",
+                "type": "string"
+              }
+            },
+            "required": ["kind"],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "height": {
+                "$ref": "#/components/schemas/BlockHeight"
+              },
+              "kind": {
+                "const": "atHeight",
+                "type": "string"
+              }
+            },
+            "required": ["kind", "height"],
+            "type": "object"
+          }
+        ]
+      },
+      "BlockHeight": {
+        "description": "BlockHeight is the height of a block, measured as the number of blocks since the genesis of the chain.\nThe first block of transactions is at height 0.\nIt is signed to prevent overflows in\ncalculations.",
+        "format": "int64",
+        "type": "integer"
+      },
+      "BlockInfo": {
+        "description": "Block data returned by getBlockByNumber.\n\nMaps the XDR `BlockHeader` to RPC-friendly serialization\n(camelCase fields, `0x`-prefixed hex). Add RPC-specific fields\nhere without modifying the wire type.\n\nThe `From<BlockHeader>` impl uses exhaustive destructuring so\nadding a field to `BlockHeader` causes a compile error here.",
+        "properties": {
+          "blockHeight": {
+            "$ref": "#/components/schemas/BlockHeight"
+          },
+          "dbHash": {
+            "$ref": "#/components/schemas/Hex0x_DbHash"
+          },
+          "eventsHash": {
+            "$ref": "#/components/schemas/Hex0x_SHA256Hash"
+          },
+          "networkId": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "prevBlockHash": {
+            "$ref": "#/components/schemas/Hex0x_SHA256Hash"
+          },
+          "txsetHash": {
+            "$ref": "#/components/schemas/Hex0x_SHA256Hash"
+          }
+        },
+        "required": [
+          "networkId",
+          "blockHeight",
+          "txsetHash",
+          "dbHash",
+          "eventsHash",
+          "prevBlockHash"
+        ],
+        "type": "object"
+      },
+      "ChainTip": {
+        "description": "Current chain tip. Returned by chainTip.",
+        "properties": {
+          "blockHash": {
+            "$ref": "#/components/schemas/Hex0x_SHA256Hash"
+          },
+          "height": {
+            "$ref": "#/components/schemas/BlockHeight"
+          }
+        },
+        "required": ["height", "blockHash"],
+        "type": "object"
+      },
+      "ContractAddressList": {
+        "description": "Contract addresses accepted by a single event filter. Mirrors the hogd-indexer per-filter contract-address bound.",
+        "items": {
+          "$ref": "#/components/schemas/Hex0x_ContractAddress"
+        },
+        "maxItems": 5,
+        "type": "array"
+      },
+      "DevAccount": {
+        "description": "A pre-funded dev account, returned by `groundhog_dev_getAccounts`.\n\nOnly emitted by local-node backends. The `private_key` and\n`initial_storage_tokens` fields are local-orchestration metadata with no\ntestnet/mainnet meaning: production backends do not retain private keys\nand have no concept of a \"bootstrap balance\".",
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/Hex0x_ContractAddress",
+            "description": "Local dev account/wallet contract address advertised by the backend."
+          },
+          "initialStorageTokens": {
+            "description": "Storage-token balance at bootstrap. This is a snapshot taken when the\nlocal node started; it is not refreshed as the wallet spends tokens.\nUse a live balance read for current funding.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "privateKey": {
+            "$ref": "#/components/schemas/HexBytes",
+            "description": "Ed25519 secret key bytes. Included because these are\nwell-known dev-only keys."
+          },
+          "publicKey": {
+            "$ref": "#/components/schemas/HexBytes",
+            "description": "Ed25519 public key bytes."
+          }
+        },
+        "required": [
+          "address",
+          "publicKey",
+          "privateKey",
+          "initialStorageTokens"
+        ],
+        "type": "object"
+      },
+      "EmittedEvent": {
+        "description": "A single emitted event, as stored by the hogd indexer.\n\nThe gateway parses hogd's `TxEmittedEvent.serialized_event` into\nseparate topics and data. The serialized format is:\n`topic0 (32B) || topic1 (32B) || ... || data (remaining bytes)`.\n`num_topics` (0–3) determines the split point. Max total 1024 bytes.\n\nSee `docs/gateway/system-design.md` \"Event Parsing\" for details.",
+        "properties": {
+          "contractAddress": {
+            "$ref": "#/components/schemas/Hex0x_ContractAddress",
+            "description": "Contract that emitted this event."
+          },
+          "data": {
+            "$ref": "#/components/schemas/HexBytes",
+            "description": "Opaque event data (up to 1KB, contract-defined encoding)."
+          },
+          "topics": {
+            "description": "Up to 3 topics per event, each exactly 32 bytes\n(indexed, filterable in Phase 4).",
+            "items": {
+              "$ref": "#/components/schemas/Topic"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["contractAddress", "topics", "data"],
+        "type": "object"
+      },
+      "EventFilter": {
+        "description": "A single event-filter predicate: events must be emitted by one of\n`contractAddresses` AND match the topic constraints. Required\nnon-empty `contractAddresses` — the indexer has no topic-indexed\ncolumn family and can't efficiently serve \"any contract\" scans.\n(When such an index is added, the gateway relaxes the non-empty\ncheck; the wire contract stays the same.)",
+        "properties": {
+          "contractAddresses": {
+            "$ref": "#/components/schemas/ContractAddressList"
+          },
+          "topics": {
+            "$ref": "#/components/schemas/EventTopicFilter"
+          }
+        },
+        "required": ["contractAddresses", "topics"],
+        "type": "object"
+      },
+      "EventFilterList": {
+        "description": "Event filters accepted by a single event query. Mirrors the hogd-indexer per-query filter bound.",
+        "items": {
+          "$ref": "#/components/schemas/EventFilter"
+        },
+        "maxItems": 5,
+        "type": "array"
+      },
+      "EventPage": {
+        "description": "One page of events returned by `getEvents`.\n\nTo fetch the next page, send the same query back with `cursor`\nset to the value returned here.  An empty `cursor` means the\nstream is exhausted in the requested direction.",
+        "properties": {
+          "cursor": {
+            "$ref": "#/components/schemas/PaginationCursor",
+            "description": "Empty when the stream has been exhausted in the requested\ndirection.  Non-empty: pass back in the next call's `cursor`\nargument."
+          },
+          "events": {
+            "description": "Matched events in the requested order.  May be empty even when\n`cursor` is non-empty: the filter was selective and the current\nscan window produced no matches; client should keep paginating.\nEmpty events + empty cursor = stream exhausted.",
+            "items": {
+              "$ref": "#/components/schemas/IdentifiedEvent"
+            },
+            "type": "array"
+          },
+          "latestBlock": {
+            "$ref": "#/components/schemas/BlockHeight",
+            "description": "Highest block height the indexer has processed at response time.\nCompare to last-seen heights to decide caught-up state."
+          },
+          "oldestBlock": {
+            "$ref": "#/components/schemas/BlockHeight",
+            "description": "Oldest block height the indexer still retains data for at\nresponse time.  Today always 0; meaningful once retention/\npruning lands."
+          }
+        },
+        "required": ["events", "cursor", "latestBlock", "oldestBlock"],
+        "type": "object"
+      },
+      "EventQuery": {
+        "description": "`getEvents` request. A candidate event matches the query iff it\nmatches at least one `EventFilter` in `filters` (OR across filters,\nAND within each filter).",
+        "properties": {
+          "anchor": {
+            "$ref": "#/components/schemas/BlockAnchor"
+          },
+          "cursor": {
+            "$ref": "#/components/schemas/PaginationCursor",
+            "description": "`0x` on the initial call. Non-empty to continue where a previous\nresponse left off; `order` and `anchor` in the request are\nignored when a cursor is supplied — the cursor carries them."
+          },
+          "filters": {
+            "$ref": "#/components/schemas/EventFilterList"
+          },
+          "limit": {
+            "description": "Clamped server-side to [1, 200]; `0` means server default (50).",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "order": {
+            "$ref": "#/components/schemas/IterationOrder"
+          }
+        },
+        "required": ["filters", "order", "anchor", "cursor", "limit"],
+        "type": "object"
+      },
+      "EventTopicFilter": {
+        "description": "Positional topic filter. For each topic position (0, 1, 2):\n  - An empty list means \"match anything at this position.\"\n  - A non-empty list means \"match if the event's topic at this\n    position is in this list.\" OR within a position, AND across\n    positions.\n\nPartial match: a filter that specifies only topic0 matches events\nwith more topics. Extra topics on the event past the filter's\nspecified positions are ignored. (This is the ethereum getLogs /\nstellar-rpc post-#358 semantics.)",
+        "properties": {
+          "topic0": {
+            "$ref": "#/components/schemas/TopicList"
+          },
+          "topic1": {
+            "$ref": "#/components/schemas/TopicList"
+          },
+          "topic2": {
+            "$ref": "#/components/schemas/TopicList"
+          }
+        },
+        "required": ["topic0", "topic1", "topic2"],
+        "type": "object"
+      },
+      "ExecStatus": {
+        "description": "Execution result. Maps to hogd's `ExecResult` variants.\nRicher than EVM's binary status (0 = fail, 1 = success).\n\nNew variants may be added as hogd's `ExecResult` evolves.\nClients should handle unknown variants gracefully.",
+        "oneOf": [
+          {
+            "description": "Transaction executed successfully.",
+            "properties": {
+              "result": {
+                "const": "ok",
+                "type": "string"
+              }
+            },
+            "required": ["result"],
+            "type": "object"
+          },
+          {
+            "description": "Root call frame reverted (contract called abort/revert).",
+            "properties": {
+              "message": {
+                "description": "Abort buffer from the contract, if any.",
+                "type": ["string", "null"]
+              },
+              "result": {
+                "const": "reverted",
+                "type": "string"
+              }
+            },
+            "required": ["result"],
+            "type": "object"
+          },
+          {
+            "description": "Deterministic execution error (out of gas, stack overflow, etc.).",
+            "properties": {
+              "kind": {
+                "description": "Error kind from the execution engine.",
+                "type": "string"
+              },
+              "result": {
+                "const": "deterministicError",
+                "type": "string"
+              }
+            },
+            "required": ["result", "kind"],
+            "type": "object"
+          },
+          {
+            "description": "Commit failed due to a race or other proposal-time storage conflict.",
+            "properties": {
+              "result": {
+                "const": "nonDeterministicError",
+                "type": "string"
+              }
+            },
+            "required": ["result"],
+            "type": "object"
+          },
+          {
+            "description": "Gas sponsorship failed.",
+            "properties": {
+              "result": {
+                "const": "failedGasSponsorship",
+                "type": "string"
+              }
+            },
+            "required": ["result"],
+            "type": "object"
+          },
+          {
+            "description": "Unrecognized execution result from the indexer.\nReturned when the gateway encounters an `ExecResult` variant\nit doesn't know about. Check for gateway updates.",
+            "properties": {
+              "result": {
+                "const": "other",
+                "type": "string"
+              }
+            },
+            "required": ["result"],
+            "type": "object"
+          }
+        ]
+      },
+      "Hex0x_ContractAddress": {
+        "pattern": "^0x[0-9a-f]*$",
+        "type": "string"
+      },
+      "Hex0x_DbHash": {
+        "pattern": "^0x[0-9a-f]*$",
+        "type": "string"
+      },
+      "Hex0x_SHA256Hash": {
+        "pattern": "^0x[0-9a-f]*$",
+        "type": "string"
+      },
+      "HexBytes": {
+        "pattern": "^0x[0-9a-f]*$",
+        "type": "string"
+      },
+      "IdentifiedEvent": {
+        "description": "Event with provenance — includes which tx emitted it.\nReturned by `getEvents`.",
+        "properties": {
+          "blockHeight": {
+            "$ref": "#/components/schemas/BlockHeight",
+            "description": "Block height at which the event was emitted."
+          },
+          "event": {
+            "$ref": "#/components/schemas/EmittedEvent",
+            "description": "The event itself."
+          },
+          "sequenceNumber": {
+            "description": "Sequence number within the transaction's event log.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "txHash": {
+            "$ref": "#/components/schemas/TxHash",
+            "description": "Transaction that emitted this event."
+          }
+        },
+        "required": ["txHash", "blockHeight", "sequenceNumber", "event"],
+        "type": "object"
+      },
+      "IterationOrder": {
+        "description": "Direction to walk a paginated event stream.",
+        "enum": ["ascending", "descending"],
+        "type": "string"
+      },
+      "PaginationCursor": {
+        "pattern": "^0x[0-9a-f]*$",
+        "type": "string"
+      },
+      "StorageItemInfo": {
+        "description": "Latest-committed value at a single storage location, presented as\na tagged union so machine consumers can switch on `kind` without\nrunning an XDR codec for the common cases.",
+        "oneOf": [
+          {
+            "description": "Non-negative int128 (e.g., HOG balance).  Encoded as a\ndecimal string because i128 exceeds JSON-number precision.",
+            "properties": {
+              "kind": {
+                "const": "nonnegativeInt",
+                "type": "string"
+              },
+              "value": {
+                "description": "Decimal-string-encoded non-negative int128.",
+                "type": "string"
+              }
+            },
+            "required": ["kind", "value"],
+            "type": "object"
+          },
+          {
+            "description": "Raw byte array stored at this key.",
+            "properties": {
+              "bytes": {
+                "$ref": "#/components/schemas/HexBytes",
+                "description": "The stored bytes."
+              },
+              "kind": {
+                "const": "bytestring",
+                "type": "string"
+              }
+            },
+            "required": ["kind", "bytes"],
+            "type": "object"
+          },
+          {
+            "description": "Authorization data is registered at this address.  Presence\nindicator only — querying signer details requires a contract\ninvocation.",
+            "properties": {
+              "kind": {
+                "const": "authData",
+                "type": "string"
+              }
+            },
+            "required": ["kind"],
+            "type": "object"
+          },
+          {
+            "description": "A retrocausal queue is registered at this address.  Presence\nindicator only — RCQ data is not held in a single storage\nitem, and per-item structure here would be misleading.\nWallets that need to interpret RCQ contents invoke a\ncontract that exposes them.",
+            "properties": {
+              "kind": {
+                "const": "retrocausalQueue",
+                "type": "string"
+              }
+            },
+            "required": ["kind"],
+            "type": "object"
+          },
+          {
+            "description": "Replay-cache entry exists at this key.  No payload — the\npresence is the signal.",
+            "properties": {
+              "kind": {
+                "const": "replayCacheEntry",
+                "type": "string"
+              }
+            },
+            "required": ["kind"],
+            "type": "object"
+          },
+          {
+            "description": "Deployed contract metadata.",
+            "properties": {
+              "contractType": {
+                "description": "Contract type tag (raw protocol value).",
+                "format": "int32",
+                "type": "integer"
+              },
+              "hash": {
+                "$ref": "#/components/schemas/Hex0x_SHA256Hash",
+                "description": "Hash of the deployed contract bytecode."
+              },
+              "kind": {
+                "const": "deployedContract",
+                "type": "string"
+              },
+              "size": {
+                "description": "Bytecode size in bytes.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": ["kind", "hash", "size", "contractType"],
+            "type": "object"
+          },
+          {
+            "description": "Storage variant unknown to this client.  Indicates the\nprotocol shipped a new variant that this build was not\nregenerated against — clients should treat as\n\"uninterpretable\" and fall back to alternative reads.",
+            "properties": {
+              "kind": {
+                "const": "unknown",
+                "type": "string"
+              },
+              "typeId": {
+                "description": "Raw protocol type id of the unrecognized variant.",
+                "format": "int32",
+                "type": "integer"
+              }
+            },
+            "required": ["kind", "typeId"],
+            "type": "object"
+          }
+        ]
+      },
+      "StorageItemRead": {
+        "description": "Outcome of reading one storage location at the latest committed\nsnapshot.  `block_height` is always set to the snapshot the read\nwas performed against, even when no item exists at the requested\nkey — that lets callers compare against `chainTip` to gauge\nfreshness.",
+        "properties": {
+          "blockHeight": {
+            "$ref": "#/components/schemas/BlockHeight",
+            "description": "Committed block height the snapshot was read at."
+          },
+          "item": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StorageItemInfo"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The item stored at the requested key, or `null` if the key\nhas no committed value at this snapshot."
+          }
+        },
+        "required": ["blockHeight"],
+        "type": "object"
+      },
+      "Topic": {
+        "pattern": "^0x[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "TopicList": {
+        "description": "Topic values accepted for a single topic position. This is an RPC-layer cap, not a hogd-indexer protocol constant.",
+        "items": {
+          "$ref": "#/components/schemas/Topic"
+        },
+        "maxItems": 16,
+        "type": "array"
+      },
+      "TransactionReceipt": {
+        "description": "Full transaction receipt. Returned by `getTransactionReceipt`.\n\nDesign notes:\n- `status` maps from `TxEventLog.exec_result` in the indexer.\n  Committed blocks include both successful and deterministically-failed\n  txs (reverts, OOG). If a receipt exists, the tx was committed.\n- No `blockHash`: SCP instant finality, height is sufficient.\n- No `gasUsed`/`gasPrice`, `transactionIndex`, `logsBloom`.\n\n`storage_delta` (net HOG locked/unlocked) is deferred — hogd's\n`TxInfo` doesn't include it. Will be added when indexer support lands.",
+        "properties": {
+          "abortData": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HexBytes"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Bytes the contract passed to its `abort` / `revert` syscall\nwhen the transaction reverted deterministically.  Present\nwhen `status` is `reverted` and the chain version that\nexecuted the transaction recorded the revert payload; absent\notherwise.  Returned raw — decode against the contract's\nspec (typically the error variant) to recover a human-\nreadable reason."
+          },
+          "events": {
+            "description": "Events emitted during execution.",
+            "items": {
+              "$ref": "#/components/schemas/EmittedEvent"
+            },
+            "type": "array"
+          },
+          "height": {
+            "$ref": "#/components/schemas/BlockHeight",
+            "description": "Block height at which this transaction was committed."
+          },
+          "returnData": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HexBytes"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Bytes returned by the contract's root call on a successful\ntransaction.  Present when `status` is `ok` and the chain\nversion that executed the transaction recorded a return\nvalue; absent otherwise.  Returned raw — decode against the\ncontract's spec to recover typed values."
+          },
+          "status": {
+            "$ref": "#/components/schemas/ExecStatus",
+            "description": "Execution result."
+          },
+          "txHash": {
+            "$ref": "#/components/schemas/TxHash",
+            "description": "Canonical transaction hash."
+          }
+        },
+        "required": ["txHash", "height", "status", "events"],
+        "type": "object"
+      },
+      "TransactionStatus": {
+        "description": "Lightweight status — the result of checking mempool then indexer.\n\nLookup order: scheduler (Pending) → indexer (Committed) → Unknown.\nSee `docs/gateway/system-design.md` \"Transaction Status Lookup Order\" for\ndegraded-mode behavior when a backend is unavailable.\n\nNew variants may be added in future phases.",
+        "oneOf": [
+          {
+            "description": "In the mempool, not yet in a committed block.",
+            "properties": {
+              "status": {
+                "const": "pending",
+                "type": "string"
+              }
+            },
+            "required": ["status"],
+            "type": "object"
+          },
+          {
+            "description": "Included in a committed block. SCP finality = done.\nNo `block_hash`: SCP instant finality means no forks/reorgs,\nso height alone is sufficient for confirmation.",
+            "properties": {
+              "height": {
+                "$ref": "#/components/schemas/BlockHeight"
+              },
+              "status": {
+                "const": "committed",
+                "type": "string"
+              }
+            },
+            "required": ["status", "height"],
+            "type": "object"
+          },
+          {
+            "description": "Scheduler rejected the transaction.",
+            "properties": {
+              "reason": {
+                "type": "string"
+              },
+              "status": {
+                "const": "invalid",
+                "type": "string"
+              }
+            },
+            "required": ["status", "reason"],
+            "type": "object"
+          },
+          {
+            "description": "Not found in mempool or indexer.",
+            "properties": {
+              "status": {
+                "const": "unknown",
+                "type": "string"
+              }
+            },
+            "required": ["status"],
+            "type": "object"
+          }
+        ]
+      },
+      "TxHash": {
+        "$ref": "#/components/schemas/Hex0x_SHA256Hash",
+        "description": "Canonical transaction hash: `sha256(xdr_serialize(signed_tx.tx))`.\nCovers the inner Transaction body (not signatures), matching\nthe scheduler's lookup key and the indexer's primary key.\n\nSerializes as `\"0x...\"` hex string (64 hex chars)."
+      },
+      "VersionInfo": {
+        "description": "Runtime version information for a JSON-RPC server implementation.",
+        "properties": {
+          "commitHash": {
+            "description": "Diagnostic-only Git commit hash this server was built from, when available.\nConsumers must not branch on this field.",
+            "type": ["string", "null"]
+          },
+          "implementation": {
+            "description": "Diagnostic-only implementation version of the binary serving this RPC endpoint.\nConsumers must not branch on this field.",
+            "type": "string"
+          },
+          "wireFormat": {
+            "description": "Wire-format `SemVer` of the `OpenRPC` spec this node implements.",
+            "type": "string"
+          }
+        },
+        "required": ["wireFormat", "implementation"],
+        "type": "object"
+      }
+    }
+  },
   "info": {
     "title": "Groundhog JSON-RPC",
-    "version": "0.3.1"
+    "version": "1.1.0"
   },
   "methods": [
     {
+      "errors": [
+        {
+          "$ref": "#/components/errors/InvalidParams"
+        },
+        {
+          "$ref": "#/components/errors/TxInvalid"
+        },
+        {
+          "$ref": "#/components/errors/TxRejected"
+        },
+        {
+          "$ref": "#/components/errors/BackendUnavailable"
+        },
+        {
+          "$ref": "#/components/errors/BackendTimeout"
+        },
+        {
+          "$ref": "#/components/errors/Overloaded"
+        },
+        {
+          "$ref": "#/components/errors/NotImplemented"
+        }
+      ],
       "name": "groundhog_sendRawTransaction",
       "params": [
         {
           "name": "tx_hex",
           "required": true,
           "schema": {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "title": "string",
             "type": "string"
           }
         }
@@ -20,16 +739,7 @@
       "result": {
         "name": "TxHash",
         "schema": {
-          "$defs": {
-            "Hex0x_SHA256Hash": {
-              "pattern": "^0x[0-9a-f]*$",
-              "type": "string"
-            }
-          },
-          "$ref": "#/$defs/Hex0x_SHA256Hash",
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
-          "description": "Canonical transaction hash: `sha256(xdr_serialize(signed_tx.tx))`.\nCovers the inner Transaction body (not signatures), matching\nthe scheduler's lookup key and the indexer's primary key.\n\nSerializes as `\"0x...\"` hex string (64 hex chars).",
-          "title": "TxHash"
+          "$ref": "#/components/schemas/TxHash"
         }
       },
       "summary": "Submit a signed transaction (0x-prefixed hex XDR). Returns the canonical tx hash.",
@@ -40,203 +750,47 @@
       ]
     },
     {
+      "errors": [
+        {
+          "$ref": "#/components/errors/InvalidParams"
+        },
+        {
+          "$ref": "#/components/errors/TxNotFound"
+        },
+        {
+          "$ref": "#/components/errors/BackendUnavailable"
+        },
+        {
+          "$ref": "#/components/errors/BackendTimeout"
+        },
+        {
+          "$ref": "#/components/errors/Overloaded"
+        },
+        {
+          "$ref": "#/components/errors/NotImplemented"
+        }
+      ],
       "name": "groundhog_getTransactionReceipt",
       "params": [
         {
           "name": "tx_hash",
           "required": true,
           "schema": {
-            "$defs": {
-              "Hex0x_SHA256Hash": {
-                "pattern": "^0x[0-9a-f]*$",
-                "type": "string"
-              }
-            },
-            "$ref": "#/$defs/Hex0x_SHA256Hash",
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "description": "Canonical transaction hash: `sha256(xdr_serialize(signed_tx.tx))`.\nCovers the inner Transaction body (not signatures), matching\nthe scheduler's lookup key and the indexer's primary key.\n\nSerializes as `\"0x...\"` hex string (64 hex chars).",
-            "title": "TxHash"
+            "$ref": "#/components/schemas/TxHash"
           }
         }
       ],
       "result": {
         "name": "Option",
         "schema": {
-          "$defs": {
-            "BlockHeight": {
-              "description": "BlockHeight is the height of a block, measured as the number of blocks since the genesis of the chain.\nThe first block of transactions is at height 0.\nIt is signed to prevent overflows in\ncalculations.",
-              "format": "int64",
-              "type": "integer"
-            },
-            "EmittedEvent": {
-              "description": "A single emitted event, as stored by the hogd indexer.\n\nThe gateway parses hogd's `TxEmittedEvent.serialized_event` into\nseparate topics and data. The serialized format is:\n`topic0 (32B) || topic1 (32B) || ... || data (remaining bytes)`.\n`num_topics` (0–3) determines the split point. Max total 1024 bytes.\n\nSee `docs/gateway/system-design.md` \"Event Parsing\" for details.",
-              "properties": {
-                "contractAddress": {
-                  "$ref": "#/$defs/Hex0x_ContractAddress",
-                  "description": "Contract that emitted this event."
-                },
-                "data": {
-                  "$ref": "#/$defs/HexBytes",
-                  "description": "Opaque event data (up to 1KB, contract-defined encoding)."
-                },
-                "topics": {
-                  "description": "Up to 3 topics per event, each exactly 32 bytes\n(indexed, filterable in Phase 4).",
-                  "items": {
-                    "$ref": "#/$defs/Topic"
-                  },
-                  "type": "array"
-                }
-              },
-              "required": ["contractAddress", "topics", "data"],
-              "type": "object"
-            },
-            "ExecStatus": {
-              "description": "Execution result. Maps to hogd's `ExecResult` variants.\nRicher than EVM's binary status (0 = fail, 1 = success).\n\nNew variants may be added as hogd's `ExecResult` evolves.\nClients should handle unknown variants gracefully.",
-              "oneOf": [
-                {
-                  "description": "Transaction executed successfully.",
-                  "properties": {
-                    "result": {
-                      "const": "ok",
-                      "type": "string"
-                    }
-                  },
-                  "required": ["result"],
-                  "type": "object"
-                },
-                {
-                  "description": "Root call frame reverted (contract called abort/revert).",
-                  "properties": {
-                    "message": {
-                      "description": "Abort buffer from the contract, if any.",
-                      "type": ["string", "null"]
-                    },
-                    "result": {
-                      "const": "reverted",
-                      "type": "string"
-                    }
-                  },
-                  "required": ["result"],
-                  "type": "object"
-                },
-                {
-                  "description": "Deterministic execution error (out of gas, stack overflow, etc.).",
-                  "properties": {
-                    "kind": {
-                      "description": "Error kind from the execution engine.",
-                      "type": "string"
-                    },
-                    "result": {
-                      "const": "deterministicError",
-                      "type": "string"
-                    }
-                  },
-                  "required": ["result", "kind"],
-                  "type": "object"
-                },
-                {
-                  "description": "Commit failed due to a race or other proposal-time storage conflict.",
-                  "properties": {
-                    "result": {
-                      "const": "nonDeterministicError",
-                      "type": "string"
-                    }
-                  },
-                  "required": ["result"],
-                  "type": "object"
-                },
-                {
-                  "description": "Gas sponsorship failed.",
-                  "properties": {
-                    "result": {
-                      "const": "failedGasSponsorship",
-                      "type": "string"
-                    }
-                  },
-                  "required": ["result"],
-                  "type": "object"
-                },
-                {
-                  "description": "Unrecognized execution result from the indexer.\nReturned when the gateway encounters an `ExecResult` variant\nit doesn't know about. Check for gateway updates.",
-                  "properties": {
-                    "result": {
-                      "const": "other",
-                      "type": "string"
-                    }
-                  },
-                  "required": ["result"],
-                  "type": "object"
-                }
-              ]
-            },
-            "Hex0x_ContractAddress": {
-              "pattern": "^0x[0-9a-f]*$",
-              "type": "string"
-            },
-            "Hex0x_SHA256Hash": {
-              "pattern": "^0x[0-9a-f]*$",
-              "type": "string"
-            },
-            "HexBytes": {
-              "pattern": "^0x[0-9a-f]*$",
-              "type": "string"
-            },
-            "Topic": {
-              "pattern": "^0x[0-9a-f]{64}$",
-              "type": "string"
-            },
-            "TransactionReceipt": {
-              "description": "Full transaction receipt. Returned by `getTransactionReceipt`.\n\nDesign notes:\n- `status` maps from `TxEventLog.exec_result` in the indexer.\n  Committed blocks include both successful and deterministically-failed\n  txs (reverts, OOG). If a receipt exists, the tx was committed.\n- No `blockHash`: SCP instant finality, height is sufficient.\n- No `gasUsed`/`gasPrice`, `transactionIndex`, `logsBloom`.\n\n`storage_delta` (net HOG locked/unlocked) is deferred — hogd's\n`TxInfo` doesn't include it. Will be added when indexer support lands.",
-              "properties": {
-                "events": {
-                  "description": "Events emitted during execution.",
-                  "items": {
-                    "$ref": "#/$defs/EmittedEvent"
-                  },
-                  "type": "array"
-                },
-                "height": {
-                  "$ref": "#/$defs/BlockHeight",
-                  "description": "Block height at which this transaction was committed."
-                },
-                "returnData": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/$defs/HexBytes"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "Raw return data from contract execution.\n\nPopulated by local-node backends from `InvocationFrameOutput::Return`.\nMay be `None` for production receipts if the indexer does not\nstore return data."
-                },
-                "status": {
-                  "$ref": "#/$defs/ExecStatus",
-                  "description": "Execution result."
-                },
-                "txHash": {
-                  "$ref": "#/$defs/TxHash",
-                  "description": "Canonical transaction hash."
-                }
-              },
-              "required": ["txHash", "height", "status", "events"],
-              "type": "object"
-            },
-            "TxHash": {
-              "$ref": "#/$defs/Hex0x_SHA256Hash",
-              "description": "Canonical transaction hash: `sha256(xdr_serialize(signed_tx.tx))`.\nCovers the inner Transaction body (not signatures), matching\nthe scheduler's lookup key and the indexer's primary key.\n\nSerializes as `\"0x...\"` hex string (64 hex chars)."
-            }
-          },
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
           "anyOf": [
             {
-              "$ref": "#/$defs/TransactionReceipt"
+              "$ref": "#/components/schemas/TransactionReceipt"
             },
             {
               "type": "null"
             }
-          ],
-          "title": "Nullable_TransactionReceipt"
+          ]
         }
       },
       "summary": "Full receipt for a committed transaction.",
@@ -247,90 +801,40 @@
       ]
     },
     {
+      "errors": [
+        {
+          "$ref": "#/components/errors/InvalidParams"
+        },
+        {
+          "$ref": "#/components/errors/TxNotFound"
+        },
+        {
+          "$ref": "#/components/errors/BackendUnavailable"
+        },
+        {
+          "$ref": "#/components/errors/BackendTimeout"
+        },
+        {
+          "$ref": "#/components/errors/Overloaded"
+        },
+        {
+          "$ref": "#/components/errors/NotImplemented"
+        }
+      ],
       "name": "groundhog_getTransactionStatus",
       "params": [
         {
           "name": "tx_hash",
           "required": true,
           "schema": {
-            "$defs": {
-              "Hex0x_SHA256Hash": {
-                "pattern": "^0x[0-9a-f]*$",
-                "type": "string"
-              }
-            },
-            "$ref": "#/$defs/Hex0x_SHA256Hash",
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "description": "Canonical transaction hash: `sha256(xdr_serialize(signed_tx.tx))`.\nCovers the inner Transaction body (not signatures), matching\nthe scheduler's lookup key and the indexer's primary key.\n\nSerializes as `\"0x...\"` hex string (64 hex chars).",
-            "title": "TxHash"
+            "$ref": "#/components/schemas/TxHash"
           }
         }
       ],
       "result": {
         "name": "TransactionStatus",
         "schema": {
-          "$defs": {
-            "BlockHeight": {
-              "description": "BlockHeight is the height of a block, measured as the number of blocks since the genesis of the chain.\nThe first block of transactions is at height 0.\nIt is signed to prevent overflows in\ncalculations.",
-              "format": "int64",
-              "type": "integer"
-            }
-          },
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
-          "description": "Lightweight status — the result of checking mempool then indexer.\n\nLookup order: scheduler (Pending) → indexer (Committed) → Unknown.\nSee `docs/gateway/system-design.md` \"Transaction Status Lookup Order\" for\ndegraded-mode behavior when a backend is unavailable.\n\nNew variants may be added in future phases.",
-          "oneOf": [
-            {
-              "description": "In the mempool, not yet in a committed block.",
-              "properties": {
-                "status": {
-                  "const": "pending",
-                  "type": "string"
-                }
-              },
-              "required": ["status"],
-              "type": "object"
-            },
-            {
-              "description": "Included in a committed block. SCP finality = done.\nNo `block_hash`: SCP instant finality means no forks/reorgs,\nso height alone is sufficient for confirmation.",
-              "properties": {
-                "height": {
-                  "$ref": "#/$defs/BlockHeight"
-                },
-                "status": {
-                  "const": "committed",
-                  "type": "string"
-                }
-              },
-              "required": ["status", "height"],
-              "type": "object"
-            },
-            {
-              "description": "Scheduler rejected the transaction.",
-              "properties": {
-                "reason": {
-                  "type": "string"
-                },
-                "status": {
-                  "const": "invalid",
-                  "type": "string"
-                }
-              },
-              "required": ["status", "reason"],
-              "type": "object"
-            },
-            {
-              "description": "Not found in mempool or indexer.",
-              "properties": {
-                "status": {
-                  "const": "unknown",
-                  "type": "string"
-                }
-              },
-              "required": ["status"],
-              "type": "object"
-            }
-          ],
-          "title": "TransactionStatus"
+          "$ref": "#/components/schemas/TransactionStatus"
         }
       },
       "summary": "Lightweight status check (mempool -> indexer -> unknown).",
@@ -341,35 +845,26 @@
       ]
     },
     {
+      "errors": [
+        {
+          "$ref": "#/components/errors/BackendUnavailable"
+        },
+        {
+          "$ref": "#/components/errors/BackendTimeout"
+        },
+        {
+          "$ref": "#/components/errors/Overloaded"
+        },
+        {
+          "$ref": "#/components/errors/NotImplemented"
+        }
+      ],
       "name": "groundhog_chainTip",
       "params": [],
       "result": {
         "name": "ChainTip",
         "schema": {
-          "$defs": {
-            "BlockHeight": {
-              "description": "BlockHeight is the height of a block, measured as the number of blocks since the genesis of the chain.\nThe first block of transactions is at height 0.\nIt is signed to prevent overflows in\ncalculations.",
-              "format": "int64",
-              "type": "integer"
-            },
-            "Hex0x_SHA256Hash": {
-              "pattern": "^0x[0-9a-f]*$",
-              "type": "string"
-            }
-          },
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
-          "description": "Current chain tip. Returned by chainTip.",
-          "properties": {
-            "blockHash": {
-              "$ref": "#/$defs/Hex0x_SHA256Hash"
-            },
-            "height": {
-              "$ref": "#/$defs/BlockHeight"
-            }
-          },
-          "required": ["height", "blockHash"],
-          "title": "ChainTip",
-          "type": "object"
+          "$ref": "#/components/schemas/ChainTip"
         }
       },
       "summary": "Current chain tip: height + block hash.",
@@ -380,82 +875,47 @@
       ]
     },
     {
+      "errors": [
+        {
+          "$ref": "#/components/errors/InvalidParams"
+        },
+        {
+          "$ref": "#/components/errors/BlockNotFound"
+        },
+        {
+          "$ref": "#/components/errors/BackendUnavailable"
+        },
+        {
+          "$ref": "#/components/errors/BackendTimeout"
+        },
+        {
+          "$ref": "#/components/errors/Overloaded"
+        },
+        {
+          "$ref": "#/components/errors/NotImplemented"
+        }
+      ],
       "name": "groundhog_getBlockByNumber",
       "params": [
         {
           "name": "height",
           "required": true,
           "schema": {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "description": "BlockHeight is the height of a block, measured as the number of blocks since the genesis of the chain.\nThe first block of transactions is at height 0.\nIt is signed to prevent overflows in\ncalculations.",
-            "format": "int64",
-            "title": "BlockHeight",
-            "type": "integer"
+            "$ref": "#/components/schemas/BlockHeight"
           }
         }
       ],
       "result": {
         "name": "Option",
         "schema": {
-          "$defs": {
-            "BlockHeight": {
-              "description": "BlockHeight is the height of a block, measured as the number of blocks since the genesis of the chain.\nThe first block of transactions is at height 0.\nIt is signed to prevent overflows in\ncalculations.",
-              "format": "int64",
-              "type": "integer"
-            },
-            "BlockInfo": {
-              "description": "Block data returned by getBlockByNumber.\n\nMaps the XDR `BlockHeader` to RPC-friendly serialization\n(camelCase fields, `0x`-prefixed hex). Add RPC-specific fields\nhere without modifying the wire type.\n\nThe `From<BlockHeader>` impl uses exhaustive destructuring so\nadding a field to `BlockHeader` causes a compile error here.",
-              "properties": {
-                "blockHeight": {
-                  "$ref": "#/$defs/BlockHeight"
-                },
-                "dbHash": {
-                  "$ref": "#/$defs/Hex0x_DbHash"
-                },
-                "eventsHash": {
-                  "$ref": "#/$defs/Hex0x_SHA256Hash"
-                },
-                "networkId": {
-                  "format": "uint64",
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                "prevBlockHash": {
-                  "$ref": "#/$defs/Hex0x_SHA256Hash"
-                },
-                "txsetHash": {
-                  "$ref": "#/$defs/Hex0x_SHA256Hash"
-                }
-              },
-              "required": [
-                "networkId",
-                "blockHeight",
-                "txsetHash",
-                "dbHash",
-                "eventsHash",
-                "prevBlockHash"
-              ],
-              "type": "object"
-            },
-            "Hex0x_DbHash": {
-              "pattern": "^0x[0-9a-f]*$",
-              "type": "string"
-            },
-            "Hex0x_SHA256Hash": {
-              "pattern": "^0x[0-9a-f]*$",
-              "type": "string"
-            }
-          },
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
           "anyOf": [
             {
-              "$ref": "#/$defs/BlockInfo"
+              "$ref": "#/components/schemas/BlockInfo"
             },
             {
               "type": "null"
             }
-          ],
-          "title": "Nullable_BlockInfo"
+          ]
         }
       },
       "summary": "Block data at a given height.",
@@ -466,15 +926,27 @@
       ]
     },
     {
+      "errors": [
+        {
+          "$ref": "#/components/errors/BackendUnavailable"
+        },
+        {
+          "$ref": "#/components/errors/BackendTimeout"
+        },
+        {
+          "$ref": "#/components/errors/Overloaded"
+        },
+        {
+          "$ref": "#/components/errors/NotImplemented"
+        }
+      ],
       "name": "groundhog_pendingTransactionCount",
       "params": [],
       "result": {
         "name": "u64",
         "schema": {
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
           "format": "uint64",
           "minimum": 0,
-          "title": "uint64",
           "type": "integer"
         }
       },
@@ -486,261 +958,40 @@
       ]
     },
     {
+      "errors": [
+        {
+          "$ref": "#/components/errors/InvalidParams"
+        },
+        {
+          "$ref": "#/components/errors/BackendUnavailable"
+        },
+        {
+          "$ref": "#/components/errors/BackendTimeout"
+        },
+        {
+          "$ref": "#/components/errors/Overloaded"
+        },
+        {
+          "$ref": "#/components/errors/NotImplemented"
+        }
+      ],
       "name": "groundhog_getEvents",
       "params": [
         {
           "name": "query",
           "required": true,
           "schema": {
-            "$defs": {
-              "BlockAnchor": {
-                "oneOf": [
-                  {
-                    "enum": ["AnchorAtBeginning", "AnchorAtEnd"],
-                    "type": "string"
-                  },
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "AnchorAtHeight": {
-                        "properties": {
-                          "height": {
-                            "$ref": "#/$defs/BlockHeight"
-                          }
-                        },
-                        "required": ["height"],
-                        "type": "object"
-                      }
-                    },
-                    "required": ["AnchorAtHeight"],
-                    "type": "object"
-                  }
-                ]
-              },
-              "BlockHeight": {
-                "description": "BlockHeight is the height of a block, measured as the number of blocks since the genesis of the chain.\nThe first block of transactions is at height 0.\nIt is signed to prevent overflows in\ncalculations.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "BytesM<4294967295>": {
-                "contentEncoding": "hex",
-                "contentMediaType": "application/binary",
-                "maxLength": 8589934590,
-                "pattern": "^[0-9a-fA-F]*$",
-                "type": "string"
-              },
-              "ContractAddress": {
-                "contentEncoding": "hex",
-                "contentMediaType": "application/binary",
-                "maxLength": 64,
-                "minLength": 64,
-                "type": "string"
-              },
-              "EventFilter": {
-                "description": "A single event-filter predicate: events must be emitted by one of\n`contract_addresses` AND match the topic constraints.  Required\nnon-empty contract_addresses — the indexer has no topic-indexed\ncolumn family and can't efficiently serve \"any contract\" scans.\n(When such an index is added, the gateway relaxes the non-empty\ncheck; the XDR stays the same.)",
-                "properties": {
-                  "contract_addresses": {
-                    "$ref": "#/$defs/VecM%3CContractAddress,%205%3E"
-                  },
-                  "topics": {
-                    "$ref": "#/$defs/EventTopicFilter"
-                  }
-                },
-                "required": ["contract_addresses", "topics"],
-                "type": "object"
-              },
-              "EventTopicFilter": {
-                "description": "Positional topic filter.  For each topic position (0, 1, 2):\n  - An empty list means \"match anything at this position.\"\n  - A non-empty list means \"match if the event's topic at this\n    position is in this list.\"  OR within a position, AND across\n    positions.\n\nPartial match: a filter that specifies only topic0 matches events\nwith more topics.  Extra topics on the event past the filter's\nspecified positions are ignored.  (This is the ethereum getLogs /\nstellar-rpc post-#358 semantics.)",
-                "properties": {
-                  "topic0": {
-                    "$ref": "#/$defs/VecM%3CTopic,%204294967295%3E"
-                  },
-                  "topic1": {
-                    "$ref": "#/$defs/VecM%3CTopic,%204294967295%3E"
-                  },
-                  "topic2": {
-                    "$ref": "#/$defs/VecM%3CTopic,%204294967295%3E"
-                  }
-                },
-                "required": ["topic0", "topic1", "topic2"],
-                "type": "object"
-              },
-              "IterationOrder": {
-                "description": "Direction to walk a paginated stream.",
-                "format": "int32",
-                "type": "integer"
-              },
-              "Topic": {
-                "contentEncoding": "hex",
-                "contentMediaType": "application/binary",
-                "maxLength": 64,
-                "minLength": 64,
-                "type": "string"
-              },
-              "VecM<ContractAddress, 5>": {
-                "items": {
-                  "$ref": "#/$defs/ContractAddress"
-                },
-                "maxItems": 5,
-                "type": "array"
-              },
-              "VecM<EventFilter, 5>": {
-                "items": {
-                  "$ref": "#/$defs/EventFilter"
-                },
-                "maxItems": 5,
-                "type": "array"
-              },
-              "VecM<Topic, 4294967295>": {
-                "items": {
-                  "$ref": "#/$defs/Topic"
-                },
-                "maxItems": 4294967295,
-                "type": "array"
-              }
-            },
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "description": "`get_events` request.  A candidate event matches the query iff it\nmatches at least one `EventFilter` in `filters` (OR across filters,\nAND within each filter).",
-            "properties": {
-              "anchor": {
-                "$ref": "#/$defs/BlockAnchor"
-              },
-              "cursor": {
-                "$ref": "#/$defs/BytesM%3C4294967295%3E",
-                "description": "Empty on the initial call.  Non-empty to continue where a\nprevious response left off; `order` and `anchor` in the request\nare ignored when a cursor is supplied — the cursor carries them."
-              },
-              "filters": {
-                "$ref": "#/$defs/VecM%3CEventFilter,%205%3E"
-              },
-              "limit": {
-                "description": "Clamped server-side to [1, 200]; 0 means server default (50).",
-                "format": "uint32",
-                "minimum": 0,
-                "type": "integer"
-              },
-              "order": {
-                "$ref": "#/$defs/IterationOrder"
-              }
-            },
-            "required": ["filters", "order", "anchor", "cursor", "limit"],
-            "title": "EventQuery",
-            "type": "object"
+            "$ref": "#/components/schemas/EventQuery"
           }
         }
       ],
       "result": {
         "name": "EventPage",
         "schema": {
-          "$defs": {
-            "BlockHeight": {
-              "description": "BlockHeight is the height of a block, measured as the number of blocks since the genesis of the chain.\nThe first block of transactions is at height 0.\nIt is signed to prevent overflows in\ncalculations.",
-              "format": "int64",
-              "type": "integer"
-            },
-            "BytesM<4294967295>": {
-              "contentEncoding": "hex",
-              "contentMediaType": "application/binary",
-              "maxLength": 8589934590,
-              "pattern": "^[0-9a-fA-F]*$",
-              "type": "string"
-            },
-            "EmittedEvent": {
-              "description": "A single emitted event, as stored by the hogd indexer.\n\nThe gateway parses hogd's `TxEmittedEvent.serialized_event` into\nseparate topics and data. The serialized format is:\n`topic0 (32B) || topic1 (32B) || ... || data (remaining bytes)`.\n`num_topics` (0–3) determines the split point. Max total 1024 bytes.\n\nSee `docs/gateway/system-design.md` \"Event Parsing\" for details.",
-              "properties": {
-                "contractAddress": {
-                  "$ref": "#/$defs/Hex0x_ContractAddress",
-                  "description": "Contract that emitted this event."
-                },
-                "data": {
-                  "$ref": "#/$defs/HexBytes",
-                  "description": "Opaque event data (up to 1KB, contract-defined encoding)."
-                },
-                "topics": {
-                  "description": "Up to 3 topics per event, each exactly 32 bytes\n(indexed, filterable in Phase 4).",
-                  "items": {
-                    "$ref": "#/$defs/Topic"
-                  },
-                  "type": "array"
-                }
-              },
-              "required": ["contractAddress", "topics", "data"],
-              "type": "object"
-            },
-            "Hex0x_ContractAddress": {
-              "pattern": "^0x[0-9a-f]*$",
-              "type": "string"
-            },
-            "Hex0x_SHA256Hash": {
-              "pattern": "^0x[0-9a-f]*$",
-              "type": "string"
-            },
-            "HexBytes": {
-              "pattern": "^0x[0-9a-f]*$",
-              "type": "string"
-            },
-            "IdentifiedEvent": {
-              "description": "Event with provenance — includes which tx emitted it.\nReturned by `getEvents`.",
-              "properties": {
-                "blockHeight": {
-                  "$ref": "#/$defs/BlockHeight",
-                  "description": "Block height at which the event was emitted."
-                },
-                "event": {
-                  "$ref": "#/$defs/EmittedEvent",
-                  "description": "The event itself."
-                },
-                "sequenceNumber": {
-                  "description": "Sequence number within the transaction's event log.",
-                  "format": "uint32",
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                "txHash": {
-                  "$ref": "#/$defs/TxHash",
-                  "description": "Transaction that emitted this event."
-                }
-              },
-              "required": ["txHash", "blockHeight", "sequenceNumber", "event"],
-              "type": "object"
-            },
-            "Topic": {
-              "pattern": "^0x[0-9a-f]{64}$",
-              "type": "string"
-            },
-            "TxHash": {
-              "$ref": "#/$defs/Hex0x_SHA256Hash",
-              "description": "Canonical transaction hash: `sha256(xdr_serialize(signed_tx.tx))`.\nCovers the inner Transaction body (not signatures), matching\nthe scheduler's lookup key and the indexer's primary key.\n\nSerializes as `\"0x...\"` hex string (64 hex chars)."
-            }
-          },
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
-          "description": "One page of events returned by `getEvents`.\n\nTo fetch the next page, send the same query back with `cursor`\nset to the value returned here.  An empty `cursor` means the\nstream is exhausted in the requested direction.",
-          "properties": {
-            "cursor": {
-              "$ref": "#/$defs/BytesM%3C4294967295%3E",
-              "description": "Empty when the stream has been exhausted in the requested\ndirection.  Non-empty: pass back in the next call's `cursor`\nargument."
-            },
-            "events": {
-              "description": "Matched events in the requested order.  May be empty even when\n`cursor` is non-empty: the filter was selective and the current\nscan window produced no matches; client should keep paginating.\nEmpty events + empty cursor = stream exhausted.",
-              "items": {
-                "$ref": "#/$defs/IdentifiedEvent"
-              },
-              "type": "array"
-            },
-            "latestBlock": {
-              "$ref": "#/$defs/BlockHeight",
-              "description": "Highest block height the indexer has processed at response time.\nCompare to last-seen heights to decide caught-up state."
-            },
-            "oldestBlock": {
-              "$ref": "#/$defs/BlockHeight",
-              "description": "Oldest block height the indexer still retains data for at\nresponse time.  Today always 0; meaningful once retention/\npruning lands."
-            }
-          },
-          "required": ["events", "cursor", "latestBlock", "oldestBlock"],
-          "title": "EventPage",
-          "type": "object"
+          "$ref": "#/components/schemas/EventPage"
         }
       },
-      "summary": "Paginated, filterable contract events.  See `EventQuery` / `EventPage` (re-exported from `groundhog_indexer`) for the Soroban-shaped filter / cursor / topic surface.",
+      "summary": "Paginated, filterable contract events. See `EventQuery` / `EventPage` for the Soroban-shaped filter / cursor / topic surface, with RPC-native `0x`-prefixed address and topic projections at the JSON boundary.",
       "tags": [
         {
           "name": "Core API"
@@ -748,179 +999,44 @@
       ]
     },
     {
+      "errors": [
+        {
+          "$ref": "#/components/errors/InvalidParams"
+        },
+        {
+          "$ref": "#/components/errors/BackendUnavailable"
+        },
+        {
+          "$ref": "#/components/errors/BackendTimeout"
+        },
+        {
+          "$ref": "#/components/errors/Overloaded"
+        },
+        {
+          "$ref": "#/components/errors/NotImplemented"
+        }
+      ],
       "name": "groundhog_getStorageAt",
       "params": [
         {
           "name": "address",
           "required": true,
           "schema": {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "pattern": "^0x[0-9a-f]*$",
-            "title": "Hex0x_ContractAddress",
-            "type": "string"
+            "$ref": "#/components/schemas/Hex0x_ContractAddress"
           }
         },
         {
           "name": "key",
           "required": true,
           "schema": {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "pattern": "^0x[0-9a-f]*$",
-            "title": "HexBytes",
-            "type": "string"
+            "$ref": "#/components/schemas/HexBytes"
           }
         }
       ],
       "result": {
         "name": "StorageItemRead",
         "schema": {
-          "$defs": {
-            "BlockHeight": {
-              "description": "BlockHeight is the height of a block, measured as the number of blocks since the genesis of the chain.\nThe first block of transactions is at height 0.\nIt is signed to prevent overflows in\ncalculations.",
-              "format": "int64",
-              "type": "integer"
-            },
-            "Hex0x_SHA256Hash": {
-              "pattern": "^0x[0-9a-f]*$",
-              "type": "string"
-            },
-            "HexBytes": {
-              "pattern": "^0x[0-9a-f]*$",
-              "type": "string"
-            },
-            "StorageItemInfo": {
-              "description": "Latest-committed value at a single storage location, presented as\na tagged union so machine consumers can switch on `kind` without\nrunning an XDR codec for the common cases.",
-              "oneOf": [
-                {
-                  "description": "Non-negative int128 (e.g., HOG balance).  Encoded as a\ndecimal string because i128 exceeds JSON-number precision.",
-                  "properties": {
-                    "kind": {
-                      "const": "nonnegativeInt",
-                      "type": "string"
-                    },
-                    "value": {
-                      "description": "Decimal-string-encoded non-negative int128.",
-                      "type": "string"
-                    }
-                  },
-                  "required": ["kind", "value"],
-                  "type": "object"
-                },
-                {
-                  "description": "Raw byte array stored at this key.",
-                  "properties": {
-                    "bytes": {
-                      "$ref": "#/$defs/HexBytes",
-                      "description": "The stored bytes."
-                    },
-                    "kind": {
-                      "const": "bytestring",
-                      "type": "string"
-                    }
-                  },
-                  "required": ["kind", "bytes"],
-                  "type": "object"
-                },
-                {
-                  "description": "Authorization data is registered at this address.  Presence\nindicator only — querying signer details requires a contract\ninvocation.",
-                  "properties": {
-                    "kind": {
-                      "const": "authData",
-                      "type": "string"
-                    }
-                  },
-                  "required": ["kind"],
-                  "type": "object"
-                },
-                {
-                  "description": "A retrocausal queue is registered at this address.  Presence\nindicator only — RCQ data is not held in a single storage\nitem, and per-item structure here would be misleading.\nWallets that need to interpret RCQ contents invoke a\ncontract that exposes them.",
-                  "properties": {
-                    "kind": {
-                      "const": "retrocausalQueue",
-                      "type": "string"
-                    }
-                  },
-                  "required": ["kind"],
-                  "type": "object"
-                },
-                {
-                  "description": "Replay-cache entry exists at this key.  No payload — the\npresence is the signal.",
-                  "properties": {
-                    "kind": {
-                      "const": "replayCacheEntry",
-                      "type": "string"
-                    }
-                  },
-                  "required": ["kind"],
-                  "type": "object"
-                },
-                {
-                  "description": "Deployed contract metadata.",
-                  "properties": {
-                    "contract_type": {
-                      "description": "Contract type tag (raw protocol value).",
-                      "format": "int32",
-                      "type": "integer"
-                    },
-                    "hash": {
-                      "$ref": "#/$defs/Hex0x_SHA256Hash",
-                      "description": "Hash of the deployed contract bytecode."
-                    },
-                    "kind": {
-                      "const": "deployedContract",
-                      "type": "string"
-                    },
-                    "size": {
-                      "description": "Bytecode size in bytes.",
-                      "format": "uint32",
-                      "minimum": 0,
-                      "type": "integer"
-                    }
-                  },
-                  "required": ["kind", "hash", "size", "contract_type"],
-                  "type": "object"
-                },
-                {
-                  "description": "Storage variant unknown to this client.  Indicates the\nprotocol shipped a new variant that this build was not\nregenerated against — clients should treat as\n\"uninterpretable\" and fall back to alternative reads.",
-                  "properties": {
-                    "kind": {
-                      "const": "unknown",
-                      "type": "string"
-                    },
-                    "type_id": {
-                      "description": "Raw protocol type id of the unrecognized variant.",
-                      "format": "int32",
-                      "type": "integer"
-                    }
-                  },
-                  "required": ["kind", "type_id"],
-                  "type": "object"
-                }
-              ]
-            }
-          },
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
-          "description": "Outcome of reading one storage location at the latest committed\nsnapshot.  `block_height` is always set to the snapshot the read\nwas performed against, even when no item exists at the requested\nkey — that lets callers compare against `chainTip` to gauge\nfreshness.",
-          "properties": {
-            "blockHeight": {
-              "$ref": "#/$defs/BlockHeight",
-              "description": "Committed block height the snapshot was read at."
-            },
-            "item": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/StorageItemInfo"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "The item stored at the requested key, or `null` if the key\nhas no committed value at this snapshot."
-            }
-          },
-          "required": ["blockHeight"],
-          "title": "StorageItemRead",
-          "type": "object"
+          "$ref": "#/components/schemas/StorageItemRead"
         }
       },
       "summary": "Read the latest committed storage item at an address/key pair. `block_height` in the returned `StorageItemRead` always reflects the snapshot the read was performed against — even when no item is present at the key — so wallets can compare against `chainTip` to gauge freshness.",
@@ -931,525 +1047,49 @@
       ]
     },
     {
-      "name": "groundhog_dev_reset",
+      "errors": [],
+      "name": "groundhog_version",
       "params": [],
       "result": {
-        "name": "unit",
+        "name": "VersionInfo",
         "schema": {
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
-          "title": "null",
-          "type": "null"
+          "$ref": "#/components/schemas/VersionInfo"
         }
       },
-      "summary": "Reset the local node to its initial state.",
+      "summary": "Version dimensions for this JSON-RPC server.",
       "tags": [
         {
-          "name": "Dev API"
+          "name": "Core API"
         }
       ]
     },
     {
+      "errors": [
+        {
+          "$ref": "#/components/errors/BackendUnavailable"
+        },
+        {
+          "$ref": "#/components/errors/BackendTimeout"
+        },
+        {
+          "$ref": "#/components/errors/Overloaded"
+        },
+        {
+          "$ref": "#/components/errors/NotImplemented"
+        }
+      ],
       "name": "groundhog_dev_getAccounts",
       "params": [],
       "result": {
         "name": "Vec",
         "schema": {
-          "$defs": {
-            "DevAccount": {
-              "description": "A pre-funded dev account, returned by `groundhog_dev_getAccounts`.\n\nOnly emitted by local-node backends. The `private_key` and\n`initial_storage_tokens` fields are local-orchestration metadata with no\ntestnet/mainnet meaning: production backends do not retain private keys\nand have no concept of a \"bootstrap balance\".",
-              "properties": {
-                "address": {
-                  "$ref": "#/$defs/Hex0x_ContractAddress",
-                  "description": "Local dev account/wallet contract address advertised by the backend."
-                },
-                "initialStorageTokens": {
-                  "description": "Storage-token balance at bootstrap. This is a snapshot taken when the\nlocal node started; it is not refreshed as the wallet spends tokens.\nUse a live balance read for current funding.",
-                  "format": "uint64",
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                "privateKey": {
-                  "$ref": "#/$defs/HexBytes",
-                  "description": "Ed25519 secret key bytes. Included because these are\nwell-known dev-only keys."
-                },
-                "publicKey": {
-                  "$ref": "#/$defs/HexBytes",
-                  "description": "Ed25519 public key bytes."
-                }
-              },
-              "required": [
-                "address",
-                "publicKey",
-                "privateKey",
-                "initialStorageTokens"
-              ],
-              "type": "object"
-            },
-            "Hex0x_ContractAddress": {
-              "pattern": "^0x[0-9a-f]*$",
-              "type": "string"
-            },
-            "HexBytes": {
-              "pattern": "^0x[0-9a-f]*$",
-              "type": "string"
-            }
-          },
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
           "items": {
-            "$ref": "#/$defs/DevAccount"
+            "$ref": "#/components/schemas/DevAccount"
           },
-          "title": "Array_of_DevAccount",
           "type": "array"
         }
       },
       "summary": "List pre-funded dev accounts with addresses and keys.",
-      "tags": [
-        {
-          "name": "Dev API"
-        }
-      ]
-    },
-    {
-      "name": "groundhog_dev_getTransactionDetail",
-      "params": [
-        {
-          "name": "tx_hash",
-          "required": true,
-          "schema": {
-            "$defs": {
-              "Hex0x_SHA256Hash": {
-                "pattern": "^0x[0-9a-f]*$",
-                "type": "string"
-              }
-            },
-            "$ref": "#/$defs/Hex0x_SHA256Hash",
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "description": "Canonical transaction hash: `sha256(xdr_serialize(signed_tx.tx))`.\nCovers the inner Transaction body (not signatures), matching\nthe scheduler's lookup key and the indexer's primary key.\n\nSerializes as `\"0x...\"` hex string (64 hex chars).",
-            "title": "TxHash"
-          }
-        }
-      ],
-      "result": {
-        "name": "Option",
-        "schema": {
-          "$defs": {
-            "BlockHeight": {
-              "description": "BlockHeight is the height of a block, measured as the number of blocks since the genesis of the chain.\nThe first block of transactions is at height 0.\nIt is signed to prevent overflows in\ncalculations.",
-              "format": "int64",
-              "type": "integer"
-            },
-            "EmittedEvent": {
-              "description": "A single emitted event, as stored by the hogd indexer.\n\nThe gateway parses hogd's `TxEmittedEvent.serialized_event` into\nseparate topics and data. The serialized format is:\n`topic0 (32B) || topic1 (32B) || ... || data (remaining bytes)`.\n`num_topics` (0–3) determines the split point. Max total 1024 bytes.\n\nSee `docs/gateway/system-design.md` \"Event Parsing\" for details.",
-              "properties": {
-                "contractAddress": {
-                  "$ref": "#/$defs/Hex0x_ContractAddress",
-                  "description": "Contract that emitted this event."
-                },
-                "data": {
-                  "$ref": "#/$defs/HexBytes",
-                  "description": "Opaque event data (up to 1KB, contract-defined encoding)."
-                },
-                "topics": {
-                  "description": "Up to 3 topics per event, each exactly 32 bytes\n(indexed, filterable in Phase 4).",
-                  "items": {
-                    "$ref": "#/$defs/Topic"
-                  },
-                  "type": "array"
-                }
-              },
-              "required": ["contractAddress", "topics", "data"],
-              "type": "object"
-            },
-            "ExecStatus": {
-              "description": "Execution result. Maps to hogd's `ExecResult` variants.\nRicher than EVM's binary status (0 = fail, 1 = success).\n\nNew variants may be added as hogd's `ExecResult` evolves.\nClients should handle unknown variants gracefully.",
-              "oneOf": [
-                {
-                  "description": "Transaction executed successfully.",
-                  "properties": {
-                    "result": {
-                      "const": "ok",
-                      "type": "string"
-                    }
-                  },
-                  "required": ["result"],
-                  "type": "object"
-                },
-                {
-                  "description": "Root call frame reverted (contract called abort/revert).",
-                  "properties": {
-                    "message": {
-                      "description": "Abort buffer from the contract, if any.",
-                      "type": ["string", "null"]
-                    },
-                    "result": {
-                      "const": "reverted",
-                      "type": "string"
-                    }
-                  },
-                  "required": ["result"],
-                  "type": "object"
-                },
-                {
-                  "description": "Deterministic execution error (out of gas, stack overflow, etc.).",
-                  "properties": {
-                    "kind": {
-                      "description": "Error kind from the execution engine.",
-                      "type": "string"
-                    },
-                    "result": {
-                      "const": "deterministicError",
-                      "type": "string"
-                    }
-                  },
-                  "required": ["result", "kind"],
-                  "type": "object"
-                },
-                {
-                  "description": "Commit failed due to a race or other proposal-time storage conflict.",
-                  "properties": {
-                    "result": {
-                      "const": "nonDeterministicError",
-                      "type": "string"
-                    }
-                  },
-                  "required": ["result"],
-                  "type": "object"
-                },
-                {
-                  "description": "Gas sponsorship failed.",
-                  "properties": {
-                    "result": {
-                      "const": "failedGasSponsorship",
-                      "type": "string"
-                    }
-                  },
-                  "required": ["result"],
-                  "type": "object"
-                },
-                {
-                  "description": "Unrecognized execution result from the indexer.\nReturned when the gateway encounters an `ExecResult` variant\nit doesn't know about. Check for gateway updates.",
-                  "properties": {
-                    "result": {
-                      "const": "other",
-                      "type": "string"
-                    }
-                  },
-                  "required": ["result"],
-                  "type": "object"
-                }
-              ]
-            },
-            "FrameOutputInfo": {
-              "description": "Frame completion status with raw buffers preserved as hex.",
-              "oneOf": [
-                {
-                  "properties": {
-                    "buffer": {
-                      "$ref": "#/$defs/HexBytes"
-                    },
-                    "result": {
-                      "const": "return",
-                      "type": "string"
-                    }
-                  },
-                  "required": ["result", "buffer"],
-                  "type": "object"
-                },
-                {
-                  "properties": {
-                    "buffer": {
-                      "$ref": "#/$defs/HexBytes"
-                    },
-                    "result": {
-                      "const": "abort",
-                      "type": "string"
-                    }
-                  },
-                  "required": ["result", "buffer"],
-                  "type": "object"
-                },
-                {
-                  "properties": {
-                    "result": {
-                      "const": "fault",
-                      "type": "string"
-                    }
-                  },
-                  "required": ["result"],
-                  "type": "object"
-                }
-              ]
-            },
-            "Hex0x_ContractAddress": {
-              "pattern": "^0x[0-9a-f]*$",
-              "type": "string"
-            },
-            "Hex0x_SHA256Hash": {
-              "pattern": "^0x[0-9a-f]*$",
-              "type": "string"
-            },
-            "HexBytes": {
-              "pattern": "^0x[0-9a-f]*$",
-              "type": "string"
-            },
-            "InvocationInfo": {
-              "description": "RPC-facing invocation summary with hex-friendly byte fields.",
-              "properties": {
-                "address": {
-                  "$ref": "#/$defs/Hex0x_ContractAddress"
-                },
-                "calldata": {
-                  "$ref": "#/$defs/HexBytes"
-                },
-                "entrypoint": {
-                  "$ref": "#/$defs/HexBytes"
-                },
-                "gasLimit": {
-                  "format": "uint64",
-                  "minimum": 0,
-                  "type": ["integer", "null"]
-                }
-              },
-              "required": ["address", "entrypoint", "calldata"],
-              "type": "object"
-            },
-            "StorageDeltaInfo": {
-              "description": "Readable storage delta plus raw encoded value for machine inspection.",
-              "properties": {
-                "address": {
-                  "$ref": "#/$defs/Hex0x_ContractAddress",
-                  "description": "Contract address whose storage was modified."
-                },
-                "deltaXdr": {
-                  "$ref": "#/$defs/HexBytes",
-                  "description": "XDR-encoded storage delta body."
-                },
-                "flags": {
-                  "description": "Raw delta flags bitset.",
-                  "format": "int32",
-                  "type": "integer"
-                },
-                "key": {
-                  "$ref": "#/$defs/HexBytes",
-                  "description": "XDR-encoded storage key bytes."
-                },
-                "kind": {
-                  "description": "Stable delta kind identifier.",
-                  "type": "string"
-                },
-                "summary": {
-                  "description": "Human-readable summary used by CLI and terminal output.",
-                  "type": "string"
-                }
-              },
-              "required": [
-                "address",
-                "key",
-                "kind",
-                "summary",
-                "flags",
-                "deltaXdr"
-              ],
-              "type": "object"
-            },
-            "SyscallInfo": {
-              "description": "Serializable syscall entry retained inside a frame trace.",
-              "properties": {
-                "bodyXdr": {
-                  "$ref": "#/$defs/HexBytes",
-                  "description": "XDR-encoded syscall trace body, including typed inputs/outputs."
-                },
-                "childTrace": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/$defs/TraceInfo"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "Nested child trace for `invoke` syscalls, when available."
-                },
-                "gasRemainingAtEnd": {
-                  "format": "uint64",
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                "gasRemainingAtStart": {
-                  "format": "uint64",
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                "name": {
-                  "type": "string"
-                },
-                "number": {
-                  "format": "uint64",
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                "status": {
-                  "$ref": "#/$defs/SyscallStatusInfo"
-                }
-              },
-              "required": [
-                "name",
-                "number",
-                "gasRemainingAtStart",
-                "gasRemainingAtEnd",
-                "status",
-                "bodyXdr"
-              ],
-              "type": "object"
-            },
-            "SyscallStatusInfo": {
-              "description": "Compact syscall completion status.",
-              "properties": {
-                "code": {
-                  "format": "int32",
-                  "type": "integer"
-                },
-                "label": {
-                  "type": "string"
-                }
-              },
-              "required": ["code", "label"],
-              "type": "object"
-            },
-            "Topic": {
-              "pattern": "^0x[0-9a-f]{64}$",
-              "type": "string"
-            },
-            "TraceInfo": {
-              "description": "Serializable frame trace for local-node debugging.",
-              "properties": {
-                "invocation": {
-                  "$ref": "#/$defs/InvocationInfo",
-                  "description": "Invocation inputs for this frame."
-                },
-                "status": {
-                  "$ref": "#/$defs/FrameOutputInfo",
-                  "description": "How the frame terminated."
-                },
-                "storageWrites": {
-                  "description": "Storage writes accumulated by this frame.",
-                  "items": {
-                    "$ref": "#/$defs/StorageDeltaInfo"
-                  },
-                  "type": "array"
-                },
-                "systemCalls": {
-                  "description": "Ordered system calls executed by this frame.",
-                  "items": {
-                    "$ref": "#/$defs/SyscallInfo"
-                  },
-                  "type": "array"
-                }
-              },
-              "required": [
-                "invocation",
-                "systemCalls",
-                "storageWrites",
-                "status"
-              ],
-              "type": "object"
-            },
-            "TransactionDetail": {
-              "description": "Dev-only execution detail for a committed transaction.",
-              "properties": {
-                "gasConsumed": {
-                  "description": "Gas units consumed by the transaction.",
-                  "format": "uint64",
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                "gasLimit": {
-                  "description": "Configured gas limit from the transaction, if one was set.",
-                  "format": "uint64",
-                  "minimum": 0,
-                  "type": ["integer", "null"]
-                },
-                "receipt": {
-                  "$ref": "#/$defs/TransactionReceipt",
-                  "description": "Full receipt retained within the heavy-data retention window."
-                },
-                "storageDeltas": {
-                  "description": "Top-level storage writes applied by the committed transaction.",
-                  "items": {
-                    "$ref": "#/$defs/StorageDeltaInfo"
-                  },
-                  "type": "array"
-                },
-                "trace": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/$defs/TraceInfo"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "Full root trace, including child invocations when present."
-                }
-              },
-              "required": ["receipt", "gasConsumed", "storageDeltas"],
-              "type": "object"
-            },
-            "TransactionReceipt": {
-              "description": "Full transaction receipt. Returned by `getTransactionReceipt`.\n\nDesign notes:\n- `status` maps from `TxEventLog.exec_result` in the indexer.\n  Committed blocks include both successful and deterministically-failed\n  txs (reverts, OOG). If a receipt exists, the tx was committed.\n- No `blockHash`: SCP instant finality, height is sufficient.\n- No `gasUsed`/`gasPrice`, `transactionIndex`, `logsBloom`.\n\n`storage_delta` (net HOG locked/unlocked) is deferred — hogd's\n`TxInfo` doesn't include it. Will be added when indexer support lands.",
-              "properties": {
-                "events": {
-                  "description": "Events emitted during execution.",
-                  "items": {
-                    "$ref": "#/$defs/EmittedEvent"
-                  },
-                  "type": "array"
-                },
-                "height": {
-                  "$ref": "#/$defs/BlockHeight",
-                  "description": "Block height at which this transaction was committed."
-                },
-                "returnData": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/$defs/HexBytes"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "Raw return data from contract execution.\n\nPopulated by local-node backends from `InvocationFrameOutput::Return`.\nMay be `None` for production receipts if the indexer does not\nstore return data."
-                },
-                "status": {
-                  "$ref": "#/$defs/ExecStatus",
-                  "description": "Execution result."
-                },
-                "txHash": {
-                  "$ref": "#/$defs/TxHash",
-                  "description": "Canonical transaction hash."
-                }
-              },
-              "required": ["txHash", "height", "status", "events"],
-              "type": "object"
-            },
-            "TxHash": {
-              "$ref": "#/$defs/Hex0x_SHA256Hash",
-              "description": "Canonical transaction hash: `sha256(xdr_serialize(signed_tx.tx))`.\nCovers the inner Transaction body (not signatures), matching\nthe scheduler's lookup key and the indexer's primary key.\n\nSerializes as `\"0x...\"` hex string (64 hex chars)."
-            }
-          },
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
-          "anyOf": [
-            {
-              "$ref": "#/$defs/TransactionDetail"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "title": "Nullable_TransactionDetail"
-        }
-      },
-      "summary": "Full retained execution detail for a committed transaction.",
       "tags": [
         {
           "name": "Dev API"

@@ -22,7 +22,14 @@ export interface TransactionReceipt {
   height: bigint;
   execResult: ExecResult;
   events: EmittedEvent[];
+  /** Bytes returned by the contract on success, or `null` for any
+   *  other outcome and for older receipts that pre-date return-data
+   *  recording. */
   returnData: Uint8Array | null;
+  /** Bytes passed to `abort` / `revert` by a deterministically-
+   *  reverted contract, or `null` for any other outcome and for
+   *  older receipts that pre-date revert-data recording. */
+  abortData: Uint8Array | null;
 }
 
 export interface EmittedEvent {
