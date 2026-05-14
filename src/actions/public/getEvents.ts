@@ -1,7 +1,7 @@
 import type { Transport } from "../../transport/types.js";
 import type { EventQuery, EventPage, EmittedEvent } from "../../types/rpc.js";
 import {
-  toHex,
+  toHex0x,
   fromHex,
   fromHex0x,
   hashFromHex,
@@ -11,27 +11,25 @@ import {
 function serializeQuery(query: EventQuery): unknown {
   const anchor =
     query.anchor === "beginning"
-      ? "AnchorAtBeginning"
+      ? { kind: "atBeginning" }
       : query.anchor === "end"
-        ? "AnchorAtEnd"
+        ? { kind: "atEnd" }
         : query.anchor
-          ? { AnchorAtHeight: { height: Number(query.anchor.height) } }
-          : "AnchorAtBeginning";
-
-  const order = query.order === "descending" ? 1 : 0;
+          ? { kind: "atHeight", height: Number(query.anchor.height) }
+          : { kind: "atBeginning" };
 
   return {
     filters: query.filters.map((f) => ({
-      contract_addresses: f.contractAddresses.map((a) => toHex(a)),
+      contractAddresses: f.contractAddresses.map((a) => toHex0x(a)),
       topics: {
-        topic0: (f.topics?.topic0 ?? []).map((t) => toHex(t)),
-        topic1: (f.topics?.topic1 ?? []).map((t) => toHex(t)),
-        topic2: (f.topics?.topic2 ?? []).map((t) => toHex(t)),
+        topic0: (f.topics?.topic0 ?? []).map((t) => toHex0x(t)),
+        topic1: (f.topics?.topic1 ?? []).map((t) => toHex0x(t)),
+        topic2: (f.topics?.topic2 ?? []).map((t) => toHex0x(t)),
       },
     })),
-    order,
+    order: query.order ?? "ascending",
     anchor,
-    cursor: query.cursor ? toHex(query.cursor) : "",
+    cursor: query.cursor ? toHex0x(query.cursor) : "0x",
     limit: query.limit ?? 50,
   };
 }

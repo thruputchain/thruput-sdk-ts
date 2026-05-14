@@ -150,7 +150,7 @@ describe("getEvents", () => {
     expect(page.latestBlock).toBe(1n);
   });
 
-  it("serializes query with bare hex (no 0x prefix) for XDR-derived fields", async () => {
+  it("serializes query in the shape the gateway's EventQuery schema expects", async () => {
     const calls: { method: string; params?: unknown[] }[] = [];
     const spyTransport = {
       async request<T>(method: string, params?: unknown[]): Promise<T> {
@@ -182,22 +182,21 @@ describe("getEvents", () => {
     expect(calls).toHaveLength(1);
     const query = (calls[0].params as any[])[0];
 
-    // Contract addresses: bare hex, no 0x
-    expect(query.filters[0].contract_addresses[0]).toBe("ab".repeat(32));
-    expect(query.filters[0].contract_addresses[0]).not.toContain("0x");
+    // Addresses: Hex0x_ContractAddress (0x-prefixed lowercase hex)
+    expect(query.filters[0].contractAddresses[0]).toBe("0x" + "ab".repeat(32));
 
-    // Topics: bare hex, no 0x
-    expect(query.filters[0].topics.topic0[0]).toBe("cd".repeat(32));
-    expect(query.filters[0].topics.topic0[0]).not.toContain("0x");
+    // Topics: Hex0x (0x-prefixed lowercase hex)
+    expect(query.filters[0].topics.topic0[0]).toBe("0x" + "cd".repeat(32));
 
-    // Cursor: bare empty string
-    expect(query.cursor).toBe("");
+    // Cursor: PaginationCursor pattern `^0x[0-9a-f]*$`; the empty
+    // case is the bare prefix.
+    expect(query.cursor).toBe("0x");
 
-    // Order: 1 for descending
-    expect(query.order).toBe(1);
+    // Order: string enum
+    expect(query.order).toBe("descending");
 
-    // Anchor: AnchorAtHeight
-    expect(query.anchor).toEqual({ AnchorAtHeight: { height: 42 } });
+    // Anchor: object-tagged BlockAnchor with `kind` discriminator
+    expect(query.anchor).toEqual({ kind: "atHeight", height: 42 });
 
     // Limit
     expect(query.limit).toBe(10);
