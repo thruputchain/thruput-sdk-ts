@@ -152,16 +152,21 @@ describe("contract tests against specs/openrpc.json", () => {
     assertCapturedParamsMatchSpec("groundhog_getStorageAt", calls[0]!.params);
   });
 
-  it("groundhog_getEvents — sends an EventQuery (regression: PR #14)", async () => {
+  it("groundhog_getEvents — sends an EventQuery and accepts a spec-shaped response", async () => {
+    // Response stubs match the EventPage schema: cursor is the
+    // `^0x[0-9a-f]*$` PaginationCursor (the bare `0x` is the server
+    // sentinel for "no more pages"), and event fields carry `0x`
+    // prefixes per Hex0x_ContractAddress / Hex0x.  Using `""` here
+    // hid a response-side parser bug — see getEvents.ts cursor parse.
     const { transport, calls } = spyTransport({
       events: [],
-      cursor: "",
+      cursor: "0x",
       latestBlock: 0,
       oldestBlock: 0,
     });
     const addr = contractAddress(new Uint8Array(32).fill(0xab));
     const topic = new Uint8Array(32).fill(0xcd);
-    await getEvents(transport, {
+    const page = await getEvents(transport, {
       filters: [{ contractAddresses: [addr], topics: { topic0: [topic] } }],
       order: "descending",
       anchor: { height: 42n },
@@ -169,5 +174,8 @@ describe("contract tests against specs/openrpc.json", () => {
     });
     expect(calls).toHaveLength(1);
     assertCapturedParamsMatchSpec("groundhog_getEvents", calls[0]!.params);
+    // Empty-cursor sentinel should parse to an empty Uint8Array.
+    expect(page.cursor).toBeInstanceOf(Uint8Array);
+    expect(page.cursor.length).toBe(0);
   });
 });

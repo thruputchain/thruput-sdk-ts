@@ -1,12 +1,6 @@
 import type { Transport } from "../../transport/types.js";
 import type { EventQuery, EventPage, EmittedEvent } from "../../types/rpc.js";
-import {
-  toHex0x,
-  fromHex,
-  fromHex0x,
-  hashFromHex,
-  addressFromHex,
-} from "../hex.js";
+import { toHex0x, fromHex0x, hashFromHex, addressFromHex } from "../hex.js";
 
 function serializeQuery(query: EventQuery): unknown {
   const anchor =
@@ -56,7 +50,7 @@ export async function getEvents(
       sequenceNumber: Number(ie.sequenceNumber),
       event: parseEvent(ie.event),
     })),
-    cursor: raw.cursor ? fromHex(raw.cursor) : new Uint8Array(0),
+    cursor: raw.cursor ? fromHex0x(raw.cursor) : new Uint8Array(0),
     latestBlock: BigInt(raw.latestBlock),
     oldestBlock: BigInt(raw.oldestBlock),
   };
