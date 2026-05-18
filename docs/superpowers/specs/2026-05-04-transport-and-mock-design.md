@@ -129,12 +129,22 @@ All hex conversion happens in the actions layer, not the transport:
 
 ## OpenRPC Spec
 
-Checked in at `specs/openrpc.json`. Updated manually when the RPC version changes. The spec is the source of truth for method names, parameter shapes, and response schemas.
+Checked in at `specs/openrpc.json`. The spec is the source of truth for method names, parameter shapes, and response schemas; the hand-written action serializers (`src/actions/**`) must match it on the wire.
+
+Refresh workflow when the gateway's RPC types change:
+
+1. Run `scripts/regen-openrpc.sh`. This `cargo install`s the latest `groundhog-open-rpc-spec` binary and rewrites `specs/openrpc.json` from the live Rust schemas.
+2. Run `npm test`. The contract test (`src/actions/contract.test.ts`) validates each action's serialized `params` against its declared schema in the new spec — failures point at exactly which method's serializer fell behind.
+3. Update the offending serializer(s) until the contract test passes.
+4. Commit the new `specs/openrpc.json` and the matching TS changes together.
+
+The contract test is what closes the loop: without it, a stale serializer ships green CI and breaks consumers (see #14).
 
 ## Testing Strategy
 
 - **MockTransport unit tests**: verify each mock method returns correct shapes, state transitions work (send tx → get receipt), dev_reset clears state
 - **Action tests**: use MockTransport, verify typed inputs produce correct RPC calls and typed outputs parse correctly
+- **Contract tests** (`src/actions/contract.test.ts`): pin each action's serialized JSON-RPC `params` against the schemas in `specs/openrpc.json` (ajv). Catches spec→serializer drift.
 - **HttpTransport**: tested against a real local node (integration test, not part of CI initially)
 - **End-to-end**: build tx with generated bindings → sign → send via mock → get receipt — proves the full pipeline
 
