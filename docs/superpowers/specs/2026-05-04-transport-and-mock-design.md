@@ -144,7 +144,7 @@ The contract test is what closes the loop: without it, a stale serializer ships 
 
 - **MockTransport unit tests**: verify each mock method returns correct shapes, state transitions work (send tx → get receipt), dev_reset clears state
 - **Action tests**: use MockTransport, verify typed inputs produce correct RPC calls and typed outputs parse correctly
-- **Contract tests** (`src/actions/contract.test.ts`): pin each action's serialized JSON-RPC `params` against the schemas in `specs/openrpc.json` (ajv). Catches spec→serializer drift.
+- **Contract tests** (`src/actions/contract.test.ts`): pin each action's serialized JSON-RPC `params` against the schemas in `specs/openrpc.json` (ajv). After a `specs/openrpc.json` refresh, this is what flags any TS action whose request shape no longer matches — by method name and by which field is wrong.
 - **HttpTransport**: tested against a real local node (integration test, not part of CI initially)
 - **End-to-end**: build tx with generated bindings → sign → send via mock → get receipt — proves the full pipeline
 

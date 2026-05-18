@@ -41,7 +41,7 @@ const receipt = await client.sendTransaction({
 - `src/transport/` — `HttpTransport` (JSON-RPC over HTTP) and `MockTransport` for tests.
 - `src/signers/` — `Signer` interface and `PrivateKeySigner` (ed25519 via `@noble/ed25519`).
 - `src/types/rpc.ts` — typed RPC request/response shapes.
-- `specs/openrpc.json` — pinned Groundhog OpenRPC spec; `scripts/regen-openrpc.sh` refreshes it. `src/actions/contract.test.ts` pins SDK serialization to this snapshot, so a regen surfaces drift on the next `npm test`.
+- `specs/openrpc.json` — pinned Groundhog OpenRPC spec; `scripts/regen-openrpc.sh` refreshes it. After a regen, `npm test` (specifically `src/actions/contract.test.ts`) names any TS action whose serialized request no longer matches the new spec.
 - `docs/` — supplementary docs.
 
 ## Subpath exports
