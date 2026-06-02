@@ -11,16 +11,11 @@ npm install @groundhogchain/client
 ## Usage
 
 ```ts
-import {
-  createGroundhogClient,
-  HttpTransport,
-  PrivateKeySigner,
-} from "@groundhogchain/client";
+import { createGroundhogClient, HttpTransport } from "@groundhogchain/client";
 
-const client = createGroundhogClient({
-  transport: new HttpTransport("https://rpc.example.com"),
-  signer: new PrivateKeySigner(privateKeyBytes),
-});
+const client = createGroundhogClient(
+  new HttpTransport("http://127.0.0.1:8545"),
+);
 
 const tip = await client.getChainTip();
 const receipt = await client.sendTransaction({
