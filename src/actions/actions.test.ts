@@ -20,6 +20,8 @@ import { getTransactionReceipt } from "./public/getTransactionReceipt.js";
 import { getTransactionStatus } from "./public/getTransactionStatus.js";
 import { getEvents } from "./public/getEvents.js";
 import { getStorageAt } from "./public/getStorageAt.js";
+import { getVersion } from "./public/getVersion.js";
+import { view } from "./public/view.js";
 import { devReset, devGetAccounts } from "./dev/index.js";
 import type { Transport } from "../transport/types.js";
 
@@ -79,6 +81,57 @@ describe("getChainTip", () => {
     await sendTransaction(transport, signedTx);
     const tip = await getChainTip(transport);
     expect(tip.height).toBe(1n);
+  });
+});
+
+describe("getVersion", () => {
+  it("returns version info from mock", async () => {
+    const transport = new MockTransport();
+    const version = await getVersion(transport);
+    expect(version).toEqual({
+      wireFormat: "2.0.0",
+      implementation: "mock",
+      commitHash: null,
+    });
+  });
+});
+
+describe("view", () => {
+  it("serializes request fields and parses return output", async () => {
+    const calls: { method: string; params?: unknown[] }[] = [];
+    const transport: Transport = {
+      async request<T>(method: string, params?: unknown[]): Promise<T> {
+        calls.push({ method, params });
+        return {
+          output: { result: "return", returnData: "0x0102" },
+          events: [],
+          height: "7",
+        } as T;
+      },
+    };
+
+    const response = await view(transport, {
+      contract: contractAddress(new Uint8Array(32).fill(0xab)),
+      entrypoint: contractEntrypointID(new Uint8Array(8).fill(0xcd)),
+      calldata: calldata(new Uint8Array([0x01, 0x02, 0x03])),
+      caller: contractAddress(new Uint8Array(32).fill(0xef)),
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].method).toBe("groundhog_view");
+    expect(calls[0].params).toEqual([
+      {
+        contract: "0x" + "ab".repeat(32),
+        entrypoint: "0x" + "cd".repeat(8),
+        calldata: "0x010203",
+        caller: "0x" + "ef".repeat(32),
+      },
+    ]);
+    expect(response.output).toEqual({
+      result: "return",
+      returnData: new Uint8Array([0x01, 0x02]),
+    });
+    expect(response.height).toBe(7n);
   });
 });
 

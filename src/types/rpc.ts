@@ -1,6 +1,8 @@
 import type {
   SHA256Hash,
   ContractAddress,
+  ContractEntrypointID,
+  Calldata,
   ExecResult,
 } from "@groundhogchain/protocol";
 
@@ -9,6 +11,30 @@ export type { ExecResult } from "@groundhogchain/protocol";
 export interface ChainTip {
   height: bigint;
   blockHash: SHA256Hash;
+}
+
+export interface VersionInfo {
+  wireFormat: string;
+  implementation: string;
+  commitHash: string | null;
+}
+
+export interface ViewRequest {
+  contract: ContractAddress;
+  entrypoint: ContractEntrypointID;
+  calldata: Calldata;
+  caller?: ContractAddress;
+}
+
+export type ViewOutput =
+  | { result: "return"; returnData: Uint8Array }
+  | { result: "abort"; abortData: Uint8Array }
+  | { result: "fault" };
+
+export interface ViewResponse {
+  output: ViewOutput;
+  events: EmittedEvent[];
+  height: bigint;
 }
 
 export type TransactionStatus =

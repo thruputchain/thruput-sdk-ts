@@ -13,6 +13,10 @@ export class MockTransport implements Transport {
     switch (method) {
       case "groundhog_chainTip":
         return this.#chainTip() as T;
+      case "groundhog_version":
+        return this.#version() as T;
+      case "groundhog_view":
+        return this.#view() as T;
       case "groundhog_sendRawTransaction":
         return this.#sendRawTransaction(params) as T;
       case "groundhog_getTransactionReceipt":
@@ -39,6 +43,30 @@ export class MockTransport implements Transport {
     return {
       height: Number(this.#height),
       blockHash: "0x" + toHex(sha256Hash(heightBytes)),
+    };
+  }
+
+  #version(): {
+    wireFormat: string;
+    implementation: string;
+    commitHash: null;
+  } {
+    return {
+      wireFormat: "2.0.0",
+      implementation: "mock",
+      commitHash: null,
+    };
+  }
+
+  #view(): {
+    output: { result: "return"; returnData: string };
+    events: never[];
+    height: number;
+  } {
+    return {
+      output: { result: "return", returnData: "0x" },
+      events: [],
+      height: Number(this.#height),
     };
   }
 

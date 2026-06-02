@@ -6,6 +6,9 @@ import type {
 } from "@groundhogchain/protocol";
 import type {
   ChainTip,
+  VersionInfo,
+  ViewRequest,
+  ViewResponse,
   TransactionReceipt,
   TransactionStatus,
   EventQuery,
@@ -18,11 +21,15 @@ import { getTransactionReceipt } from "./actions/public/getTransactionReceipt.js
 import { getTransactionStatus } from "./actions/public/getTransactionStatus.js";
 import { getEvents } from "./actions/public/getEvents.js";
 import { getStorageAt } from "./actions/public/getStorageAt.js";
+import { getVersion } from "./actions/public/getVersion.js";
+import { view } from "./actions/public/view.js";
 import { sendTransaction } from "./actions/wallet/sendTransaction.js";
 import { devReset, devGetAccounts } from "./actions/dev/index.js";
 
 export interface GroundhogClient {
   getChainTip(): Promise<ChainTip>;
+  getVersion(): Promise<VersionInfo>;
+  view(request: ViewRequest): Promise<ViewResponse>;
   getTransactionReceipt(txHash: SHA256Hash): Promise<TransactionReceipt | null>;
   getTransactionStatus(txHash: SHA256Hash): Promise<TransactionStatus>;
   getEvents(query: EventQuery): Promise<EventPage>;
@@ -40,6 +47,8 @@ export interface GroundhogClient {
 export function createGroundhogClient(transport: Transport): GroundhogClient {
   return {
     getChainTip: () => getChainTip(transport),
+    getVersion: () => getVersion(transport),
+    view: (request) => view(transport, request),
     getTransactionReceipt: (txHash) => getTransactionReceipt(transport, txHash),
     getTransactionStatus: (txHash) => getTransactionStatus(transport, txHash),
     getEvents: (query) => getEvents(transport, query),
