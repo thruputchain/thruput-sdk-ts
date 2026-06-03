@@ -210,7 +210,7 @@ describe("getEvents", () => {
         calls.push({ method, params });
         return {
           events: [],
-          cursor: "",
+          cursor: "0x",
           latestBlock: 0,
           oldestBlock: 0,
         } as T;
@@ -229,6 +229,7 @@ describe("getEvents", () => {
       ],
       order: "descending",
       anchor: { height: 42n },
+      cursor: new Uint8Array([0x01, 0x02, 0x03]),
       limit: 10,
     });
 
@@ -241,9 +242,8 @@ describe("getEvents", () => {
     // Topics: Hex0x (0x-prefixed lowercase hex)
     expect(query.filters[0].topics.topic0[0]).toBe("0x" + "cd".repeat(32));
 
-    // Cursor: PaginationCursor pattern `^0x[0-9a-f]*$`; the empty
-    // case is the bare prefix.
-    expect(query.cursor).toBe("0x");
+    // Cursor: PaginationCursor pattern `^0x[0-9a-f]*$`.
+    expect(query.cursor).toBe("0x010203");
 
     // Order: string enum
     expect(query.order).toBe("descending");
@@ -251,7 +251,6 @@ describe("getEvents", () => {
     // Anchor: object-tagged BlockAnchor with `kind` discriminator
     expect(query.anchor).toEqual({ kind: "atHeight", height: 42 });
 
-    // Limit
     expect(query.limit).toBe(10);
   });
 });
@@ -324,10 +323,10 @@ describe("getStorageAt", () => {
           kind: "deployedContract",
           hash: "0x" + "ab".repeat(32),
           size: 4096,
-          contract_type: 1,
+          contractType: 1,
         },
       },
-      { blockHeight: 13, item: { kind: "unknown", type_id: 99 } },
+      { blockHeight: 13, item: { kind: "unknown", typeId: 99 } },
     ];
     let i = 0;
     const transport: Transport = {

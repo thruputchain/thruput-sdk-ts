@@ -123,7 +123,7 @@ export class MockTransport implements Transport {
   #getEvents() {
     return {
       events: [],
-      cursor: "",
+      cursor: "0x",
       latestBlock: Number(this.#height),
       oldestBlock: 0,
     };
