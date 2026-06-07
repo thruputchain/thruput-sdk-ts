@@ -14,7 +14,7 @@ npm install @groundhogchain/client
 import { createGroundhogClient, HttpTransport } from "@groundhogchain/client";
 
 const client = createGroundhogClient(
-  new HttpTransport("http://127.0.0.1:8545"),
+  new HttpTransport("https://rpc.example.com"),
 );
 
 const tip = await client.getChainTip();
