@@ -6,17 +6,17 @@ These examples expect a local Groundhog JSON-RPC node. Start one first:
 groundhog node
 ```
 
-Run them with `tsx` from the repository root:
+Run them from the repository root:
 
 ```bash
-npx tsx examples/version.ts
-npx tsx examples/chain-tip.ts
-npx tsx examples/view-hog-balance.ts
-npx tsx examples/transfer-hog.ts
+npm run example -- examples/version.ts
+npm run example -- examples/chain-tip.ts
+npm run example -- examples/view-hog-balance.ts
+npm run example -- examples/transfer-hog.ts
 ```
 
 Set `GROUNDHOG_RPC_URL` to override the default localhost endpoint:
 
 ```bash
-GROUNDHOG_RPC_URL=http://127.0.0.1:9545 npx tsx examples/version.ts
+GROUNDHOG_RPC_URL=http://127.0.0.1:9545 npm run example -- examples/version.ts
 ```
