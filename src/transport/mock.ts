@@ -27,10 +27,6 @@ export class MockTransport implements Transport {
         return this.#getEvents() as T;
       case "groundhog_getStorageAt":
         return this.#getStorageAt() as T;
-      case "groundhog_dev_reset":
-        return this.#devReset() as T;
-      case "groundhog_dev_getAccounts":
-        return this.#devGetAccounts() as T;
       default:
         throw new Error(`MockTransport: method not implemented: ${method}`);
     }
@@ -138,42 +134,5 @@ export class MockTransport implements Transport {
       blockHeight: Number(this.#height),
       item: null,
     };
-  }
-
-  #devReset(): null {
-    this.#height = 0n;
-    this.#transactions.clear();
-    this.#txCounter = 0;
-    return null;
-  }
-
-  #devGetAccounts(): {
-    address: string;
-    publicKey: string;
-    privateKey: string;
-    initialStorageTokens: number;
-  }[] {
-    const accounts = [];
-    for (let i = 0; i < 3; i++) {
-      const seed = new Uint8Array(32);
-      seed[0] = i;
-      const addressBytes = sha256Hash(seed);
-
-      const pubSeed = new Uint8Array(32);
-      pubSeed[0] = i;
-      pubSeed[31] = 1;
-
-      const privSeed = new Uint8Array(32);
-      privSeed[0] = i;
-      privSeed[31] = 2;
-
-      accounts.push({
-        address: "0x" + toHex(addressBytes),
-        publicKey: "0x" + toHex(pubSeed),
-        privateKey: "0x" + toHex(privSeed),
-        initialStorageTokens: 1000000,
-      });
-    }
-    return accounts;
   }
 }

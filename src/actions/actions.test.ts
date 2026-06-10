@@ -22,7 +22,6 @@ import { getEvents } from "./public/getEvents.js";
 import { getStorageAt } from "./public/getStorageAt.js";
 import { getVersion } from "./public/getVersion.js";
 import { view } from "./public/view.js";
-import { devReset, devGetAccounts } from "./dev/index.js";
 import type { Transport } from "../transport/types.js";
 
 function makeDummySignedTx() {
@@ -320,32 +319,6 @@ describe("getEvents", () => {
     expect(query.anchor).toEqual({ kind: "atHeight", height: 42 });
 
     expect(query.limit).toBe(10);
-  });
-});
-
-describe("devReset", () => {
-  it("clears state so chainTip height returns to 0n", async () => {
-    const transport = new MockTransport();
-    const signedTx = await makeDummySignedTx();
-    await sendTransaction(transport, signedTx);
-    const tipBefore = await getChainTip(transport);
-    expect(tipBefore.height).toBe(1n);
-
-    await devReset(transport);
-    const tipAfter = await getChainTip(transport);
-    expect(tipAfter.height).toBe(0n);
-  });
-});
-
-describe("devGetAccounts", () => {
-  it("returns typed accounts with correct field lengths", async () => {
-    const transport = new MockTransport();
-    const accounts = await devGetAccounts(transport);
-    expect(accounts.length).toBeGreaterThan(0);
-    for (const account of accounts) {
-      expect(account.address.length).toBe(32);
-      expect(account.publicKey.length).toBeGreaterThan(0);
-    }
   });
 });
 

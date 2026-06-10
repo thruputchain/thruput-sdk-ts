@@ -14,7 +14,6 @@ import type {
   EventQuery,
   EventPage,
   StorageItemRead,
-  DevAccount,
 } from "./types/rpc.js";
 import { getChainTip } from "./actions/public/getChainTip.js";
 import { getTransactionReceipt } from "./actions/public/getTransactionReceipt.js";
@@ -24,7 +23,6 @@ import { getStorageAt } from "./actions/public/getStorageAt.js";
 import { getVersion } from "./actions/public/getVersion.js";
 import { view } from "./actions/public/view.js";
 import { sendTransaction } from "./actions/wallet/sendTransaction.js";
-import { devReset, devGetAccounts } from "./actions/dev/index.js";
 
 export interface GroundhogClient {
   getChainTip(): Promise<ChainTip>;
@@ -38,10 +36,6 @@ export interface GroundhogClient {
     key: Uint8Array,
   ): Promise<StorageItemRead>;
   sendTransaction(signedTx: SignedTransaction): Promise<SHA256Hash>;
-  dev: {
-    reset(): Promise<void>;
-    getAccounts(): Promise<DevAccount[]>;
-  };
 }
 
 export function createGroundhogClient(transport: Transport): GroundhogClient {
@@ -54,9 +48,5 @@ export function createGroundhogClient(transport: Transport): GroundhogClient {
     getEvents: (query) => getEvents(transport, query),
     getStorageAt: (address, key) => getStorageAt(transport, address, key),
     sendTransaction: (signedTx) => sendTransaction(transport, signedTx),
-    dev: {
-      reset: () => devReset(transport),
-      getAccounts: () => devGetAccounts(transport),
-    },
   };
 }

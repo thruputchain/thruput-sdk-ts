@@ -99,13 +99,6 @@ export interface EventQuery {
   limit?: number;
 }
 
-export interface DevAccount {
-  address: ContractAddress;
-  publicKey: Uint8Array;
-  privateKey: Uint8Array;
-  initialStorageTokens: bigint;
-}
-
 export type StorageItemInfo =
   | { kind: "nonnegativeInt"; value: bigint }
   | { kind: "bytestring"; bytes: Uint8Array }

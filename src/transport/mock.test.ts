@@ -76,43 +76,6 @@ describe("MockTransport", () => {
     expect(status.status).toBe("unknown");
   });
 
-  it("clears all state on dev_reset", async () => {
-    const transport = new MockTransport();
-    await transport.request("groundhog_sendRawTransaction", ["0xaa"]);
-    await transport.request("groundhog_sendRawTransaction", ["0xbb"]);
-
-    const tipBefore = await transport.request<{ height: number }>(
-      "groundhog_chainTip",
-    );
-    expect(tipBefore.height).toBe(2);
-
-    await transport.request("groundhog_dev_reset");
-
-    const tipAfter = await transport.request<{ height: number }>(
-      "groundhog_chainTip",
-    );
-    expect(tipAfter.height).toBe(0);
-  });
-
-  it("returns 3 deterministic dev accounts", async () => {
-    const transport = new MockTransport();
-    const accounts = await transport.request<
-      {
-        address: string;
-        publicKey: string;
-        privateKey: string;
-        initialStorageTokens: number;
-      }[]
-    >("groundhog_dev_getAccounts");
-    expect(accounts).toHaveLength(3);
-    for (const account of accounts) {
-      expect(account.address).toMatch(/^0x[0-9a-f]{64}$/);
-      expect(account.publicKey).toMatch(/^0x[0-9a-f]+$/);
-      expect(account.privateKey).toMatch(/^0x[0-9a-f]+$/);
-      expect(typeof account.initialStorageTokens).toBe("number");
-    }
-  });
-
   it("throws for unknown methods", async () => {
     const transport = new MockTransport();
     await expect(
