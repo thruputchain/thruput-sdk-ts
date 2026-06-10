@@ -25,6 +25,18 @@ import { transfer } from "../src/contracts/erc20.js";
 
 const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";
 const amount = 1000n;
+const senderAddress = addressFromHex(
+  process.env.GROUNDHOG_SENDER_ADDRESS ??
+    "0x7171717171717171717171717171717171717171717171717171717171717171",
+);
+const recipientAddress = addressFromHex(
+  process.env.GROUNDHOG_RECIPIENT_ADDRESS ??
+    "0x7272727272727272727272727272727272727272727272727272727272727272",
+);
+const senderPrivateKey = fromHex0x(
+  process.env.GROUNDHOG_SENDER_PRIVATE_KEY ??
+    "0x9b0da61c2f4271584ebb7629c54213edef7328d429ebcca39c83686d81d166ca",
+);
 
 // HOG is predeployed on local/dev networks and implements the ERC20 interface.
 const hogToken = addressFromHex(
@@ -32,40 +44,24 @@ const hogToken = addressFromHex(
 );
 const walletGasLimit = gasAmount(10_000_000n);
 const callGasLimit = gasAmount(500_000n);
-// TODO: replace this with a generated dev-wallet binding or SDK helper.
-// This is the local dev wallet `doAction(Invocation)` entrypoint.
-const devWalletDoActionEntrypointHex = "0x19846d750fad81d6";
-const walletDoActionEntrypoint = contractEntrypointID(
-  fromHex0x(devWalletDoActionEntrypointHex),
+// TODO: replace this with a generated smart-wallet binding or wallet helper.
+const walletEntrypoint = contractEntrypointID(
+  fromHex0x(process.env.GROUNDHOG_WALLET_ENTRYPOINT ?? "0x646f416374696f6e"),
 );
 
 const client = createGroundhogClient(new HttpTransport(rpcUrl));
-
-// This is a local-dev-helper script. It needs a dev node exposing
-// `groundhog_dev_getAccounts` so it can load bootstrap wallet keys.
-const accounts = await client.dev.getAccounts();
-
-if (accounts.length < 2) {
-  throw new Error("transfer-hog requires at least two dev accounts");
-}
-
-const sender = accounts[0];
-const recipient = accounts[1];
-const signer = new PrivateKeySigner(sender.privateKey);
+const signer = new PrivateKeySigner(senderPrivateKey);
 const tip = await client.getChainTip();
 
-// Build the token call first: HOG.transfer(dev-1, amount).
+// Build the token call first: HOG.transfer(recipient, amount).
 const tokenInvocation = transfer(hogToken, callGasLimit, {
-  to: recipient.address,
+  to: recipientAddress,
   amount,
 });
 
-// Dev accounts are wallet contracts. The transaction calls the sender wallet,
-// and the wallet performs the inner HOG transfer as its action.
-const walletInvocation = wrapInWalletInvocation(
-  tokenInvocation,
-  sender.address,
-);
+// Wallet accounts are contracts. The transaction calls the sender wallet, and
+// the wallet performs the inner HOG transfer as its action.
+const walletInvocation = wrapInWalletInvocation(tokenInvocation, senderAddress);
 
 const tx = createTransaction({
   invocation: walletInvocation,
@@ -90,8 +86,8 @@ const txHash = await client.sendTransaction(signed);
 console.log({
   rpcUrl,
   hogToken: toHex0x(hogToken),
-  from: toHex0x(sender.address),
-  to: toHex0x(recipient.address),
+  from: toHex0x(senderAddress),
+  to: toHex0x(recipientAddress),
   amount: amount.toString(),
   txHash: toHex0x(txHash),
 });
@@ -100,14 +96,14 @@ function wrapInWalletInvocation(
   invocation: Invocation,
   walletAddress: ContractAddress,
 ): Invocation {
-  // The dev wallet expects the inner invocation as one CXS var-opaque blob.
+  // The wallet expects the inner invocation as one CXS var-opaque blob.
   const inner = serialize(invocation, codec.Invocation);
   const writer = new CxsWriter();
   writer.writeVarOpaque(inner, 0xffffffff);
 
   return {
     invoked_address: walletAddress,
-    entrypoint: walletDoActionEntrypoint,
+    entrypoint: walletEntrypoint,
     gas_limit: walletGasLimit,
     calldata: calldata(writer.finish()),
   };

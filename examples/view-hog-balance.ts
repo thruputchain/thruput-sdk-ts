@@ -8,6 +8,10 @@ import {
 import { getBalanceOf } from "../src/contracts/erc20.js";
 
 const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";
+const accountAddress = addressFromHex(
+  process.env.GROUNDHOG_ACCOUNT_ADDRESS ??
+    "0x7171717171717171717171717171717171717171717171717171717171717171",
+);
 
 // HOG is predeployed on local/dev networks and implements the ERC20 interface.
 const hogToken = addressFromHex(
@@ -16,18 +20,9 @@ const hogToken = addressFromHex(
 
 const client = createGroundhogClient(new HttpTransport(rpcUrl));
 
-// This is a local-dev-helper script. It needs a dev node exposing
-// `groundhog_dev_getAccounts` so it can discover a bootstrap wallet.
-const accounts = await client.dev.getAccounts();
-const account = accounts[0];
-
-if (!account) {
-  throw new Error("view-hog-balance requires at least one dev account");
-}
-
 // Build a read-only ERC20 get_balance_of call for dev-0.
 const invocation = getBalanceOf(hogToken, gasAmount(500_000n), {
-  addr: account.address,
+  addr: accountAddress,
 });
 
 // `view` simulates the contract call and returns raw CXS bytes.
@@ -35,7 +30,7 @@ const response = await client.view({
   contract: invocation.invoked_address,
   entrypoint: invocation.entrypoint,
   calldata: invocation.calldata,
-  caller: account.address,
+  caller: accountAddress,
 });
 
 if (response.output.result !== "return") {
@@ -53,7 +48,7 @@ if (reader.remaining !== 0) {
 console.log({
   rpcUrl,
   hogToken: toHex0x(hogToken),
-  account: toHex0x(account.address),
+  account: toHex0x(accountAddress),
   balance: balance.toString(),
   height: response.height.toString(),
 });
