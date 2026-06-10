@@ -48,6 +48,37 @@ const receipt = await client.sendTransaction({
 
 The package exposes focused entry points alongside the root: `./transaction`, `./transport`, `./contract`, `./signers`, `./actions`.
 
+## Developing
+
+### Registry auth (one-time setup)
+
+The `@groundhogchain/*` dependencies are hosted on GitHub Packages, which
+requires a GitHub token even to download — a plain `npm install` on a fresh
+machine fails with `401 Unauthorized` from `npm.pkg.github.com`. To set up
+auth using the `gh` CLI:
+
+```sh
+# Add the read:packages scope to your gh login (one-time, opens github.com)
+gh auth refresh -h github.com -s read:packages
+```
+
+Then add this line to `~/.npmrc` (it holds no secret — npm expands
+`${ENV_VARS}` from the environment; it cannot run commands like
+`$(gh auth token)` itself):
+
+```
+//npm.pkg.github.com/:_authToken=${GH_NPM_TOKEN}
+```
+
+And run installs with the token pulled from gh's keychain:
+
+```sh
+GH_NPM_TOKEN="$(gh auth token)" npm install
+```
+
+If you forget the prefix, npm fails with `Failed to replace env in config` —
+that's your reminder.
+
 ## Scripts
 
 - `npm run build` — bundle with `tsup` to `dist/`.

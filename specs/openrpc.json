@@ -155,36 +155,6 @@
         "maxItems": 5,
         "type": "array"
       },
-      "DevAccount": {
-        "description": "A pre-funded dev account, returned by `groundhog_dev_getAccounts`.\n\nOnly emitted by local-node backends. The `private_key` and\n`initial_storage_tokens` fields are local-orchestration metadata with no\ntestnet/mainnet meaning: production backends do not retain private keys\nand have no concept of a \"bootstrap balance\".",
-        "properties": {
-          "address": {
-            "$ref": "#/components/schemas/Hex0x_ContractAddress",
-            "description": "Local dev account/wallet contract address advertised by the backend."
-          },
-          "initialStorageTokens": {
-            "description": "Storage-token balance at bootstrap. This is a snapshot taken when the\nlocal node started; it is not refreshed as the wallet spends tokens.\nUse a live balance read for current funding.",
-            "format": "uint64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "privateKey": {
-            "$ref": "#/components/schemas/HexBytes",
-            "description": "Ed25519 secret key bytes. Included because these are\nwell-known dev-only keys."
-          },
-          "publicKey": {
-            "$ref": "#/components/schemas/HexBytes",
-            "description": "Ed25519 public key bytes."
-          }
-        },
-        "required": [
-          "address",
-          "publicKey",
-          "privateKey",
-          "initialStorageTokens"
-        ],
-        "type": "object"
-      },
       "EmittedEvent": {
         "description": "A single emitted event, as stored by the hogd indexer.\n\nThe gateway parses hogd's `TxEmittedEvent.serialized_event` into\nseparate topics and data. The serialized format is:\n`topic0 (32B) || topic1 (32B) || ... || data (remaining bytes)`.\n`num_topics` (0–3) determines the split point. Max total 1024 bytes.\n\nSee `docs/gateway/system-design.md` \"Event Parsing\" for details.",
         "properties": {
@@ -424,6 +394,50 @@
       "PaginationCursor": {
         "pattern": "^0x[0-9a-f]*$",
         "type": "string"
+      },
+      "RootInvocationOutput": {
+        "description": "Root invocation output with raw buffers preserved as hex.",
+        "oneOf": [
+          {
+            "description": "Contract returned normally.",
+            "properties": {
+              "result": {
+                "const": "return",
+                "type": "string"
+              },
+              "returnData": {
+                "$ref": "#/components/schemas/HexBytes"
+              }
+            },
+            "required": ["result", "returnData"],
+            "type": "object"
+          },
+          {
+            "description": "Contract aborted/reverted deterministically.",
+            "properties": {
+              "abortData": {
+                "$ref": "#/components/schemas/HexBytes"
+              },
+              "result": {
+                "const": "abort",
+                "type": "string"
+              }
+            },
+            "required": ["result", "abortData"],
+            "type": "object"
+          },
+          {
+            "description": "Execution faulted before a return or abort payload was produced.",
+            "properties": {
+              "result": {
+                "const": "fault",
+                "type": "string"
+              }
+            },
+            "required": ["result"],
+            "type": "object"
+          }
+        ]
       },
       "StorageItemInfo": {
         "description": "Latest-committed value at a single storage location, presented as\na tagged union so machine consumers can switch on `kind` without\nrunning an XDR codec for the common cases.",
@@ -694,12 +708,64 @@
         },
         "required": ["wireFormat", "implementation"],
         "type": "object"
+      },
+      "ViewRequest": {
+        "description": "Request for sandboxed contract simulation against the latest committed state.",
+        "properties": {
+          "calldata": {
+            "$ref": "#/components/schemas/HexBytes",
+            "description": "Opaque call input bytes."
+          },
+          "caller": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Hex0x_ContractAddress"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional simulated caller address observed by `get_msg_sender`."
+          },
+          "contract": {
+            "$ref": "#/components/schemas/Hex0x_ContractAddress",
+            "description": "Contract address to execute."
+          },
+          "entrypoint": {
+            "$ref": "#/components/schemas/HexBytes",
+            "description": "Contract entrypoint id. Must be exactly 8 bytes."
+          }
+        },
+        "required": ["contract", "entrypoint", "calldata"],
+        "type": "object"
+      },
+      "ViewResponse": {
+        "description": "Result of sandboxed contract simulation.",
+        "properties": {
+          "events": {
+            "description": "Events emitted during view execution.\n\nHogd captures emitted events from the simulated frame; wallet-preview\ncallers see what events a real submit would produce.",
+            "items": {
+              "$ref": "#/components/schemas/EmittedEvent"
+            },
+            "type": "array"
+          },
+          "height": {
+            "$ref": "#/components/schemas/BlockHeight",
+            "description": "Block height of the committed snapshot used for the view."
+          },
+          "output": {
+            "$ref": "#/components/schemas/RootInvocationOutput",
+            "description": "Root invocation output."
+          }
+        },
+        "required": ["output", "events", "height"],
+        "type": "object"
       }
     }
   },
   "info": {
     "title": "Groundhog JSON-RPC",
-    "version": "1.1.0"
+    "version": "2.0.0"
   },
   "methods": [
     {
@@ -1047,24 +1113,10 @@
       ]
     },
     {
-      "errors": [],
-      "name": "groundhog_version",
-      "params": [],
-      "result": {
-        "name": "VersionInfo",
-        "schema": {
-          "$ref": "#/components/schemas/VersionInfo"
-        }
-      },
-      "summary": "Version dimensions for this JSON-RPC server.",
-      "tags": [
-        {
-          "name": "Core API"
-        }
-      ]
-    },
-    {
       "errors": [
+        {
+          "$ref": "#/components/errors/InvalidParams"
+        },
         {
           "$ref": "#/components/errors/BackendUnavailable"
         },
@@ -1078,21 +1130,43 @@
           "$ref": "#/components/errors/NotImplemented"
         }
       ],
-      "name": "groundhog_dev_getAccounts",
-      "params": [],
+      "name": "groundhog_view",
+      "params": [
+        {
+          "name": "request",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ViewRequest"
+          }
+        }
+      ],
       "result": {
-        "name": "Vec",
+        "name": "ViewResponse",
         "schema": {
-          "items": {
-            "$ref": "#/components/schemas/DevAccount"
-          },
-          "type": "array"
+          "$ref": "#/components/schemas/ViewResponse"
         }
       },
-      "summary": "List pre-funded dev accounts with addresses and keys.",
+      "summary": "Execute a sandboxed contract simulation against committed state.",
       "tags": [
         {
-          "name": "Dev API"
+          "name": "Core API"
+        }
+      ]
+    },
+    {
+      "errors": [],
+      "name": "groundhog_version",
+      "params": [],
+      "result": {
+        "name": "VersionInfo",
+        "schema": {
+          "$ref": "#/components/schemas/VersionInfo"
+        }
+      },
+      "summary": "Version dimensions for this JSON-RPC server.",
+      "tags": [
+        {
+          "name": "Core API"
         }
       ]
     }

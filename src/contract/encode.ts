@@ -114,6 +114,8 @@ export function resolveCodec(
       }
       return c;
     }
+    case ContractTypeKind.SignedToken:
+      throw new Error("SignedToken contract types are not supported yet.");
     default: {
       const _exhaustive: never = ty;
       throw new Error(

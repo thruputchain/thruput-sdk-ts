@@ -4,7 +4,7 @@ import { decodeCalldata } from "../contract/encode.js";
 import { buildNamedCodecs } from "../contract/codegen.js";
 import {
   depth,
-  forestDepth,
+  forest_depth,
   unbox,
   spec,
   type Tree,
@@ -60,7 +60,7 @@ describe("generated RecursiveTypeContract bindings", () => {
     expect(decoded.tree).toEqual(leaf);
   });
 
-  it("forestDepth() encodes a recursive Forest", () => {
+  it("forest_depth() encodes a recursive Forest", () => {
     const forest: Forest = {
       trees: [
         { trees: [], label: 10n },
@@ -72,7 +72,7 @@ describe("generated RecursiveTypeContract bindings", () => {
       label: 1n,
     };
 
-    const invocation = forestDepth(contract, gas, { forest });
+    const invocation = forest_depth(contract, gas, { forest });
     const decoded = decodeCalldata(
       spec,
       "RecursiveTypeContract",
@@ -83,10 +83,10 @@ describe("generated RecursiveTypeContract bindings", () => {
     expect(decoded.forest).toEqual(forest);
   });
 
-  it("forestDepth() encodes an empty Forest", () => {
+  it("forest_depth() encodes an empty Forest", () => {
     const forest: Forest = { trees: [], label: 0n };
 
-    const invocation = forestDepth(contract, gas, { forest });
+    const invocation = forest_depth(contract, gas, { forest });
     const decoded = decodeCalldata(
       spec,
       "RecursiveTypeContract",
