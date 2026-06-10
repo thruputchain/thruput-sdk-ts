@@ -97,14 +97,20 @@ describe("getVersion", () => {
 });
 
 describe("view", () => {
-  it("serializes request fields and parses return output", async () => {
+  it("serializes request fields and parses return output with events", async () => {
     const calls: { method: string; params?: unknown[] }[] = [];
     const transport: Transport = {
       async request<T>(method: string, params?: unknown[]): Promise<T> {
         calls.push({ method, params });
         return {
           output: { result: "return", returnData: "0x0102" },
-          events: [],
+          events: [
+            {
+              contractAddress: "0x" + "11".repeat(32),
+              topics: ["0x" + "22".repeat(32)],
+              data: "0x0304",
+            },
+          ],
           height: "7",
         } as T;
       },
@@ -131,7 +137,69 @@ describe("view", () => {
       result: "return",
       returnData: new Uint8Array([0x01, 0x02]),
     });
+    expect(response.events).toEqual([
+      {
+        contractAddress: contractAddress(new Uint8Array(32).fill(0x11)),
+        topics: [new Uint8Array(32).fill(0x22)],
+        data: new Uint8Array([0x03, 0x04]),
+      },
+    ]);
     expect(response.height).toBe(7n);
+  });
+
+  it("omits caller when not provided and parses abort output", async () => {
+    const calls: { method: string; params?: unknown[] }[] = [];
+    const transport: Transport = {
+      async request<T>(method: string, params?: unknown[]): Promise<T> {
+        calls.push({ method, params });
+        return {
+          output: { result: "abort", abortData: "0x0a0b" },
+          events: [],
+          height: 8,
+        } as T;
+      },
+    };
+
+    const response = await view(transport, {
+      contract: contractAddress(new Uint8Array(32).fill(0xab)),
+      entrypoint: contractEntrypointID(new Uint8Array(8).fill(0xcd)),
+      calldata: calldata(new Uint8Array([0x01, 0x02, 0x03])),
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].params).toEqual([
+      {
+        contract: "0x" + "ab".repeat(32),
+        entrypoint: "0x" + "cd".repeat(8),
+        calldata: "0x010203",
+      },
+    ]);
+    expect(response.output).toEqual({
+      result: "abort",
+      abortData: new Uint8Array([0x0a, 0x0b]),
+    });
+    expect(response.height).toBe(8n);
+  });
+
+  it("parses fault output", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return {
+          output: { result: "fault" },
+          events: [],
+          height: 9,
+        } as T;
+      },
+    };
+
+    const response = await view(transport, {
+      contract: contractAddress(new Uint8Array(32).fill(0xab)),
+      entrypoint: contractEntrypointID(new Uint8Array(8).fill(0xcd)),
+      calldata: calldata(new Uint8Array([0x01, 0x02, 0x03])),
+    });
+
+    expect(response.output).toEqual({ result: "fault" });
+    expect(response.height).toBe(9n);
   });
 });
 
