@@ -73,6 +73,7 @@ const erc20Spec: ContractSpec = {
       },
     },
   ],
+  events: [],
 };
 
 describe("end-to-end: build, sign, serialize an ERC20 transfer", () => {

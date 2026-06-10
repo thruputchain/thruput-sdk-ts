@@ -1,4 +1,4 @@
-// Generated from itc_erc20.spec.json — ERC20 interface v0.1.0
+// Generated from itc_erc20.wasm — ERC20 interface v0.1.2
 // DO NOT EDIT. Re-run codegen to update.
 
 import type {
@@ -12,11 +12,14 @@ import {
   ContractTypeKind,
   ContractTypeDefKind,
   contractSpecString,
+  topic,
 } from "@groundhogchain/contract-spec";
 import type { ContractSpec } from "../contract/spec.js";
 import { encodeCalldata } from "../contract/encode.js";
 import { buildNamedCodecs } from "../contract/codegen.js";
 import { createInvocation } from "../transaction/build.js";
+import { resolveCodec } from "../contract/encode.js";
+import { CxsReader } from "@groundhogchain/xdr";
 
 const s = contractSpecString;
 
@@ -33,11 +36,18 @@ const entrypoints = {
   transfer_from: contractEntrypointID(fromHex("40365e271f8d6982")),
 } as const;
 
+export enum ERC20Error {
+  AlreadyInitialized = 1,
+  MustBeContractOwner = 2,
+  TooLarge = 3,
+  Internal = 100,
+}
+
 export const spec: ContractSpec = {
   interfaces: [
     {
       name: s("ERC20"),
-      vers: s("0.1.0"),
+      vers: s("0.1.2"),
       throws: [
         {
           selector: 0xb19947acb2fa14ffn,
@@ -82,10 +92,7 @@ export const spec: ContractSpec = {
         {
           name: s("initialize"),
           args: [
-            {
-              name: s("contract_owner"),
-              ty: { v: ContractTypeKind.Address },
-            },
+            { name: s("contract_owner"), ty: { v: ContractTypeKind.Address } },
           ],
           return_type: { v: ContractTypeKind.Void },
         },
@@ -136,91 +143,39 @@ export const spec: ContractSpec = {
       },
     },
   ],
+  events: [
+    {
+      name: s("ApprovalEvent"),
+      signature: topic(
+        fromHex(
+          "296f450df2d1160d2c84d8e9e1361b46906b8497e3f8fbaeb9a1c2740294c6ef",
+        ),
+      ),
+      topics: [
+        { name: s("owner"), ty: { v: ContractTypeKind.Address } },
+        { name: s("spender"), ty: { v: ContractTypeKind.Address } },
+      ],
+      fields: [{ name: s("difference"), ty: { v: ContractTypeKind.I128 } }],
+    },
+    {
+      name: s("TransferEvent"),
+      signature: topic(
+        fromHex(
+          "5ff62377bf52711e75461f4d8f9b4585f17d1c20f7e1eceb280194a7764bae5f",
+        ),
+      ),
+      topics: [
+        { name: s("from"), ty: { v: ContractTypeKind.Address } },
+        { name: s("to"), ty: { v: ContractTypeKind.Address } },
+      ],
+      fields: [{ name: s("amount"), ty: { v: ContractTypeKind.U128 } }],
+    },
+  ],
 };
 
 const namedCodecs = buildNamedCodecs(spec.type_defs);
 
-export function transfer(
-  contract: ContractAddress,
-  gasLimit: GasAmount,
-  args: { to: ContractAddress; amount: bigint },
-): Invocation {
-  return createInvocation({
-    invoked_address: contract,
-    entrypoint: entrypoints.transfer,
-    gas_limit: gasLimit,
-    calldata: encodeCalldata(
-      spec,
-      "ERC20",
-      "transfer",
-      [args.to, args.amount],
-      namedCodecs,
-    ),
-  });
-}
-
-export function transferFrom(
-  contract: ContractAddress,
-  gasLimit: GasAmount,
-  args: {
-    owner: ContractAddress;
-    receiver: ContractAddress;
-    amount: bigint;
-  },
-): Invocation {
-  return createInvocation({
-    invoked_address: contract,
-    entrypoint: entrypoints.transfer_from,
-    gas_limit: gasLimit,
-    calldata: encodeCalldata(
-      spec,
-      "ERC20",
-      "transfer_from",
-      [args.owner, args.receiver, args.amount],
-      namedCodecs,
-    ),
-  });
-}
-
-export function mint(
-  contract: ContractAddress,
-  gasLimit: GasAmount,
-  args: { receiver: ContractAddress; amount: bigint },
-): Invocation {
-  return createInvocation({
-    invoked_address: contract,
-    entrypoint: entrypoints.mint,
-    gas_limit: gasLimit,
-    calldata: encodeCalldata(
-      spec,
-      "ERC20",
-      "mint",
-      [args.receiver, args.amount],
-      namedCodecs,
-    ),
-  });
-}
-
-export function burn(
-  contract: ContractAddress,
-  gasLimit: GasAmount,
-  args: { owner: ContractAddress; amount: bigint },
-): Invocation {
-  return createInvocation({
-    invoked_address: contract,
-    entrypoint: entrypoints.burn,
-    gas_limit: gasLimit,
-    calldata: encodeCalldata(
-      spec,
-      "ERC20",
-      "burn",
-      [args.owner, args.amount],
-      namedCodecs,
-    ),
-  });
-}
-
-export function adjustAllowance(
+export function adjust_allowance(
   contract: ContractAddress,
   gasLimit: GasAmount,
   args: { spender: ContractAddress; diff: bigint },
@@ -258,7 +213,26 @@ export function allowance(
   });
 }
 
-export function getBalance(
+export function burn(
+  contract: ContractAddress,
+  gasLimit: GasAmount,
+  args: { owner: ContractAddress; amount: bigint },
+): Invocation {
+  return createInvocation({
+    invoked_address: contract,
+    entrypoint: entrypoints.burn,
+    gas_limit: gasLimit,
+    calldata: encodeCalldata(
+      spec,
+      "ERC20",
+      "burn",
+      [args.owner, args.amount],
+      namedCodecs,
+    ),
+  });
+}
+
+export function get_balance(
   contract: ContractAddress,
   gasLimit: GasAmount,
 ): Invocation {
@@ -270,7 +244,7 @@ export function getBalance(
   });
 }
 
-export function getBalanceOf(
+export function get_balance_of(
   contract: ContractAddress,
   gasLimit: GasAmount,
   args: { addr: ContractAddress },
@@ -308,7 +282,26 @@ export function initialize(
   });
 }
 
-export function totalSupply(
+export function mint(
+  contract: ContractAddress,
+  gasLimit: GasAmount,
+  args: { receiver: ContractAddress; amount: bigint },
+): Invocation {
+  return createInvocation({
+    invoked_address: contract,
+    entrypoint: entrypoints.mint,
+    gas_limit: gasLimit,
+    calldata: encodeCalldata(
+      spec,
+      "ERC20",
+      "mint",
+      [args.receiver, args.amount],
+      namedCodecs,
+    ),
+  });
+}
+
+export function total_supply(
   contract: ContractAddress,
   gasLimit: GasAmount,
 ): Invocation {
@@ -318,4 +311,133 @@ export function totalSupply(
     gas_limit: gasLimit,
     calldata: encodeCalldata(spec, "ERC20", "total_supply", [], namedCodecs),
   });
+}
+
+export function transfer(
+  contract: ContractAddress,
+  gasLimit: GasAmount,
+  args: { to: ContractAddress; amount: bigint },
+): Invocation {
+  return createInvocation({
+    invoked_address: contract,
+    entrypoint: entrypoints.transfer,
+    gas_limit: gasLimit,
+    calldata: encodeCalldata(
+      spec,
+      "ERC20",
+      "transfer",
+      [args.to, args.amount],
+      namedCodecs,
+    ),
+  });
+}
+
+export function transfer_from(
+  contract: ContractAddress,
+  gasLimit: GasAmount,
+  args: { owner: ContractAddress; receiver: ContractAddress; amount: bigint },
+): Invocation {
+  return createInvocation({
+    invoked_address: contract,
+    entrypoint: entrypoints.transfer_from,
+    gas_limit: gasLimit,
+    calldata: encodeCalldata(
+      spec,
+      "ERC20",
+      "transfer_from",
+      [args.owner, args.receiver, args.amount],
+      namedCodecs,
+    ),
+  });
+}
+
+function topicEquals(a: Uint8Array | undefined, b: Uint8Array): boolean {
+  if (a === undefined || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+export interface ApprovalEvent {
+  name: "ApprovalEvent";
+  topics: { owner: Uint8Array; spender: Uint8Array };
+  fields: { difference: bigint };
+}
+export const ApprovalEvent = {
+  /** Topic-0 signature hash from the contract spec. */
+  signature: fromHex(
+    "296f450df2d1160d2c84d8e9e1361b46906b8497e3f8fbaeb9a1c2740294c6ef",
+  ),
+  /** Returns null if topic 0 does not identify this event. */
+  decode(event: {
+    topics: Uint8Array[];
+    data: Uint8Array;
+  }): ApprovalEvent | null {
+    if (!topicEquals(event.topics[0], ApprovalEvent.signature)) return null;
+    if (event.topics.length !== 3) {
+      throw new Error(
+        `ApprovalEvent: expected 3 topics, got ${event.topics.length}`,
+      );
+    }
+    const r = new CxsReader(event.data);
+    const f0 = resolveCodec(spec.events[0].fields[0].ty, namedCodecs).decode(
+      r,
+    ) as bigint;
+    if (r.remaining !== 0) {
+      throw new Error(
+        `ApprovalEvent: ${r.remaining} trailing bytes after payload`,
+      );
+    }
+    return {
+      name: "ApprovalEvent",
+      topics: { owner: event.topics[1], spender: event.topics[2] },
+      fields: { difference: f0 },
+    };
+  },
+} as const;
+
+export interface TransferEvent {
+  name: "TransferEvent";
+  topics: { from: Uint8Array; to: Uint8Array };
+  fields: { amount: bigint };
+}
+export const TransferEvent = {
+  /** Topic-0 signature hash from the contract spec. */
+  signature: fromHex(
+    "5ff62377bf52711e75461f4d8f9b4585f17d1c20f7e1eceb280194a7764bae5f",
+  ),
+  /** Returns null if topic 0 does not identify this event. */
+  decode(event: {
+    topics: Uint8Array[];
+    data: Uint8Array;
+  }): TransferEvent | null {
+    if (!topicEquals(event.topics[0], TransferEvent.signature)) return null;
+    if (event.topics.length !== 3) {
+      throw new Error(
+        `TransferEvent: expected 3 topics, got ${event.topics.length}`,
+      );
+    }
+    const r = new CxsReader(event.data);
+    const f0 = resolveCodec(spec.events[1].fields[0].ty, namedCodecs).decode(
+      r,
+    ) as bigint;
+    if (r.remaining !== 0) {
+      throw new Error(
+        `TransferEvent: ${r.remaining} trailing bytes after payload`,
+      );
+    }
+    return {
+      name: "TransferEvent",
+      topics: { from: event.topics[1], to: event.topics[2] },
+      fields: { amount: f0 },
+    };
+  },
+} as const;
+
+export type ERC20Event = ApprovalEvent | TransferEvent;
+
+export function decodeEvent(event: {
+  topics: Uint8Array[];
+  data: Uint8Array;
+}): ERC20Event | null {
+  return ApprovalEvent.decode(event) ?? TransferEvent.decode(event);
 }

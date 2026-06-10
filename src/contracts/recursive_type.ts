@@ -1,4 +1,4 @@
-// Generated from recursive_type.spec.json — RecursiveTypeContract interface v0.1.0
+// Generated from recursive_type.wasm — RecursiveTypeContract interface v0.1.0
 // DO NOT EDIT. Re-run codegen to update.
 
 import type {
@@ -26,15 +26,15 @@ const entrypoints = {
   unbox: contractEntrypointID(fromHex("38343b330809190f")),
 } as const;
 
+export interface Forest {
+  trees: Forest[];
+  label: bigint;
+}
+
 export interface Tree {
   value: bigint;
   left: Tree | null;
   right: Tree | null;
-}
-
-export interface Forest {
-  trees: Forest[];
-  label: bigint;
 }
 
 export const spec: ContractSpec = {
@@ -102,26 +102,21 @@ export const spec: ContractSpec = {
             name: s("left"),
             ty: {
               v: ContractTypeKind.Option,
-              option_inner: {
-                v: ContractTypeKind.Named,
-                named: s("Tree"),
-              },
+              option_inner: { v: ContractTypeKind.Named, named: s("Tree") },
             },
           },
           {
             name: s("right"),
             ty: {
               v: ContractTypeKind.Option,
-              option_inner: {
-                v: ContractTypeKind.Named,
-                named: s("Tree"),
-              },
+              option_inner: { v: ContractTypeKind.Named, named: s("Tree") },
             },
           },
         ],
       },
     },
   ],
+  events: [],
 };
 
 const namedCodecs = buildNamedCodecs(spec.type_defs);
@@ -145,7 +140,7 @@ export function depth(
   });
 }
 
-export function forestDepth(
+export function forest_depth(
   contract: ContractAddress,
   gasLimit: GasAmount,
   args: { forest: Forest },

@@ -66,6 +66,7 @@ const erc20Spec: ContractSpec = {
       },
     },
   ],
+  events: [],
 };
 
 const erc20Codecs = buildNamedCodecs(erc20Spec.type_defs);
@@ -227,6 +228,7 @@ const rgbSpec: ContractSpec = {
     },
   ],
   type_defs: [],
+  events: [],
 };
 
 const rgbCodecs = buildNamedCodecs(rgbSpec.type_defs);
@@ -347,6 +349,7 @@ const signedSpec: ContractSpec = {
     },
   ],
   type_defs: [],
+  events: [],
 };
 
 const signedCodecs = buildNamedCodecs(signedSpec.type_defs);
