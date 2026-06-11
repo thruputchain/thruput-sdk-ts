@@ -22,7 +22,7 @@
 ## Generated And Spec Files
 
 - `src/contracts/erc20.ts` and `src/contracts/recursive_type.ts` are generated bindings; do not hand-edit unless the task is explicitly about checked-in generated output.
-- `specs/openrpc.json` is the pinned Groundhog OpenRPC spec. Regenerate with `scripts/regen-openrpc.sh`, which installs `groundhog-open-rpc-spec@0.5.3` from the Cargo `groundhog` registry and formats the JSON; bump that hardcoded generator version when syncing to a newer RPC spec release.
+- `specs/openrpc.json` is the pinned Groundhog OpenRPC spec. Regenerate with `scripts/regen-openrpc.sh`, which installs a pinned `groundhog-open-rpc-spec@x.y.z` from the Cargo `groundhog` registry and formats the JSON; bump the hardcoded script version when syncing to a newer RPC spec release.
 - After changing `specs/openrpc.json` or action request serialization, run `npm test`; `src/actions/contract.test.ts` should cover every supported OpenRPC method and validates emitted JSON-RPC params against the OpenRPC schemas.
 
 ## Examples
