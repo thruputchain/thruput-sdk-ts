@@ -1,35 +1,35 @@
-# Repository Instructions
+# AGENTS.md
 
-## Commands
+## Setup
 
-- Use `npm ci` for setup; use `npm install` only when intentionally changing dependencies. `@groundhogchain/*` packages resolve through GitHub Packages via `.npmrc`, so unauthenticated installs may need a GitHub package token.
-- CI uses Node 22 and runs `npm run format:check`, `npm run typecheck`, `npm run test`, then `npm run build`.
-- Release workflow runs `npm run build`, `npm run test`, then `npm run typecheck`; do not assume CI and release run checks in the same order.
-- Run a focused test with `npx vitest run src/path/to/file.test.ts`; `npm test` always runs the full Vitest suite.
-- Regenerate the pinned OpenRPC snapshot with `scripts/regen-openrpc.sh`; it installs the pinned generator, writes `specs/openrpc.json`, and formats it.
+- Use npm, `package-lock.json` is the lockfile and CI runs `npm ci`.
+- CI uses Node 22 and GitHub Packages for `@groundhogchain/*`; a clean local `npm ci` may need GitHub Packages auth because `.npmrc` points that scope at `https://npm.pkg.github.com`.
 
-## Package Boundaries
+## Verify
 
-- Public package entrypoints are only the root plus `./transaction`, `./transport`, `./contract`, `./signers`, and `./actions`, as defined in `package.json` and `tsup.config.ts`.
-- `src/contracts/*` contains generated bindings used by tests; they are not a supported package subpath unless `package.json` and `tsup.config.ts` are changed together.
-- Keep ESM source imports with explicit `.js` specifiers; `tsconfig.json` uses `moduleResolution: "bundler"` and strict isolated modules.
+- CI order is `npm run format:check`, `npm run typecheck`, `npm test`, then `npm run build`.
+- Focused tests: `npm test -- src/actions/actions.test.ts` or `npm test -- src/actions/actions.test.ts -t "getEvents"`.
+- Use `npm run build` to validate package exports and declaration output; `tsup.config.ts` builds ESM, CJS, sourcemaps, and d.ts into `dist/`.
+- There is no lint script; formatting is Prettier via `npm run format` / `npm run format:check`.
 
-## Source Layout
+## Architecture
 
-- `src/actions/*` contains transport-first RPC actions; `src/client.ts` should stay a thin binding layer over those actions.
-- `src/transport/*` defines JSON-RPC transport behavior; keep request/response parsing in actions unless it is transport-generic.
-- `src/transaction/*` builds, serializes, and signs protocol transactions; avoid mixing RPC concerns into transaction helpers.
-- `src/contract/*` handles contract specs, calldata encoding, and generated binding support; `src/contracts/*` is generated test fixture code.
-- `src/types/rpc.ts` contains public RPC-facing TypeScript shapes shared by actions and client methods.
+- Public package entrypoints are explicit: root plus `./transaction`, `./transport`, `./contract`, `./signers`, and `./actions`. Add new exported surface to the matching `src/**/index.ts`, `src/index.ts` if root-exported, and `package.json`/`tsup.config.ts` only for new subpaths.
+- `src/client.ts` is a thin `createGroundhogClient(transport)` wrapper around standalone actions. Keep action behavior in `src/actions/**`; client methods should just bind the transport.
+- Runtime transports implement `Transport.request(method, params)`. `HttpTransport` sends JSON-RPC arrays with `params ?? []`; `MockTransport` is test-only and intentionally implements only known methods.
+- This is an ESM TypeScript package using `moduleResolution: "bundler"`; source imports use `.js` specifiers for local TS modules.
 
-## Protocol Boundaries
+## Generated And Spec Files
 
-- Transaction helpers should use the codecs and utilities from `@groundhogchain/protocol` rather than reimplementing wire serialization or hashing.
-- Contract helpers should use CXS codecs from `@groundhogchain/contract-spec`; keep protocol TXS/XDR concerns separate from contract calldata and return-data encoding.
-- `MockTransport` is deterministic and non-executing; use it for focused unit tests, but verify RPC wire shapes against contract tests or a real RPC source.
+- `src/contracts/erc20.ts` and `src/contracts/recursive_type.ts` are generated bindings; do not hand-edit unless the task is explicitly about checked-in generated output.
+- `specs/openrpc.json` is the pinned Groundhog OpenRPC spec. Regenerate with `scripts/regen-openrpc.sh`, which installs `groundhog-open-rpc-spec@0.5.3` from the Cargo `groundhog` registry and formats the JSON; bump that hardcoded generator version when syncing to a newer RPC spec release.
+- After changing `specs/openrpc.json` or action request serialization, run `npm test`; `src/actions/contract.test.ts` should cover every supported OpenRPC method and validates emitted JSON-RPC params against the OpenRPC schemas.
 
-## RPC Parity Sources
+## Examples
 
-- Treat `specs/openrpc.json` as the checked-in RPC contract for this package.
-- When wire shapes are unclear, verify against the current upstream RPC implementation or OpenRPC source before preserving older request shapes.
-- After regenerating `specs/openrpc.json`, run `npm test`; `src/actions/contract.test.ts` validates public action request shapes against the snapshot.
+- Examples run through `npm run example -- examples/<file>.ts` and expect a local `groundhog node` unless `GROUNDHOG_RPC_URL` is set.
+- Examples are curated onboarding paths, not one file per RPC method. Keep them focused on helping new users get running with the SDK quickly.
+
+## Release
+
+- Publishing is manual via `.github/workflows/publish.yml`; it builds, tests, typechecks, tags `v${package.json.version}`, then runs `npm publish` to GitHub Packages.
