@@ -1,5 +1,5 @@
 import type { Transport } from "./types.js";
-import { sha256Hash, toHex, fromHex } from "@groundhogchain/protocol";
+import { sha256Hash, toHex } from "@groundhogchain/protocol";
 
 export class MockTransport implements Transport {
   #height = 0n;
@@ -13,6 +13,14 @@ export class MockTransport implements Transport {
     switch (method) {
       case "groundhog_chainTip":
         return this.#chainTip() as T;
+      case "groundhog_getBlockByNumber":
+        return this.#getBlockByNumber(params) as T;
+      case "groundhog_pendingTransactionCount":
+        return this.#pendingTransactionCount() as T;
+      case "groundhog_version":
+        return this.#version() as T;
+      case "groundhog_view":
+        return this.#view() as T;
       case "groundhog_sendRawTransaction":
         return this.#sendRawTransaction(params) as T;
       case "groundhog_getTransactionReceipt":
@@ -23,22 +31,77 @@ export class MockTransport implements Transport {
         return this.#getEvents() as T;
       case "groundhog_getStorageAt":
         return this.#getStorageAt() as T;
-      case "groundhog_dev_reset":
-        return this.#devReset() as T;
-      case "groundhog_dev_getAccounts":
-        return this.#devGetAccounts() as T;
       default:
         throw new Error(`MockTransport: method not implemented: ${method}`);
     }
   }
 
   #chainTip(): { height: number; blockHash: string } {
-    const heightBytes = new Uint8Array(32);
-    const view = new DataView(heightBytes.buffer);
-    view.setBigUint64(24, this.#height > 0n ? this.#height : 0n);
     return {
       height: Number(this.#height),
-      blockHash: "0x" + toHex(sha256Hash(heightBytes)),
+      blockHash: this.#blockHash(this.#height),
+    };
+  }
+
+  #blockHash(height: bigint): string {
+    const heightBytes = new Uint8Array(32);
+    const view = new DataView(heightBytes.buffer);
+    view.setBigUint64(24, height > 0n ? height : 0n);
+    return "0x" + toHex(sha256Hash(heightBytes));
+  }
+
+  #dbHash(height: bigint): string {
+    const bytes = new Uint8Array(2048);
+    const view = new DataView(bytes.buffer);
+    view.setBigUint64(2040, height > 0n ? height : 0n);
+    return "0x" + toHex(bytes);
+  }
+
+  #getBlockByNumber(params?: unknown[]): {
+    networkId: number;
+    blockHeight: number;
+    txsetHash: string;
+    dbHash: string;
+    eventsHash: string;
+    prevBlockHash: string;
+  } | null {
+    const height = BigInt(params && params.length > 0 ? String(params[0]) : 0);
+    if (height < 0n || height > this.#height) return null;
+    return {
+      networkId: 0,
+      blockHeight: Number(height),
+      txsetHash: this.#blockHash(height),
+      dbHash: this.#dbHash(height),
+      eventsHash: this.#blockHash(height),
+      prevBlockHash: this.#blockHash(height > 0n ? height - 1n : 0n),
+    };
+  }
+
+  #pendingTransactionCount(): number {
+    return 0;
+  }
+
+  #version(): {
+    wireFormat: string;
+    implementation: string;
+    commitHash: null;
+  } {
+    return {
+      wireFormat: "2.0.0",
+      implementation: "mock",
+      commitHash: null,
+    };
+  }
+
+  #view(): {
+    output: { result: "return"; returnData: string };
+    events: never[];
+    height: number;
+  } {
+    return {
+      output: { result: "return", returnData: "0x" },
+      events: [],
+      height: Number(this.#height),
     };
   }
 
@@ -95,7 +158,7 @@ export class MockTransport implements Transport {
   #getEvents() {
     return {
       events: [],
-      cursor: "",
+      cursor: "0x",
       latestBlock: Number(this.#height),
       oldestBlock: 0,
     };
@@ -110,42 +173,5 @@ export class MockTransport implements Transport {
       blockHeight: Number(this.#height),
       item: null,
     };
-  }
-
-  #devReset(): null {
-    this.#height = 0n;
-    this.#transactions.clear();
-    this.#txCounter = 0;
-    return null;
-  }
-
-  #devGetAccounts(): {
-    address: string;
-    publicKey: string;
-    privateKey: string;
-    initialStorageTokens: number;
-  }[] {
-    const accounts = [];
-    for (let i = 0; i < 3; i++) {
-      const seed = new Uint8Array(32);
-      seed[0] = i;
-      const addressBytes = sha256Hash(seed);
-
-      const pubSeed = new Uint8Array(32);
-      pubSeed[0] = i;
-      pubSeed[31] = 1;
-
-      const privSeed = new Uint8Array(32);
-      privSeed[0] = i;
-      privSeed[31] = 2;
-
-      accounts.push({
-        address: "0x" + toHex(addressBytes),
-        publicKey: "0x" + toHex(pubSeed),
-        privateKey: "0x" + toHex(privSeed),
-        initialStorageTokens: 1000000,
-      });
-    }
-    return accounts;
   }
 }

@@ -1,6 +1,9 @@
 import type {
   SHA256Hash,
+  DbHash,
   ContractAddress,
+  ContractEntrypointID,
+  Calldata,
   ExecResult,
 } from "@groundhogchain/protocol";
 
@@ -9,6 +12,39 @@ export type { ExecResult } from "@groundhogchain/protocol";
 export interface ChainTip {
   height: bigint;
   blockHash: SHA256Hash;
+}
+
+export interface BlockInfo {
+  networkId: bigint;
+  blockHeight: bigint;
+  txsetHash: SHA256Hash;
+  dbHash: DbHash;
+  eventsHash: SHA256Hash;
+  prevBlockHash: SHA256Hash;
+}
+
+export interface VersionInfo {
+  wireFormat: string;
+  implementation: string;
+  commitHash: string | null;
+}
+
+export interface ViewRequest {
+  contract: ContractAddress;
+  entrypoint: ContractEntrypointID;
+  calldata: Calldata;
+  caller?: ContractAddress;
+}
+
+export type ViewOutput =
+  | { result: "return"; returnData: Uint8Array }
+  | { result: "abort"; abortData: Uint8Array }
+  | { result: "fault" };
+
+export interface ViewResponse {
+  output: ViewOutput;
+  events: EmittedEvent[];
+  height: bigint;
 }
 
 export type TransactionStatus =
@@ -71,13 +107,6 @@ export interface EventQuery {
   anchor?: BlockAnchor;
   cursor?: Uint8Array;
   limit?: number;
-}
-
-export interface DevAccount {
-  address: ContractAddress;
-  publicKey: Uint8Array;
-  privateKey: Uint8Array;
-  initialStorageTokens: bigint;
 }
 
 export type StorageItemInfo =

@@ -11,16 +11,11 @@ npm install @groundhogchain/client
 ## Usage
 
 ```ts
-import {
-  createGroundhogClient,
-  HttpTransport,
-  PrivateKeySigner,
-} from "@groundhogchain/client";
+import { createGroundhogClient, HttpTransport } from "@groundhogchain/client";
 
-const client = createGroundhogClient({
-  transport: new HttpTransport("https://rpc.example.com"),
-  signer: new PrivateKeySigner(privateKeyBytes),
-});
+const client = createGroundhogClient(
+  new HttpTransport("https://rpc.example.com"),
+);
 
 const tip = await client.getChainTip();
 const receipt = await client.sendTransaction({
@@ -30,12 +25,11 @@ const receipt = await client.sendTransaction({
 
 ## What's in this repo
 
-- `src/client.ts` — `createGroundhogClient` factory tying transport, signer, and actions together.
+- `src/client.ts` — `createGroundhogClient` factory that binds a transport to the SDK actions.
 - `src/actions/` — RPC actions grouped by namespace:
   - `public/` — read methods (`getChainTip`, `getEvents`, `getStorageAt`, `getTransactionReceipt`, `getTransactionStatus`).
   - `wallet/` — write methods (`sendTransaction`).
-  - `dev/` — developer-only endpoints.
-- `src/transaction/` — transaction build, serialize, hash, and sign helpers.
+- `src/transaction/` — transaction build, serialize, and sign helpers.
 - `src/contract/` — contract spec parsing, ABI-style `encode`, and TypeScript `codegen` from specs.
 - `src/contracts/` — example contract bindings (`erc20`, `recursive_type`) used for tests, generated via the Groundhog CLI's `groundhog codegen` command.
 - `src/transport/` — `HttpTransport` (JSON-RPC over HTTP) and `MockTransport` for tests.
