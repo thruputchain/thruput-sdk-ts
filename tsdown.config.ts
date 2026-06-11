@@ -1,4 +1,4 @@
-import { defineConfig } from "tsup";
+import { defineConfig } from "tsdown";
 
 export default defineConfig({
   entry: {
@@ -10,7 +10,9 @@ export default defineConfig({
     actions: "src/actions/index.ts",
   },
   format: ["esm", "cjs"],
+  // Match the extensions tsup produced (.js/.d.ts for ESM, .cjs/.d.cts for CJS)
+  // so the package.json exports map stays valid.
+  fixedExtension: false,
   dts: true,
-  clean: true,
   sourcemap: true,
 });
