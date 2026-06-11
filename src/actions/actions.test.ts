@@ -16,11 +16,14 @@ import { signTransaction } from "../transaction/sign.js";
 import { MockTransport } from "../transport/mock.js";
 import { sendTransaction } from "./wallet/sendTransaction.js";
 import { getChainTip } from "./public/getChainTip.js";
+import { getBlockByNumber } from "./public/getBlockByNumber.js";
+import { getPendingTransactionCount } from "./public/getPendingTransactionCount.js";
 import { getTransactionReceipt } from "./public/getTransactionReceipt.js";
 import { getTransactionStatus } from "./public/getTransactionStatus.js";
 import { getEvents } from "./public/getEvents.js";
 import { getStorageAt } from "./public/getStorageAt.js";
-import { devReset, devGetAccounts } from "./dev/index.js";
+import { getVersion } from "./public/getVersion.js";
+import { view } from "./public/view.js";
 import type { Transport } from "../transport/types.js";
 
 function makeDummySignedTx() {
@@ -79,6 +82,204 @@ describe("getChainTip", () => {
     await sendTransaction(transport, signedTx);
     const tip = await getChainTip(transport);
     expect(tip.height).toBe(1n);
+  });
+});
+
+describe("getVersion", () => {
+  it("returns version info from mock", async () => {
+    const transport = new MockTransport();
+    const version = await getVersion(transport);
+    expect(version).toEqual({
+      wireFormat: "2.0.0",
+      implementation: "mock",
+      commitHash: null,
+    });
+  });
+});
+
+describe("getBlockByNumber", () => {
+  it("returns block info for an existing mock block", async () => {
+    const transport = new MockTransport();
+    const block = await getBlockByNumber(transport, 0n);
+
+    expect(block).not.toBeNull();
+    expect(block!.networkId).toBe(0n);
+    expect(block!.blockHeight).toBe(0n);
+    expect(block!.txsetHash.length).toBe(32);
+    expect(block!.dbHash.length).toBe(2048);
+    expect(block!.eventsHash.length).toBe(32);
+    expect(block!.prevBlockHash.length).toBe(32);
+  });
+
+  it("serializes the requested height and parses nullable responses", async () => {
+    const calls: { method: string; params?: unknown[] }[] = [];
+    const transport: Transport = {
+      async request<T>(method: string, params?: unknown[]): Promise<T> {
+        calls.push({ method, params });
+        return null as T;
+      },
+    };
+
+    const block = await getBlockByNumber(transport, 42n);
+
+    expect(block).toBeNull();
+    expect(calls).toEqual([
+      { method: "groundhog_getBlockByNumber", params: [42] },
+    ]);
+  });
+});
+
+describe("getPendingTransactionCount", () => {
+  it("returns the mock pending transaction count as bigint", async () => {
+    const transport = new MockTransport();
+    await sendTransaction(transport, await makeDummySignedTx());
+
+    const count = await getPendingTransactionCount(transport);
+
+    expect(count).toBe(0n);
+  });
+
+  it("parses string counts", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return "9007199254740993" as T;
+      },
+    };
+
+    await expect(getPendingTransactionCount(transport)).resolves.toBe(
+      9007199254740993n,
+    );
+  });
+
+  it("rejects malformed pending transaction counts", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return null as T;
+      },
+    };
+
+    await expect(getPendingTransactionCount(transport)).rejects.toThrow(
+      /Invalid pending transaction count/,
+    );
+  });
+
+  it("rejects negative pending transaction counts", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return -1 as T;
+      },
+    };
+
+    await expect(getPendingTransactionCount(transport)).rejects.toThrow(
+      /Invalid pending transaction count/,
+    );
+  });
+});
+
+describe("view", () => {
+  it("serializes request fields and parses return output with events", async () => {
+    const calls: { method: string; params?: unknown[] }[] = [];
+    const transport: Transport = {
+      async request<T>(method: string, params?: unknown[]): Promise<T> {
+        calls.push({ method, params });
+        return {
+          output: { result: "return", returnData: "0x0102" },
+          events: [
+            {
+              contractAddress: "0x" + "11".repeat(32),
+              topics: ["0x" + "22".repeat(32)],
+              data: "0x0304",
+            },
+          ],
+          height: "7",
+        } as T;
+      },
+    };
+
+    const response = await view(transport, {
+      contract: contractAddress(new Uint8Array(32).fill(0xab)),
+      entrypoint: contractEntrypointID(new Uint8Array(8).fill(0xcd)),
+      calldata: calldata(new Uint8Array([0x01, 0x02, 0x03])),
+      caller: contractAddress(new Uint8Array(32).fill(0xef)),
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].method).toBe("groundhog_view");
+    expect(calls[0].params).toEqual([
+      {
+        contract: "0x" + "ab".repeat(32),
+        entrypoint: "0x" + "cd".repeat(8),
+        calldata: "0x010203",
+        caller: "0x" + "ef".repeat(32),
+      },
+    ]);
+    expect(response.output).toEqual({
+      result: "return",
+      returnData: new Uint8Array([0x01, 0x02]),
+    });
+    expect(response.events).toEqual([
+      {
+        contractAddress: contractAddress(new Uint8Array(32).fill(0x11)),
+        topics: [new Uint8Array(32).fill(0x22)],
+        data: new Uint8Array([0x03, 0x04]),
+      },
+    ]);
+    expect(response.height).toBe(7n);
+  });
+
+  it("omits caller when not provided and parses abort output", async () => {
+    const calls: { method: string; params?: unknown[] }[] = [];
+    const transport: Transport = {
+      async request<T>(method: string, params?: unknown[]): Promise<T> {
+        calls.push({ method, params });
+        return {
+          output: { result: "abort", abortData: "0x0a0b" },
+          events: [],
+          height: 8,
+        } as T;
+      },
+    };
+
+    const response = await view(transport, {
+      contract: contractAddress(new Uint8Array(32).fill(0xab)),
+      entrypoint: contractEntrypointID(new Uint8Array(8).fill(0xcd)),
+      calldata: calldata(new Uint8Array([0x01, 0x02, 0x03])),
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].params).toEqual([
+      {
+        contract: "0x" + "ab".repeat(32),
+        entrypoint: "0x" + "cd".repeat(8),
+        calldata: "0x010203",
+      },
+    ]);
+    expect(response.output).toEqual({
+      result: "abort",
+      abortData: new Uint8Array([0x0a, 0x0b]),
+    });
+    expect(response.height).toBe(8n);
+  });
+
+  it("parses fault output", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return {
+          output: { result: "fault" },
+          events: [],
+          height: 9,
+        } as T;
+      },
+    };
+
+    const response = await view(transport, {
+      contract: contractAddress(new Uint8Array(32).fill(0xab)),
+      entrypoint: contractEntrypointID(new Uint8Array(8).fill(0xcd)),
+      calldata: calldata(new Uint8Array([0x01, 0x02, 0x03])),
+    });
+
+    expect(response.output).toEqual({ result: "fault" });
+    expect(response.height).toBe(9n);
   });
 });
 
@@ -157,7 +358,7 @@ describe("getEvents", () => {
         calls.push({ method, params });
         return {
           events: [],
-          cursor: "",
+          cursor: "0x",
           latestBlock: 0,
           oldestBlock: 0,
         } as T;
@@ -176,6 +377,7 @@ describe("getEvents", () => {
       ],
       order: "descending",
       anchor: { height: 42n },
+      cursor: new Uint8Array([0x01, 0x02, 0x03]),
       limit: 10,
     });
 
@@ -188,9 +390,8 @@ describe("getEvents", () => {
     // Topics: Hex0x (0x-prefixed lowercase hex)
     expect(query.filters[0].topics.topic0[0]).toBe("0x" + "cd".repeat(32));
 
-    // Cursor: PaginationCursor pattern `^0x[0-9a-f]*$`; the empty
-    // case is the bare prefix.
-    expect(query.cursor).toBe("0x");
+    // Cursor: PaginationCursor pattern `^0x[0-9a-f]*$`.
+    expect(query.cursor).toBe("0x010203");
 
     // Order: string enum
     expect(query.order).toBe("descending");
@@ -198,34 +399,7 @@ describe("getEvents", () => {
     // Anchor: object-tagged BlockAnchor with `kind` discriminator
     expect(query.anchor).toEqual({ kind: "atHeight", height: 42 });
 
-    // Limit
     expect(query.limit).toBe(10);
-  });
-});
-
-describe("devReset", () => {
-  it("clears state so chainTip height returns to 0n", async () => {
-    const transport = new MockTransport();
-    const signedTx = await makeDummySignedTx();
-    await sendTransaction(transport, signedTx);
-    const tipBefore = await getChainTip(transport);
-    expect(tipBefore.height).toBe(1n);
-
-    await devReset(transport);
-    const tipAfter = await getChainTip(transport);
-    expect(tipAfter.height).toBe(0n);
-  });
-});
-
-describe("devGetAccounts", () => {
-  it("returns typed accounts with correct field lengths", async () => {
-    const transport = new MockTransport();
-    const accounts = await devGetAccounts(transport);
-    expect(accounts.length).toBeGreaterThan(0);
-    for (const account of accounts) {
-      expect(account.address.length).toBe(32);
-      expect(account.publicKey.length).toBeGreaterThan(0);
-    }
   });
 });
 
@@ -271,10 +445,10 @@ describe("getStorageAt", () => {
           kind: "deployedContract",
           hash: "0x" + "ab".repeat(32),
           size: 4096,
-          contract_type: 1,
+          contractType: 1,
         },
       },
-      { blockHeight: 13, item: { kind: "unknown", type_id: 99 } },
+      { blockHeight: 13, item: { kind: "unknown", typeId: 99 } },
     ];
     let i = 0;
     const transport: Transport = {

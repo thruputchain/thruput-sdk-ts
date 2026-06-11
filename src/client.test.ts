@@ -67,14 +67,4 @@ describe("createGroundhogClient", () => {
     expect(receipt!.txHash).toEqual(txHash);
     expect(receipt!.execResult).toBe(ExecResult.ExecResultOK);
   });
-
-  it("dev.getAccounts returns accounts", async () => {
-    const client = createGroundhogClient(new MockTransport());
-    const accounts = await client.dev.getAccounts();
-    expect(accounts.length).toBeGreaterThan(0);
-    for (const account of accounts) {
-      expect(account.address.length).toBe(32);
-      expect(account.publicKey.length).toBeGreaterThan(0);
-    }
-  });
 });

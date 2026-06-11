@@ -46,10 +46,10 @@ function parseStorageItemInfo(raw: unknown): StorageItemInfo {
         kind: "deployedContract",
         hash: hashFromHex(r.hash as string),
         size: Number(r.size),
-        contractType: Number(r.contract_type),
+        contractType: Number(r.contractType),
       };
     case "unknown":
-      return { kind: "unknown", typeId: Number(r.type_id) };
+      return { kind: "unknown", typeId: Number(r.typeId) };
     default:
       // A `kind` string this client doesn't recognize means the server
       // ships a newer protocol than the build we're against.  Surface
@@ -58,7 +58,7 @@ function parseStorageItemInfo(raw: unknown): StorageItemInfo {
       // server didn't help us identify the variant).
       return {
         kind: "unknown",
-        typeId: typeof r.type_id === "number" ? r.type_id : -1,
+        typeId: typeof r.typeId === "number" ? r.typeId : -1,
       };
   }
 }

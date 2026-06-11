@@ -1,0 +1,11 @@
+import { HttpTransport, createGroundhogClient, toHex0x } from "../src/index.js";
+
+const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";
+const client = createGroundhogClient(new HttpTransport(rpcUrl));
+
+const tip = await client.getChainTip();
+
+console.log({
+  height: tip.height.toString(),
+  blockHash: toHex0x(tip.blockHash),
+});

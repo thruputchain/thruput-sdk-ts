@@ -6,23 +6,33 @@ import type {
 } from "@groundhogchain/protocol";
 import type {
   ChainTip,
+  BlockInfo,
+  VersionInfo,
+  ViewRequest,
+  ViewResponse,
   TransactionReceipt,
   TransactionStatus,
   EventQuery,
   EventPage,
   StorageItemRead,
-  DevAccount,
 } from "./types/rpc.js";
 import { getChainTip } from "./actions/public/getChainTip.js";
+import { getBlockByNumber } from "./actions/public/getBlockByNumber.js";
+import { getPendingTransactionCount } from "./actions/public/getPendingTransactionCount.js";
 import { getTransactionReceipt } from "./actions/public/getTransactionReceipt.js";
 import { getTransactionStatus } from "./actions/public/getTransactionStatus.js";
 import { getEvents } from "./actions/public/getEvents.js";
 import { getStorageAt } from "./actions/public/getStorageAt.js";
+import { getVersion } from "./actions/public/getVersion.js";
+import { view } from "./actions/public/view.js";
 import { sendTransaction } from "./actions/wallet/sendTransaction.js";
-import { devReset, devGetAccounts } from "./actions/dev/index.js";
 
 export interface GroundhogClient {
   getChainTip(): Promise<ChainTip>;
+  getBlockByNumber(height: bigint): Promise<BlockInfo | null>;
+  getPendingTransactionCount(): Promise<bigint>;
+  getVersion(): Promise<VersionInfo>;
+  view(request: ViewRequest): Promise<ViewResponse>;
   getTransactionReceipt(txHash: SHA256Hash): Promise<TransactionReceipt | null>;
   getTransactionStatus(txHash: SHA256Hash): Promise<TransactionStatus>;
   getEvents(query: EventQuery): Promise<EventPage>;
@@ -31,23 +41,19 @@ export interface GroundhogClient {
     key: Uint8Array,
   ): Promise<StorageItemRead>;
   sendTransaction(signedTx: SignedTransaction): Promise<SHA256Hash>;
-  dev: {
-    reset(): Promise<void>;
-    getAccounts(): Promise<DevAccount[]>;
-  };
 }
 
 export function createGroundhogClient(transport: Transport): GroundhogClient {
   return {
     getChainTip: () => getChainTip(transport),
+    getBlockByNumber: (height) => getBlockByNumber(transport, height),
+    getPendingTransactionCount: () => getPendingTransactionCount(transport),
+    getVersion: () => getVersion(transport),
+    view: (request) => view(transport, request),
     getTransactionReceipt: (txHash) => getTransactionReceipt(transport, txHash),
     getTransactionStatus: (txHash) => getTransactionStatus(transport, txHash),
     getEvents: (query) => getEvents(transport, query),
     getStorageAt: (address, key) => getStorageAt(transport, address, key),
     sendTransaction: (signedTx) => sendTransaction(transport, signedTx),
-    dev: {
-      reset: () => devReset(transport),
-      getAccounts: () => devGetAccounts(transport),
-    },
   };
 }
