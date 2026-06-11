@@ -49,13 +49,13 @@
   },
   "license": "Apache-2.0",
   "devDependencies": {
-    "@types/node": "^25.6.0",
-    "ajv": "^8.20.0",
-    "prettier": "^3.8.3",
-    "tsdown": "^0.22.2",
-    "tsx": "^4.22.4",
-    "typescript": "^5.7.0",
-    "vitest": "^3.1.0"
+    "@types/node": "25.9.1",
+    "ajv": "8.20.0",
+    "prettier": "3.8.3",
+    "tsdown": "0.22.2",
+    "tsx": "4.22.4",
+    "typescript": "6.0.3",
+    "vitest": "4.1.8"
   },
   "dependencies": {
     "@groundhogchain/contract-spec": "^0.4.0",
