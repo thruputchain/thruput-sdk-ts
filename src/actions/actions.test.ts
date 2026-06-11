@@ -16,6 +16,8 @@ import { signTransaction } from "../transaction/sign.js";
 import { MockTransport } from "../transport/mock.js";
 import { sendTransaction } from "./wallet/sendTransaction.js";
 import { getChainTip } from "./public/getChainTip.js";
+import { getBlockByNumber } from "./public/getBlockByNumber.js";
+import { getPendingTransactionCount } from "./public/getPendingTransactionCount.js";
 import { getTransactionReceipt } from "./public/getTransactionReceipt.js";
 import { getTransactionStatus } from "./public/getTransactionStatus.js";
 import { getEvents } from "./public/getEvents.js";
@@ -92,6 +94,85 @@ describe("getVersion", () => {
       implementation: "mock",
       commitHash: null,
     });
+  });
+});
+
+describe("getBlockByNumber", () => {
+  it("returns block info for an existing mock block", async () => {
+    const transport = new MockTransport();
+    const block = await getBlockByNumber(transport, 0n);
+
+    expect(block).not.toBeNull();
+    expect(block!.networkId).toBe(0n);
+    expect(block!.blockHeight).toBe(0n);
+    expect(block!.txsetHash.length).toBe(32);
+    expect(block!.dbHash.length).toBe(2048);
+    expect(block!.eventsHash.length).toBe(32);
+    expect(block!.prevBlockHash.length).toBe(32);
+  });
+
+  it("serializes the requested height and parses nullable responses", async () => {
+    const calls: { method: string; params?: unknown[] }[] = [];
+    const transport: Transport = {
+      async request<T>(method: string, params?: unknown[]): Promise<T> {
+        calls.push({ method, params });
+        return null as T;
+      },
+    };
+
+    const block = await getBlockByNumber(transport, 42n);
+
+    expect(block).toBeNull();
+    expect(calls).toEqual([
+      { method: "groundhog_getBlockByNumber", params: [42] },
+    ]);
+  });
+});
+
+describe("getPendingTransactionCount", () => {
+  it("returns the mock pending transaction count as bigint", async () => {
+    const transport = new MockTransport();
+    await sendTransaction(transport, await makeDummySignedTx());
+
+    const count = await getPendingTransactionCount(transport);
+
+    expect(count).toBe(0n);
+  });
+
+  it("parses string counts", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return "9007199254740993" as T;
+      },
+    };
+
+    await expect(getPendingTransactionCount(transport)).resolves.toBe(
+      9007199254740993n,
+    );
+  });
+
+  it("rejects malformed pending transaction counts", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return null as T;
+      },
+    };
+
+    await expect(getPendingTransactionCount(transport)).rejects.toThrow(
+      /Invalid pending transaction count/,
+    );
+  });
+
+  it("rejects negative pending transaction counts", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return -1 as T;
+      },
+    };
+
+    await expect(getPendingTransactionCount(transport)).rejects.toThrow(
+      /Invalid pending transaction count/,
+    );
   });
 });
 

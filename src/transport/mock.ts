@@ -1,5 +1,5 @@
 import type { Transport } from "./types.js";
-import { sha256Hash, toHex, fromHex } from "@groundhogchain/protocol";
+import { sha256Hash, toHex } from "@groundhogchain/protocol";
 
 export class MockTransport implements Transport {
   #height = 0n;
@@ -13,6 +13,10 @@ export class MockTransport implements Transport {
     switch (method) {
       case "groundhog_chainTip":
         return this.#chainTip() as T;
+      case "groundhog_getBlockByNumber":
+        return this.#getBlockByNumber(params) as T;
+      case "groundhog_pendingTransactionCount":
+        return this.#pendingTransactionCount() as T;
       case "groundhog_version":
         return this.#version() as T;
       case "groundhog_view":
@@ -33,13 +37,48 @@ export class MockTransport implements Transport {
   }
 
   #chainTip(): { height: number; blockHash: string } {
-    const heightBytes = new Uint8Array(32);
-    const view = new DataView(heightBytes.buffer);
-    view.setBigUint64(24, this.#height > 0n ? this.#height : 0n);
     return {
       height: Number(this.#height),
-      blockHash: "0x" + toHex(sha256Hash(heightBytes)),
+      blockHash: this.#blockHash(this.#height),
     };
+  }
+
+  #blockHash(height: bigint): string {
+    const heightBytes = new Uint8Array(32);
+    const view = new DataView(heightBytes.buffer);
+    view.setBigUint64(24, height > 0n ? height : 0n);
+    return "0x" + toHex(sha256Hash(heightBytes));
+  }
+
+  #dbHash(height: bigint): string {
+    const bytes = new Uint8Array(2048);
+    const view = new DataView(bytes.buffer);
+    view.setBigUint64(2040, height > 0n ? height : 0n);
+    return "0x" + toHex(bytes);
+  }
+
+  #getBlockByNumber(params?: unknown[]): {
+    networkId: number;
+    blockHeight: number;
+    txsetHash: string;
+    dbHash: string;
+    eventsHash: string;
+    prevBlockHash: string;
+  } | null {
+    const height = BigInt(params && params.length > 0 ? String(params[0]) : 0);
+    if (height < 0n || height > this.#height) return null;
+    return {
+      networkId: 0,
+      blockHeight: Number(height),
+      txsetHash: this.#blockHash(height),
+      dbHash: this.#dbHash(height),
+      eventsHash: this.#blockHash(height),
+      prevBlockHash: this.#blockHash(height > 0n ? height - 1n : 0n),
+    };
+  }
+
+  #pendingTransactionCount(): number {
+    return 0;
   }
 
   #version(): {

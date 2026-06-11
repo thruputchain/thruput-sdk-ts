@@ -6,6 +6,7 @@ import type {
 } from "@groundhogchain/protocol";
 import type {
   ChainTip,
+  BlockInfo,
   VersionInfo,
   ViewRequest,
   ViewResponse,
@@ -16,6 +17,8 @@ import type {
   StorageItemRead,
 } from "./types/rpc.js";
 import { getChainTip } from "./actions/public/getChainTip.js";
+import { getBlockByNumber } from "./actions/public/getBlockByNumber.js";
+import { getPendingTransactionCount } from "./actions/public/getPendingTransactionCount.js";
 import { getTransactionReceipt } from "./actions/public/getTransactionReceipt.js";
 import { getTransactionStatus } from "./actions/public/getTransactionStatus.js";
 import { getEvents } from "./actions/public/getEvents.js";
@@ -26,6 +29,8 @@ import { sendTransaction } from "./actions/wallet/sendTransaction.js";
 
 export interface GroundhogClient {
   getChainTip(): Promise<ChainTip>;
+  getBlockByNumber(height: bigint): Promise<BlockInfo | null>;
+  getPendingTransactionCount(): Promise<bigint>;
   getVersion(): Promise<VersionInfo>;
   view(request: ViewRequest): Promise<ViewResponse>;
   getTransactionReceipt(txHash: SHA256Hash): Promise<TransactionReceipt | null>;
@@ -41,6 +46,8 @@ export interface GroundhogClient {
 export function createGroundhogClient(transport: Transport): GroundhogClient {
   return {
     getChainTip: () => getChainTip(transport),
+    getBlockByNumber: (height) => getBlockByNumber(transport, height),
+    getPendingTransactionCount: () => getPendingTransactionCount(transport),
     getVersion: () => getVersion(transport),
     view: (request) => view(transport, request),
     getTransactionReceipt: (txHash) => getTransactionReceipt(transport, txHash),

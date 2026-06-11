@@ -1,5 +1,6 @@
 import type {
   SHA256Hash,
+  DbHash,
   ContractAddress,
   ContractEntrypointID,
   Calldata,
@@ -11,6 +12,15 @@ export type { ExecResult } from "@groundhogchain/protocol";
 export interface ChainTip {
   height: bigint;
   blockHash: SHA256Hash;
+}
+
+export interface BlockInfo {
+  networkId: bigint;
+  blockHeight: bigint;
+  txsetHash: SHA256Hash;
+  dbHash: DbHash;
+  eventsHash: SHA256Hash;
+  prevBlockHash: SHA256Hash;
 }
 
 export interface VersionInfo {

@@ -22,7 +22,9 @@ import {
   contractEntrypointID,
 } from "@groundhogchain/protocol";
 import { getChainTip } from "./public/getChainTip.js";
+import { getBlockByNumber } from "./public/getBlockByNumber.js";
 import { getEvents } from "./public/getEvents.js";
+import { getPendingTransactionCount } from "./public/getPendingTransactionCount.js";
 import { getStorageAt } from "./public/getStorageAt.js";
 import { getTransactionReceipt } from "./public/getTransactionReceipt.js";
 import { getVersion } from "./public/getVersion.js";
@@ -147,6 +149,26 @@ describe("contract tests against specs/openrpc.json", () => {
     await getVersion(transport);
     expect(calls).toHaveLength(1);
     assertCapturedParamsMatchSpec("groundhog_version", calls[0]!.params);
+  });
+
+  it("groundhog_getBlockByNumber — sends a BlockHeight", async () => {
+    const { transport, calls } = spyTransport(null);
+    await getBlockByNumber(transport, 42n);
+    expect(calls).toHaveLength(1);
+    assertCapturedParamsMatchSpec(
+      "groundhog_getBlockByNumber",
+      calls[0]!.params,
+    );
+  });
+
+  it("groundhog_pendingTransactionCount — sends an empty params array", async () => {
+    const { transport, calls } = spyTransport(0);
+    await getPendingTransactionCount(transport);
+    expect(calls).toHaveLength(1);
+    assertCapturedParamsMatchSpec(
+      "groundhog_pendingTransactionCount",
+      calls[0]!.params,
+    );
   });
 
   it("groundhog_getTransactionReceipt — sends a TxHash", async () => {
