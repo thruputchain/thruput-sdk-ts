@@ -31,7 +31,7 @@ const receipt = await client.sendTransaction({
   - `wallet/` — write methods (`sendTransaction`).
 - `src/transaction/` — transaction build, serialize, and sign helpers.
 - `src/contract/` — contract spec parsing, ABI-style `encode`, and TypeScript `codegen` from specs.
-- `src/contracts/` — example contract bindings (`erc20`, `recursive_type`) used for tests, generated via the Groundhog CLI's `groundhog codegen` command.
+- `src/contracts/` — generated contract bindings. Standard bindings exported from `src/contracts/index.ts`.
 - `src/transport/` — `HttpTransport` (JSON-RPC over HTTP) and `MockTransport` for tests.
 - `src/signers/` — `Signer` interface and `PrivateKeySigner` (ed25519 via `@noble/ed25519`).
 - `src/types/rpc.ts` — typed RPC request/response shapes.
@@ -40,7 +40,7 @@ const receipt = await client.sendTransaction({
 
 ## Subpath exports
 
-The package exposes focused entry points alongside the root: `./transaction`, `./transport`, `./contract`, `./signers`, `./actions`.
+The package exposes focused entry points alongside the root: `./transaction`, `./transport`, `./contract`, `./contracts`, `./signers`, `./actions`.
 
 ## Developing
 

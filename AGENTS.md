@@ -14,14 +14,14 @@
 
 ## Architecture
 
-- Public package entrypoints are explicit: root plus `./transaction`, `./transport`, `./contract`, `./signers`, and `./actions`. Add new exported surface to the matching `src/**/index.ts`, `src/index.ts` if root-exported, and `package.json`/`tsup.config.ts` only for new subpaths.
+- Public package entrypoints are explicit: root plus `./transaction`, `./transport`, `./contract`, `./contracts`, `./signers`, and `./actions`. Add new exported surface to the matching `src/**/index.ts`, `src/index.ts` if root-exported, and `package.json`/`tsup.config.ts` only for new subpaths.
 - `src/client.ts` is a thin `createGroundhogClient(transport)` wrapper around standalone actions. Keep action behavior in `src/actions/**`; client methods should just bind the transport.
 - Runtime transports implement `Transport.request(method, params)`. `HttpTransport` sends JSON-RPC arrays with `params ?? []`; `MockTransport` is test-only and intentionally implements only known methods.
 - This is an ESM TypeScript package using `moduleResolution: "bundler"`; source imports use `.js` specifiers for local TS modules.
 
 ## Generated And Spec Files
 
-- `src/contracts/erc20.ts` and `src/contracts/recursive_type.ts` are generated bindings; do not hand-edit unless the task is explicitly about checked-in generated output.
+- `src/contracts/erc20.ts` and `src/contracts/recursive_type.ts` are generated bindings; do not hand-edit. Standard bindings exported from `src/contracts/index.ts`.
 - `specs/openrpc.json` is the pinned Groundhog OpenRPC spec. Regenerate with `scripts/regen-openrpc.sh`, which installs a pinned `groundhog-open-rpc-spec@x.y.z` from the Cargo `groundhog` registry and formats the JSON; bump the hardcoded script version when syncing to a newer RPC spec release.
 - After changing `specs/openrpc.json` or action request serialization, run `npm test`; `src/actions/contract.test.ts` should cover every supported OpenRPC method and validates emitted JSON-RPC params against the OpenRPC schemas.
 
