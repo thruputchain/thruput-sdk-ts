@@ -24,6 +24,11 @@
       "import": "./dist/contract.js",
       "require": "./dist/contract.cjs"
     },
+    "./contracts": {
+      "types": "./dist/contracts.d.ts",
+      "import": "./dist/contracts.js",
+      "require": "./dist/contracts.cjs"
+    },
     "./signers": {
       "types": "./dist/signers.d.ts",
       "import": "./dist/signers.js",

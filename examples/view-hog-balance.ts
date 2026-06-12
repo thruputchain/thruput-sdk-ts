@@ -5,7 +5,7 @@ import {
   createGroundhogClient,
   toHex0x,
 } from "../src/index.js";
-import { get_balance_of } from "../src/contracts/erc20.js";
+import { erc20 } from "../src/contracts/index.js";
 
 const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";
 const accountAddress = addressFromHex(
@@ -21,7 +21,7 @@ const hogToken = addressFromHex(
 const client = createGroundhogClient(new HttpTransport(rpcUrl));
 
 // Build a read-only ERC20 get_balance_of call for dev-0.
-const invocation = get_balance_of(hogToken, gasAmount(500_000n), {
+const invocation = erc20.get_balance_of(hogToken, gasAmount(500_000n), {
   addr: accountAddress,
 });
 

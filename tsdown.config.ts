@@ -5,6 +5,7 @@ export default defineConfig({
     index: "src/index.ts",
     transaction: "src/transaction/index.ts",
     contract: "src/contract/index.ts",
+    contracts: "src/contracts/index.ts",
     signers: "src/signers/index.ts",
     transport: "src/transport/index.ts",
     actions: "src/actions/index.ts",
