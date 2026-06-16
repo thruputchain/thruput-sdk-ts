@@ -17,9 +17,14 @@ import { describe, expect, it } from "vitest";
 import Ajv, { type AnySchema, type ValidateFunction } from "ajv";
 import openrpcSpec from "../../specs/openrpc.json";
 import {
+  AuthClaimType,
+  bitMap,
+  blockHeight,
   calldata,
   contractAddress,
   contractEntrypointID,
+  gasAmount,
+  weight,
 } from "@groundhogchain/protocol";
 import { getChainTip } from "./public/getChainTip.js";
 import { getBlockByNumber } from "./public/getBlockByNumber.js";
@@ -27,10 +32,15 @@ import { getEvents } from "./public/getEvents.js";
 import { getPendingTransactionCount } from "./public/getPendingTransactionCount.js";
 import { getStorageAt } from "./public/getStorageAt.js";
 import { getTransactionReceipt } from "./public/getTransactionReceipt.js";
+import { getTransactionStatus } from "./public/getTransactionStatus.js";
 import { getVersion } from "./public/getVersion.js";
 import { view } from "./public/view.js";
+import { sendTransaction } from "./wallet/sendTransaction.js";
+import { PrivateKeySigner } from "../signers/privateKey.js";
+import { createInvocation, createTransaction } from "../transaction/build.js";
+import { signTransaction } from "../transaction/sign.js";
 import type { Transport } from "../transport/types.js";
-import type { SHA256Hash } from "@groundhogchain/protocol";
+import type { SHA256Hash, SignedTransaction } from "@groundhogchain/protocol";
 
 // ---- ajv setup ---------------------------------------------------------
 
@@ -127,9 +137,50 @@ function assertCapturedParamsMatchSpec(
   }
 }
 
+async function makeDummySignedTx(): Promise<SignedTransaction> {
+  const secretKey = new Uint8Array(32);
+  secretKey[0] = 1;
+  const signer = new PrivateKeySigner(secretKey);
+
+  const invocation = createInvocation({
+    invoked_address: contractAddress(new Uint8Array(32)),
+    entrypoint: contractEntrypointID(new Uint8Array(8)),
+    gas_limit: gasAmount(1_000_000n),
+    calldata: calldata(new Uint8Array([1, 2, 3, 4])),
+  });
+
+  const tx = createTransaction({
+    invocation,
+    uniquifier: {
+      block_expiry_height: blockHeight(100n),
+      nonce: 42n,
+    },
+    contracts_to_deploy: [],
+    auth_claim: {
+      claim_type: AuthClaimType.kSourceAddressAuthData,
+      source_address_claim: {
+        allowed_keys: bitMap(0xffffffffn),
+        required_weight: weight(1n),
+      },
+    },
+  });
+
+  return signTransaction(tx, [{ signer, publicKeyId: 0n }]);
+}
+
 // ---- tests -------------------------------------------------------------
 
 describe("contract tests against specs/openrpc.json", () => {
+  it("groundhog_sendRawTransaction — sends a signed transaction as hex XDR", async () => {
+    const { transport, calls } = spyTransport("0x" + "11".repeat(32));
+    await sendTransaction(transport, await makeDummySignedTx());
+    expect(calls).toHaveLength(1);
+    assertCapturedParamsMatchSpec(
+      "groundhog_sendRawTransaction",
+      calls[0]!.params,
+    );
+  });
+
   it("groundhog_chainTip — sends an empty params array", async () => {
     const { transport, calls } = spyTransport({
       height: 0,
@@ -178,6 +229,17 @@ describe("contract tests against specs/openrpc.json", () => {
     expect(calls).toHaveLength(1);
     assertCapturedParamsMatchSpec(
       "groundhog_getTransactionReceipt",
+      calls[0]!.params,
+    );
+  });
+
+  it("groundhog_getTransactionStatus — sends a TxHash", async () => {
+    const { transport, calls } = spyTransport({ status: "unknown" });
+    const hash = new Uint8Array(32).fill(0xab) as unknown as SHA256Hash;
+    await getTransactionStatus(transport, hash);
+    expect(calls).toHaveLength(1);
+    assertCapturedParamsMatchSpec(
+      "groundhog_getTransactionStatus",
       calls[0]!.params,
     );
   });
