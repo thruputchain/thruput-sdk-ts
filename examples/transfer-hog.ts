@@ -21,7 +21,7 @@ import {
   signTransaction,
   toHex0x,
 } from "../src/index.js";
-import { erc20 } from "../src/contracts/index.js";
+import { ERC20 } from "../src/contracts/index.js";
 
 const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";
 const amount = 1000n;
@@ -54,7 +54,7 @@ const signer = new PrivateKeySigner(senderPrivateKey);
 const tip = await client.getChainTip();
 
 // Build the token call first: HOG.transfer(recipient, amount).
-const tokenInvocation = erc20.transfer(hogToken, callGasLimit, {
+const tokenInvocation = ERC20.transfer(hogToken, callGasLimit, {
   to: recipientAddress,
   amount,
 });

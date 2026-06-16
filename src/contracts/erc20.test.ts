@@ -13,7 +13,7 @@ import { createTransaction } from "../transaction/build.js";
 import { signTransaction } from "../transaction/sign.js";
 import { decodeCalldata } from "../contract/encode.js";
 import { buildNamedCodecs } from "../contract/codegen.js";
-import { transfer, get_balance, spec } from "./erc20.js";
+import { ERC20, spec } from "./erc20.js";
 
 const namedCodecs = buildNamedCodecs(spec.type_defs);
 
@@ -22,7 +22,7 @@ describe("generated ERC20 contract bindings", () => {
     const token = contractAddress(new Uint8Array(32).fill(0x11));
     const recipient = contractAddress(new Uint8Array(32).fill(0x22));
 
-    const invocation = transfer(token, gasAmount(1_000_000n), {
+    const invocation = ERC20.transfer(token, gasAmount(1_000_000n), {
       to: recipient,
       amount: 500n,
     });
@@ -42,9 +42,9 @@ describe("generated ERC20 contract bindings", () => {
     expect(decoded.amount).toBe(500n);
   });
 
-  it("get_balance() builds a zero-arg invocation", () => {
+  it("getBalance() builds a zero-arg invocation", () => {
     const token = contractAddress(new Uint8Array(32).fill(0x11));
-    const invocation = get_balance(token, gasAmount(500_000n));
+    const invocation = ERC20.getBalance(token, gasAmount(500_000n));
 
     expect(invocation.invoked_address).toEqual(token);
     expect(invocation.calldata.length).toBe(0);
@@ -58,7 +58,7 @@ describe("generated ERC20 contract bindings", () => {
     const token = contractAddress(new Uint8Array(32).fill(0x11));
     const recipient = contractAddress(new Uint8Array(32).fill(0x22));
 
-    const invocation = transfer(token, gasAmount(1_000_000n), {
+    const invocation = ERC20.transfer(token, gasAmount(1_000_000n), {
       to: recipient,
       amount: 100n,
     });

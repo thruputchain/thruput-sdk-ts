@@ -1,4 +1,4 @@
-// Generated from itc_erc20.wasm — ERC20 interface v0.1.2
+// Generated from itc_erc20.wasm — ERC20 interface v0.1.3
 // DO NOT EDIT. Re-run codegen to update.
 
 import type {
@@ -24,16 +24,18 @@ import { CxsReader } from "@groundhogchain/xdr";
 const s = contractSpecString;
 
 const entrypoints = {
-  adjust_allowance: contractEntrypointID(fromHex("c4b1fa34fd3c9d9f")),
-  allowance: contractEntrypointID(fromHex("fc18bdc3a40e0af4")),
-  burn: contractEntrypointID(fromHex("b4ede8d7d4ebdadf")),
-  get_balance: contractEntrypointID(fromHex("7a44649d55cabda8")),
-  get_balance_of: contractEntrypointID(fromHex("73c9aac12bd15a84")),
-  initialize: contractEntrypointID(fromHex("156e09b3a38b530b")),
-  mint: contractEntrypointID(fromHex("4d6bef07494b13e5")),
-  total_supply: contractEntrypointID(fromHex("cf0aa4a820e30216")),
-  transfer: contractEntrypointID(fromHex("3799fd1c3d9b098f")),
-  transfer_from: contractEntrypointID(fromHex("40365e271f8d6982")),
+  ERC20: {
+    adjustAllowance: contractEntrypointID(fromHex("c4b1fa34fd3c9d9f")),
+    allowance: contractEntrypointID(fromHex("fc18bdc3a40e0af4")),
+    burn: contractEntrypointID(fromHex("b4ede8d7d4ebdadf")),
+    getBalance: contractEntrypointID(fromHex("7a44649d55cabda8")),
+    getBalanceOf: contractEntrypointID(fromHex("73c9aac12bd15a84")),
+    initialize: contractEntrypointID(fromHex("156e09b3a38b530b")),
+    mint: contractEntrypointID(fromHex("4d6bef07494b13e5")),
+    totalSupply: contractEntrypointID(fromHex("cf0aa4a820e30216")),
+    transfer: contractEntrypointID(fromHex("3799fd1c3d9b098f")),
+    transferFrom: contractEntrypointID(fromHex("40365e271f8d6982")),
+  },
 } as const;
 
 export enum ERC20Error {
@@ -47,7 +49,7 @@ export const spec: ContractSpec = {
   interfaces: [
     {
       name: s("ERC20"),
-      vers: s("0.1.2"),
+      vers: s("0.1.3"),
       throws: [
         {
           selector: 0xb19947acb2fa14ffn,
@@ -175,181 +177,168 @@ export const spec: ContractSpec = {
 
 const namedCodecs = buildNamedCodecs(spec.type_defs);
 
-export function adjust_allowance(
-  contract: ContractAddress,
-  gasLimit: GasAmount,
-  args: { spender: ContractAddress; diff: bigint },
-): Invocation {
-  return createInvocation({
-    invoked_address: contract,
-    entrypoint: entrypoints.adjust_allowance,
-    gas_limit: gasLimit,
-    calldata: encodeCalldata(
-      spec,
-      "ERC20",
-      "adjust_allowance",
-      [args.spender, args.diff],
-      namedCodecs,
-    ),
-  });
-}
-
-export function allowance(
-  contract: ContractAddress,
-  gasLimit: GasAmount,
-  args: { owner: ContractAddress; spender: ContractAddress },
-): Invocation {
-  return createInvocation({
-    invoked_address: contract,
-    entrypoint: entrypoints.allowance,
-    gas_limit: gasLimit,
-    calldata: encodeCalldata(
-      spec,
-      "ERC20",
-      "allowance",
-      [args.owner, args.spender],
-      namedCodecs,
-    ),
-  });
-}
-
-export function burn(
-  contract: ContractAddress,
-  gasLimit: GasAmount,
-  args: { owner: ContractAddress; amount: bigint },
-): Invocation {
-  return createInvocation({
-    invoked_address: contract,
-    entrypoint: entrypoints.burn,
-    gas_limit: gasLimit,
-    calldata: encodeCalldata(
-      spec,
-      "ERC20",
-      "burn",
-      [args.owner, args.amount],
-      namedCodecs,
-    ),
-  });
-}
-
-export function get_balance(
-  contract: ContractAddress,
-  gasLimit: GasAmount,
-): Invocation {
-  return createInvocation({
-    invoked_address: contract,
-    entrypoint: entrypoints.get_balance,
-    gas_limit: gasLimit,
-    calldata: encodeCalldata(spec, "ERC20", "get_balance", [], namedCodecs),
-  });
-}
-
-export function get_balance_of(
-  contract: ContractAddress,
-  gasLimit: GasAmount,
-  args: { addr: ContractAddress },
-): Invocation {
-  return createInvocation({
-    invoked_address: contract,
-    entrypoint: entrypoints.get_balance_of,
-    gas_limit: gasLimit,
-    calldata: encodeCalldata(
-      spec,
-      "ERC20",
-      "get_balance_of",
-      [args.addr],
-      namedCodecs,
-    ),
-  });
-}
-
-export function initialize(
-  contract: ContractAddress,
-  gasLimit: GasAmount,
-  args: { contract_owner: ContractAddress },
-): Invocation {
-  return createInvocation({
-    invoked_address: contract,
-    entrypoint: entrypoints.initialize,
-    gas_limit: gasLimit,
-    calldata: encodeCalldata(
-      spec,
-      "ERC20",
-      "initialize",
-      [args.contract_owner],
-      namedCodecs,
-    ),
-  });
-}
-
-export function mint(
-  contract: ContractAddress,
-  gasLimit: GasAmount,
-  args: { receiver: ContractAddress; amount: bigint },
-): Invocation {
-  return createInvocation({
-    invoked_address: contract,
-    entrypoint: entrypoints.mint,
-    gas_limit: gasLimit,
-    calldata: encodeCalldata(
-      spec,
-      "ERC20",
-      "mint",
-      [args.receiver, args.amount],
-      namedCodecs,
-    ),
-  });
-}
-
-export function total_supply(
-  contract: ContractAddress,
-  gasLimit: GasAmount,
-): Invocation {
-  return createInvocation({
-    invoked_address: contract,
-    entrypoint: entrypoints.total_supply,
-    gas_limit: gasLimit,
-    calldata: encodeCalldata(spec, "ERC20", "total_supply", [], namedCodecs),
-  });
-}
-
-export function transfer(
-  contract: ContractAddress,
-  gasLimit: GasAmount,
-  args: { to: ContractAddress; amount: bigint },
-): Invocation {
-  return createInvocation({
-    invoked_address: contract,
-    entrypoint: entrypoints.transfer,
-    gas_limit: gasLimit,
-    calldata: encodeCalldata(
-      spec,
-      "ERC20",
-      "transfer",
-      [args.to, args.amount],
-      namedCodecs,
-    ),
-  });
-}
-
-export function transfer_from(
-  contract: ContractAddress,
-  gasLimit: GasAmount,
-  args: { owner: ContractAddress; receiver: ContractAddress; amount: bigint },
-): Invocation {
-  return createInvocation({
-    invoked_address: contract,
-    entrypoint: entrypoints.transfer_from,
-    gas_limit: gasLimit,
-    calldata: encodeCalldata(
-      spec,
-      "ERC20",
-      "transfer_from",
-      [args.owner, args.receiver, args.amount],
-      namedCodecs,
-    ),
-  });
-}
+export const ERC20 = {
+  adjustAllowance(
+    contract: ContractAddress,
+    gasLimit: GasAmount,
+    args: { spender: ContractAddress; diff: bigint },
+  ): Invocation {
+    return createInvocation({
+      invoked_address: contract,
+      entrypoint: entrypoints.ERC20.adjustAllowance,
+      gas_limit: gasLimit,
+      calldata: encodeCalldata(
+        spec,
+        "ERC20",
+        "adjust_allowance",
+        [args.spender, args.diff],
+        namedCodecs,
+      ),
+    });
+  },
+  allowance(
+    contract: ContractAddress,
+    gasLimit: GasAmount,
+    args: { owner: ContractAddress; spender: ContractAddress },
+  ): Invocation {
+    return createInvocation({
+      invoked_address: contract,
+      entrypoint: entrypoints.ERC20.allowance,
+      gas_limit: gasLimit,
+      calldata: encodeCalldata(
+        spec,
+        "ERC20",
+        "allowance",
+        [args.owner, args.spender],
+        namedCodecs,
+      ),
+    });
+  },
+  burn(
+    contract: ContractAddress,
+    gasLimit: GasAmount,
+    args: { owner: ContractAddress; amount: bigint },
+  ): Invocation {
+    return createInvocation({
+      invoked_address: contract,
+      entrypoint: entrypoints.ERC20.burn,
+      gas_limit: gasLimit,
+      calldata: encodeCalldata(
+        spec,
+        "ERC20",
+        "burn",
+        [args.owner, args.amount],
+        namedCodecs,
+      ),
+    });
+  },
+  getBalance(contract: ContractAddress, gasLimit: GasAmount): Invocation {
+    return createInvocation({
+      invoked_address: contract,
+      entrypoint: entrypoints.ERC20.getBalance,
+      gas_limit: gasLimit,
+      calldata: encodeCalldata(spec, "ERC20", "get_balance", [], namedCodecs),
+    });
+  },
+  getBalanceOf(
+    contract: ContractAddress,
+    gasLimit: GasAmount,
+    args: { addr: ContractAddress },
+  ): Invocation {
+    return createInvocation({
+      invoked_address: contract,
+      entrypoint: entrypoints.ERC20.getBalanceOf,
+      gas_limit: gasLimit,
+      calldata: encodeCalldata(
+        spec,
+        "ERC20",
+        "get_balance_of",
+        [args.addr],
+        namedCodecs,
+      ),
+    });
+  },
+  initialize(
+    contract: ContractAddress,
+    gasLimit: GasAmount,
+    args: { contractOwner: ContractAddress },
+  ): Invocation {
+    return createInvocation({
+      invoked_address: contract,
+      entrypoint: entrypoints.ERC20.initialize,
+      gas_limit: gasLimit,
+      calldata: encodeCalldata(
+        spec,
+        "ERC20",
+        "initialize",
+        [args.contractOwner],
+        namedCodecs,
+      ),
+    });
+  },
+  mint(
+    contract: ContractAddress,
+    gasLimit: GasAmount,
+    args: { receiver: ContractAddress; amount: bigint },
+  ): Invocation {
+    return createInvocation({
+      invoked_address: contract,
+      entrypoint: entrypoints.ERC20.mint,
+      gas_limit: gasLimit,
+      calldata: encodeCalldata(
+        spec,
+        "ERC20",
+        "mint",
+        [args.receiver, args.amount],
+        namedCodecs,
+      ),
+    });
+  },
+  totalSupply(contract: ContractAddress, gasLimit: GasAmount): Invocation {
+    return createInvocation({
+      invoked_address: contract,
+      entrypoint: entrypoints.ERC20.totalSupply,
+      gas_limit: gasLimit,
+      calldata: encodeCalldata(spec, "ERC20", "total_supply", [], namedCodecs),
+    });
+  },
+  transfer(
+    contract: ContractAddress,
+    gasLimit: GasAmount,
+    args: { to: ContractAddress; amount: bigint },
+  ): Invocation {
+    return createInvocation({
+      invoked_address: contract,
+      entrypoint: entrypoints.ERC20.transfer,
+      gas_limit: gasLimit,
+      calldata: encodeCalldata(
+        spec,
+        "ERC20",
+        "transfer",
+        [args.to, args.amount],
+        namedCodecs,
+      ),
+    });
+  },
+  transferFrom(
+    contract: ContractAddress,
+    gasLimit: GasAmount,
+    args: { owner: ContractAddress; receiver: ContractAddress; amount: bigint },
+  ): Invocation {
+    return createInvocation({
+      invoked_address: contract,
+      entrypoint: entrypoints.ERC20.transferFrom,
+      gas_limit: gasLimit,
+      calldata: encodeCalldata(
+        spec,
+        "ERC20",
+        "transfer_from",
+        [args.owner, args.receiver, args.amount],
+        namedCodecs,
+      ),
+    });
+  },
+} as const;
 
 function topicEquals(a: Uint8Array | undefined, b: Uint8Array): boolean {
   if (a === undefined || a.length !== b.length) return false;
