@@ -32,7 +32,7 @@ import { buildNamedCodecs } from "./contract/codegen.js";
 import type { ContractSpec } from "./contract/spec.js";
 import { MockTransport } from "./transport/mock.js";
 import { createGroundhogClient } from "./client.js";
-import { transfer } from "./contracts/erc20.js";
+import { ERC20 } from "./contracts/erc20.js";
 
 const s = contractSpecString;
 
@@ -170,7 +170,7 @@ describe("end-to-end: full pipeline via MockTransport client", () => {
     // Build an ERC20 transfer invocation
     const tokenAddress = contractAddress(new Uint8Array(32).fill(0xaa));
     const recipient = contractAddress(new Uint8Array(32).fill(0xbb));
-    const invocation = transfer(tokenAddress, gasAmount(500_000n), {
+    const invocation = ERC20.transfer(tokenAddress, gasAmount(500_000n), {
       to: recipient,
       amount: 1000n,
     });

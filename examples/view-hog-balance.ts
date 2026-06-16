@@ -5,7 +5,7 @@ import {
   createGroundhogClient,
   toHex0x,
 } from "../src/index.js";
-import { erc20 } from "../src/contracts/index.js";
+import { ERC20 } from "../src/contracts/index.js";
 
 const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";
 const accountAddress = addressFromHex(
@@ -20,8 +20,8 @@ const hogToken = addressFromHex(
 
 const client = createGroundhogClient(new HttpTransport(rpcUrl));
 
-// Build a read-only ERC20 get_balance_of call for dev-0.
-const invocation = erc20.get_balance_of(hogToken, gasAmount(500_000n), {
+// Build a read-only ERC20 getBalanceOf call for dev-0.
+const invocation = ERC20.getBalanceOf(hogToken, gasAmount(500_000n), {
   addr: accountAddress,
 });
 
@@ -37,7 +37,7 @@ if (response.output.result !== "return") {
   throw new Error(`HOG balance view did not return: ${response.output.result}`);
 }
 
-// ERC20 get_balance_of returns a CXS-encoded U128.
+// ERC20 getBalanceOf returns a CXS-encoded U128.
 const reader = new CxsReader(response.output.returnData);
 const balance = Uint128Codec.decode(reader);
 
