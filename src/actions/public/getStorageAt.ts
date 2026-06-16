@@ -3,6 +3,11 @@ import type { Transport } from "../../transport/types.js";
 import type { StorageItemInfo, StorageItemRead } from "../../types/rpc.js";
 import { fromHex0x, hashFromHex, toHex0x } from "../hex.js";
 
+interface RawStorageItemRead {
+  blockHeight: number | string;
+  item?: unknown;
+}
+
 export async function getStorageAt(
   transport: Transport,
   address: ContractAddress,
@@ -15,13 +20,22 @@ export async function getStorageAt(
       `getStorageAt: storage key must be exactly 32 bytes, got ${key.length}`,
     );
   }
-  const result = await transport.request<{
-    blockHeight: number | string;
-    item: unknown;
-  }>("groundhog_getStorageAt", [toHex0x(address), toHex0x(key)]);
+  const result = await transport.request<unknown>("groundhog_getStorageAt", [
+    toHex0x(address),
+    toHex0x(key),
+  ]);
+
+  if (!result || typeof result !== "object" || Array.isArray(result)) {
+    throw new Error("Invalid storage response");
+  }
+  const read = result as RawStorageItemRead;
+
   return {
-    blockHeight: BigInt(result.blockHeight),
-    item: result.item !== null ? parseStorageItemInfo(result.item) : null,
+    blockHeight: BigInt(read.blockHeight),
+    item:
+      read.item !== undefined && read.item !== null
+        ? parseStorageItemInfo(read.item)
+        : null,
   };
 }
 

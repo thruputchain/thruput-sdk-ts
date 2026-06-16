@@ -7,15 +7,30 @@ import type {
 } from "../../types/rpc.js";
 import { addressFromHex, fromHex0x, toHex0x } from "../hex.js";
 
+interface RawEmittedEvent {
+  contractAddress: string;
+  topics?: string[];
+  data?: string;
+}
+
+interface RawViewOutput {
+  result: string;
+  returnData: string;
+  abortData: string;
+}
+
+interface RawViewResponse {
+  output: unknown;
+  events?: unknown[];
+  height: number | string;
+}
+
 function parseEvent(value: unknown): EmittedEvent {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Expected view event to be an object");
   }
 
-  const e = value as Record<string, unknown>;
-  if (typeof e.contractAddress !== "string") {
-    throw new Error("Expected view event contractAddress to be a string");
-  }
+  const e = value as RawEmittedEvent;
 
   const topics = e.topics ?? [];
   if (!Array.isArray(topics)) {
@@ -23,18 +38,10 @@ function parseEvent(value: unknown): EmittedEvent {
   }
 
   const data = e.data ?? "0x";
-  if (typeof data !== "string") {
-    throw new Error("Expected view event data to be a string");
-  }
 
   return {
     contractAddress: addressFromHex(e.contractAddress),
-    topics: topics.map((topic) => {
-      if (typeof topic !== "string") {
-        throw new Error("Expected view event topic to be a string");
-      }
-      return fromHex0x(topic);
-    }),
+    topics: topics.map(fromHex0x),
     data: fromHex0x(data),
   };
 }
@@ -44,7 +51,7 @@ function parseOutput(value: unknown): ViewOutput {
     throw new Error("Expected view output to be an object");
   }
 
-  const raw = value as Record<string, unknown>;
+  const raw = value as RawViewOutput;
   switch (raw.result) {
     case "return":
       if (typeof raw.returnData !== "string") {
@@ -92,7 +99,7 @@ export async function view(
     throw new Error("Expected view response to be an object");
   }
 
-  const response = raw as Record<string, unknown>;
+  const response = raw as RawViewResponse;
   const events = response.events ?? [];
   if (!Array.isArray(events)) {
     throw new Error("Expected view response events to be an array");
