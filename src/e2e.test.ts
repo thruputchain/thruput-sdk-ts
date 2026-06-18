@@ -171,7 +171,7 @@ describe("end-to-end: full pipeline via MockTransport client", () => {
     const tokenAddress = contractAddress(new Uint8Array(32).fill(0xaa));
     const recipient = contractAddress(new Uint8Array(32).fill(0xbb));
     const invocation = ERC20.transfer(tokenAddress, gasAmount(500_000n), {
-      to: recipient,
+      receiver: recipient,
       amount: 1000n,
     });
 

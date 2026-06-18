@@ -55,7 +55,7 @@ const tip = await client.getChainTip();
 
 // Build the token call first: HOG.transfer(recipient, amount).
 const tokenInvocation = ERC20.transfer(hogToken, callGasLimit, {
-  to: recipientAddress,
+  receiver: recipientAddress,
   amount,
 });
 

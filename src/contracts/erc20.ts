@@ -1,4 +1,5 @@
-// Generated from itc_erc20.wasm — ERC20 interface v0.1.3
+// Generated from erc20.wasm — ERC20 interface v0.1.3
+// Generated from erc20.wasm — ERC20Metadata interface v0.1.3
 // DO NOT EDIT. Re-run codegen to update.
 
 import type {
@@ -35,6 +36,12 @@ const entrypoints = {
     totalSupply: contractEntrypointID(fromHex("cf0aa4a820e30216")),
     transfer: contractEntrypointID(fromHex("3799fd1c3d9b098f")),
     transferFrom: contractEntrypointID(fromHex("40365e271f8d6982")),
+  },
+  ERC20Metadata: {
+    decimals: contractEntrypointID(fromHex("308a140f32b48bfd")),
+    initialize: contractEntrypointID(fromHex("17ea0e631f7c989f")),
+    name: contractEntrypointID(fromHex("d1f190e8b1eb6615")),
+    symbol: contractEntrypointID(fromHex("5d0bc14af0202b33")),
   },
 } as const;
 
@@ -88,13 +95,13 @@ export const spec: ContractSpec = {
         },
         {
           name: s("get_balance_of"),
-          args: [{ name: s("addr"), ty: { v: ContractTypeKind.Address } }],
+          args: [{ name: s("owner"), ty: { v: ContractTypeKind.Address } }],
           return_type: { v: ContractTypeKind.U128 },
         },
         {
           name: s("initialize"),
           args: [
-            { name: s("contract_owner"), ty: { v: ContractTypeKind.Address } },
+            { name: s("administrator"), ty: { v: ContractTypeKind.Address } },
           ],
           return_type: { v: ContractTypeKind.Void },
         },
@@ -114,7 +121,7 @@ export const spec: ContractSpec = {
         {
           name: s("transfer"),
           args: [
-            { name: s("to"), ty: { v: ContractTypeKind.Address } },
+            { name: s("receiver"), ty: { v: ContractTypeKind.Address } },
             { name: s("amount"), ty: { v: ContractTypeKind.U128 } },
           ],
           return_type: { v: ContractTypeKind.Void },
@@ -127,6 +134,65 @@ export const spec: ContractSpec = {
             { name: s("amount"), ty: { v: ContractTypeKind.U128 } },
           ],
           return_type: { v: ContractTypeKind.Void },
+        },
+      ],
+    },
+    {
+      name: s("ERC20Metadata"),
+      vers: s("0.1.3"),
+      throws: [],
+      methods: [
+        {
+          name: s("decimals"),
+          args: [],
+          return_type: {
+            v: ContractTypeKind.Option,
+            option_inner: { v: ContractTypeKind.U32 },
+          },
+        },
+        {
+          name: s("initialize"),
+          args: [
+            { name: s("administrator"), ty: { v: ContractTypeKind.Address } },
+            {
+              name: s("name"),
+              ty: {
+                v: ContractTypeKind.Option,
+                option_inner: { v: ContractTypeKind.String },
+              },
+            },
+            {
+              name: s("symbol"),
+              ty: {
+                v: ContractTypeKind.Option,
+                option_inner: { v: ContractTypeKind.String },
+              },
+            },
+            {
+              name: s("decimals"),
+              ty: {
+                v: ContractTypeKind.Option,
+                option_inner: { v: ContractTypeKind.U32 },
+              },
+            },
+          ],
+          return_type: { v: ContractTypeKind.Void },
+        },
+        {
+          name: s("name"),
+          args: [],
+          return_type: {
+            v: ContractTypeKind.Option,
+            option_inner: { v: ContractTypeKind.String },
+          },
+        },
+        {
+          name: s("symbol"),
+          args: [],
+          return_type: {
+            v: ContractTypeKind.Option,
+            option_inner: { v: ContractTypeKind.String },
+          },
         },
       ],
     },
@@ -243,7 +309,7 @@ export const ERC20 = {
   getBalanceOf(
     contract: ContractAddress,
     gasLimit: GasAmount,
-    args: { addr: ContractAddress },
+    args: { owner: ContractAddress },
   ): Invocation {
     return createInvocation({
       invoked_address: contract,
@@ -253,7 +319,7 @@ export const ERC20 = {
         spec,
         "ERC20",
         "get_balance_of",
-        [args.addr],
+        [args.owner],
         namedCodecs,
       ),
     });
@@ -261,7 +327,7 @@ export const ERC20 = {
   initialize(
     contract: ContractAddress,
     gasLimit: GasAmount,
-    args: { contractOwner: ContractAddress },
+    args: { administrator: ContractAddress },
   ): Invocation {
     return createInvocation({
       invoked_address: contract,
@@ -271,7 +337,7 @@ export const ERC20 = {
         spec,
         "ERC20",
         "initialize",
-        [args.contractOwner],
+        [args.administrator],
         namedCodecs,
       ),
     });
@@ -305,7 +371,7 @@ export const ERC20 = {
   transfer(
     contract: ContractAddress,
     gasLimit: GasAmount,
-    args: { to: ContractAddress; amount: bigint },
+    args: { receiver: ContractAddress; amount: bigint },
   ): Invocation {
     return createInvocation({
       invoked_address: contract,
@@ -315,7 +381,7 @@ export const ERC20 = {
         spec,
         "ERC20",
         "transfer",
-        [args.to, args.amount],
+        [args.receiver, args.amount],
         namedCodecs,
       ),
     });
@@ -334,6 +400,68 @@ export const ERC20 = {
         "ERC20",
         "transfer_from",
         [args.owner, args.receiver, args.amount],
+        namedCodecs,
+      ),
+    });
+  },
+} as const;
+
+export const ERC20Metadata = {
+  decimals(contract: ContractAddress, gasLimit: GasAmount): Invocation {
+    return createInvocation({
+      invoked_address: contract,
+      entrypoint: entrypoints.ERC20Metadata.decimals,
+      gas_limit: gasLimit,
+      calldata: encodeCalldata(
+        spec,
+        "ERC20Metadata",
+        "decimals",
+        [],
+        namedCodecs,
+      ),
+    });
+  },
+  initialize(
+    contract: ContractAddress,
+    gasLimit: GasAmount,
+    args: {
+      administrator: ContractAddress;
+      name: string | null;
+      symbol: string | null;
+      decimals: bigint | null;
+    },
+  ): Invocation {
+    return createInvocation({
+      invoked_address: contract,
+      entrypoint: entrypoints.ERC20Metadata.initialize,
+      gas_limit: gasLimit,
+      calldata: encodeCalldata(
+        spec,
+        "ERC20Metadata",
+        "initialize",
+        [args.administrator, args.name, args.symbol, args.decimals],
+        namedCodecs,
+      ),
+    });
+  },
+  name(contract: ContractAddress, gasLimit: GasAmount): Invocation {
+    return createInvocation({
+      invoked_address: contract,
+      entrypoint: entrypoints.ERC20Metadata.name,
+      gas_limit: gasLimit,
+      calldata: encodeCalldata(spec, "ERC20Metadata", "name", [], namedCodecs),
+    });
+  },
+  symbol(contract: ContractAddress, gasLimit: GasAmount): Invocation {
+    return createInvocation({
+      invoked_address: contract,
+      entrypoint: entrypoints.ERC20Metadata.symbol,
+      gas_limit: gasLimit,
+      calldata: encodeCalldata(
+        spec,
+        "ERC20Metadata",
+        "symbol",
+        [],
         namedCodecs,
       ),
     });

@@ -1,5 +1,6 @@
 export {
   ERC20,
+  ERC20Metadata,
   ERC20Error,
   ApprovalEvent as ERC20ApprovalEvent,
   TransferEvent as ERC20TransferEvent,
