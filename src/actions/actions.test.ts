@@ -25,6 +25,7 @@ import { getStorageAt } from "./public/getStorageAt.js";
 import { getVersion } from "./public/getVersion.js";
 import { view } from "./public/view.js";
 import type { Transport } from "../transport/types.js";
+import { hashFromHex } from "./hex.js";
 
 function makeDummySignedTx() {
   const secretKey = new Uint8Array(32);
@@ -297,7 +298,7 @@ describe("getTransactionReceipt", () => {
 
   it("returns null for unknown tx", async () => {
     const transport = new MockTransport();
-    const fakeHash = new Uint8Array(32) as any;
+    const fakeHash = hashFromHex("0x" + "00".repeat(32));
     const receipt = await getTransactionReceipt(transport, fakeHash);
     expect(receipt).toBeNull();
   });
@@ -314,7 +315,7 @@ describe("getTransactionStatus", () => {
 
   it("returns unknown for missing tx", async () => {
     const transport = new MockTransport();
-    const fakeHash = new Uint8Array(32) as any;
+    const fakeHash = hashFromHex("0x" + "00".repeat(32));
     const status = await getTransactionStatus(transport, fakeHash);
     expect(status.status).toBe("unknown");
   });
@@ -382,13 +383,18 @@ describe("getEvents", () => {
     });
 
     expect(calls).toHaveLength(1);
-    const query = (calls[0].params as any[])[0];
+    expect(calls[0].params).toBeDefined();
+    const query = calls[0].params![0] as Record<string, unknown>;
+    const filters = query.filters as Record<string, unknown>[];
+    const firstFilter = filters[0];
+    const contractAddresses = firstFilter.contractAddresses as string[];
+    const topics = firstFilter.topics as Record<string, string[]>;
 
     // Addresses: Hex0x_ContractAddress (0x-prefixed lowercase hex)
-    expect(query.filters[0].contractAddresses[0]).toBe("0x" + "ab".repeat(32));
+    expect(contractAddresses[0]).toBe("0x" + "ab".repeat(32));
 
     // Topics: Hex0x (0x-prefixed lowercase hex)
-    expect(query.filters[0].topics.topic0[0]).toBe("0x" + "cd".repeat(32));
+    expect(topics.topic0[0]).toBe("0x" + "cd".repeat(32));
 
     // Cursor: PaginationCursor pattern `^0x[0-9a-f]*$`.
     expect(query.cursor).toBe("0x010203");

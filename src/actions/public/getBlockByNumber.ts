@@ -16,17 +16,23 @@ export async function getBlockByNumber(
   transport: Transport,
   height: bigint,
 ): Promise<BlockInfo | null> {
-  const result = await transport.request<RawBlockInfo | null>(
+  const result = await transport.request<unknown>(
     "groundhog_getBlockByNumber",
     [Number(height)],
   );
   if (result === null) return null;
+
+  if (!result || typeof result !== "object" || Array.isArray(result)) {
+    throw new Error("Invalid block response");
+  }
+  const block = result as RawBlockInfo;
+
   return {
-    networkId: BigInt(result.networkId),
-    blockHeight: BigInt(result.blockHeight),
-    txsetHash: hashFromHex(result.txsetHash),
-    dbHash: dbHash(fromHex0x(result.dbHash)),
-    eventsHash: hashFromHex(result.eventsHash),
-    prevBlockHash: hashFromHex(result.prevBlockHash),
+    networkId: BigInt(block.networkId),
+    blockHeight: BigInt(block.blockHeight),
+    txsetHash: hashFromHex(block.txsetHash),
+    dbHash: dbHash(fromHex0x(block.dbHash)),
+    eventsHash: hashFromHex(block.eventsHash),
+    prevBlockHash: hashFromHex(block.prevBlockHash),
   };
 }
