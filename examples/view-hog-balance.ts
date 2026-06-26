@@ -22,7 +22,7 @@ const client = createGroundhogClient(new HttpTransport(rpcUrl));
 
 // Build a read-only ERC20 getBalanceOf call for dev-0.
 const invocation = ERC20.getBalanceOf(hogToken, gasAmount(500_000n), {
-  owner: accountAddress,
+  addr: accountAddress,
 });
 
 // `view` simulates the contract call and returns raw CXS bytes.
