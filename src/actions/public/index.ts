@@ -1,4 +1,5 @@
 export { getChainTip } from "./getChainTip.js";
+export { getBalance } from "./getBalance.js";
 export { getBlockByNumber } from "./getBlockByNumber.js";
 export { getPendingTransactionCount } from "./getPendingTransactionCount.js";
 export { getTransactionReceipt } from "./getTransactionReceipt.js";

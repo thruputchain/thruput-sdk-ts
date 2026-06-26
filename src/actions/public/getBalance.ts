@@ -1,0 +1,31 @@
+import type { ContractAddress } from "@groundhogchain/protocol";
+import type { Transport } from "../../transport/types.js";
+import type { BalanceResponse } from "../../types/rpc.js";
+import { addressFromHex, toHex0x } from "../hex.js";
+
+interface RawBalanceResponse {
+  address: string;
+  rawBalance: string;
+  height: number | string;
+}
+
+export async function getBalance(
+  transport: Transport,
+  address: ContractAddress,
+): Promise<BalanceResponse> {
+  const result = await transport.request<unknown>("groundhog_getBalance", [
+    toHex0x(address),
+  ]);
+
+  if (!result || typeof result !== "object" || Array.isArray(result)) {
+    throw new Error("Invalid balance response");
+  }
+
+  const balance = result as RawBalanceResponse;
+
+  return {
+    address: addressFromHex(balance.address),
+    rawBalance: BigInt(balance.rawBalance),
+    height: BigInt(balance.height),
+  };
+}

@@ -11,6 +11,18 @@ describe("MockTransport", () => {
     expect(tip.blockHash).toMatch(/^0x[0-9a-f]{64}$/);
   });
 
+  it("returns zero native HOG balance for requested address", async () => {
+    const transport = new MockTransport();
+    const address = "0x" + "ab".repeat(32);
+    const balance = await transport.request<{
+      address: string;
+      rawBalance: string;
+      height: number;
+    }>("groundhog_getBalance", [address]);
+
+    expect(balance).toEqual({ address, rawBalance: "0", height: 0 });
+  });
+
   it("stores a transaction and increments height on sendRawTransaction", async () => {
     const transport = new MockTransport();
     const hash = await transport.request<string>(

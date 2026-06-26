@@ -27,6 +27,7 @@ import {
   weight,
 } from "@groundhogchain/protocol";
 import { getChainTip } from "./public/getChainTip.js";
+import { getBalance } from "./public/getBalance.js";
 import { getBlockByNumber } from "./public/getBlockByNumber.js";
 import { getEvents } from "./public/getEvents.js";
 import { getPendingTransactionCount } from "./public/getPendingTransactionCount.js";
@@ -200,6 +201,20 @@ describe("contract tests against specs/openrpc.json", () => {
     await getVersion(transport);
     expect(calls).toHaveLength(1);
     assertCapturedParamsMatchSpec("groundhog_version", calls[0]!.params);
+  });
+
+  it("groundhog_getBalance — sends a Hex0x_ContractAddress", async () => {
+    const address = contractAddress(new Uint8Array(32).fill(0xab));
+    const { transport, calls } = spyTransport({
+      address: "0x" + "ab".repeat(32),
+      rawBalance: "0",
+      height: 0,
+    });
+
+    await getBalance(transport, address);
+
+    expect(calls).toHaveLength(1);
+    assertCapturedParamsMatchSpec("groundhog_getBalance", calls[0]!.params);
   });
 
   it("groundhog_getBlockByNumber — sends a BlockHeight", async () => {
