@@ -14,6 +14,12 @@ export interface ChainTip {
   blockHash: SHA256Hash;
 }
 
+export interface BalanceResponse {
+  address: ContractAddress;
+  rawBalance: bigint;
+  height: bigint;
+}
+
 export interface BlockInfo {
   networkId: bigint;
   blockHeight: bigint;

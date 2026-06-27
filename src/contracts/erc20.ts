@@ -7,13 +7,12 @@ import type {
   GasAmount,
   Invocation,
 } from "@groundhogchain/protocol";
-import { contractEntrypointID } from "@groundhogchain/protocol";
+import { contractEntrypointID, topic } from "@groundhogchain/protocol";
 import { fromHex } from "@groundhogchain/protocol/utils";
 import {
   ContractTypeKind,
   ContractTypeDefKind,
   contractSpecString,
-  topic,
 } from "@groundhogchain/contract-spec";
 import type { ContractSpec } from "../contract/spec.js";
 import { encodeCalldata } from "../contract/encode.js";
@@ -26,22 +25,22 @@ const s = contractSpecString;
 
 const entrypoints = {
   ERC20: {
-    adjustAllowance: contractEntrypointID(fromHex("c4b1fa34fd3c9d9f")),
-    allowance: contractEntrypointID(fromHex("fc18bdc3a40e0af4")),
-    burn: contractEntrypointID(fromHex("b4ede8d7d4ebdadf")),
-    getBalance: contractEntrypointID(fromHex("7a44649d55cabda8")),
-    getBalanceOf: contractEntrypointID(fromHex("73c9aac12bd15a84")),
-    initialize: contractEntrypointID(fromHex("156e09b3a38b530b")),
-    mint: contractEntrypointID(fromHex("4d6bef07494b13e5")),
-    totalSupply: contractEntrypointID(fromHex("cf0aa4a820e30216")),
-    transfer: contractEntrypointID(fromHex("3799fd1c3d9b098f")),
-    transferFrom: contractEntrypointID(fromHex("40365e271f8d6982")),
+    adjustAllowance: contractEntrypointID(fromHex("d5acf88949a80342")),
+    allowance: contractEntrypointID(fromHex("d296058ebcf260cb")),
+    burn: contractEntrypointID(fromHex("54adb8f6a487253b")),
+    getBalance: contractEntrypointID(fromHex("b921b642d31d7dac")),
+    getBalanceOf: contractEntrypointID(fromHex("41ac95d6e06e2620")),
+    initialize: contractEntrypointID(fromHex("18944c3aa4944671")),
+    mint: contractEntrypointID(fromHex("f3f3bd9dede066a3")),
+    totalSupply: contractEntrypointID(fromHex("2cbfcd0cb5c3f962")),
+    transfer: contractEntrypointID(fromHex("63285b3523f9dc3f")),
+    transferFrom: contractEntrypointID(fromHex("695be60513fcc294")),
   },
   ERC20Metadata: {
-    decimals: contractEntrypointID(fromHex("308a140f32b48bfd")),
-    initialize: contractEntrypointID(fromHex("17ea0e631f7c989f")),
-    name: contractEntrypointID(fromHex("d1f190e8b1eb6615")),
-    symbol: contractEntrypointID(fromHex("5d0bc14af0202b33")),
+    decimals: contractEntrypointID(fromHex("d9462e42964991d0")),
+    initialize: contractEntrypointID(fromHex("f65b96296d684b0b")),
+    name: contractEntrypointID(fromHex("51ad51ee8a5d9dd8")),
+    symbol: contractEntrypointID(fromHex("3ddac721aa5abdea")),
   },
 } as const;
 
@@ -95,7 +94,7 @@ export const spec: ContractSpec = {
         },
         {
           name: s("get_balance_of"),
-          args: [{ name: s("owner"), ty: { v: ContractTypeKind.Address } }],
+          args: [{ name: s("addr"), ty: { v: ContractTypeKind.Address } }],
           return_type: { v: ContractTypeKind.U128 },
         },
         {
@@ -236,7 +235,7 @@ export const spec: ContractSpec = {
         { name: s("from"), ty: { v: ContractTypeKind.Address } },
         { name: s("to"), ty: { v: ContractTypeKind.Address } },
       ],
-      fields: [{ name: s("amount"), ty: { v: ContractTypeKind.U128 } }],
+      fields: [{ name: s("amount"), ty: { v: ContractTypeKind.I128 } }],
     },
   ],
 };
@@ -309,7 +308,7 @@ export const ERC20 = {
   getBalanceOf(
     contract: ContractAddress,
     gasLimit: GasAmount,
-    args: { owner: ContractAddress },
+    args: { addr: ContractAddress },
   ): Invocation {
     return createInvocation({
       invoked_address: contract,
@@ -319,7 +318,7 @@ export const ERC20 = {
         spec,
         "ERC20",
         "get_balance_of",
-        [args.owner],
+        [args.addr],
         namedCodecs,
       ),
     });

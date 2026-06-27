@@ -16,6 +16,7 @@ import { signTransaction } from "../transaction/sign.js";
 import { MockTransport } from "../transport/mock.js";
 import { sendTransaction } from "./wallet/sendTransaction.js";
 import { getChainTip } from "./public/getChainTip.js";
+import { getBalance } from "./public/getBalance.js";
 import { getBlockByNumber } from "./public/getBlockByNumber.js";
 import { getPendingTransactionCount } from "./public/getPendingTransactionCount.js";
 import { getTransactionReceipt } from "./public/getTransactionReceipt.js";
@@ -91,10 +92,47 @@ describe("getVersion", () => {
     const transport = new MockTransport();
     const version = await getVersion(transport);
     expect(version).toEqual({
-      wireFormat: "2.0.0",
+      wireFormat: "2.1.0",
       implementation: "mock",
       commitHash: null,
     });
+  });
+});
+
+describe("getBalance", () => {
+  it("serializes address and parses native HOG balance response", async () => {
+    const calls: { method: string; params?: unknown[] }[] = [];
+    const address = contractAddress(new Uint8Array(32).fill(0xab));
+    const transport: Transport = {
+      async request<T>(method: string, params?: unknown[]): Promise<T> {
+        calls.push({ method, params });
+        return {
+          address: "0x" + "ab".repeat(32),
+          rawBalance: "9007199254740993",
+          height: "42",
+        } as T;
+      },
+    };
+
+    const balance = await getBalance(transport, address);
+
+    expect(calls).toEqual([
+      { method: "groundhog_getBalance", params: ["0x" + "ab".repeat(32)] },
+    ]);
+    expect(balance.address).toEqual(address);
+    expect(balance.rawBalance).toBe(9007199254740993n);
+    expect(balance.height).toBe(42n);
+  });
+
+  it("returns zero balance from mock", async () => {
+    const transport = new MockTransport();
+    const address = contractAddress(new Uint8Array(32).fill(0xcd));
+
+    const balance = await getBalance(transport, address);
+
+    expect(balance.address).toEqual(address);
+    expect(balance.rawBalance).toBe(0n);
+    expect(balance.height).toBe(0n);
   });
 });
 

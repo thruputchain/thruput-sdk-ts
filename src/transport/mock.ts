@@ -13,6 +13,8 @@ export class MockTransport implements Transport {
     switch (method) {
       case "groundhog_chainTip":
         return this.#chainTip() as T;
+      case "groundhog_getBalance":
+        return this.#getBalance(params) as T;
       case "groundhog_getBlockByNumber":
         return this.#getBlockByNumber(params) as T;
       case "groundhog_pendingTransactionCount":
@@ -87,9 +89,22 @@ export class MockTransport implements Transport {
     commitHash: null;
   } {
     return {
-      wireFormat: "2.0.0",
+      wireFormat: "2.1.0",
       implementation: "mock",
       commitHash: null,
+    };
+  }
+
+  #getBalance(params?: unknown[]): {
+    address: string;
+    rawBalance: string;
+    height: number;
+  } {
+    const address = params && params.length > 0 ? String(params[0]) : "0x";
+    return {
+      address,
+      rawBalance: "0",
+      height: Number(this.#height),
     };
   }
 
