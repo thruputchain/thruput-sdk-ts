@@ -14,6 +14,8 @@
  *   amount: 1_000n,
  * });
  * ```
+ *
+ * @module
  */
 export {
   ERC20,

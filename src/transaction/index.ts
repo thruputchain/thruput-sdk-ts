@@ -1,3 +1,11 @@
+/**
+ * Helpers for building, serializing, deserializing, and signing transactions.
+ *
+ * Use this entrypoint when constructing transactions manually or when combining
+ * generated contract invocations with custom signing flows.
+ *
+ * @module
+ */
 export { createInvocation, createTransaction } from "./build.js";
 export {
   serializeTransaction,

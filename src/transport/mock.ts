@@ -1,6 +1,13 @@
 import type { Transport } from "./types.js";
 import { sha256Hash, toHex } from "@groundhogchain/protocol";
 
+/**
+ * In-memory transport for tests and examples.
+ *
+ * `MockTransport` implements a small deterministic subset of the Groundhog
+ * JSON-RPC API. It is useful for SDK unit tests and simple examples, but it is
+ * not a full node simulator and does not execute contract code.
+ */
 export class MockTransport implements Transport {
   #height = 0n;
   #transactions = new Map<
@@ -9,6 +16,7 @@ export class MockTransport implements Transport {
   >();
   #txCounter = 0;
 
+  /** Route a supported JSON-RPC method to the mock implementation. */
   async request<T = unknown>(method: string, params?: unknown[]): Promise<T> {
     switch (method) {
       case "groundhog_chainTip":
