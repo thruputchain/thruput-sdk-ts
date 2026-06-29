@@ -7,6 +7,7 @@ interface RawChainTip {
   blockHash: string;
 }
 
+/** Return the latest block height and block hash reported by the gateway. */
 export async function getChainTip(transport: Transport): Promise<ChainTip> {
   const result = await transport.request<unknown>("groundhog_chainTip");
   if (!result || typeof result !== "object" || Array.isArray(result)) {

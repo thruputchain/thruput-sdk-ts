@@ -88,6 +88,21 @@ function parseIdentifiedEvent(value: unknown): IdentifiedEvent {
   };
 }
 
+/**
+ * Query emitted contract events with the gateway's paginated event API.
+ *
+ * Use `cursor` from the returned page to request the next page with the same
+ * filters and ordering.
+ *
+ * @example
+ * ```ts
+ * const page = await getEvents(transport, {
+ *   filters: [{ contractAddresses: [contractAddress] }],
+ *   order: "ascending",
+ *   limit: 25,
+ * });
+ * ```
+ */
 export async function getEvents(
   transport: Transport,
   query: EventQuery,

@@ -9,6 +9,12 @@ interface RawBalanceResponse {
   height: number | string;
 }
 
+/**
+ * Return the HOG balance for an address.
+ *
+ * The raw balance is returned as a `bigint`; display code should apply any
+ * token-specific decimal formatting separately.
+ */
 export async function getBalance(
   transport: Transport,
   address: ContractAddress,

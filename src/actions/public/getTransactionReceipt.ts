@@ -67,6 +67,11 @@ function parseOptionalBytes(
   return fromHex0x(value);
 }
 
+/**
+ * Return the receipt for a committed transaction.
+ *
+ * Returns `null` when the transaction is not found in committed history.
+ */
 export async function getTransactionReceipt(
   transport: Transport,
   txHash: SHA256Hash,

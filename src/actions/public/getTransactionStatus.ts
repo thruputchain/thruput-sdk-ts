@@ -3,6 +3,7 @@ import type { Transport } from "../../transport/types.js";
 import type { TransactionStatus } from "../../types/rpc.js";
 import { toHex0x } from "../hex.js";
 
+/** Return whether a transaction is pending, committed, invalid, or unknown. */
 export async function getTransactionStatus(
   transport: Transport,
   txHash: SHA256Hash,
