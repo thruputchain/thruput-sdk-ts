@@ -10,6 +10,12 @@ import type {
   Contract,
 } from "@groundhogchain/protocol";
 
+/**
+ * Build an invocation object from already-typed protocol values.
+ *
+ * Generated contract bindings usually call this helper for you. Use it directly
+ * when constructing a low-level invocation without generated bindings.
+ */
 export function createInvocation(params: {
   invoked_address: ContractAddress;
   entrypoint: ContractEntrypointID;
@@ -24,6 +30,12 @@ export function createInvocation(params: {
   };
 }
 
+/**
+ * Build an unsigned transaction from an invocation and authorization metadata.
+ *
+ * The returned transaction must be signed with {@link signTransaction} before it
+ * can be submitted to a Groundhog JSON-RPC gateway.
+ */
 export function createTransaction(params: {
   invocation: Invocation;
   uniquifier: Uniquifier;
