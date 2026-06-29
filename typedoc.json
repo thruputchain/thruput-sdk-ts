@@ -1,0 +1,22 @@
+{
+  "name": "@groundhogchain/client",
+  "entryPoints": [
+    "src/index.ts",
+    "src/actions/index.ts",
+    "src/transport/index.ts",
+    "src/transaction/index.ts",
+    "src/contract/index.ts",
+    "src/contracts/index.ts",
+    "src/signers/index.ts"
+  ],
+  "out": "docs/api",
+  "readme": "README.md",
+  "tsconfig": "tsconfig.json",
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeInternal": true,
+  "excludeExternals": true,
+  "cleanOutputDir": true,
+  "githubPages": true,
+  "treatWarningsAsErrors": true
+}
