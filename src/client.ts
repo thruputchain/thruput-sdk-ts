@@ -29,23 +29,68 @@ import { getVersion } from "./actions/public/getVersion.js";
 import { view } from "./actions/public/view.js";
 import { sendTransaction } from "./actions/wallet/sendTransaction.js";
 
+/**
+ * Convenience client with all supported Groundhog JSON-RPC actions bound to a
+ * single transport.
+ *
+ * Use {@link createGroundhogClient} when application code should not pass a
+ * transport into every action call.
+ */
 export interface GroundhogClient {
+  /** Return the latest block height and hash reported by the gateway. */
   getChainTip(): Promise<ChainTip>;
+
+  /** Return the HOG balance for a contract address. */
   getBalance(address: ContractAddress): Promise<BalanceResponse>;
+
+  /** Return block metadata for a height, or `null` when the block is unknown. */
   getBlockByNumber(height: bigint): Promise<BlockInfo | null>;
+
+  /** Return the number of transactions currently pending in the mempool. */
   getPendingTransactionCount(): Promise<bigint>;
+
+  /** Return the gateway implementation and wire-format version. */
   getVersion(): Promise<VersionInfo>;
+
+  /** Execute a read-only contract invocation without submitting a transaction. */
   view(request: ViewRequest): Promise<ViewResponse>;
+
+  /** Return a committed transaction receipt, or `null` when it is not found. */
   getTransactionReceipt(txHash: SHA256Hash): Promise<TransactionReceipt | null>;
+
+  /** Return whether a transaction is pending, committed, invalid, or unknown. */
   getTransactionStatus(txHash: SHA256Hash): Promise<TransactionStatus>;
+
+  /** Query emitted contract events with the gateway's paginated event API. */
   getEvents(query: EventQuery): Promise<EventPage>;
+
+  /** Read a committed storage item at a contract address and storage key. */
   getStorageAt(
     address: ContractAddress,
     key: Uint8Array,
   ): Promise<StorageItemRead>;
+
+  /** Submit a signed transaction and return its transaction hash. */
   sendTransaction(signedTx: SignedTransaction): Promise<SHA256Hash>;
 }
 
+/**
+ * Create a convenience client by binding all SDK actions to a transport.
+ *
+ * The returned object is intentionally thin: each method delegates to the
+ * corresponding standalone action with the provided transport.
+ *
+ * @example
+ * ```ts
+ * import { createGroundhogClient, HttpTransport } from "@groundhogchain/client";
+ *
+ * const client = createGroundhogClient(
+ *   new HttpTransport("http://127.0.0.1:9545"),
+ * );
+ *
+ * const tip = await client.getChainTip();
+ * ```
+ */
 export function createGroundhogClient(transport: Transport): GroundhogClient {
   return {
     getChainTip: () => getChainTip(transport),
