@@ -50,6 +50,12 @@ const Uint8Codec: XdrCodec<bigint> = {
   },
 };
 
+/**
+ * Resolve a contract-spec type into the XDR/CXS codec used to encode values.
+ *
+ * Pass `namedCodecs` when resolving named structs, enums, or unions from a
+ * contract spec. Build that map with {@link buildNamedCodecs}.
+ */
 export function resolveCodec(
   ty: ContractType,
   namedCodecs?: Record<string, XdrCodec<unknown>>,
@@ -143,6 +149,24 @@ function lookupMethod(
   return method;
 }
 
+/**
+ * Encode method arguments into contract calldata using a contract spec.
+ *
+ * Generated contract bindings call this helper internally. Use it directly when
+ * constructing invocations from a spec without generated TypeScript bindings.
+ *
+ * @example
+ * ```ts
+ * const namedCodecs = buildNamedCodecs(spec.type_defs);
+ * const calldata = encodeCalldata(
+ *   spec,
+ *   "Counter",
+ *   "increment",
+ *   [1n],
+ *   namedCodecs,
+ * );
+ * ```
+ */
 export function encodeCalldata(
   spec: ContractSpec,
   interfaceName: string,
@@ -166,6 +190,12 @@ export function encodeCalldata(
   return calldata(w.finish());
 }
 
+/**
+ * Decode contract calldata into an object keyed by argument name.
+ *
+ * This is primarily useful for tooling, tests, and debugging generated
+ * invocations.
+ */
 export function decodeCalldata(
   spec: ContractSpec,
   interfaceName: string,

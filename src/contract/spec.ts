@@ -1,3 +1,4 @@
+/** Contract spec types consumed by SDK calldata helpers and generated bindings. */
 export type {
   ContractSpec,
   ContractSpecInterface,
@@ -17,6 +18,7 @@ export type {
   ContractSpecString,
 } from "@groundhogchain/contract-spec";
 
+/** Contract spec enum discriminants used when inspecting parsed specs. */
 export {
   ContractTypeKind,
   ContractTypeDefKind,
