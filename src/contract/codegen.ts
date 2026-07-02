@@ -4,6 +4,13 @@ import type { ContractTypeDef, ContractUnionCaseType } from "./spec.js";
 import { ContractTypeDefKind, ContractUnionCaseKind } from "./spec.js";
 import { resolveCodec } from "./encode.js";
 
+/**
+ * Build codecs for named contract-spec types.
+ *
+ * The returned map is required by {@link encodeCalldata},
+ * {@link decodeCalldata}, and {@link resolveCodec} whenever a method argument
+ * references a named struct, enum, or union.
+ */
 export function buildNamedCodecs(
   typeDefs: ContractTypeDef[],
 ): Record<string, XdrCodec<unknown>> {

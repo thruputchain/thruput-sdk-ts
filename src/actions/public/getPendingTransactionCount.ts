@@ -1,5 +1,6 @@
 import type { Transport } from "../../transport/types.js";
 
+/** Return the number of transactions currently pending in the mempool. */
 export async function getPendingTransactionCount(
   transport: Transport,
 ): Promise<bigint> {

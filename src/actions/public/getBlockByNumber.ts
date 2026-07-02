@@ -12,6 +12,7 @@ interface RawBlockInfo {
   prevBlockHash: string;
 }
 
+/** Return block metadata for a height, or `null` when the block is unknown. */
 export async function getBlockByNumber(
   transport: Transport,
   height: bigint,

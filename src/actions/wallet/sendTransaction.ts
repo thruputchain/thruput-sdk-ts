@@ -3,6 +3,17 @@ import { serialize, codec } from "@groundhogchain/protocol";
 import type { Transport } from "../../transport/types.js";
 import { toHex0x, hashFromHex } from "../hex.js";
 
+/**
+ * Submit a signed transaction and return its transaction hash.
+ *
+ * This action serializes the signed transaction and sends it through
+ * `groundhog_sendRawTransaction`.
+ *
+ * @example
+ * ```ts
+ * const txHash = await sendTransaction(transport, signedTx);
+ * ```
+ */
 export async function sendTransaction(
   transport: Transport,
   signedTx: SignedTransaction,

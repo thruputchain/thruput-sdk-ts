@@ -1,5 +1,6 @@
 import type { Transport } from "./types.js";
 
+/** JSON-RPC error codes currently returned by Groundhog gateways. */
 export const GroundhogRpcErrorCode = {
   InvalidParams: -32602,
   TxInvalid: -32000,
@@ -12,10 +13,22 @@ export const GroundhogRpcErrorCode = {
   Overloaded: -32053,
 } as const;
 
+/**
+ * Error thrown when a JSON-RPC response contains an `error` object.
+ *
+ * Transport-level HTTP failures and malformed envelopes throw regular `Error`
+ * instances instead.
+ */
 export class JsonRpcError extends Error {
+  /** JSON-RPC numeric error code. */
   code: number;
+
+  /** Optional JSON-RPC error data returned by the gateway. */
   data?: unknown;
+
+  /** JSON-RPC method associated with the failed request, when known. */
   method?: string;
+
   constructor(code: number, message: string, data?: unknown, method?: string) {
     super(message);
     this.name = "JsonRpcError";
@@ -25,24 +38,52 @@ export class JsonRpcError extends Error {
   }
 }
 
+/** Options for {@link HttpTransport}. */
 export interface HttpTransportOptions {
+  /** Additional HTTP headers to include with each JSON-RPC request. */
   headers?: Record<string, string>;
+
+  /** Custom `fetch` implementation, useful for tests or non-standard runtimes. */
   fetch?: typeof fetch;
+
+  /** Abort each request after this many milliseconds. */
   timeoutMs?: number;
 }
 
+/**
+ * JSON-RPC 2.0 transport over HTTP POST.
+ *
+ * `HttpTransport` handles request IDs, JSON-RPC envelopes, optional custom
+ * headers, optional timeout cancellation, and conversion of JSON-RPC error
+ * responses into {@link JsonRpcError}.
+ *
+ * @example
+ * ```ts
+ * import { HttpTransport } from "@groundhogchain/client/transport";
+ *
+ * const transport = new HttpTransport("http://127.0.0.1:9545", {
+ *   timeoutMs: 10_000,
+ * });
+ *
+ * const tip = await transport.request("groundhog_chainTip");
+ * ```
+ */
 export class HttpTransport implements Transport {
   #url: string;
   #headers?: Record<string, string>;
   #fetch: typeof fetch;
   #timeoutMs?: number;
   #nextId = 1;
+
+  /** Create an HTTP transport for a Groundhog JSON-RPC endpoint URL. */
   constructor(url: string, options: HttpTransportOptions = {}) {
     this.#url = url;
     this.#headers = options.headers;
     this.#fetch = options.fetch ?? fetch;
     this.#timeoutMs = options.timeoutMs;
   }
+
+  /** Send one JSON-RPC request and return the decoded `result` value. */
   async request<T = unknown>(method: string, params?: unknown[]): Promise<T> {
     const id = this.#nextId++;
     const body = JSON.stringify({

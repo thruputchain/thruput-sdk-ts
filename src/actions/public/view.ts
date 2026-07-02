@@ -76,6 +76,26 @@ function parseOutput(value: unknown): ViewOutput {
   }
 }
 
+/**
+ * Execute a read-only contract invocation without submitting a transaction.
+ *
+ * `view` is useful for local reads and UI queries. The invocation is evaluated
+ * by the gateway and does not enter the mempool.
+ *
+ * @example
+ * ```ts
+ * const response = await view(transport, {
+ *   contract,
+ *   entrypoint,
+ *   calldata,
+ *   caller,
+ * });
+ *
+ * if (response.output.result === "return") {
+ *   console.log(response.output.returnData);
+ * }
+ * ```
+ */
 export async function view(
   transport: Transport,
   request: ViewRequest,

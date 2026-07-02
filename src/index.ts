@@ -1,3 +1,13 @@
+/**
+ * Root SDK entrypoint for the Groundhog TypeScript client.
+ *
+ * Most applications should start here with {@link createGroundhogClient} and
+ * {@link HttpTransport}. Focused subpath exports are also available for
+ * transaction, transport, contract, standard contract binding, signer, and
+ * action APIs.
+ *
+ * @module
+ */
 export * from "./transaction/index.js";
 export * from "./contract/index.js";
 export * from "./actions/index.js";

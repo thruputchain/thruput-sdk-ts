@@ -1,6 +1,7 @@
 import type { Transport } from "../../transport/types.js";
 import type { VersionInfo } from "../../types/rpc.js";
 
+/** Return the gateway implementation and wire-format version. */
 export async function getVersion(transport: Transport): Promise<VersionInfo> {
   const result = await transport.request<unknown>("groundhog_version");
   if (!result || typeof result !== "object" || Array.isArray(result)) {

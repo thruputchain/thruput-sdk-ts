@@ -8,6 +8,12 @@ interface RawStorageItemRead {
   item?: unknown;
 }
 
+/**
+ * Read a committed storage item at a contract address and 32-byte storage key.
+ *
+ * The gateway returns typed storage variants for known protocol storage kinds
+ * and `null` when no item exists at the key.
+ */
 export async function getStorageAt(
   transport: Transport,
   address: ContractAddress,

@@ -42,6 +42,24 @@ const receipt = await client.sendTransaction({
 
 The package exposes focused entry points alongside the root: `./transaction`, `./transport`, `./contract`, `./contracts`, `./signers`, `./actions`.
 
+## API docs
+
+Generate local API reference docs with TypeDoc:
+
+```sh
+npm run docs
+```
+
+The generated HTML is written to `docs/api/`. That directory is ignored and should not be committed.
+
+To validate that API docs still build without writing output:
+
+```sh
+npm run docs:check
+```
+
+The API reference is generated from the package's public entry points, matching the root and subpath exports listed above.
+
 ## Developing
 
 ### Registry auth (one-time setup)
@@ -78,4 +96,6 @@ that's your reminder.
 - `npm run build` — bundle with `tsup` to `dist/`.
 - `npm test` / `npm run test:watch` — run `vitest`.
 - `npm run typecheck` — `tsc --noEmit`.
+- `npm run docs` — generate TypeDoc API reference HTML in `docs/api/`.
+- `npm run docs:check` — validate TypeDoc generation without writing output.
 - `npm run format` / `format:check` — `prettier`.
