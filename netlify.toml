@@ -1,0 +1,6 @@
+[build]
+  command = "npm run docs"
+  publish = "docs/api"
+
+[build.environment]
+  NODE_VERSION = "22"
