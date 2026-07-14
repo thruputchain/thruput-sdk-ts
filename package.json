@@ -1,6 +1,6 @@
 {
   "name": "@groundhogchain/client",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "TypeScript client for the Groundhog blockchain",
   "type": "module",
   "exports": {
@@ -66,9 +66,9 @@
     "vitest": "4.1.8"
   },
   "dependencies": {
-    "@groundhogchain/contract-spec": "^0.4.0",
-    "@groundhogchain/gateway": "^0.4.0",
-    "@groundhogchain/protocol": "^0.4.0",
+    "@groundhogchain/contract-spec": "0.4.2",
+    "@groundhogchain/gateway": "0.4.2",
+    "@groundhogchain/protocol": "0.4.2",
     "@noble/ed25519": "^3.1.0",
     "@noble/hashes": "^2.2.0"
   }

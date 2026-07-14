@@ -57,6 +57,32 @@
       }
     },
     "schemas": {
+      "AddressTransactionQuery": {
+        "description": "`getTransactionsByAddress` request: the transaction history of\n`address`, walked in `order` from `anchor`.\n\nA transaction is part of an address's history when its root\ninvocation targets that address; transactions that merely touch the\naddress mid-execution do not match.",
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/Hex0x_ContractAddress"
+          },
+          "anchor": {
+            "$ref": "#/components/schemas/BlockAnchor"
+          },
+          "cursor": {
+            "$ref": "#/components/schemas/PaginationCursor",
+            "description": "`0x` on the initial call. Non-empty to continue where a previous\nresponse left off; `order` and `anchor` in the request are\nignored when a cursor is supplied — the cursor carries them."
+          },
+          "limit": {
+            "description": "Values above the server's per-page cap (default 200) are\nrejected as invalid params; `0` means server default (50).",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "order": {
+            "$ref": "#/components/schemas/IterationOrder"
+          }
+        },
+        "required": ["address", "order", "anchor", "cursor", "limit"],
+        "type": "object"
+      },
       "BalanceResponse": {
         "description": "Native HOG balance read from committed chain state.",
         "properties": {
@@ -166,6 +192,75 @@
         "required": ["height", "blockHash"],
         "type": "object"
       },
+      "ConflictCode": {
+        "description": "Reason a storage delta could not be applied during two-phase commit.\nProjects hogd's `DbConflictCode`.\n\nNew codes may be added as hogd evolves; unrecognized codes surface\nas `Other` on both serialize and deserialize so mixed-version\ndeployments degrade instead of failing.",
+        "oneOf": [
+          {
+            "const": "exclusiveLock",
+            "description": "The key is exclusively locked by another transaction, an\nexclusive lock could not be acquired, or an exclusive-lock flag\nwas used on a key type that does not support it.",
+            "type": "string"
+          },
+          {
+            "const": "typeMismatch",
+            "description": "Two transactions created different item types at the same key.",
+            "type": "string"
+          },
+          {
+            "const": "valueMismatch",
+            "description": "Two transactions wrote irreconcilable values of the same type at\nthe same key.",
+            "type": "string"
+          },
+          {
+            "const": "boundsExceeded",
+            "description": "A nonnegative int (or balance) would go below zero given the\ndeltas in this block, or a newly created balance item cannot\ncover its own storage cost.",
+            "type": "string"
+          },
+          {
+            "const": "overflow",
+            "description": "Integer overflow combining deltas on a nonnegative int or balance.",
+            "type": "string"
+          },
+          {
+            "const": "replayProtection",
+            "description": "Replay-protection conflict: uniquifier expired, already consumed,\nor consumed twice by this transaction.",
+            "type": "string"
+          },
+          {
+            "const": "queueConsumer",
+            "description": "A retrocausal queue already has a consumer in this block.",
+            "type": "string"
+          },
+          {
+            "const": "capacityExceeded",
+            "description": "A per-item capacity limit was hit.",
+            "type": "string"
+          },
+          {
+            "const": "other",
+            "description": "Unrecognized conflict code. Check for gateway updates.",
+            "type": "string"
+          }
+        ]
+      },
+      "ConflictDiagnostic": {
+        "description": "One conflicting storage operation reported by two-phase commit.",
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/Hex0x_ContractAddress",
+            "description": "Contract whose storage the conflicting operation targeted."
+          },
+          "code": {
+            "$ref": "#/components/schemas/ConflictCode",
+            "description": "Coarse conflict reason."
+          },
+          "key": {
+            "$ref": "#/components/schemas/HexBytes",
+            "description": "XDR-encoded `StorageKey` bytes."
+          }
+        },
+        "required": ["address", "key", "code"],
+        "type": "object"
+      },
       "ContractAddressList": {
         "description": "Contract addresses accepted by a single event filter. Mirrors the hogd-indexer per-filter contract-address bound.",
         "items": {
@@ -257,7 +352,7 @@
             "$ref": "#/components/schemas/EventFilterList"
           },
           "limit": {
-            "description": "Clamped server-side to [1, 200]; `0` means server default (50).",
+            "description": "Values above the server's per-page cap (default 200) are\nrejected as invalid params; `0` means server default (50).",
             "format": "uint32",
             "minimum": 0,
             "type": "integer"
@@ -650,6 +745,45 @@
         "required": ["txHash", "height", "status", "events"],
         "type": "object"
       },
+      "TransactionRef": {
+        "description": "Lightweight reference to a transaction: its hash plus the block it\nexecuted in.  Hydrate the full body via `getTransactionReceipt`.",
+        "properties": {
+          "height": {
+            "$ref": "#/components/schemas/BlockHeight"
+          },
+          "txHash": {
+            "$ref": "#/components/schemas/TxHash"
+          }
+        },
+        "required": ["txHash", "height"],
+        "type": "object"
+      },
+      "TransactionRefPage": {
+        "description": "`getTransactionsByAddress` response: transaction refs in the\nrequested order.",
+        "properties": {
+          "cursor": {
+            "$ref": "#/components/schemas/PaginationCursor",
+            "description": "Empty when the stream has been exhausted in the requested\ndirection.  Non-empty: pass back in the next call's `cursor`\nargument."
+          },
+          "latestBlock": {
+            "$ref": "#/components/schemas/BlockHeight",
+            "description": "Highest block height the indexer has processed at response time."
+          },
+          "oldestBlock": {
+            "$ref": "#/components/schemas/BlockHeight",
+            "description": "Oldest block height the indexer still retains data for at\nresponse time."
+          },
+          "refs": {
+            "description": "Matched transaction refs in the requested order.  Empty refs +\nempty cursor = stream exhausted.",
+            "items": {
+              "$ref": "#/components/schemas/TransactionRef"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["refs", "cursor", "latestBlock", "oldestBlock"],
+        "type": "object"
+      },
       "TransactionStatus": {
         "description": "Lightweight status — the result of checking mempool then indexer.\n\nLookup order: scheduler (Pending) → indexer (Committed) → Unknown.\nSee `docs/gateway/system-design.md` \"Transaction Status Lookup Order\" for\ndegraded-mode behavior when a backend is unavailable.\n\nNew variants may be added in future phases.",
         "oneOf": [
@@ -693,10 +827,40 @@
             "type": "object"
           },
           {
+            "description": "No committed record, but the transaction failed\nnondeterministically during two-phase commit within the last few\nblocks and the indexer still holds the diagnostic.\n\nBest-effort and advisory: reports are dropped freely under load,\nonly the proposing node's indexers hear them, and a later retry\nof the same transaction may still commit (at which point\n`Committed` wins). Absence of this status proves nothing.",
+            "properties": {
+              "attemptHeight": {
+                "$ref": "#/components/schemas/BlockHeight",
+                "description": "Executing block height of the failed attempt."
+              },
+              "conflict": {
+                "$ref": "#/components/schemas/ConflictDiagnostic",
+                "description": "First conflicting storage op reported for the failed attempt."
+              },
+              "status": {
+                "const": "recentFailure",
+                "type": "string"
+              }
+            },
+            "required": ["status", "attemptHeight", "conflict"],
+            "type": "object"
+          },
+          {
             "description": "Not found in mempool or indexer.",
             "properties": {
               "status": {
                 "const": "unknown",
+                "type": "string"
+              }
+            },
+            "required": ["status"],
+            "type": "object"
+          },
+          {
+            "description": "Unrecognized status from a newer server. Returned when the\nclient encounters a `status` tag it doesn't know about. Check\nfor client updates.",
+            "properties": {
+              "status": {
+                "const": "other",
                 "type": "string"
               }
             },
@@ -784,7 +948,7 @@
   },
   "info": {
     "title": "Groundhog JSON-RPC",
-    "version": "2.1.0"
+    "version": "2.3.1"
   },
   "methods": [
     {
@@ -827,7 +991,7 @@
           "$ref": "#/components/schemas/TxHash"
         }
       },
-      "summary": "Submit a signed transaction (0x-prefixed hex XDR). Returns the canonical tx hash.",
+      "summary": "Submit a signed transaction (0x-prefixed hex XDR). Returns the canonical tx hash. Transactions whose `blockExpiryHeight` is at or below the current chain tip can never commit and are rejected with `TxRejected` when the tip is available.",
       "tags": [
         {
           "name": "Core API"
@@ -922,7 +1086,7 @@
           "$ref": "#/components/schemas/TransactionStatus"
         }
       },
-      "summary": "Lightweight status check (mempool -> indexer -> unknown).",
+      "summary": "Lightweight status check (mempool -> indexer -> unknown). `unknown` is only returned after both the mempool and the indexer answered without a match; if the mempool could not be consulted and the indexer has no record, the call fails with `BackendUnavailable` because the transaction may still be pending.",
       "tags": [
         {
           "name": "Core API"
@@ -1077,6 +1241,47 @@
         }
       },
       "summary": "Paginated, filterable contract events. See `EventQuery` / `EventPage` for the Soroban-shaped filter / cursor / topic surface, with RPC-native `0x`-prefixed address and topic projections at the JSON boundary.",
+      "tags": [
+        {
+          "name": "Core API"
+        }
+      ]
+    },
+    {
+      "errors": [
+        {
+          "$ref": "#/components/errors/InvalidParams"
+        },
+        {
+          "$ref": "#/components/errors/BackendUnavailable"
+        },
+        {
+          "$ref": "#/components/errors/BackendTimeout"
+        },
+        {
+          "$ref": "#/components/errors/Overloaded"
+        },
+        {
+          "$ref": "#/components/errors/NotImplemented"
+        }
+      ],
+      "name": "groundhog_getTransactionsByAddress",
+      "params": [
+        {
+          "name": "query",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/AddressTransactionQuery"
+          }
+        }
+      ],
+      "result": {
+        "name": "TransactionRefPage",
+        "schema": {
+          "$ref": "#/components/schemas/TransactionRefPage"
+        }
+      },
+      "summary": "Paginated transaction history for a single address: refs to transactions whose root invocation targets the address, walked in the requested order. Hydrate full bodies via `getTransactionReceipt`.",
       "tags": [
         {
           "name": "Core API"
