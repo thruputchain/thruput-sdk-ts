@@ -13,6 +13,8 @@ import type {
   ViewResponse,
   TransactionReceipt,
   TransactionStatus,
+  AddressTransactionQuery,
+  TransactionRefPage,
   EventQuery,
   EventPage,
   StorageItemRead,
@@ -23,6 +25,7 @@ import { getBlockByNumber } from "./actions/public/getBlockByNumber.js";
 import { getPendingTransactionCount } from "./actions/public/getPendingTransactionCount.js";
 import { getTransactionReceipt } from "./actions/public/getTransactionReceipt.js";
 import { getTransactionStatus } from "./actions/public/getTransactionStatus.js";
+import { getTransactionsByAddress } from "./actions/public/getTransactionsByAddress.js";
 import { getEvents } from "./actions/public/getEvents.js";
 import { getStorageAt } from "./actions/public/getStorageAt.js";
 import { getVersion } from "./actions/public/getVersion.js";
@@ -58,8 +61,13 @@ export interface GroundhogClient {
   /** Return a committed transaction receipt, or `null` when it is not found. */
   getTransactionReceipt(txHash: SHA256Hash): Promise<TransactionReceipt | null>;
 
-  /** Return whether a transaction is pending, committed, invalid, or unknown. */
+  /** Return the gateway's current knowledge of a submitted transaction. */
   getTransactionStatus(txHash: SHA256Hash): Promise<TransactionStatus>;
+
+  /** Query transaction refs whose root invocation targets one address. */
+  getTransactionsByAddress(
+    query: AddressTransactionQuery,
+  ): Promise<TransactionRefPage>;
 
   /** Query emitted contract events with the gateway's paginated event API. */
   getEvents(query: EventQuery): Promise<EventPage>;
@@ -101,6 +109,8 @@ export function createGroundhogClient(transport: Transport): GroundhogClient {
     view: (request) => view(transport, request),
     getTransactionReceipt: (txHash) => getTransactionReceipt(transport, txHash),
     getTransactionStatus: (txHash) => getTransactionStatus(transport, txHash),
+    getTransactionsByAddress: (query) =>
+      getTransactionsByAddress(transport, query),
     getEvents: (query) => getEvents(transport, query),
     getStorageAt: (address, key) => getStorageAt(transport, address, key),
     sendTransaction: (signedTx) => sendTransaction(transport, signedTx),

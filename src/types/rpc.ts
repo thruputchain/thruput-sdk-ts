@@ -102,7 +102,61 @@ export type TransactionStatus =
   | { status: "pending" }
   | { status: "committed"; height: bigint }
   | { status: "invalid"; reason: string }
+  | {
+      status: "recentFailure";
+      attemptHeight: bigint;
+      conflict: ConflictDiagnostic;
+    }
+  | { status: "other" }
   | { status: "unknown" };
+
+/** Coarse reason a storage operation conflicted during two-phase commit. */
+export type ConflictCode =
+  | "exclusiveLock"
+  | "typeMismatch"
+  | "valueMismatch"
+  | "boundsExceeded"
+  | "overflow"
+  | "replayProtection"
+  | "queueConsumer"
+  | "capacityExceeded"
+  | "other";
+
+/** First conflicting storage operation reported for a recent failed attempt. */
+export interface ConflictDiagnostic {
+  /** Contract whose storage the conflicting operation targeted. */
+  address: ContractAddress;
+
+  /** XDR-encoded storage key bytes. */
+  key: Uint8Array;
+
+  /** Coarse conflict reason. */
+  code: ConflictCode;
+}
+
+/** Lightweight reference to a committed transaction. */
+export interface TransactionRef {
+  /** Transaction hash. */
+  txHash: SHA256Hash;
+
+  /** Block height where the transaction executed. */
+  height: bigint;
+}
+
+/** One page of transaction-history references. */
+export interface TransactionRefPage {
+  /** Matched transaction references in the requested order. */
+  refs: TransactionRef[];
+
+  /** Cursor to pass into the next query for pagination. */
+  cursor: Uint8Array;
+
+  /** Latest block visible to the transaction indexer. */
+  latestBlock: bigint;
+
+  /** Oldest block retained by the transaction indexer. */
+  oldestBlock: bigint;
+}
 
 /** Committed transaction receipt. */
 export interface TransactionReceipt {
@@ -210,6 +264,24 @@ export interface EventQuery {
   cursor?: Uint8Array;
 
   /** Maximum number of events to return. */
+  limit?: number;
+}
+
+/** Paginated transaction-history query for transactions rooted at one address. */
+export interface AddressTransactionQuery {
+  /** Contract address whose transaction history should be queried. */
+  address: ContractAddress;
+
+  /** Result ordering. Defaults to ascending. */
+  order?: IterationOrder;
+
+  /** Block position to start from. Defaults to the beginning. */
+  anchor?: BlockAnchor;
+
+  /** Cursor returned by a previous page. */
+  cursor?: Uint8Array;
+
+  /** Maximum number of refs to return. */
   limit?: number;
 }
 

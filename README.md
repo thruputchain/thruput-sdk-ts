@@ -27,7 +27,7 @@ const receipt = await client.sendTransaction({
 
 - `src/client.ts` — `createGroundhogClient` factory that binds a transport to the SDK actions.
 - `src/actions/` — RPC actions grouped by namespace:
-  - `public/` — read methods (`getChainTip`, `getEvents`, `getStorageAt`, `getTransactionReceipt`, `getTransactionStatus`).
+  - `public/` — read methods (`getChainTip`, `getEvents`, `getStorageAt`, `getTransactionReceipt`, `getTransactionStatus`, `getTransactionsByAddress`).
   - `wallet/` — write methods (`sendTransaction`).
 - `src/transaction/` — transaction build, serialize, and sign helpers.
 - `src/contract/` — contract spec parsing, ABI-style `encode`, and TypeScript `codegen` from specs.

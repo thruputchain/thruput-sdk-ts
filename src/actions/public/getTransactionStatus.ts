@@ -1,9 +1,57 @@
 import type { SHA256Hash } from "@groundhogchain/protocol";
 import type { Transport } from "../../transport/types.js";
-import type { TransactionStatus } from "../../types/rpc.js";
-import { toHex0x } from "../hex.js";
+import type {
+  ConflictCode,
+  ConflictDiagnostic,
+  TransactionStatus,
+} from "../../types/rpc.js";
+import { addressFromHex, fromHex0x, toHex0x } from "../hex.js";
 
-/** Return whether a transaction is pending, committed, invalid, or unknown. */
+const conflictCodes = new Set<string>([
+  "exclusiveLock",
+  "typeMismatch",
+  "valueMismatch",
+  "boundsExceeded",
+  "overflow",
+  "replayProtection",
+  "queueConsumer",
+  "capacityExceeded",
+  "other",
+]);
+
+function parseConflictCode(code: unknown): ConflictCode {
+  if (typeof code !== "string") {
+    throw new Error(
+      "Invalid transaction status response: expected conflict.code",
+    );
+  }
+  return (conflictCodes.has(code) ? code : "other") as ConflictCode;
+}
+
+function parseConflictDiagnostic(value: unknown): ConflictDiagnostic {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Invalid transaction status response: expected conflict");
+  }
+  const conflict = value as Record<string, unknown>;
+  if (typeof conflict.address !== "string") {
+    throw new Error(
+      "Invalid transaction status response: expected conflict.address",
+    );
+  }
+  if (typeof conflict.key !== "string") {
+    throw new Error(
+      "Invalid transaction status response: expected conflict.key",
+    );
+  }
+
+  return {
+    address: addressFromHex(conflict.address),
+    key: fromHex0x(conflict.key),
+    code: parseConflictCode(conflict.code),
+  };
+}
+
+/** Return the gateway's current knowledge of a submitted transaction. */
 export async function getTransactionStatus(
   transport: Transport,
   txHash: SHA256Hash,
@@ -39,9 +87,25 @@ export async function getTransactionStatus(
       }
       return { status: "invalid", reason: status.reason };
     }
+    case "recentFailure":
+      if (
+        typeof status.attemptHeight !== "string" &&
+        typeof status.attemptHeight !== "number"
+      ) {
+        throw new Error(
+          "Invalid transaction status response: expected attempt height",
+        );
+      }
+      return {
+        status: "recentFailure",
+        attemptHeight: BigInt(status.attemptHeight),
+        conflict: parseConflictDiagnostic(status.conflict),
+      };
     case "unknown":
       return { status: "unknown" };
+    case "other":
+      return { status: "other" };
     default:
-      throw new Error("Invalid transaction status response: unknown status");
+      return { status: "other" };
   }
 }
