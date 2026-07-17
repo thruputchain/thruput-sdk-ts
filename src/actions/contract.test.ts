@@ -34,6 +34,7 @@ import { getPendingTransactionCount } from "./public/getPendingTransactionCount.
 import { getStorageAt } from "./public/getStorageAt.js";
 import { getTransactionReceipt } from "./public/getTransactionReceipt.js";
 import { getTransactionStatus } from "./public/getTransactionStatus.js";
+import { getTransactionsByAddress } from "./public/getTransactionsByAddress.js";
 import { getVersion } from "./public/getVersion.js";
 import { view } from "./public/view.js";
 import { sendTransaction } from "./wallet/sendTransaction.js";
@@ -255,6 +256,30 @@ describe("contract tests against specs/openrpc.json", () => {
     expect(calls).toHaveLength(1);
     assertCapturedParamsMatchSpec(
       "groundhog_getTransactionStatus",
+      calls[0]!.params,
+    );
+  });
+
+  it("groundhog_getTransactionsByAddress — sends an AddressTransactionQuery", async () => {
+    const { transport, calls } = spyTransport({
+      refs: [],
+      cursor: "0x",
+      latestBlock: 0,
+      oldestBlock: 0,
+    });
+    const address = contractAddress(new Uint8Array(32).fill(0xab));
+
+    await getTransactionsByAddress(transport, {
+      address,
+      order: "descending",
+      anchor: { height: 42n },
+      cursor: new Uint8Array([0x01, 0x02]),
+      limit: 10,
+    });
+
+    expect(calls).toHaveLength(1);
+    assertCapturedParamsMatchSpec(
+      "groundhog_getTransactionsByAddress",
       calls[0]!.params,
     );
   });

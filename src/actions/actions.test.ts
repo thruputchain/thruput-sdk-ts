@@ -21,6 +21,7 @@ import { getBlockByNumber } from "./public/getBlockByNumber.js";
 import { getPendingTransactionCount } from "./public/getPendingTransactionCount.js";
 import { getTransactionReceipt } from "./public/getTransactionReceipt.js";
 import { getTransactionStatus } from "./public/getTransactionStatus.js";
+import { getTransactionsByAddress } from "./public/getTransactionsByAddress.js";
 import { getEvents } from "./public/getEvents.js";
 import { getStorageAt } from "./public/getStorageAt.js";
 import { getVersion } from "./public/getVersion.js";
@@ -356,6 +357,166 @@ describe("getTransactionStatus", () => {
     const fakeHash = hashFromHex("0x" + "00".repeat(32));
     const status = await getTransactionStatus(transport, fakeHash);
     expect(status.status).toBe("unknown");
+  });
+
+  it("parses recent failure diagnostics", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return {
+          status: "recentFailure",
+          attemptHeight: "42",
+          conflict: {
+            address: "0x" + "ab".repeat(32),
+            key: "0x010203",
+            code: "exclusiveLock",
+          },
+        } as T;
+      },
+    };
+
+    const status = await getTransactionStatus(
+      transport,
+      hashFromHex("0x" + "11".repeat(32)),
+    );
+
+    expect(status).toEqual({
+      status: "recentFailure",
+      attemptHeight: 42n,
+      conflict: {
+        address: contractAddress(new Uint8Array(32).fill(0xab)),
+        key: new Uint8Array([1, 2, 3]),
+        code: "exclusiveLock",
+      },
+    });
+  });
+
+  it("maps unknown recent failure conflict codes to other", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return {
+          status: "recentFailure",
+          attemptHeight: 42,
+          conflict: {
+            address: "0x" + "ab".repeat(32),
+            key: "0x",
+            code: "newerConflictCode",
+          },
+        } as T;
+      },
+    };
+
+    const status = await getTransactionStatus(
+      transport,
+      hashFromHex("0x" + "11".repeat(32)),
+    );
+
+    expect(status).toMatchObject({
+      status: "recentFailure",
+      conflict: { code: "other" },
+    });
+  });
+
+  it("returns other for explicit or unknown future statuses", async () => {
+    const explicitOther: Transport = {
+      async request<T>(): Promise<T> {
+        return { status: "other" } as T;
+      },
+    };
+    const futureStatus: Transport = {
+      async request<T>(): Promise<T> {
+        return { status: "queuedElsewhere" } as T;
+      },
+    };
+    const txHash = hashFromHex("0x" + "11".repeat(32));
+
+    await expect(getTransactionStatus(explicitOther, txHash)).resolves.toEqual({
+      status: "other",
+    });
+    await expect(getTransactionStatus(futureStatus, txHash)).resolves.toEqual({
+      status: "other",
+    });
+  });
+});
+
+describe("getTransactionsByAddress", () => {
+  it("returns empty transaction ref page from mock", async () => {
+    const transport = new MockTransport();
+    const page = await getTransactionsByAddress(transport, {
+      address: contractAddress(new Uint8Array(32).fill(0x11)),
+    });
+
+    expect(page.refs).toEqual([]);
+    expect(page.cursor.length).toBe(0);
+    expect(page.latestBlock).toBe(0n);
+    expect(page.oldestBlock).toBe(0n);
+  });
+
+  it("serializes query in the shape the gateway's AddressTransactionQuery schema expects", async () => {
+    const calls: { method: string; params?: unknown[] }[] = [];
+    const transport: Transport = {
+      async request<T>(method: string, params?: unknown[]): Promise<T> {
+        calls.push({ method, params });
+        return {
+          refs: [],
+          cursor: "0x",
+          latestBlock: 0,
+          oldestBlock: 0,
+        } as T;
+      },
+    };
+    const address = contractAddress(new Uint8Array(32).fill(0xab));
+
+    await getTransactionsByAddress(transport, {
+      address,
+      order: "descending",
+      anchor: { height: 42n },
+      cursor: new Uint8Array([0x01, 0x02, 0x03]),
+      limit: 10,
+    });
+
+    expect(calls).toEqual([
+      {
+        method: "groundhog_getTransactionsByAddress",
+        params: [
+          {
+            address: "0x" + "ab".repeat(32),
+            order: "descending",
+            anchor: { kind: "atHeight", height: 42 },
+            cursor: "0x010203",
+            limit: 10,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("parses transaction refs and page metadata", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return {
+          refs: [
+            { txHash: "0x" + "cd".repeat(32), height: "9007199254740993" },
+          ],
+          cursor: "0x0a0b",
+          latestBlock: "9007199254740994",
+          oldestBlock: 7,
+        } as T;
+      },
+    };
+
+    const page = await getTransactionsByAddress(transport, {
+      address: contractAddress(new Uint8Array(32).fill(0xab)),
+    });
+
+    expect(page.refs).toEqual([
+      {
+        txHash: hashFromHex("0x" + "cd".repeat(32)),
+        height: 9007199254740993n,
+      },
+    ]);
+    expect(page.cursor).toEqual(new Uint8Array([0x0a, 0x0b]));
+    expect(page.latestBlock).toBe(9007199254740994n);
+    expect(page.oldestBlock).toBe(7n);
   });
 });
 
