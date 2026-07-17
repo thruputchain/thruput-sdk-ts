@@ -41,7 +41,14 @@ function parseTransactionRef(value: unknown): TransactionRef {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Invalid transaction refs response: expected ref");
   }
-  const ref = value as RawTransactionRef;
+  const ref = value as Record<string, unknown>;
+
+  if (typeof ref.txHash !== "string") {
+    throw new Error("Invalid transaction refs response: expected ref.txHash");
+  }
+  if (typeof ref.height !== "string" && typeof ref.height !== "number") {
+    throw new Error("Invalid transaction refs response: expected ref.height");
+  }
 
   return {
     txHash: hashFromHex(ref.txHash),
