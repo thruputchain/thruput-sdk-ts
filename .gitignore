@@ -138,3 +138,7 @@ docs/api/
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Generated golden test vectors (CI regenerates from the published
+# groundhog-test-vectors crate; locally run scripts/regen-test-vectors.sh)
+specs/test-vectors/
