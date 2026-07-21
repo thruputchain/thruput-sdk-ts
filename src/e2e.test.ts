@@ -151,9 +151,9 @@ describe("end-to-end: build, sign, serialize an ERC20 transfer", () => {
     expect(decoded.amount).toBe(amount);
 
     // Hash is deterministic
-    const txHash = await hashSignedTransaction(signed);
+    const txHash = hashSignedTransaction(signed);
     expect(txHash.length).toBe(32);
-    const txHash2 = await hashSignedTransaction(restored);
+    const txHash2 = hashSignedTransaction(restored);
     expect(txHash2).toEqual(txHash);
   });
 });

@@ -85,7 +85,7 @@ describe("generated ERC20 contract bindings", () => {
     });
 
     const signed = await signTransaction(tx, [{ signer, publicKeyId: 0n }]);
-    const hash = await hashSignedTransaction(signed);
+    const hash = hashSignedTransaction(signed);
     expect(hash.length).toBe(32);
   });
 });

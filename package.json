@@ -54,6 +54,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "license": "Apache-2.0",
   "devDependencies": {
     "@types/node": "25.9.1",
