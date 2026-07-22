@@ -10,6 +10,7 @@ import {
   serialize,
   codec,
   ExecResult,
+  toHex,
 } from "@groundhogchain/protocol";
 import {
   deriveEntrypointID,
@@ -151,9 +152,11 @@ describe("end-to-end: build, sign, serialize an ERC20 transfer", () => {
     expect(decoded.amount).toBe(amount);
 
     // Hash is deterministic
-    const txHash = await hashSignedTransaction(signed);
-    expect(txHash.length).toBe(32);
-    const txHash2 = await hashSignedTransaction(restored);
+    const txHash = hashSignedTransaction(signed);
+    expect(toHex(txHash)).toBe(
+      "96e684333c21fa2976b69866e8a39bcd5cb5d757291c113adb73c58d18c714ef",
+    );
+    const txHash2 = hashSignedTransaction(restored);
     expect(txHash2).toEqual(txHash);
   });
 });
