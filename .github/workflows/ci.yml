@@ -11,6 +11,8 @@ permissions:
   packages: read
 
 jobs:
+  # Static checks are runtime-independent, so they run once on the version we
+  # develop against (keep in sync with .nvmrc). Only `test` needs the matrix.
   check:
     runs-on: ubuntu-latest
     steps:
@@ -18,7 +20,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://npm.pkg.github.com
           scope: "@groundhogchain"
 
@@ -29,8 +31,104 @@ jobs:
       - run: npm run format:check
       - run: npm run docs:check
       - run: npm run typecheck
+      - run: npm run build
+
+  # We publish a library, so the runtime is the consumer's choice, not ours.
+  # Test the edges of the supported range: Active LTS and Current (which
+  # catches deprecations before consumers hit them). Note that `22` here
+  # resolves to the latest 22.x, NOT the declared floor — see the `floor` job.
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22, 24, 26]
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          registry-url: https://npm.pkg.github.com
+          scope: "@groundhogchain"
+
+      - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: npm run test
+
+      # vitest transforms src/, so it can pass on a runtime that cannot load
+      # what we actually ship. Build and load dist/ to check the artifact.
+      - run: npm run build
+      - run: npm run test:smoke
+
+  # A major-only selector resolves to the newest release of that line, so the
+  # matrix above cannot catch a feature that landed mid-major: a consumer on
+  # the floor we advertise in engines.node would break while CI stayed green.
+  # This is not hypothetical — it caught our .cjs entry points failing below
+  # 22.12.0, where require() of an ES module is still flagged and @noble/hashes
+  # reaches us through @groundhogchain/protocol's CJS build.
+  #
+  # The floor cannot build itself (tsdown requires ^22.18.0 || >=24), so build
+  # on the dev version, then swap the runtime down to the exact floor and
+  # reinstall without devDependencies. That is also the shape a consumer
+  # actually gets: our published artifact, our production deps, nothing else.
+  floor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          registry-url: https://npm.pkg.github.com
+          scope: "@groundhogchain"
+
+      - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: npm run build
+
+      - name: Switch to the declared engines.node floor
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.12.0
+          registry-url: https://npm.pkg.github.com
+          scope: "@groundhogchain"
+
+      - run: npm ci --omit=dev
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: node --version
+      - run: npm run test:smoke
+
+  # Node 27 (October 2026) collapses the odd/even split — every major becomes
+  # LTS — and adds a six-month alpha channel specifically so library authors
+  # can find breakage before their consumers do. Non-blocking, and main-only:
+  # an upstream nightly that is broken on arrival must not red-X the branch.
+  test-nightly:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 27-nightly
+          registry-url: https://npm.pkg.github.com
+          scope: "@groundhogchain"
+
+      - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - run: npm run test
       - run: npm run build
+      - run: npm run test:smoke
 
   cross-sdk:
     runs-on: ubuntu-latest
@@ -43,7 +141,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://npm.pkg.github.com
           scope: "@groundhogchain"
 

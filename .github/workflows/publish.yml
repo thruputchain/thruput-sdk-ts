@@ -15,7 +15,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://npm.pkg.github.com
           scope: "@groundhogchain"
 
@@ -29,9 +29,15 @@ jobs:
           echo "All packages at version $VERSION"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
-      - run: npm run build
-      - run: npm run test
+      # Same gate as CI's `check` job — a release is dispatched manually and
+      # can run on a commit CI never covered, so it re-verifies rather than
+      # trusting a green tick upstream.
+      - run: npm run format:check
+      - run: npm run docs:check
       - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+      - run: npm run test:smoke
 
       - name: Tag commit with version
         id: tag
