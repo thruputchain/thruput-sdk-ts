@@ -64,8 +64,11 @@ jobs:
       - run: npm run test:smoke
 
   # A major-only selector resolves to the newest release of that line, so the
-  # matrix above cannot catch an API that landed mid-major: a consumer on the
-  # 22.0.0 we advertise in engines.node would break while CI stayed green.
+  # matrix above cannot catch a feature that landed mid-major: a consumer on
+  # the floor we advertise in engines.node would break while CI stayed green.
+  # This is not hypothetical — it caught our .cjs entry points failing below
+  # 22.12.0, where require() of an ES module is still flagged and @noble/hashes
+  # reaches us through @groundhogchain/protocol's CJS build.
   #
   # The floor cannot build itself (tsdown requires ^22.18.0 || >=24), so build
   # on the dev version, then swap the runtime down to the exact floor and
@@ -91,7 +94,7 @@ jobs:
       - name: Switch to the declared engines.node floor
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22.0.0
+          node-version: 22.12.0
           registry-url: https://npm.pkg.github.com
           scope: "@groundhogchain"
 
