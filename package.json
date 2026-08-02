@@ -47,6 +47,7 @@
     "build": "tsdown",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:smoke": "node scripts/smoke-test.mjs",
     "typecheck": "tsc --noEmit",
     "docs": "typedoc",
     "docs:check": "typedoc --emit none",
@@ -55,7 +56,7 @@
     "format:check": "prettier --check ."
   },
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=22.0.0"
   },
   "license": "Apache-2.0",
   "devDependencies": {
