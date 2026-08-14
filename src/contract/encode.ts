@@ -19,6 +19,8 @@ import {
 } from "@groundhogchain/protocol";
 import type { ContractType, ContractSpec, ContractSpecMethod } from "./spec.js";
 import { ContractTypeKind } from "./spec.js";
+import { ContractDecodeError } from "./errors.js";
+import { fixedArray } from "./fixed.js";
 
 const BytesCodec: XdrCodec<Uint8Array> = {
   encode(w, val) {
@@ -31,16 +33,35 @@ const BytesCodec: XdrCodec<Uint8Array> = {
 
 const StringCodec: XdrCodec<string> = {
   encode(w, val) {
+    assertWellFormedString(val);
     w.writeString(val, 0xffffffff);
   },
   decode(r) {
-    return r.readString(0xffffffff);
+    return new TextDecoder("utf-8", { fatal: true }).decode(
+      r.readVarOpaque(0xffffffff),
+    );
   },
 };
 
+function assertWellFormedString(value: string): void {
+  if (typeof value !== "string") throw new TypeError("Expected string");
+  for (let index = 0; index < value.length; index++) {
+    const codeUnit = value.charCodeAt(index);
+    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (!Number.isInteger(next) || next < 0xdc00 || next > 0xdfff) {
+        throw new TypeError("String contains an unpaired UTF-16 surrogate");
+      }
+      index++;
+    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+      throw new TypeError("String contains an unpaired UTF-16 surrogate");
+    }
+  }
+}
+
 const Uint8Codec: XdrCodec<bigint> = {
   encode(w, val) {
-    if (val < 0n || val > 255n) {
+    if (typeof val !== "bigint" || val < 0n || val > 255n) {
       throw new Error(`U8 value out of range: ${val}`);
     }
     (w as unknown as { putByte(b: number): void }).putByte(Number(val));
@@ -49,6 +70,45 @@ const Uint8Codec: XdrCodec<bigint> = {
     return BigInt((r as unknown as { readByte(): number }).readByte());
   },
 };
+
+function byteArrayCodec(
+  length: number,
+  variable: boolean,
+): XdrCodec<Uint8Array> {
+  return {
+    encode(w, value) {
+      if (!(value instanceof Uint8Array)) {
+        throw new TypeError("Expected Uint8Array for U8 container");
+      }
+      if (variable) {
+        if (value.length > length) {
+          throw new RangeError(
+            `Byte vector length ${value.length} exceeds max ${length}`,
+          );
+        }
+        w.writeUint32(BigInt(value.length));
+      } else if (value.length !== length) {
+        throw new RangeError(
+          `FixedBytes expected length ${length}, got ${value.length}`,
+        );
+      }
+      for (const byte of value) Uint8Codec.encode(w, BigInt(byte));
+    },
+    decode(r) {
+      const decodedLength = variable ? Number(r.readUint32()) : length;
+      if (decodedLength > length) {
+        throw new RangeError(
+          `Byte vector length ${decodedLength} exceeds max ${length}`,
+        );
+      }
+      const value = new Uint8Array(decodedLength);
+      for (let index = 0; index < decodedLength; index++) {
+        value[index] = Number(Uint8Codec.decode(r));
+      }
+      return value;
+    },
+  };
+}
 
 /**
  * Resolve a contract-spec type into the XDR/CXS codec used to encode values.
@@ -90,20 +150,41 @@ export function resolveCodec(
         resolveCodec(ty.option_inner!, namedCodecs),
       ) as XdrCodec<unknown>;
     case ContractTypeKind.Vector:
+      if (ty.vector.element?.v === ContractTypeKind.U8) {
+        return byteArrayCodec(
+          Number(ty.vector.max_len),
+          true,
+        ) as XdrCodec<unknown>;
+      }
       return VarArrayCodec(
         resolveCodec(ty.vector.element!, namedCodecs),
         Number(ty.vector.max_len),
       ) as XdrCodec<unknown>;
     case ContractTypeKind.Array:
-      return FixedArrayCodec(
+      if (ty.array.element?.v === ContractTypeKind.U8) {
+        return byteArrayCodec(Number(ty.array.len), false) as XdrCodec<unknown>;
+      }
+      const arrayLength = Number(ty.array.len);
+      const arrayCodec = FixedArrayCodec(
         resolveCodec(ty.array.element!, namedCodecs),
-        Number(ty.array.len),
-      ) as XdrCodec<unknown>;
+        arrayLength,
+      );
+      return {
+        encode: arrayCodec.encode,
+        decode(reader) {
+          return fixedArray(arrayCodec.decode(reader), arrayLength);
+        },
+      } as XdrCodec<unknown>;
     case ContractTypeKind.Tuple: {
       const innerCodecs = ty.tuple.map((t) => resolveCodec(t, namedCodecs));
       return {
         encode(w, val: unknown) {
-          const arr = val as unknown[];
+          if (!Array.isArray(val) || val.length !== innerCodecs.length) {
+            throw new TypeError(
+              `Tuple expected ${innerCodecs.length} values, got ${Array.isArray(val) ? val.length : "non-array"}`,
+            );
+          }
+          const arr = val;
           for (let i = 0; i < innerCodecs.length; i++) {
             innerCodecs[i].encode(w, arr[i]);
           }
@@ -205,16 +286,24 @@ export function decodeCalldata(
 ): Record<string, unknown> {
   const method = lookupMethod(spec, interfaceName, methodName);
 
-  const r = new CxsReader(data);
-  const result: Record<string, unknown> = {};
-  for (const arg of method.args) {
-    const argCodec = resolveCodec(arg.ty, namedCodecs);
-    result[arg.name] = argCodec.decode(r);
-  }
-  if (r.remaining !== 0) {
-    throw new Error(
-      `Trailing data after decoding "${methodName}": ${r.remaining} bytes remaining`,
+  try {
+    const r = new CxsReader(data);
+    const result: Record<string, unknown> = {};
+    for (const arg of method.args) {
+      const argCodec = resolveCodec(arg.ty, namedCodecs);
+      result[arg.name] = argCodec.decode(r);
+    }
+    if (r.remaining !== 0) {
+      throw new Error(
+        `Trailing data after decoding "${methodName}": ${r.remaining} bytes remaining`,
+      );
+    }
+    return result;
+  } catch (cause) {
+    const detail = cause instanceof Error ? `: ${cause.message}` : "";
+    throw new ContractDecodeError(
+      `Failed to decode calldata for "${interfaceName}.${methodName}"${detail}`,
+      { cause },
     );
   }
-  return result;
 }

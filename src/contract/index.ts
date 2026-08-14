@@ -11,4 +11,44 @@ export { encodeCalldata, decodeCalldata, resolveCodec } from "./encode.js";
 export { buildNamedCodecs } from "./codegen.js";
 export { hashContract } from "./hash.js";
 export { deriveContractAddress } from "@groundhogchain/protocol/utils";
+export {
+  createContractCodecContext,
+  type ContractCodec,
+  type ContractCodecContext,
+} from "./codec.js";
+export { ContractDecodeError } from "./errors.js";
+export {
+  bytesEqual,
+  defineContractEvent,
+  type ContractEvent,
+  type ContractEventDefinition,
+  type ContractEventFieldMetadata,
+  type ContractEventFilterInput,
+  type ContractEventFilterValue,
+  type ContractEventReceiptOptions,
+  type ContractEventTopicMetadata,
+  type ContractReceiptEvent,
+  type DecodedContractEvent,
+} from "./event.js";
+export {
+  ContractViewError,
+  defineContractMethod,
+  type ContractAbort,
+  type ContractArgumentMetadata,
+  type ContractExceptionMetadata,
+  type ContractMethod,
+  type ContractMethodDefinition,
+  type ContractView,
+  type ContractViewFailure,
+  type ContractViewOptions,
+  type ContractViewOutcome,
+  type MethodArgs,
+  type UnknownContractAbort,
+} from "./method.js";
+export {
+  fixedArray,
+  fixedBytes,
+  type FixedArray,
+  type FixedBytes,
+} from "./fixed.js";
 export * from "./spec.js";

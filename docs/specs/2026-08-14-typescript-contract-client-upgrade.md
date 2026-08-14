@@ -100,7 +100,7 @@ export function fixedArray<T, N extends number>(
 ): FixedArray<T, N>;
 ```
 
-Constructors validate runtime length. Decode paths use the same checks. A `FixedBytes<N>` remains assignable to `Uint8Array`, while an unchecked `Uint8Array` is not assignable to `FixedBytes<N>`.
+Constructors validate runtime length. `fixedArray` returns an immutable copy so mutation through the source array cannot invalidate the length. Decode paths use the same checks. A `FixedBytes<N>` remains assignable to `Uint8Array`, while an unchecked `Uint8Array` is not assignable to `FixedBytes<N>`.
 
 `FixedArray<T, N>` avoids recursively expanding arbitrary ABI lengths in declarations. Generated bindings may use concrete readonly tuples for small arrays.
 
@@ -217,10 +217,10 @@ export interface ContractMethodDefinition {
 
 ### Descriptor
 
-Export `ContractMethod<TArgs, TResult, TAbort>`:
+Export `ContractMethod<TArgs, TResult, TDeclaredAbort>`:
 
 ```ts
-interface ContractMethod<TArgs, TResult, TAbort> {
+interface ContractMethod<TArgs, TResult, TDeclaredAbort> {
   readonly entrypoint: ContractEntrypointID;
 
   invocation(
@@ -230,19 +230,19 @@ interface ContractMethod<TArgs, TResult, TAbort> {
   ): Invocation;
 
   decodeReturn(data: Uint8Array): TResult;
-  decodeAbort(data: Uint8Array): TAbort;
+  decodeAbort(data: Uint8Array): ContractAbort<TDeclaredAbort>;
 
   view(options: ContractViewOptions<TArgs>): Promise<ContractView<TResult>>;
 
   viewOutcome(
     options: ContractViewOptions<TArgs>,
-  ): Promise<ContractViewOutcome<TResult, TAbort>>;
+  ): Promise<ContractViewOutcome<TResult, ContractAbort<TDeclaredAbort>>>;
 }
 ```
 
 `ContractViewOptions<TArgs>` contains `client: Pick<GroundhogClient, "view">`, contract, optional caller, and a required `args` only for non-void methods. View execution encodes arguments directly and does not invent a gas limit.
 
-`defineContractMethod<TArgs, TResult, TAbort>(definition)` consumes `ContractMethodDefinition`. It resolves argument, return, and exception codecs once during construction. `invocation` reads generated public argument keys and encodes values in metadata order. Descriptor operations must not search a `ContractSpec` by interface or method name.
+`defineContractMethod<TArgs, TResult, TDeclaredAbort>(definition)` consumes `ContractMethodDefinition`. The third generic contains declared aborts only; descriptor return types add `UnknownContractAbort` through `ContractAbort<TDeclaredAbort>`. It resolves argument, return, and exception codecs once during construction. `invocation` reads generated public argument keys and encodes values in metadata order. Descriptor operations must not search a `ContractSpec` by interface or method name.
 
 ### View behavior
 
@@ -287,13 +287,14 @@ export interface ContractEventFieldMetadata {
 }
 
 export interface ContractEventDefinition {
+  name: string;
   signature: Uint8Array;
   topics: readonly ContractEventTopicMetadata[];
   fields: readonly ContractEventFieldMetadata[];
   codecs: ContractCodecContext;
 }
 
-export type ContractEventFilterValue<T> = T | { oneOf: readonly T[] };
+export type ContractEventFilterValue<T> = T | { oneOf: readonly [T, ...T[]] };
 
 export interface ContractEventFilterInput<TFilter> {
   contractAddresses: readonly ContractAddress[];
@@ -304,22 +305,43 @@ export interface ContractEventReceiptOptions {
   contractAddress?: ContractAddress;
 }
 
-export interface ContractEvent<TEvent, TFilter> {
+export interface DecodedContractEvent<TName extends string, TTopics, TFields> {
+  name: TName;
+  topics: TTopics;
+  fields: TFields;
+}
+
+export type ContractReceiptEvent<
+  TName extends string,
+  TTopics,
+  TFields,
+> = DecodedContractEvent<TName, TTopics, TFields> & {
+  contractAddress: ContractAddress;
+};
+
+export interface ContractEvent<
+  TName extends string,
+  TTopics,
+  TFields,
+  TFilter,
+> {
   readonly signature: Uint8Array;
-  decode(event: Pick<EmittedEvent, "topics" | "data">): TEvent | null;
+  decode(
+    event: Pick<EmittedEvent, "topics" | "data">,
+  ): DecodedContractEvent<TName, TTopics, TFields> | null;
   filter(input: ContractEventFilterInput<TFilter>): EventFilter;
   allFromReceipt(
     receipt: Pick<TransactionReceipt, "events">,
     options?: ContractEventReceiptOptions,
-  ): TEvent[];
+  ): ContractReceiptEvent<TName, TTopics, TFields>[];
   singleFromReceipt(
     receipt: Pick<TransactionReceipt, "events">,
     options?: ContractEventReceiptOptions,
-  ): TEvent;
+  ): ContractReceiptEvent<TName, TTopics, TFields>;
 }
 ```
 
-`defineContractEvent<TEvent, TFilter>(definition)` returns `ContractEvent<TEvent, TFilter>`. Generated wrappers supply the decoded event type and a filter type containing only directly represented named topics. Runtime code follows ordered metadata.
+`defineContractEvent<TName, TTopics, TFields, TFilter>(definition)` returns the canonical decoded shape and event operations. Generated wrappers supply the literal event name, topic and field object types, and a filter type containing only directly represented named topics. Runtime code follows ordered metadata.
 
 ### Direct-topic filters
 
@@ -328,7 +350,7 @@ Every generated event wrapper exposes `.filter(...)` and returns the existing pu
 - requires at least one contract address;
 - inserts the signature at topic 0;
 - maps named direct topics to their declared positions;
-- accepts one value or `{ oneOf: readonly T[] }` for OR;
+- accepts one value or `{ oneOf: readonly [T, ...T[]] }` for OR;
 - validates non-empty `oneOf` and 32-byte values;
 - leaves omitted topics unconstrained.
 
@@ -343,7 +365,7 @@ Event.allFromReceipt(receipt, { contractAddress? });
 Event.singleFromReceipt(receipt, { contractAddress? });
 ```
 
-`allFromReceipt` scans in receipt order, optionally scopes by emitter, ignores other signatures, and throws for a malformed matching event. `singleFromReceipt` uses the same scan and requires exactly one match, reporting the actual count.
+`ContractReceiptEvent` adds the emitting `contractAddress` to the canonical decoded event. `allFromReceipt` scans in receipt order, optionally scopes by emitter, ignores other signatures, and throws for a malformed matching event. `singleFromReceipt` uses the same scan and requires exactly one match, reporting the actual count.
 
 Export ordinary `bytesEqual(left, right)` for public identifiers and addresses. It is not constant-time or suitable for secrets.
 

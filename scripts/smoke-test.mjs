@@ -17,6 +17,15 @@ const pkg = JSON.parse(readFileSync(new URL("package.json", root), "utf8"));
 
 const failures = [];
 let checked = 0;
+const requiredContractExports = [
+  "ContractDecodeError",
+  "ContractViewError",
+  "createContractCodecContext",
+  "defineContractEvent",
+  "defineContractMethod",
+  "fixedArray",
+  "fixedBytes",
+];
 
 for (const [subpath, entry] of Object.entries(pkg.exports)) {
   for (const condition of ["import", "require"]) {
@@ -33,6 +42,13 @@ for (const [subpath, entry] of Object.entries(pkg.exports)) {
       );
       if (names.length === 0) {
         failures.push(`${subpath} (${condition}): loaded but exported nothing`);
+      }
+      if (subpath === "." || subpath === "./contract") {
+        for (const name of requiredContractExports) {
+          if (!names.includes(name)) {
+            failures.push(`${subpath} (${condition}): missing ${name}`);
+          }
+        }
       }
     } catch (err) {
       failures.push(`${subpath} (${condition}): ${err.message}`);

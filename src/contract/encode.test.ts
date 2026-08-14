@@ -295,7 +295,7 @@ describe("U8 codec", () => {
   });
 
   it("encodes and decodes a [u8; 4] fixed array", () => {
-    const color = [255n, 128n, 0n, 200n];
+    const color = Uint8Array.of(255, 128, 0, 200);
     const data = encodeCalldata(
       rgbSpec,
       "RGB",
@@ -317,7 +317,7 @@ describe("U8 codec", () => {
   });
 
   it("[u8; 4] wire format is exactly 4 bytes for the array", () => {
-    const color = [0n, 0n, 0n, 0n];
+    const color = new Uint8Array(4);
     const data = encodeCalldata(
       rgbSpec,
       "RGB",
@@ -504,14 +504,14 @@ describe("buildNamedCodecs", () => {
     const unionCodec = codecs["Result"];
 
     // Test tuple case
-    const okVal = { discriminant: 0n, value: [42n] };
+    const okVal = { case: "Ok", value: [42n] };
     const w1 = new CxsWriter();
     unionCodec.encode(w1, okVal);
     const decoded1 = unionCodec.decode(new CxsReader(w1.finish()));
     expect(decoded1).toEqual(okVal);
 
     // Test void case
-    const errVal = { discriminant: 1n };
+    const errVal = { case: "Err" };
     const w2 = new CxsWriter();
     unionCodec.encode(w2, errVal);
     const decoded2 = unionCodec.decode(new CxsReader(w2.finish()));
@@ -519,7 +519,7 @@ describe("buildNamedCodecs", () => {
 
     // Test struct case
     const detailVal = {
-      discriminant: 2n,
+      case: "Detail",
       value: { code: 404n, msg: "not found" },
     };
     const w3 = new CxsWriter();

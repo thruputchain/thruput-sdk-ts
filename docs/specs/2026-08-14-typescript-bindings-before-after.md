@@ -180,7 +180,7 @@ export const SwapPair = {
   swap: defineContractMethod<
     SwapPairSwapArgs,
     SwapPairSwapResult,
-    SwapPairAbort
+    SwapPairDeclaredAbort
   >({
     entrypoint: entrypoints.SwapPair.swap,
     args: swapArgumentMetadata,
@@ -496,6 +496,7 @@ const accepted = RequestAccepted.singleFromReceipt(receipt, {
 });
 
 const requestId = accepted.topics.request_id;
+const emitter = accepted.contractAddress;
 ```
 
 For events that may occur more than once:
@@ -537,7 +538,13 @@ Codegen emits static types and ordered metadata. The client runtime owns behavio
 ```ts
 const codecs = createContractCodecContext(spec.type_defs);
 
-export const SwapEvent = defineContractEvent<SwapEvent, SwapEventFilter>({
+export const SwapEvent = defineContractEvent<
+  "SwapEvent",
+  SwapEvent["topics"],
+  SwapEvent["fields"],
+  SwapEventFilter
+>({
+  name: "SwapEvent",
   signature: spec.events[2].signature,
   topics: [
     {

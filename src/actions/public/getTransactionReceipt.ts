@@ -1,17 +1,12 @@
 import type { SHA256Hash } from "@groundhogchain/protocol";
 import { ExecResult } from "@groundhogchain/protocol";
 import type { Transport } from "../../transport/types.js";
-import type { EmittedEvent, TransactionReceipt } from "../../types/rpc.js";
-import { toHex0x, hashFromHex, addressFromHex, fromHex0x } from "../hex.js";
+import type { TransactionReceipt } from "../../types/rpc.js";
+import { parseEmittedEvent } from "../emittedEvent.js";
+import { toHex0x, hashFromHex, fromHex0x } from "../hex.js";
 
 interface RawExecStatus {
   result: string;
-}
-
-interface RawEmittedEvent {
-  contractAddress: string;
-  topics: string[];
-  data: string;
 }
 
 interface RawTransactionReceipt {
@@ -53,27 +48,6 @@ function parseExecResult(status: unknown): ExecResult {
   const mapped = execStatusToResult[raw.result];
   if (mapped !== undefined) return mapped;
   return ExecResult.ExecResultUnrecoverable;
-}
-
-function parseEvent(value: unknown): EmittedEvent {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new InvalidTransactionReceiptError(
-      "Invalid transaction receipt response: expected event",
-    );
-  }
-  const event = value as RawEmittedEvent;
-
-  if (!Array.isArray(event.topics)) {
-    throw new InvalidTransactionReceiptError(
-      "Invalid transaction receipt response: expected event.topics",
-    );
-  }
-
-  return {
-    contractAddress: addressFromHex(event.contractAddress),
-    topics: event.topics.map(fromHex0x),
-    data: fromHex0x(event.data),
-  };
 }
 
 function parseOptionalBytes(
@@ -126,7 +100,7 @@ export async function getTransactionReceipt(
       txHash: hashFromHex(receipt.txHash),
       height: parseHeight(receipt.height),
       execResult: parseExecResult(receipt.status),
-      events: receipt.events.map(parseEvent),
+      events: receipt.events.map(parseEmittedEvent),
       returnData: parseOptionalBytes(receipt.returnData),
       abortData: parseOptionalBytes(receipt.abortData),
     };
