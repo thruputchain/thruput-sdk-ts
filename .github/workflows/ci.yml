@@ -32,6 +32,7 @@ jobs:
       - run: npm run docs:check
       - run: npm run typecheck
       - run: npm run build
+      - run: npm run test:package-boundary
 
   # We publish a library, so the runtime is the consumer's choice, not ours.
   # Test the edges of the supported range: Active LTS and Current (which
@@ -62,6 +63,7 @@ jobs:
       # what we actually ship. Build and load dist/ to check the artifact.
       - run: npm run build
       - run: npm run test:smoke
+      - run: npm run test:package-boundary
 
   # A major-only selector resolves to the newest release of that line, so the
   # matrix above cannot catch a feature that landed mid-major: a consumer on

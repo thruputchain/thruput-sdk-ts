@@ -50,6 +50,24 @@ for (const [subpath, entry] of Object.entries(pkg.exports)) {
           }
         }
       }
+      if (subpath === "./contracts") {
+        for (const name of [
+          "ERC20",
+          "ERC20ApprovalEvent",
+          "ERC20Metadata",
+          "ERC20TransferEvent",
+          "decodeERC20Event",
+        ]) {
+          if (!names.includes(name)) {
+            failures.push(`${subpath} (${condition}): missing ${name}`);
+          }
+        }
+        if (typeof mod.ERC20?.transfer?.invocation !== "function") {
+          failures.push(
+            `${subpath} (${condition}): ERC20.transfer is not a method descriptor`,
+          );
+        }
+      }
     } catch (err) {
       failures.push(`${subpath} (${condition}): ${err.message}`);
     }

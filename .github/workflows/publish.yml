@@ -38,6 +38,7 @@ jobs:
       - run: npm run test
       - run: npm run build
       - run: npm run test:smoke
+      - run: npm run test:package-boundary
 
       - name: Tag commit with version
         id: tag

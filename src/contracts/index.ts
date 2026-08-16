@@ -9,7 +9,7 @@
  * ```ts
  * import { ERC20 } from "@groundhogchain/client/contracts";
  *
- * const invocation = ERC20.transfer(tokenAddress, gasLimit, {
+ * const invocation = ERC20.transfer.invocation(tokenAddress, gasLimit, {
  *   receiver,
  *   amount: 1_000n,
  * });
@@ -26,4 +26,4 @@ export {
   decodeEvent as decodeERC20Event,
   spec as ERC20Spec,
 } from "./erc20.js";
-export type { ERC20Event } from "./erc20.js";
+export type * from "./erc20.js";

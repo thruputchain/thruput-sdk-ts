@@ -37,7 +37,7 @@ const client = createGroundhogClient(new HttpTransport(rpcUrl));
 const tip = await client.getChainTip();
 
 // Build the token call first: HOG.transfer(recipient, amount).
-const tokenInvocation = ERC20.transfer(hogToken, callGasLimit, {
+const tokenInvocation = ERC20.transfer.invocation(hogToken, callGasLimit, {
   receiver: recipientAddress,
   amount,
 });

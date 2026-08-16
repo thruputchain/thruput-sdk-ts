@@ -233,7 +233,7 @@ describe("contract method views", () => {
         contract,
         args: { first: 1n, second: 2n },
       }),
-    ).resolves.toMatchObject({ value: 17n, height: 13n, events });
+    ).resolves.toEqual({ value: 17n, height: 13n, events });
   });
 
   it("returns declared abort and fault outcomes without throwing", async () => {

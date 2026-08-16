@@ -219,7 +219,13 @@ export function defineContractMethod<TArgs, TResult, TDeclaredAbort>(
 
     async view(options) {
       const outcome = await method.viewOutcome(options);
-      if (outcome.kind === "return") return outcome;
+      if (outcome.kind === "return") {
+        return {
+          value: outcome.value,
+          height: outcome.height,
+          events: outcome.events,
+        };
+      }
       throw new ContractViewError(outcome);
     },
   };

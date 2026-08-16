@@ -1,6 +1,6 @@
 {
   "name": "@groundhogchain/client",
-  "version": "0.1.7",
+  "version": "0.2.0",
   "description": "TypeScript client for the Groundhog blockchain",
   "type": "module",
   "exports": {
@@ -48,6 +48,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:smoke": "node scripts/smoke-test.mjs",
+    "test:package-boundary": "tsc -p scripts/tsconfig.package-boundary.json",
     "typecheck": "tsc --noEmit",
     "docs": "typedoc",
     "docs:check": "typedoc --emit none",
