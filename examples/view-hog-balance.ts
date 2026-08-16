@@ -1,3 +1,4 @@
+// Repository-local imports; applications use the published client entrypoints.
 import {
   HttpTransport,
   addressFromHex,

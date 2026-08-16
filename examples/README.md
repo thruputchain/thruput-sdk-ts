@@ -1,5 +1,9 @@
 ## Local Node Examples
 
+The `../src/...` imports run these examples against this checkout. Applications
+should install the package and import from `@groundhogchain/client` and
+`@groundhogchain/client/contracts`; they should not copy files from `src`.
+
 These examples expect a local Groundhog JSON-RPC node. Start one first:
 
 ```bash

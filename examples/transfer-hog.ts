@@ -8,6 +8,7 @@ import {
   serialize,
   weight,
 } from "@groundhogchain/protocol";
+// Repository-local imports; applications use the published client entrypoints.
 import {
   HttpTransport,
   addressFromHex,

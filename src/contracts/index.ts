@@ -1,9 +1,10 @@
 /**
- * Generated invocation builders and event decoders for the standard ERC-20
- * contract interfaces shipped with the SDK.
+ * Generated method and event descriptors for the standard ERC-20 contract
+ * interfaces shipped with the SDK.
  *
- * The bindings build typed `Invocation` values. Pass those invocations to a
- * transaction or `view` call depending on whether you are reading or writing.
+ * Method descriptors build typed invocations, execute and decode views, and
+ * expose declared aborts. Event descriptors decode events, build named topic
+ * filters, and extract matching receipt events.
  *
  * @example
  * ```ts
