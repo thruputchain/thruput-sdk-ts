@@ -4,6 +4,7 @@
     "declaration": false,
     "declarationMap": false,
     "noEmit": true,
+    "noUncheckedIndexedAccess": true,
     "skipLibCheck": false
   },
   "include": ["package-boundary.ts"]
