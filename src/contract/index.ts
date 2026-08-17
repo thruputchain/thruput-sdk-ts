@@ -33,7 +33,7 @@ export {
 export {
   ContractViewError,
   defineContractMethod,
-  type ContractAbort,
+  type ContractException,
   type ContractArgumentMetadata,
   type ContractExceptionMetadata,
   type ContractMethod,
@@ -43,7 +43,7 @@ export {
   type ContractViewOptions,
   type ContractViewOutcome,
   type MethodArgs,
-  type UnknownContractAbort,
+  type UnknownContractException,
 } from "./method.js";
 export {
   fixedArray,

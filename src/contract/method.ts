@@ -23,22 +23,22 @@ export interface ContractView<T> {
   events: EmittedEvent[];
 }
 
-/** Abort selector not declared by the generated contract interface. */
-export interface UnknownContractAbort {
+/** Contract exception selector not declared by the generated interface. */
+export interface UnknownContractException {
   kind: "unknown";
   selector: bigint;
   data: Uint8Array;
 }
 
-/** Declared aborts plus a lossless fallback for unknown selectors. */
-export type ContractAbort<TDeclared> = TDeclared | UnknownContractAbort;
+/** Declared exceptions plus a lossless fallback for unknown selectors. */
+export type ContractException<TDeclared> = TDeclared | UnknownContractException;
 
 /** Non-successful contract view outcome. */
-export type ContractViewFailure<TAbort> =
+export type ContractViewFailure<TException> =
   | {
       kind: "abort";
-      abort: TAbort;
-      data: Uint8Array;
+      exception: TException;
+      abortData: Uint8Array;
       height: bigint;
       events: EmittedEvent[];
     }
@@ -49,17 +49,19 @@ export type ContractViewFailure<TAbort> =
     };
 
 /** Typed return, abort, or fault from a contract view. */
-export type ContractViewOutcome<TResult, TAbort> =
+export type ContractViewOutcome<TResult, TException> =
   | ({ kind: "return" } & ContractView<TResult>)
-  | ContractViewFailure<TAbort>;
+  | ContractViewFailure<TException>;
 
 /** Error thrown by the ergonomic view API for contract aborts and faults. */
-export class ContractViewError<TAbort> extends Error {
-  readonly outcome: ContractViewFailure<TAbort>;
+export class ContractViewError<TException> extends Error {
+  readonly outcome: ContractViewFailure<TException>;
 
-  constructor(outcome: ContractViewFailure<TAbort>) {
+  constructor(outcome: ContractViewFailure<TException>) {
     const selector =
-      outcome.kind === "abort" ? abortSelector(outcome.abort) : undefined;
+      outcome.kind === "abort"
+        ? exceptionSelector(outcome.exception)
+        : undefined;
     super(
       outcome.kind === "abort"
         ? `Contract view aborted with selector ${selector ?? "unknown"}`
@@ -70,11 +72,17 @@ export class ContractViewError<TAbort> extends Error {
   }
 }
 
-function abortSelector(abort: unknown): bigint | undefined {
-  if (!abort || typeof abort !== "object" || !("selector" in abort)) {
+function exceptionSelector(exception: unknown): bigint | undefined {
+  if (
+    !exception ||
+    typeof exception !== "object" ||
+    !("selector" in exception)
+  ) {
     return undefined;
   }
-  return typeof abort.selector === "bigint" ? abort.selector : undefined;
+  return typeof exception.selector === "bigint"
+    ? exception.selector
+    : undefined;
 }
 
 /** Generated method argument metadata in ABI order. */
@@ -87,7 +95,7 @@ export interface ContractArgumentMetadata {
 /** Generated declared exception metadata. */
 export interface ContractExceptionMetadata {
   selector: bigint;
-  exception: string | null;
+  name: string | null;
   type: ContractType;
 }
 
@@ -108,7 +116,7 @@ export type ContractViewOptions<TArgs> = {
 } & ([TArgs] extends [void] ? { args?: never } : { args: TArgs });
 
 /** Complete generated method API. */
-export interface ContractMethod<TArgs, TResult, TDeclaredAbort> {
+export interface ContractMethod<TArgs, TResult, TDeclaredException> {
   readonly entrypoint: ContractEntrypointID;
 
   invocation(
@@ -118,11 +126,13 @@ export interface ContractMethod<TArgs, TResult, TDeclaredAbort> {
   ): Invocation;
 
   decodeReturn(data: Uint8Array): TResult;
-  decodeAbort(data: Uint8Array): ContractAbort<TDeclaredAbort>;
+  decodeException(data: Uint8Array): ContractException<TDeclaredException>;
   view(options: ContractViewOptions<TArgs>): Promise<ContractView<TResult>>;
   viewOutcome(
     options: ContractViewOptions<TArgs>,
-  ): Promise<ContractViewOutcome<TResult, ContractAbort<TDeclaredAbort>>>;
+  ): Promise<
+    ContractViewOutcome<TResult, ContractException<TDeclaredException>>
+  >;
 }
 
 interface ResolvedException {
@@ -131,9 +141,9 @@ interface ResolvedException {
 }
 
 /** Build one generated method descriptor from direct ABI metadata. */
-export function defineContractMethod<TArgs, TResult, TDeclaredAbort>(
+export function defineContractMethod<TArgs, TResult, TDeclaredException>(
   definition: ContractMethodDefinition,
-): ContractMethod<TArgs, TResult, TDeclaredAbort> {
+): ContractMethod<TArgs, TResult, TDeclaredException> {
   const argumentCodecs = definition.args.map((argument) => ({
     metadata: argument,
     codec: resolveContextCodec(definition.codecs, argument.type),
@@ -155,7 +165,7 @@ export function defineContractMethod<TArgs, TResult, TDeclaredAbort>(
     });
   }
 
-  const method: ContractMethod<TArgs, TResult, TDeclaredAbort> = {
+  const method: ContractMethod<TArgs, TResult, TDeclaredException> = {
     entrypoint: definition.entrypoint,
 
     invocation(contract, gasLimit, ...args) {
@@ -176,9 +186,9 @@ export function defineContractMethod<TArgs, TResult, TDeclaredAbort>(
       );
     },
 
-    decodeAbort(data) {
+    decodeException(data) {
       assertReturnBufferLimit(data, "abort");
-      return decodeAbort<TDeclaredAbort>(data, exceptionBySelector);
+      return decodeException<TDeclaredException>(data, exceptionBySelector);
     },
 
     async viewOutcome(options) {
@@ -203,8 +213,8 @@ export function defineContractMethod<TArgs, TResult, TDeclaredAbort>(
         case "abort":
           return {
             kind: "abort",
-            abort: method.decodeAbort(response.output.abortData),
-            data: response.output.abortData,
+            exception: method.decodeException(response.output.abortData),
+            abortData: response.output.abortData,
             height: response.height,
             events: response.events,
           };
@@ -251,10 +261,10 @@ function encodeArguments(
   return calldata(writer.finish());
 }
 
-function decodeAbort<TDeclaredAbort>(
+function decodeException<TDeclaredException>(
   data: Uint8Array,
   exceptionBySelector: ReadonlyMap<bigint, ResolvedException>,
-): ContractAbort<TDeclaredAbort> {
+): ContractException<TDeclaredException> {
   try {
     const reader = new CxsReader(data);
     const selector = reader.readUint64();
@@ -264,7 +274,7 @@ function decodeAbort<TDeclaredAbort>(
         kind: "unknown",
         selector,
         data,
-      } as ContractAbort<TDeclaredAbort>;
+      } as ContractException<TDeclaredException>;
     }
     const value = declared.codec.decode(reader);
     if (reader.remaining !== 0) {
@@ -273,14 +283,15 @@ function decodeAbort<TDeclaredAbort>(
     return {
       kind: "declared",
       selector,
-      exception: declared.metadata.exception,
+      name: declared.metadata.name,
       value,
-    } as ContractAbort<TDeclaredAbort>;
+    } as ContractException<TDeclaredException>;
   } catch (cause) {
     const detail = cause instanceof Error ? `: ${cause.message}` : "";
-    throw new ContractDecodeError(`Failed to decode contract abort${detail}`, {
-      cause,
-    });
+    throw new ContractDecodeError(
+      `Failed to decode contract exception${detail}`,
+      { cause },
+    );
   }
 }
 

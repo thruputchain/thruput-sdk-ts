@@ -44,7 +44,7 @@ function definition(
     throws: [
       {
         selector: 7n,
-        exception: "BadValue",
+        name: "BadValue",
         type: { v: ContractTypeKind.I32 },
       },
     ],
@@ -139,47 +139,47 @@ describe("contract method decoding", () => {
     expect(() => method.decodeReturn(oversized)).toThrow(
       /Contract return data exceeds 1024 bytes: 1025/,
     );
-    expect(() => method.decodeAbort(oversized)).toThrow(
+    expect(() => method.decodeException(oversized)).toThrow(
       /Contract abort data exceeds 1024 bytes: 1025/,
     );
   });
 
-  it("decodes declared aborts and rejects trailing bytes", () => {
+  it("decodes declared exceptions and rejects trailing bytes", () => {
     const data = encode((writer) => {
       writer.writeUint64(7n);
       writer.writeInt32(-9n);
     });
 
-    expect(method.decodeAbort(data)).toEqual({
+    expect(method.decodeException(data)).toEqual({
       kind: "declared",
       selector: 7n,
-      exception: "BadValue",
+      name: "BadValue",
       value: -9n,
     });
 
     const trailing = new Uint8Array(data.length + 1);
     trailing.set(data);
-    expect(() => method.decodeAbort(trailing)).toThrow(
-      /Failed to decode contract abort: 1 trailing bytes/,
+    expect(() => method.decodeException(trailing)).toThrow(
+      /Failed to decode contract exception: 1 trailing bytes/,
     );
   });
 
-  it("preserves unknown abort selectors and their complete bytes", () => {
+  it("preserves unknown exceptions and their complete abort data", () => {
     const data = encode((writer) => {
       writer.writeUint64(99n);
       writer.writeInt32(123n);
     });
 
-    expect(method.decodeAbort(data)).toEqual({
+    expect(method.decodeException(data)).toEqual({
       kind: "unknown",
       selector: 99n,
       data,
     });
   });
 
-  it("wraps malformed abort selectors", () => {
-    expect(() => method.decodeAbort(Uint8Array.of(0xff))).toThrow(
-      /Failed to decode contract abort/,
+  it("wraps malformed exception selectors", () => {
+    expect(() => method.decodeException(Uint8Array.of(0xff))).toThrow(
+      /Failed to decode contract exception/,
     );
   });
 });
@@ -236,7 +236,7 @@ describe("contract method views", () => {
     ).resolves.toEqual({ value: 17n, height: 13n, events });
   });
 
-  it("returns declared abort and fault outcomes without throwing", async () => {
+  it("returns declared exceptions and fault outcomes without throwing", async () => {
     const abortData = encode((writer) => {
       writer.writeUint64(7n);
       writer.writeInt32(-1n);
@@ -257,13 +257,13 @@ describe("contract method views", () => {
       method.viewOutcome({ client: abortClient, contract, args }),
     ).resolves.toEqual({
       kind: "abort",
-      abort: {
+      exception: {
         kind: "declared",
         selector: 7n,
-        exception: "BadValue",
+        name: "BadValue",
         value: -1n,
       },
-      data: abortData,
+      abortData,
       height: 20n,
       events,
     });
@@ -272,7 +272,7 @@ describe("contract method views", () => {
     ).resolves.toEqual({ kind: "fault", height: 21n, events });
   });
 
-  it("returns unknown abort outcomes losslessly", async () => {
+  it("returns unknown exceptions in abort outcomes losslessly", async () => {
     const abortData = encode((writer) => writer.writeUint64(88n));
     const client = clientReturning({
       output: { result: "abort", abortData },
@@ -288,7 +288,7 @@ describe("contract method views", () => {
       }),
     ).resolves.toMatchObject({
       kind: "abort",
-      abort: { kind: "unknown", selector: 88n, data: abortData },
+      exception: { kind: "unknown", selector: 88n, data: abortData },
     });
   });
 

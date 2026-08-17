@@ -4,9 +4,9 @@
 
 ## Goal
 
-Provide the shared runtime required by generated bindings to preserve method types and identity through invocation, typed views, declared aborts, and strict event decoding.
+Provide the shared runtime required by generated bindings to preserve method types and identity through invocation, typed views, declared exceptions, and strict event decoding.
 
-This release targets integration code demonstrated by the swap app: runtime spec traversal, method-name strings, handwritten return and abort decoding, fixed-length repair, positional event filters, and receipt event scanning.
+This release targets integration code demonstrated by the swap app: runtime spec traversal, method-name strings, handwritten return and exception decoding, fixed-length repair, positional event filters, and receipt event scanning.
 
 ## Scope
 
@@ -22,7 +22,7 @@ The first release includes:
 
 - corrected, symmetric codecs for supported contract values;
 - fixed-byte and fixed-array public types with runtime length validation;
-- typed method descriptors for invocations, views, returns, and aborts;
+- typed method descriptors for invocations, views, returns, and exceptions;
 - strict generated event decoding;
 - named event filters for directly represented topics;
 - generic receipt event extraction with optional emitter scoping and explicit cardinality;
@@ -61,18 +61,18 @@ This work does not:
 
 ## Decisions
 
-| #   | Decision                                                                                                 | Rationale                                                                                       |
-| --- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| D1  | Keep raw RPC request, response, receipt, event, and query types unchanged.                               | Typed bindings are additive and raw data remains authoritative.                                 |
-| D2  | Keep contract interpretation in generic `src/contract/**` modules.                                       | Bundled and custom bindings must use the same runtime without contract-specific logic.          |
-| D3  | Keep `GroundhogClient` thin; descriptors compose its existing `view` method.                             | RPC behavior remains in standalone actions.                                                     |
-| D4  | Preserve ABI field names for structs, union struct arms, event topics, and event fields in this release. | A full naming migration requires generated projection codecs and is independent of typed views. |
-| D5  | Preserve existing camelCase method names and method argument objects.                                    | This is already the generated public convention.                                                |
-| D6  | Represent enums as declared bigint values and unions as `{ case, value? }`.                              | Public types and runtime values must agree.                                                     |
-| D7  | Decode U8 containers as `Uint8Array` and enforce fixed lengths at runtime.                               | Type assertions cannot validate decoded or untyped data.                                        |
-| D8  | Expose both typed view outcomes and ergonomic throwing views.                                            | TypeScript cannot carry a typed abort through `catch`; callers need a non-throwing option.      |
-| D9  | Generate named filters only for topics represented directly on the wire.                                 | Address and fixed-32 topics cover the swap use case without introducing generic topic hashing.  |
-| D10 | Release representation and descriptor changes with the matching generator.                               | Either side alone would retain type/runtime mismatches.                                         |
+| #   | Decision                                                                                                 | Rationale                                                                                                             |
+| --- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| D1  | Keep raw RPC request, response, receipt, event, and query types unchanged.                               | Typed bindings are additive and raw data remains authoritative.                                                       |
+| D2  | Keep contract interpretation in generic `src/contract/**` modules.                                       | Bundled and custom bindings must use the same runtime without contract-specific logic.                                |
+| D3  | Keep `GroundhogClient` thin; descriptors compose its existing `view` method.                             | RPC behavior remains in standalone actions.                                                                           |
+| D4  | Preserve ABI field names for structs, union struct arms, event topics, and event fields in this release. | A full naming migration requires generated projection codecs and is independent of typed views.                       |
+| D5  | Preserve existing camelCase method names and method argument objects.                                    | This is already the generated public convention.                                                                      |
+| D6  | Represent enums as declared bigint values and unions as `{ case, value? }`.                              | Public types and runtime values must agree.                                                                           |
+| D7  | Decode U8 containers as `Uint8Array` and enforce fixed lengths at runtime.                               | Type assertions cannot validate decoded or untyped data.                                                              |
+| D8  | Expose both typed view outcomes and ergonomic throwing views.                                            | TypeScript cannot carry a typed contract exception through `catch`; callers need a non-throwing abort-outcome option. |
+| D9  | Generate named filters only for topics represented directly on the wire.                                 | Address and fixed-32 topics cover the swap use case without introducing generic topic hashing.                        |
+| D10 | Release representation and descriptor changes with the matching generator.                               | Either side alone would retain type/runtime mismatches.                                                               |
 
 ## Fixed Values
 
@@ -156,19 +156,19 @@ export interface ContractView<T> {
   events: EmittedEvent[];
 }
 
-export interface UnknownContractAbort {
+export interface UnknownContractException {
   kind: "unknown";
   selector: bigint;
   data: Uint8Array;
 }
 
-export type ContractAbort<TDeclared> = TDeclared | UnknownContractAbort;
+export type ContractException<TDeclared> = TDeclared | UnknownContractException;
 
-export type ContractViewFailure<TAbort> =
+export type ContractViewFailure<TException> =
   | {
       kind: "abort";
-      abort: TAbort;
-      data: Uint8Array;
+      exception: TException;
+      abortData: Uint8Array;
       height: bigint;
       events: EmittedEvent[];
     }
@@ -178,16 +178,16 @@ export type ContractViewFailure<TAbort> =
       events: EmittedEvent[];
     };
 
-export type ContractViewOutcome<TResult, TAbort> =
+export type ContractViewOutcome<TResult, TException> =
   | ({ kind: "return" } & ContractView<TResult>)
-  | ContractViewFailure<TAbort>;
+  | ContractViewFailure<TException>;
 
-export class ContractViewError<TAbort> extends Error {
-  readonly outcome: ContractViewFailure<TAbort>;
+export class ContractViewError<TException> extends Error {
+  readonly outcome: ContractViewFailure<TException>;
 }
 ```
 
-Generated declared aborts carry `kind: "declared"`, selector, exception label, and typed value. Unknown aborts preserve the complete raw abort bytes. Decode selectors as canonical CXS `u64` values and locate payloads from the reader position. Invalid selector encoding throws `ContractDecodeError`.
+Generated declared exceptions carry `kind: "declared"`, selector, exception type name, and typed value. Unknown exceptions preserve the complete raw abort bytes. Decode selectors as canonical CXS `u64` values and locate payloads from the reader position. Invalid selector encoding throws `ContractDecodeError`.
 
 Descriptor metadata uses these public shapes:
 
@@ -200,7 +200,7 @@ export interface ContractArgumentMetadata {
 
 export interface ContractExceptionMetadata {
   selector: bigint;
-  exception: string | null;
+  name: string | null;
   type: ContractType;
 }
 
@@ -213,14 +213,14 @@ export interface ContractMethodDefinition {
 }
 ```
 
-`publicName` is the generated camelCase method-argument key; `abiName` is the spec name. A named exception uses its type name as `exception`; a supported non-named exception uses `null`. The generator rejects duplicate selectors.
+`publicName` is the generated camelCase method-argument key; `abiName` is the spec name. A named exception uses its type name as `name`; a supported non-named exception uses `null`. The generator rejects duplicate selectors.
 
 ### Descriptor
 
-Export `ContractMethod<TArgs, TResult, TDeclaredAbort>`:
+Export `ContractMethod<TArgs, TResult, TDeclaredException>`:
 
 ```ts
-interface ContractMethod<TArgs, TResult, TDeclaredAbort> {
+interface ContractMethod<TArgs, TResult, TDeclaredException> {
   readonly entrypoint: ContractEntrypointID;
 
   invocation(
@@ -230,31 +230,33 @@ interface ContractMethod<TArgs, TResult, TDeclaredAbort> {
   ): Invocation;
 
   decodeReturn(data: Uint8Array): TResult;
-  decodeAbort(data: Uint8Array): ContractAbort<TDeclaredAbort>;
+  decodeException(data: Uint8Array): ContractException<TDeclaredException>;
 
   view(options: ContractViewOptions<TArgs>): Promise<ContractView<TResult>>;
 
   viewOutcome(
     options: ContractViewOptions<TArgs>,
-  ): Promise<ContractViewOutcome<TResult, ContractAbort<TDeclaredAbort>>>;
+  ): Promise<
+    ContractViewOutcome<TResult, ContractException<TDeclaredException>>
+  >;
 }
 ```
 
 `ContractViewOptions<TArgs>` contains `client: Pick<GroundhogClient, "view">`, contract, optional caller, and a required `args` only for non-void methods. View execution encodes arguments directly and does not invent a gas limit.
 
-`defineContractMethod<TArgs, TResult, TDeclaredAbort>(definition)` consumes `ContractMethodDefinition`. The third generic contains declared aborts only; descriptor return types add `UnknownContractAbort` through `ContractAbort<TDeclaredAbort>`. It resolves argument, return, and exception codecs once during construction. `invocation` reads generated public argument keys and encodes values in metadata order. Descriptor operations must not search a `ContractSpec` by interface or method name.
+`defineContractMethod<TArgs, TResult, TDeclaredException>(definition)` consumes `ContractMethodDefinition`. The third generic contains declared exceptions only; descriptor return types add `UnknownContractException` through `ContractException<TDeclaredException>`. It resolves argument, return, and exception codecs once during construction. `invocation` reads generated public argument keys and encodes values in metadata order. Descriptor operations must not search a `ContractSpec` by interface or method name.
 
 ### View behavior
 
 `viewOutcome` calls the raw client view once:
 
 - return: strictly decode and return value, height, and raw events;
-- abort: return the typed declared-or-unknown abort, raw data, height, and events;
+- abort: return the typed declared-or-unknown exception, raw data, height, and events;
 - fault: return a fault outcome with height and events;
 - malformed return or abort bytes: throw `ContractDecodeError`;
 - transport or RPC failure: propagate unchanged.
 
-`view` calls `viewOutcome`, returns `ContractView<TResult>` for a return, and throws `ContractViewError<TAbort>` for abort or fault. Callers that need statically typed abort handling use `viewOutcome`.
+`view` calls `viewOutcome`, returns `ContractView<TResult>` for a return, and throws `ContractViewError<TException>` for abort or fault. Callers that need statically typed exception handling use `viewOutcome`.
 
 Raw `view(ViewRequest): Promise<ViewResponse>` remains unchanged.
 
@@ -419,7 +421,7 @@ Cover:
 - recursive values and trailing-byte rejection;
 - zero- and multi-argument descriptors;
 - non-void and void return codecs;
-- view return, declared abort, unknown abort, malformed abort, fault, and transport failure;
+- view return, abort with a declared exception, abort with an unknown exception, malformed abort data, fault, and transport failure;
 - preservation of view height and events;
 - strict event parsing and event decoding;
 - direct-topic filters, omitted positions, and `oneOf`;
@@ -462,10 +464,10 @@ The release is ready when:
 
 1. generated and dynamic codecs accept and return their documented representations symmetrically;
 2. generated methods invoke, decode, and execute typed views without runtime spec traversal or method-name strings;
-3. typed view outcomes preserve returns, declared or unknown aborts, faults, height, events, and raw abort data;
+3. typed view outcomes preserve returns, declared or unknown exceptions carried by aborts, faults, height, events, and raw abort data;
 4. fixed arrays, fixed bytes, enums, unions, and U8 containers require no handwritten repair;
 5. generated events strictly decode direct topics and payloads, build direct-topic filters, and extract receipt events with explicit cardinality;
 6. raw RPC APIs remain available and use one strict emitted-event parser;
 7. regenerated curated and swap-shaped fixtures compile and pass runtime round trips through package declarations and builds;
-8. the swap app no longer uses runtime method-name lookup or handwritten return/abort decoding, fixed-length event repair, positional direct-topic filters, or handwritten receipt event scanning;
+8. the swap app no longer uses runtime method-name lookup or handwritten return/exception decoding, fixed-length event repair, positional direct-topic filters, or handwritten receipt event scanning;
 9. deferred binders, method receipt outcomes, event encoders, hashed-topic filters, naming migration, and decode budgets are not implementation prerequisites.

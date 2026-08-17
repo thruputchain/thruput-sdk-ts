@@ -5,7 +5,7 @@ TypeScript client for the [Groundhog](https://github.com/groundhogchain) blockch
 It provides typed JSON-RPC actions, transaction construction and signing,
 HTTP and mock transports, and generated contract bindings. Generated methods
 share one descriptor API for invocations, typed views, return decoding, and
-contract aborts. Generated events provide strict decoding, named topic filters,
+contract exceptions. Generated events provide strict decoding, named topic filters,
 and receipt extraction.
 
 ## Install

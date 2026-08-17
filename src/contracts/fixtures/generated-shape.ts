@@ -3,7 +3,7 @@ import {
   defineContractEvent,
   defineContractMethod,
   fixedBytes,
-  type ContractAbort,
+  type ContractException,
   type DecodedContractEvent,
   type ContractEventFilterValue,
   type FixedBytes,
@@ -24,14 +24,14 @@ export type ExampleSetIdResult = void;
 export type ExampleGetValueArgs = void;
 export type ExampleGetValueResult = bigint;
 
-export type ExampleDeclaredAbort = {
+export type ExampleDeclaredException = {
   kind: "declared";
-  exception: null;
+  name: null;
   selector: 7n;
   value: bigint;
 };
 
-export type ExampleAbort = ContractAbort<ExampleDeclaredAbort>;
+export type ExampleException = ContractException<ExampleDeclaredException>;
 
 export type ValueChanged = DecodedContractEvent<
   "ValueChanged",
@@ -50,7 +50,7 @@ export const Example = {
   setId: defineContractMethod<
     ExampleSetIdArgs,
     ExampleSetIdResult,
-    ExampleDeclaredAbort
+    ExampleDeclaredException
   >({
     entrypoint: contractEntrypointID(new Uint8Array(8).fill(1)),
     args: [
@@ -67,7 +67,7 @@ export const Example = {
     throws: [
       {
         selector: 7n,
-        exception: null,
+        name: null,
         type: { v: ContractTypeKind.U32 },
       },
     ],
@@ -77,7 +77,7 @@ export const Example = {
   getValue: defineContractMethod<
     ExampleGetValueArgs,
     ExampleGetValueResult,
-    ExampleDeclaredAbort
+    ExampleDeclaredException
   >({
     entrypoint: contractEntrypointID(new Uint8Array(8).fill(2)),
     args: [],
@@ -85,7 +85,7 @@ export const Example = {
     throws: [
       {
         selector: 7n,
-        exception: null,
+        name: null,
         type: { v: ContractTypeKind.U32 },
       },
     ],

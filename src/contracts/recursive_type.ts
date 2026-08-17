@@ -12,7 +12,7 @@ import {
   type ContractSpec,
   createContractCodecContext,
   defineContractMethod,
-  type ContractAbort,
+  type ContractException,
 } from "../contract/index.js";
 
 const s = contractSpecString;
@@ -51,9 +51,9 @@ export interface RecursiveTypeContractUnboxArgs {
 }
 export type RecursiveTypeContractUnboxResult = bigint;
 
-export type RecursiveTypeContractDeclaredAbort = never;
-export type RecursiveTypeContractAbort =
-  ContractAbort<RecursiveTypeContractDeclaredAbort>;
+export type RecursiveTypeContractDeclaredException = never;
+export type RecursiveTypeContractException =
+  ContractException<RecursiveTypeContractDeclaredException>;
 
 export const spec: ContractSpec = {
   interfaces: [
@@ -143,7 +143,7 @@ export const RecursiveTypeContract = {
   depth: defineContractMethod<
     RecursiveTypeContractDepthArgs,
     RecursiveTypeContractDepthResult,
-    RecursiveTypeContractDeclaredAbort
+    RecursiveTypeContractDeclaredException
   >({
     entrypoint: entrypoints.RecursiveTypeContract.depth,
     args: [
@@ -160,7 +160,7 @@ export const RecursiveTypeContract = {
   forestDepth: defineContractMethod<
     RecursiveTypeContractForestDepthArgs,
     RecursiveTypeContractForestDepthResult,
-    RecursiveTypeContractDeclaredAbort
+    RecursiveTypeContractDeclaredException
   >({
     entrypoint: entrypoints.RecursiveTypeContract.forestDepth,
     args: [
@@ -177,7 +177,7 @@ export const RecursiveTypeContract = {
   unbox: defineContractMethod<
     RecursiveTypeContractUnboxArgs,
     RecursiveTypeContractUnboxResult,
-    RecursiveTypeContractDeclaredAbort
+    RecursiveTypeContractDeclaredException
   >({
     entrypoint: entrypoints.RecursiveTypeContract.unbox,
     args: [
