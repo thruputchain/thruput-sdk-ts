@@ -42,7 +42,7 @@ binding for the local node's wallet calls. See
 model and address derivation rules.
 
 The included fixture and Counter binding come from
-[`groundhog-examples/contracts/counter`](https://github.com/groundhogchain/groundhog-examples/tree/5f15210023203159c862958deb4e8cd36e2511f7/contracts/counter).
+[`groundhog-examples/contracts/counter`](https://github.com/groundhogchain/groundhog-examples/tree/56208548187a653af650b6c6b1708bac1b93b5e7/contracts/counter).
 The fixture's raw SHA-256 is
 `3ce9c1f3257a080679ac95aa9597c00cc39f66f1c89fa1cac27c6a4c9ddb3903`;
 its canonical Groundhog contract hash is
