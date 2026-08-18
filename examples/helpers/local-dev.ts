@@ -21,7 +21,7 @@ export interface LocalDevAccount {
 }
 
 export interface LoadLocalDevAccountOptions {
-  /** Zero-based position among non-faucet local users. */
+  /** Zero-based position among accounts marked as local users. */
   localUserOffset?: number;
   /** Environment override used by tests and scripted examples. */
   env?: NodeJS.ProcessEnv;
@@ -101,7 +101,7 @@ export async function loadLocalDevAccount(
 
   const localUsers = manifest.bootstrapAccounts
     .map((value) => requireRecord(value, "Invalid bootstrap account"))
-    .filter((account) => account.role === "local_user" && account.index !== 0)
+    .filter((account) => account.role === "local_user")
     .sort((a, b) => requireIndex(a.index) - requireIndex(b.index));
   const account = localUsers[localUserOffset];
   if (!account) {

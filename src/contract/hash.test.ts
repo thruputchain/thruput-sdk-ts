@@ -20,6 +20,8 @@ describe("hashContract", () => {
     } as const;
 
     const contractHash = hashContract(contract);
+    // Cross-implementation vectors independently reproduced from the canonical
+    // XDR framing and verified against hogd's address derivation.
     expect(toHex(contractHash)).toBe(
       "4eb0b279d37ff9ff0d73a94ec26102cc5d0b9ea7f726ba63bdf123a876d2c2ef",
     );

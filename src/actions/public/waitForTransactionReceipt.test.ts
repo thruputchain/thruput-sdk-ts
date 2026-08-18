@@ -1,6 +1,7 @@
 import { ExecResult } from "@groundhogchain/protocol";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Transport } from "../../transport/types.js";
+import { GroundhogRpcErrorCode, JsonRpcError } from "../../transport/http.js";
 import { hashFromHex } from "../hex.js";
 import { waitForTransactionReceipt } from "./waitForTransactionReceipt.js";
 
@@ -97,6 +98,99 @@ describe("waitForTransactionReceipt", () => {
     expect(receiptQueries).toBe(2);
   });
 
+  it.each([
+    GroundhogRpcErrorCode.TxNotFound,
+    GroundhogRpcErrorCode.BackendUnavailable,
+    GroundhogRpcErrorCode.BackendTimeout,
+    GroundhogRpcErrorCode.Overloaded,
+  ])("retries transient receipt error %i", async (code) => {
+    let receiptQueries = 0;
+    const transport: Transport = {
+      async request<T>(method: string): Promise<T> {
+        if (method === "groundhog_getTransactionReceipt") {
+          receiptQueries += 1;
+          if (receiptQueries === 1) {
+            throw new JsonRpcError(code, "try again");
+          }
+          return rawReceipt as T;
+        }
+        return { status: "pending" } as T;
+      },
+    };
+
+    await expect(
+      waitForTransactionReceipt(transport, txHash, {
+        timeoutMs: 100,
+        pollingIntervalMs: 0,
+      }),
+    ).resolves.toMatchObject({ height: 42n });
+    expect(receiptQueries).toBe(2);
+  });
+
+  it.each([
+    ["fetch failure", new TypeError("fetch failed")],
+    [
+      "request abort",
+      Object.assign(new Error("request aborted"), { name: "AbortError" }),
+    ],
+  ])("retries a transient %s", async (_, failure) => {
+    let receiptQueries = 0;
+    const transport: Transport = {
+      async request<T>(method: string): Promise<T> {
+        if (method === "groundhog_getTransactionReceipt") {
+          receiptQueries += 1;
+          if (receiptQueries === 1) throw failure;
+          return rawReceipt as T;
+        }
+        return { status: "pending" } as T;
+      },
+    };
+
+    await expect(
+      waitForTransactionReceipt(transport, txHash, {
+        timeoutMs: 100,
+        pollingIntervalMs: 0,
+      }),
+    ).resolves.toMatchObject({ height: 42n });
+    expect(receiptQueries).toBe(2);
+  });
+
+  it("does not retry deterministic receipt errors", async () => {
+    const failure = new JsonRpcError(
+      GroundhogRpcErrorCode.InvalidParams,
+      "invalid hash",
+    );
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        throw failure;
+      },
+    };
+
+    await expect(waitForTransactionReceipt(transport, txHash)).rejects.toBe(
+      failure,
+    );
+  });
+
+  it.each([
+    { ...rawReceipt, height: undefined },
+    { ...rawReceipt, height: true },
+    { ...rawReceipt, height: "" },
+    { ...rawReceipt, status: {} },
+  ])("does not retry malformed receipt responses", async (malformed) => {
+    let receiptQueries = 0;
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        receiptQueries += 1;
+        return malformed as T;
+      },
+    };
+
+    await expect(waitForTransactionReceipt(transport, txHash)).rejects.toThrow(
+      "Invalid transaction receipt response",
+    );
+    expect(receiptQueries).toBe(1);
+  });
+
   it("rejects a terminal invalid transaction", async () => {
     const transport: Transport = {
       async request<T>(method: string): Promise<T> {
@@ -169,7 +263,7 @@ describe("waitForTransactionReceipt", () => {
     ).rejects.toThrow(`Timed out waiting for transaction receipt`);
   });
 
-  it("rejects a result returned after the deadline", async () => {
+  it("returns a receipt that wins the timeout race", async () => {
     const transport: Transport = {
       async request<T>(): Promise<T> {
         Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);
@@ -179,23 +273,11 @@ describe("waitForTransactionReceipt", () => {
 
     await expect(
       waitForTransactionReceipt(transport, txHash, { timeoutMs: 1 }),
-    ).rejects.toThrow(`Timed out waiting for transaction receipt`);
-  });
-
-  it("reports a timeout when the transport fails after the deadline", async () => {
-    const transport: Transport = {
-      async request<T>(): Promise<T> {
-        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);
-        throw new Error("late transport failure");
-      },
-    };
-
-    await expect(
-      waitForTransactionReceipt(transport, txHash, { timeoutMs: 1 }),
-    ).rejects.toThrow(`Timed out waiting for transaction receipt`);
+    ).resolves.toMatchObject({ height: 42n });
   });
 
   it("does not start another query after the deadline", async () => {
+    vi.useFakeTimers();
     let receiptQueries = 0;
     const transport: Transport = {
       async request<T>(method: string): Promise<T> {
@@ -207,13 +289,19 @@ describe("waitForTransactionReceipt", () => {
       },
     };
 
-    await expect(
-      waitForTransactionReceipt(transport, txHash, {
-        timeoutMs: 5,
-        pollingIntervalMs: 100,
-      }),
-    ).rejects.toThrow(`Timed out waiting for transaction receipt`);
-    expect(receiptQueries).toBe(1);
+    try {
+      const assertion = expect(
+        waitForTransactionReceipt(transport, txHash, {
+          timeoutMs: 5,
+          pollingIntervalMs: 100,
+        }),
+      ).rejects.toThrow(`Timed out waiting for transaction receipt`);
+      await vi.advanceTimersByTimeAsync(5);
+      await assertion;
+      expect(receiptQueries).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("validates polling options", async () => {

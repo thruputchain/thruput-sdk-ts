@@ -83,13 +83,14 @@ if (deployReceipt.execResult !== ExecResult.ExecResultOK) {
     `Deployment failed with ${ExecResult[deployReceipt.execResult]}${abort}`,
   );
 }
-if (deployReceipt.returnData !== null) {
-  const returnedAddress = contractAddress(deployReceipt.returnData);
-  if (toHex0x(returnedAddress) !== toHex0x(deployedAddress)) {
-    throw new Error(
-      `Deployment returned ${toHex0x(returnedAddress)}, predicted ${toHex0x(deployedAddress)}`,
-    );
-  }
+if (deployReceipt.returnData === null) {
+  throw new Error("Deployment did not return the deployed contract address");
+}
+const returnedAddress = contractAddress(deployReceipt.returnData);
+if (toHex0x(returnedAddress) !== toHex0x(deployedAddress)) {
+  throw new Error(
+    `Deployment returned ${toHex0x(returnedAddress)}, predicted ${toHex0x(deployedAddress)}`,
+  );
 }
 
 // Build a Counter.increment call, then ask the wallet to execute it.

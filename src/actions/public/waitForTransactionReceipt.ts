@@ -1,8 +1,12 @@
 import type { SHA256Hash } from "@groundhogchain/protocol";
 import type { Transport } from "../../transport/types.js";
 import type { TransactionReceipt } from "../../types/rpc.js";
+import { GroundhogRpcErrorCode, JsonRpcError } from "../../transport/http.js";
 import { toHex0x } from "../hex.js";
-import { getTransactionReceipt } from "./getTransactionReceipt.js";
+import {
+  getTransactionReceipt,
+  InvalidTransactionReceiptError,
+} from "./getTransactionReceipt.js";
 import { getTransactionStatus } from "./getTransactionStatus.js";
 
 const maxTimerDelayMs = 2_147_483_647;
@@ -19,6 +23,7 @@ export interface WaitForTransactionReceiptOptions {
  *
  * A committed execution failure is returned as a receipt. Inspect
  * `receipt.execResult` to determine whether execution succeeded.
+ * A timeout stops this wait but does not prove the transaction failed.
  */
 export async function waitForTransactionReceipt(
   transport: Transport,
@@ -45,10 +50,17 @@ export async function waitForTransactionReceipt(
   }
   const deadline = performance.now() + timeoutMs;
   let advisoryFailure: string | undefined;
+  let lastReceiptFailure: unknown;
   const timeoutError = () =>
     new Error(
       `Timed out waiting for transaction receipt ${toHex0x(txHash)}` +
-        (advisoryFailure ? `. ${advisoryFailure}` : ""),
+        (advisoryFailure ? `. ${advisoryFailure}` : "") +
+        (lastReceiptFailure
+          ? `. Last receipt query failed: ${errorMessage(lastReceiptFailure)}`
+          : ""),
+      lastReceiptFailure === undefined
+        ? undefined
+        : { cause: lastReceiptFailure },
     );
 
   async function beforeDeadline<T>(operation: () => Promise<T>): Promise<T> {
@@ -65,20 +77,23 @@ export async function waitForTransactionReceipt(
         }),
         operation(),
       ]);
-      if (performance.now() >= deadline) throw timeoutError();
       return result;
-    } catch (cause) {
-      if (performance.now() >= deadline) throw timeoutError();
-      throw cause;
     } finally {
       if (timer !== undefined) clearTimeout(timer);
     }
   }
 
   while (true) {
-    const receipt = await beforeDeadline(() =>
-      getTransactionReceipt(transport, txHash),
-    );
+    let receipt: TransactionReceipt | null = null;
+    try {
+      receipt = await beforeDeadline(() =>
+        getTransactionReceipt(transport, txHash),
+      );
+      lastReceiptFailure = undefined;
+    } catch (cause) {
+      if (!isRetryableReceiptFailure(cause)) throw cause;
+      lastReceiptFailure = cause;
+    }
     if (receipt) return receipt;
 
     // Receipts remain authoritative when the advisory status endpoint fails.
@@ -106,4 +121,24 @@ export async function waitForTransactionReceipt(
     );
     await new Promise((resolve) => setTimeout(resolve, Math.ceil(delayMs)));
   }
+}
+
+function isRetryableReceiptFailure(cause: unknown): boolean {
+  if (cause instanceof InvalidTransactionReceiptError) return false;
+  if (cause instanceof JsonRpcError) {
+    return (
+      cause.code === GroundhogRpcErrorCode.TxNotFound ||
+      cause.code === GroundhogRpcErrorCode.BackendUnavailable ||
+      cause.code === GroundhogRpcErrorCode.BackendTimeout ||
+      cause.code === GroundhogRpcErrorCode.Overloaded
+    );
+  }
+  return (
+    cause instanceof TypeError ||
+    (cause instanceof Error && cause.name === "AbortError")
+  );
+}
+
+function errorMessage(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
 }

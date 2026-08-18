@@ -16,7 +16,7 @@ afterEach(async () => {
 });
 
 describe("loadLocalDevAccount", () => {
-  it("selects the lowest-index non-faucet local user", async () => {
+  it("selects the lowest-index account marked as a local user", async () => {
     const fixture = await writeRuntimeFixture([
       makeAccount(2, "local_user"),
       makeAccount(0, "local_user"),
@@ -25,8 +25,8 @@ describe("loadLocalDevAccount", () => {
 
     const account = await loadLocalDevAccount({ env: fixture.env });
 
-    expect(account.index).toBe(1);
-    expect(toHex0x(account.address)).toBe(`0x${"01".repeat(32)}`);
+    expect(account.index).toBe(0);
+    expect(toHex0x(account.address)).toBe(`0x${"00".repeat(32)}`);
     expect(account.rpcUrl).toBe("http://127.0.0.1:9545");
   });
 

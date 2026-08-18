@@ -31,11 +31,25 @@ const execStatusToResult: Record<string, ExecResult> = {
   failedGasSponsorship: ExecResult.ExecResultFailedGasSponsorship,
 };
 
+export class InvalidTransactionReceiptError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "InvalidTransactionReceiptError";
+  }
+}
+
 function parseExecResult(status: unknown): ExecResult {
   if (!status || typeof status !== "object" || Array.isArray(status)) {
-    throw new Error("Invalid transaction receipt response: expected status");
+    throw new InvalidTransactionReceiptError(
+      "Invalid transaction receipt response: expected status",
+    );
   }
   const raw = status as RawExecStatus;
+  if (typeof raw.result !== "string") {
+    throw new InvalidTransactionReceiptError(
+      "Invalid transaction receipt response: expected status.result",
+    );
+  }
   const mapped = execStatusToResult[raw.result];
   if (mapped !== undefined) return mapped;
   return ExecResult.ExecResultUnrecoverable;
@@ -43,12 +57,14 @@ function parseExecResult(status: unknown): ExecResult {
 
 function parseEvent(value: unknown): EmittedEvent {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("Invalid transaction receipt response: expected event");
+    throw new InvalidTransactionReceiptError(
+      "Invalid transaction receipt response: expected event",
+    );
   }
   const event = value as RawEmittedEvent;
 
   if (!Array.isArray(event.topics)) {
-    throw new Error(
+    throw new InvalidTransactionReceiptError(
       "Invalid transaction receipt response: expected event.topics",
     );
   }
@@ -67,6 +83,18 @@ function parseOptionalBytes(
   return fromHex0x(value);
 }
 
+function parseHeight(value: unknown): bigint {
+  if (
+    (typeof value !== "number" && typeof value !== "string") ||
+    value === ""
+  ) {
+    throw new InvalidTransactionReceiptError(
+      "Invalid transaction receipt response: expected height",
+    );
+  }
+  return BigInt(value);
+}
+
 /**
  * Return the receipt for a committed transaction.
  *
@@ -82,20 +110,32 @@ export async function getTransactionReceipt(
   );
   if (result === null) return null;
   if (!result || typeof result !== "object" || Array.isArray(result)) {
-    throw new Error("Invalid transaction receipt response");
+    throw new InvalidTransactionReceiptError(
+      "Invalid transaction receipt response",
+    );
   }
   const receipt = result as RawTransactionReceipt;
 
   if (!Array.isArray(receipt.events)) {
-    throw new Error("Invalid transaction receipt response: expected events");
+    throw new InvalidTransactionReceiptError(
+      "Invalid transaction receipt response: expected events",
+    );
   }
-
-  return {
-    txHash: hashFromHex(receipt.txHash),
-    height: BigInt(receipt.height),
-    execResult: parseExecResult(receipt.status),
-    events: receipt.events.map(parseEvent),
-    returnData: parseOptionalBytes(receipt.returnData),
-    abortData: parseOptionalBytes(receipt.abortData),
-  };
+  try {
+    return {
+      txHash: hashFromHex(receipt.txHash),
+      height: parseHeight(receipt.height),
+      execResult: parseExecResult(receipt.status),
+      events: receipt.events.map(parseEvent),
+      returnData: parseOptionalBytes(receipt.returnData),
+      abortData: parseOptionalBytes(receipt.abortData),
+    };
+  } catch (cause) {
+    if (cause instanceof InvalidTransactionReceiptError) throw cause;
+    const detail = cause instanceof Error ? `: ${cause.message}` : "";
+    throw new InvalidTransactionReceiptError(
+      `Invalid transaction receipt response${detail}`,
+      { cause },
+    );
+  }
 }
