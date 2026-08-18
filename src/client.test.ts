@@ -55,16 +55,15 @@ describe("createGroundhogClient", () => {
     expect(tip.blockHash.length).toBe(32);
   });
 
-  it("send tx and get receipt", async () => {
+  it("sends a transaction and waits for its receipt", async () => {
     const client = createGroundhogClient(new MockTransport());
     const signedTx = await makeDummySignedTx();
     const txHash = await client.sendTransaction(signedTx);
     expect(txHash).toBeInstanceOf(Uint8Array);
     expect(txHash.length).toBe(32);
 
-    const receipt = await client.getTransactionReceipt(txHash);
-    expect(receipt).not.toBeNull();
-    expect(receipt!.txHash).toEqual(txHash);
-    expect(receipt!.execResult).toBe(ExecResult.ExecResultOK);
+    const receipt = await client.waitForTransactionReceipt(txHash);
+    expect(receipt.txHash).toEqual(txHash);
+    expect(receipt.execResult).toBe(ExecResult.ExecResultOK);
   });
 });

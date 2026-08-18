@@ -6,12 +6,9 @@ import {
   toHex0x,
 } from "../src/index.js";
 import { ERC20 } from "../src/contracts/index.js";
+import { loadLocalDevAccount } from "./helpers/local-dev.js";
 
-const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";
-const accountAddress = addressFromHex(
-  process.env.GROUNDHOG_ACCOUNT_ADDRESS ??
-    "0x7171717171717171717171717171717171717171717171717171717171717171",
-);
+const { address: accountAddress, rpcUrl } = await loadLocalDevAccount();
 
 // HOG is predeployed on local/dev networks and implements the ERC20 interface.
 const hogToken = addressFromHex(
@@ -20,7 +17,7 @@ const hogToken = addressFromHex(
 
 const client = createGroundhogClient(new HttpTransport(rpcUrl));
 
-// Build a read-only ERC20 getBalanceOf call for dev-0.
+// Build a read-only ERC20 getBalanceOf call for the first local user.
 const invocation = ERC20.getBalanceOf(hogToken, gasAmount(500_000n), {
   addr: accountAddress,
 });

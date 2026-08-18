@@ -27,7 +27,7 @@
 
 ## Examples
 
-- Examples run through `npm run example -- examples/<file>.ts` and expect a local `groundhog node` unless `GROUNDHOG_RPC_URL` is set.
+- Examples run through `npm run example <name>` and expect a local `groundhog node` unless `GROUNDHOG_RPC_URL` is set.
 - Examples are curated onboarding paths, not one file per RPC method. Keep them focused on helping new users get running with the SDK quickly.
 
 ## Release

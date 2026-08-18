@@ -4,6 +4,10 @@ export { getBlockByNumber } from "./getBlockByNumber.js";
 export { getPendingTransactionCount } from "./getPendingTransactionCount.js";
 export { getTransactionReceipt } from "./getTransactionReceipt.js";
 export { getTransactionStatus } from "./getTransactionStatus.js";
+export {
+  waitForTransactionReceipt,
+  type WaitForTransactionReceiptOptions,
+} from "./waitForTransactionReceipt.js";
 export { getTransactionsByAddress } from "./getTransactionsByAddress.js";
 export { getEvents } from "./getEvents.js";
 export { getStorageAt } from "./getStorageAt.js";

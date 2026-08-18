@@ -23,6 +23,15 @@ const receipt = await client.sendTransaction({
 });
 ```
 
+## Examples
+
+- [`chain-tip.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/chain-tip.ts) reads the latest block height and hash.
+- [`view-hog-balance.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/view-hog-balance.ts) reads a HOG balance.
+- [`transfer-hog.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/transfer-hog.ts) submits a HOG transfer.
+- [`deploy-counter.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/deploy-counter.ts) deploys and calls a Counter contract.
+
+See the [examples guide](https://github.com/groundhogchain/client-ts/blob/main/examples/README.md) for local-node setup and configuration.
+
 ## What's in this repo
 
 - `src/client.ts` — `createGroundhogClient` factory that binds a transport to the SDK actions.

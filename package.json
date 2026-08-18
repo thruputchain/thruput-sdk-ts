@@ -51,7 +51,7 @@
     "typecheck": "tsc --noEmit",
     "docs": "typedoc",
     "docs:check": "typedoc --emit none",
-    "example": "tsx",
+    "example": "node scripts/run-example.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -63,6 +63,7 @@
     "@types/node": "25.9.1",
     "ajv": "8.20.0",
     "prettier": "3.8.3",
+    "smol-toml": "1.8.0",
     "tsdown": "0.22.2",
     "tsx": "4.22.4",
     "typedoc": "0.28.19",
