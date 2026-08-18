@@ -43,8 +43,7 @@ export async function waitForTransactionReceipt(
       `pollingIntervalMs must be between 0 and ${maxTimerDelayMs}`,
     );
   }
-  const deadline = Date.now() + timeoutMs;
-  let firstAttempt = true;
+  const deadline = performance.now() + timeoutMs;
   let advisoryFailure: string | undefined;
   const timeoutError = () =>
     new Error(
@@ -52,34 +51,38 @@ export async function waitForTransactionReceipt(
         (advisoryFailure ? `. ${advisoryFailure}` : ""),
     );
 
-  async function beforeDeadline<T>(operation: Promise<T>): Promise<T> {
+  async function beforeDeadline<T>(operation: () => Promise<T>): Promise<T> {
+    if (performance.now() >= deadline) throw timeoutError();
+
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      return await Promise.race([
-        operation,
+      const result = await Promise.race([
         new Promise<T>((_, reject) => {
           timer = setTimeout(
             () => reject(timeoutError()),
-            Math.max(0, deadline - Date.now()),
+            Math.ceil(Math.max(0, deadline - performance.now())),
           );
         }),
+        operation(),
       ]);
+      if (performance.now() >= deadline) throw timeoutError();
+      return result;
+    } catch (cause) {
+      if (performance.now() >= deadline) throw timeoutError();
+      throw cause;
     } finally {
       if (timer !== undefined) clearTimeout(timer);
     }
   }
 
   while (true) {
-    if (!firstAttempt && Date.now() >= deadline) throw timeoutError();
-    firstAttempt = false;
-
-    const receipt = await beforeDeadline(
+    const receipt = await beforeDeadline(() =>
       getTransactionReceipt(transport, txHash),
     );
     if (receipt) return receipt;
 
     // Receipts remain authoritative when the advisory status endpoint fails.
-    const status = await beforeDeadline(
+    const status = await beforeDeadline(() =>
       getTransactionStatus(transport, txHash),
     ).catch(() => undefined);
     if (status?.status === "invalid") {
@@ -94,13 +97,13 @@ export async function waitForTransactionReceipt(
         `key ${toHex0x(status.conflict.key)}`;
     }
 
-    if (Date.now() >= deadline) {
+    if (performance.now() >= deadline) {
       throw timeoutError();
     }
     const delayMs = Math.max(
       0,
-      Math.min(pollingIntervalMs, deadline - Date.now()),
+      Math.min(pollingIntervalMs, deadline - performance.now()),
     );
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    await new Promise((resolve) => setTimeout(resolve, Math.ceil(delayMs)));
   }
 }

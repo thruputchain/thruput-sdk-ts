@@ -109,7 +109,7 @@ describe("waitForTransactionReceipt", () => {
     };
 
     await expect(
-      waitForTransactionReceipt(transport, txHash, { timeoutMs: 0 }),
+      waitForTransactionReceipt(transport, txHash, { timeoutMs: 100 }),
     ).rejects.toThrow(`Transaction 0x${"11".repeat(32)} was rejected: expired`);
   });
 
@@ -133,16 +133,60 @@ describe("waitForTransactionReceipt", () => {
     };
 
     await expect(
-      waitForTransactionReceipt(transport, txHash, { timeoutMs: 0 }),
+      waitForTransactionReceipt(transport, txHash, {
+        timeoutMs: 50,
+        pollingIntervalMs: 100,
+      }),
     ).rejects.toThrow(
       "Last advisory failure at height 41: exclusiveLock conflict",
     );
+  });
+
+  it("does not query the transport when the timeout is zero", async () => {
+    let queries = 0;
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        queries += 1;
+        return rawReceipt as T;
+      },
+    };
+
+    await expect(
+      waitForTransactionReceipt(transport, txHash, { timeoutMs: 0 }),
+    ).rejects.toThrow(`Timed out waiting for transaction receipt`);
+    expect(queries).toBe(0);
   });
 
   it("times out while a transport request is still pending", async () => {
     const transport: Transport = {
       request<T>(): Promise<T> {
         return new Promise(() => {});
+      },
+    };
+
+    await expect(
+      waitForTransactionReceipt(transport, txHash, { timeoutMs: 1 }),
+    ).rejects.toThrow(`Timed out waiting for transaction receipt`);
+  });
+
+  it("rejects a result returned after the deadline", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);
+        return rawReceipt as T;
+      },
+    };
+
+    await expect(
+      waitForTransactionReceipt(transport, txHash, { timeoutMs: 1 }),
+    ).rejects.toThrow(`Timed out waiting for transaction receipt`);
+  });
+
+  it("reports a timeout when the transport fails after the deadline", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);
+        throw new Error("late transport failure");
       },
     };
 
