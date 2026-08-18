@@ -1,4 +1,5 @@
-// Generated from counter.wasm - Counter interface v0.1.0.
+// Generated from counter.spec.xdr - Counter interface v0.1.0.
+// DO NOT EDIT generated content. Regenerate, then reapply the local client imports.
 // Client imports point at local source so the repository example runs before build.
 
 import type {
@@ -13,13 +14,11 @@ import {
   ContractTypeDefKind,
   contractSpecString,
 } from "@groundhogchain/contract-spec";
-import {
-  buildNamedCodecs,
-  createInvocation,
-  encodeCalldata,
-  resolveCodec,
-} from "../../src/index.js";
 import type { ContractSpec } from "../../src/index.js";
+import { encodeCalldata } from "../../src/index.js";
+import { buildNamedCodecs } from "../../src/index.js";
+import { createInvocation } from "../../src/index.js";
+import { resolveCodec } from "../../src/index.js";
 import { CxsReader } from "@groundhogchain/xdr";
 
 const s = contractSpecString;

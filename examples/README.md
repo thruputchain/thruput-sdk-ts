@@ -55,11 +55,9 @@ random value is generated when it is omitted. See
 checksums, and reproduction steps. The fixture is stored in this repository but
 is not part of the published npm package.
 
-The checked-in defaults were verified with `groundhog 0.9.1` at commit
-`b7ecd902f145a40e5831140ecbe9cf2ff1f2c1db` and `hog-devnode 0.1.19` at commit
-`046159036753c9c92ed0b13d66c6ad1e6ea6ccf7`, using protocol
-`hogp/0cd3c454cdeb`. Other runtime manifests may advertise different wallet
-addresses and entrypoints; pass the overrides above when they do.
+The checked-in defaults were verified with `groundhog 0.9.1`. Other runtime
+manifests may advertise different wallet addresses and entrypoints; pass the
+overrides above when they do.
 
 The defaults are intended for local dev nodes only. They are not testnet or
 mainnet account material.

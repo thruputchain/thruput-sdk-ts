@@ -8,20 +8,20 @@ import {
 import { toHex } from "@groundhogchain/protocol/utils";
 import { deriveContractAddress, hashContract } from "../index.js";
 
-const counterWasm = readFileSync(
-  new URL("../../examples/fixtures/counter.wasm", import.meta.url),
+const counterArtifact = readFileSync(
+  new URL("../../examples/fixtures/counter.rv32a", import.meta.url),
 );
 
 describe("hashContract", () => {
   it("matches the Counter deployment vector", () => {
     const contract = {
-      contract_type: ContractType.kWasmi,
-      wasmi_contract: { data: counterWasm },
+      contract_type: ContractType.kRv32,
+      rv32_contract: { data: counterArtifact },
     } as const;
 
     const contractHash = hashContract(contract);
     expect(toHex(contractHash)).toBe(
-      "b0eebb0a4095def30cdddfa007e05ebffec56d22c66861cfa1eb5dd5960290b1",
+      "4eb0b279d37ff9ff0d73a94ec26102cc5d0b9ea7f726ba63bdf123a876d2c2ef",
     );
 
     const address = deriveContractAddress(
@@ -30,7 +30,7 @@ describe("hashContract", () => {
       contractHash,
     );
     expect(toHex(address)).toBe(
-      "7a09b7f30a90b5d196bb8d8c644a7a91cd16f0237c715cd182f0fd3285d23027",
+      "54d18e4ee2759eb1979b9d728de39de2556898455d2c8af8bfbf8920fd041604",
     );
   });
 });

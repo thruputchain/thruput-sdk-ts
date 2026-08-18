@@ -81,14 +81,14 @@ const client = createGroundhogClient(
   new HttpTransport(rpcUrl, { timeoutMs: 5_000 }),
 );
 const signer = new PrivateKeySigner(senderPrivateKey);
-let transactionNonce = BigInt(Date.now()) * 1000n;
+let transactionNonce = randomBytes(8).readBigUInt64BE() % ((1n << 64n) - 1n);
 
-const wasm = await readFile(
-  new URL("./fixtures/counter.wasm", import.meta.url),
+const artifact = await readFile(
+  new URL("./fixtures/counter.rv32a", import.meta.url),
 );
 const contract: Contract = {
-  contract_type: ContractType.kWasmi,
-  wasmi_contract: { data: wasm },
+  contract_type: ContractType.kRv32,
+  rv32_contract: { data: artifact },
 };
 const contractHash = hashContract(contract);
 const predictedAddress = deriveContractAddress(
@@ -120,6 +120,11 @@ const view = await client.view({
   calldata: get.calldata,
   caller: senderAddress,
 });
+if (view.output.result === "abort") {
+  throw new Error(
+    `Counter view aborted with ${toHex0x(view.output.abortData)}`,
+  );
+}
 if (view.output.result !== "return") {
   throw new Error(`Counter view did not return: ${view.output.result}`);
 }
@@ -165,6 +170,7 @@ async function waitForSuccessfulReceipt(
   operation: string,
 ): Promise<TransactionReceipt> {
   const deadline = Date.now() + receiptTimeoutMs;
+  let advisoryFailure: string | undefined;
   while (Date.now() < deadline) {
     const receipt = await client.getTransactionReceipt(txHash);
     if (receipt) {
@@ -178,10 +184,22 @@ async function waitForSuccessfulReceipt(
       }
       return receipt;
     }
+
+    const status = await client.getTransactionStatus(txHash);
+    if (status.status === "invalid") {
+      throw new Error(`${operation} was rejected: ${status.reason}`);
+    }
+    if (status.status === "recentFailure") {
+      advisoryFailure =
+        `Last advisory failure at height ${status.attemptHeight}: ` +
+        `${status.conflict.code} conflict at ${toHex0x(status.conflict.address)} ` +
+        `key ${toHex0x(status.conflict.key)}`;
+    }
     await delay(receiptPollMs);
   }
   throw new Error(
-    `Timed out waiting for ${operation} receipt ${toHex0x(txHash)}`,
+    `Timed out waiting for ${operation} receipt ${toHex0x(txHash)}` +
+      (advisoryFailure ? `. ${advisoryFailure}` : ""),
   );
 }
 

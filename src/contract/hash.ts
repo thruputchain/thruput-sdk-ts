@@ -6,7 +6,7 @@ import type { Contract, SHA256Hash } from "@groundhogchain/protocol";
  * Return the network identity of a protocol contract.
  *
  * The hash covers the canonical encoded `Contract`, including its type and
- * payload framing. Hashing only the raw WASM or RV32 bytes produces a different
+ * payload framing. Hashing only the raw artifact bytes produces a different
  * value and therefore a different derived address.
  *
  * @example
