@@ -39,11 +39,6 @@ binding for the local node's wallet calls. See
 [`docs/contract-deployment.md`](../docs/contract-deployment.md) for the deployment
 model and address derivation rules.
 
-Each run generates a random 32-byte deployment nonce. See
-[`fixtures/README.md`](fixtures/README.md) for the artifact's source, license,
-checksums, and reproduction steps. The fixture is stored in this repository but
-is not part of the published npm package.
-
 The checked-in DevWallet binding was generated with `groundhog 0.9.1`. A network
 using another wallet interface needs its corresponding generated binding.
 

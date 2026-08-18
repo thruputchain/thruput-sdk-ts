@@ -37,4 +37,4 @@ before invoking the deployed address, and inspect the returned receipt's
 
 A placeholder address is an actual call target, not a temporary stand-in. Calling it invokes whichever contract exists there or fails if none does.
 
-See [`examples/deploy-counter.ts`](../examples/deploy-counter.ts) for a complete deployment, call, and read-back flow. See [`examples/fixtures/README.md`](../examples/fixtures/README.md) for the included Counter artifact's provenance.
+See [`examples/deploy-counter.ts`](../examples/deploy-counter.ts) for a complete deployment, call, and read-back flow.
