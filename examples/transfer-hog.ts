@@ -10,31 +10,21 @@ import {
 } from "@groundhogchain/protocol";
 import {
   HttpTransport,
-  PrivateKeySigner,
   addressFromHex,
   createGroundhogClient,
   createTransaction,
-  fromHex0x,
   signTransaction,
   toHex0x,
 } from "../src/index.js";
 import { ERC20 } from "../src/contracts/index.js";
 import { DevWallet } from "./generated/dev_wallet.js";
+import { loadLocalDevAccount } from "./helpers/local-dev.js";
 
-const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";
 const amount = 1000n;
-const senderAddress = addressFromHex(
-  process.env.GROUNDHOG_SENDER_ADDRESS ??
-    "0x8bb77020223781a5653404392b824efe17574924c5a41b4995c8f034a8ed9229",
-);
-const recipientAddress = addressFromHex(
-  process.env.GROUNDHOG_RECIPIENT_ADDRESS ??
-    "0x76eb899b5172cad517b73c163778602bd60ba476809972041d748739f53d81dc",
-);
-const senderPrivateKey = fromHex0x(
-  process.env.GROUNDHOG_SENDER_PRIVATE_KEY ??
-    "0x9b0da61c2f4271584ebb7629c54213edef7328d429ebcca39c83686d81d166ca",
-);
+const { address: senderAddress, signer, rpcUrl } = await loadLocalDevAccount();
+const { address: recipientAddress } = await loadLocalDevAccount({
+  localUserOffset: 1,
+});
 
 // HOG is predeployed on local/dev networks and implements the ERC20 interface.
 const hogToken = addressFromHex(
@@ -44,7 +34,6 @@ const walletGasLimit = gasAmount(10_000_000n);
 const callGasLimit = gasAmount(500_000n);
 
 const client = createGroundhogClient(new HttpTransport(rpcUrl));
-const signer = new PrivateKeySigner(senderPrivateKey);
 const tip = await client.getChainTip();
 
 // Build the token call first: HOG.transfer(recipient, amount).

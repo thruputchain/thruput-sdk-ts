@@ -23,28 +23,18 @@ import type {
 } from "@groundhogchain/protocol";
 import {
   HttpTransport,
-  PrivateKeySigner,
-  addressFromHex,
   createGroundhogClient,
   createTransaction,
   deriveContractAddress,
-  fromHex0x,
   hashContract,
   signTransaction,
   toHex0x,
 } from "../src/index.js";
 import { Counter } from "./generated/counter.js";
 import { DevWallet } from "./generated/dev_wallet.js";
+import { loadLocalDevAccount } from "./helpers/local-dev.js";
 
-const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";
-const senderAddress = addressFromHex(
-  process.env.GROUNDHOG_SENDER_ADDRESS ??
-    "0x8bb77020223781a5653404392b824efe17574924c5a41b4995c8f034a8ed9229",
-);
-const senderPrivateKey = fromHex0x(
-  process.env.GROUNDHOG_SENDER_PRIVATE_KEY ??
-    "0x9b0da61c2f4271584ebb7629c54213edef7328d429ebcca39c83686d81d166ca",
-);
+const { address: senderAddress, signer, rpcUrl } = await loadLocalDevAccount();
 const deploymentNonce = sha256Hash(randomBytes(32));
 
 const walletGasLimit = gasAmount(10_000_000n);
@@ -62,7 +52,6 @@ const sourceAuthClaim: AuthClaim = {
 const client = createGroundhogClient(
   new HttpTransport(rpcUrl, { timeoutMs: 5_000 }),
 );
-const signer = new PrivateKeySigner(senderPrivateKey);
 let transactionNonce = randomBytes(8).readBigUInt64BE() % ((1n << 64n) - 1n);
 
 // Load the compiled contract and derive the address before deploying it.
