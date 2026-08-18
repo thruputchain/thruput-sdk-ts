@@ -12,6 +12,7 @@ import {
   serialize,
   deserialize,
   codec,
+  ContractType,
 } from "@groundhogchain/protocol";
 import { PrivateKeySigner } from "../signers/privateKey.js";
 import { signTransaction } from "./sign.js";
@@ -31,7 +32,12 @@ function makeDummyTransaction() {
       block_expiry_height: blockHeight(100n),
       nonce: 42n,
     },
-    contracts_to_deploy: [],
+    contracts_to_deploy: [
+      {
+        contract_type: ContractType.kWasmi,
+        wasmi_contract: { data: new Uint8Array([0x00, 0x61, 0x73, 0x6d]) },
+      },
+    ],
     auth_claim: {
       claim_type: AuthClaimType.kSourceAddressAuthData,
       source_address_claim: {
@@ -74,6 +80,14 @@ describe("signTransaction", () => {
     const deserialized = deserialize(bytes, codec.SignedTransaction);
 
     expect(deserialized.tx).toEqual(signed.tx);
+    const [contract] = deserialized.tx.contracts_to_deploy;
+    expect(contract?.contract_type).toBe(ContractType.kWasmi);
+    if (contract?.contract_type !== ContractType.kWasmi) {
+      throw new Error("Expected a WASM contract after serialization");
+    }
+    expect(contract.wasmi_contract.data).toEqual(
+      new Uint8Array([0x00, 0x61, 0x73, 0x6d]),
+    );
     expect(deserialized.signatures).toHaveLength(1);
     expect(deserialized.signatures[0].public_key_id).toBe(0n);
     expect(deserialized.signatures[0].signature.ed25519).toEqual(

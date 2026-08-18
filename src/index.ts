@@ -28,6 +28,7 @@ export type { HttpTransportOptions } from "./transport/index.js";
 export type { Signer } from "./signers/index.js";
 export { PrivateKeySigner } from "./signers/index.js";
 export { createGroundhogClient } from "./client.js";
+export { deriveContractAddress } from "@groundhogchain/protocol/utils";
 export { derivePubkeyAccountAddress } from "./derivation/pubkeyAccount.js";
 export type { GroundhogClient } from "./client.js";
 export type * from "./types/rpc.js";
