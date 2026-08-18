@@ -36,7 +36,9 @@ npm run example -- examples/transfer-hog.ts
 
 `deploy-counter.ts` deploys the included Counter fixture, increments it, and
 reads the value back from the derived address. Its wallet selectors can be
-overridden when a network does not use the local defaults:
+overridden when a network does not use the local defaults. See
+[`docs/contract-deployment.md`](../docs/contract-deployment.md) for the deployment
+model and address derivation rules.
 
 ```bash
 GROUNDHOG_SENDER_ADDRESS=0x... \

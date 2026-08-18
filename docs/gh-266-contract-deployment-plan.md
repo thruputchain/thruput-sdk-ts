@@ -206,9 +206,9 @@ Keep receipt polling, deploy calldata encoding, and wallet wrapping as small loc
 
 Give each document one role.
 
-### `README.md`: deployment model
+### `docs/contract-deployment.md`: deployment model
 
-Add a concise "Deploying a contract" section that:
+Add a focused deployment guide that:
 
 - Links to `examples/deploy-counter.ts`.
 - Shows root imports for `hashContract` and `deriveContractAddress`.
@@ -219,6 +219,10 @@ Add a concise "Deploying a contract" section that:
 - Explains that the root invocation targets the wallet deployment entrypoint.
 - States that a placeholder address is an actual, and therefore invalid, call target.
 - Notes that repeating the same deployer, deployment nonce, and contract hash attempts the same address and fails after deployment.
+
+### `README.md`: examples index
+
+List all curated examples equally and link to `examples/README.md`. Do not single out deployment as the package's primary use case.
 
 ### `examples/README.md`: running the example
 
@@ -301,6 +305,7 @@ Add:
 - `examples/fixtures/counter.wasm`
 - `examples/fixtures/README.md`
 - `examples/generated/counter.ts`
+- `docs/contract-deployment.md`
 
 Modify:
 

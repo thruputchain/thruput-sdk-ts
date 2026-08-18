@@ -23,6 +23,15 @@ const receipt = await client.sendTransaction({
 });
 ```
 
+## Examples
+
+- [`chain-tip.ts`](examples/chain-tip.ts) reads the latest block height and hash.
+- [`view-hog-balance.ts`](examples/view-hog-balance.ts) reads a HOG balance.
+- [`transfer-hog.ts`](examples/transfer-hog.ts) submits a HOG transfer.
+- [`deploy-counter.ts`](examples/deploy-counter.ts) deploys and calls a Counter contract.
+
+See [`examples/README.md`](examples/README.md) for local-node setup and configuration.
+
 ## What's in this repo
 
 - `src/client.ts` — `createGroundhogClient` factory that binds a transport to the SDK actions.
@@ -41,35 +50,6 @@ const receipt = await client.sendTransaction({
 ## Subpath exports
 
 The package exposes focused entry points alongside the root: `./transaction`, `./transport`, `./contract`, `./contracts`, `./signers`, `./actions`.
-
-## Deploying a contract
-
-Contract addresses are derived before deployment from the deploying contract,
-a caller-chosen 32-byte deployment nonce, and the contract hash:
-
-```ts
-import { deriveContractAddress, hashContract } from "@groundhogchain/client";
-
-const contractHash = hashContract(contract);
-const address = deriveContractAddress(wallet, deploymentNonce, contractHash);
-```
-
-`hashContract` hashes the canonical encoded protocol `Contract`, not only its
-raw WASM bytes. The deployment nonce is a CREATE2-style salt and is unrelated
-to `Transaction.uniquifier.nonce`.
-
-Adding a contract to `contracts_to_deploy` makes that artifact resolvable during
-the transaction; it does not invoke or deploy the contract by itself. In the
-local dev-wallet flow, the root invocation targets the wallet's deployment
-entrypoint, which performs the deployment. Calls made afterward must target the
-derived address. A placeholder address is an actual call target and is not a
-valid substitute.
-
-Deploying the same contract hash with the same wallet and deployment nonce
-derives the same address and fails after that address has been deployed. See
-[`examples/deploy-counter.ts`](examples/deploy-counter.ts) for a complete flow
-that deploys the included Counter contract, confirms its receipt, calls it, and
-reads back the result.
 
 ## API docs
 
