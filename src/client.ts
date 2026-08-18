@@ -25,6 +25,10 @@ import { getBlockByNumber } from "./actions/public/getBlockByNumber.js";
 import { getPendingTransactionCount } from "./actions/public/getPendingTransactionCount.js";
 import { getTransactionReceipt } from "./actions/public/getTransactionReceipt.js";
 import { getTransactionStatus } from "./actions/public/getTransactionStatus.js";
+import {
+  waitForTransactionReceipt,
+  type WaitForTransactionReceiptOptions,
+} from "./actions/public/waitForTransactionReceipt.js";
 import { getTransactionsByAddress } from "./actions/public/getTransactionsByAddress.js";
 import { getEvents } from "./actions/public/getEvents.js";
 import { getStorageAt } from "./actions/public/getStorageAt.js";
@@ -33,8 +37,8 @@ import { view } from "./actions/public/view.js";
 import { sendTransaction } from "./actions/wallet/sendTransaction.js";
 
 /**
- * Convenience client with all supported Groundhog JSON-RPC actions bound to a
- * single transport.
+ * Convenience client with all supported Groundhog actions bound to a single
+ * transport.
  *
  * Use {@link createGroundhogClient} when application code should not pass a
  * transport into every action call.
@@ -63,6 +67,16 @@ export interface GroundhogClient {
 
   /** Return the gateway's current knowledge of a submitted transaction. */
   getTransactionStatus(txHash: SHA256Hash): Promise<TransactionStatus>;
+
+  /**
+   * Wait for a transaction to commit and return its receipt.
+   *
+   * Inspect `receipt.execResult` to determine whether execution succeeded.
+   */
+  waitForTransactionReceipt(
+    txHash: SHA256Hash,
+    options?: WaitForTransactionReceiptOptions,
+  ): Promise<TransactionReceipt>;
 
   /** Query transaction refs whose root invocation targets one address. */
   getTransactionsByAddress(
@@ -109,6 +123,8 @@ export function createGroundhogClient(transport: Transport): GroundhogClient {
     view: (request) => view(transport, request),
     getTransactionReceipt: (txHash) => getTransactionReceipt(transport, txHash),
     getTransactionStatus: (txHash) => getTransactionStatus(transport, txHash),
+    waitForTransactionReceipt: (txHash, options) =>
+      waitForTransactionReceipt(transport, txHash, options),
     getTransactionsByAddress: (query) =>
       getTransactionsByAddress(transport, query),
     getEvents: (query) => getEvents(transport, query),

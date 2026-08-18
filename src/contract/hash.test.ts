@@ -6,7 +6,7 @@ import {
   sha256Hash,
 } from "@groundhogchain/protocol";
 import { toHex } from "@groundhogchain/protocol/utils";
-import { deriveContractAddress, hashContract } from "../index.js";
+import { deriveContractAddress, hashContract } from "./index.js";
 
 const counterArtifact = readFileSync(
   new URL("../../examples/fixtures/counter.rv32a", import.meta.url),

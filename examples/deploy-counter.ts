@@ -1,6 +1,5 @@
 import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { setTimeout as delay } from "node:timers/promises";
 import {
   AuthClaimType,
   ContractType,
@@ -22,7 +21,6 @@ import {
 import type {
   AuthClaim,
   Contract,
-  ContractAddress,
   Invocation,
   SHA256Hash,
 } from "@groundhogchain/protocol";
@@ -39,7 +37,6 @@ import {
   signTransaction,
   toHex0x,
 } from "../src/index.js";
-import type { TransactionReceipt } from "../src/index.js";
 import { Counter } from "./generated/counter.js";
 
 const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";
@@ -67,8 +64,6 @@ const deploymentNonce = sha256Hash(
 
 const walletGasLimit = gasAmount(10_000_000n);
 const counterGasLimit = gasAmount(500_000n);
-const receiptTimeoutMs = 30_000;
-const receiptPollMs = 250;
 const sourceAuthClaim: AuthClaim = {
   claim_type: AuthClaimType.kSourceAddressAuthData,
   source_address_claim: {
@@ -91,27 +86,53 @@ const contract: Contract = {
   rv32_contract: { data: artifact },
 };
 const contractHash = hashContract(contract);
-const predictedAddress = deriveContractAddress(
+const deployedAddress = deriveContractAddress(
   senderAddress,
   deploymentNonce,
   contractHash,
 );
 
+const deploymentCalldata = new CxsWriter();
+deploymentCalldata.writeFixedOpaque(deploymentNonce, 32);
+deploymentCalldata.writeFixedOpaque(contractHash, 32);
 const deployInvocation = createInvocation({
   invoked_address: senderAddress,
   entrypoint: walletDeployEntrypoint,
   gas_limit: walletGasLimit,
-  calldata: encodeDeployCalldata(deploymentNonce, contractHash),
+  calldata: calldata(deploymentCalldata.finish()),
 });
 const deployHash = await submit(deployInvocation, [contract]);
-const deployReceipt = await waitForSuccessfulReceipt(deployHash, "deployment");
-const deployedAddress = resolveDeployedAddress(deployReceipt, predictedAddress);
+const deployReceipt = await client.waitForTransactionReceipt(deployHash);
+if (deployReceipt.execResult !== ExecResult.ExecResultOK) {
+  const abort = deployReceipt.abortData
+    ? `, abort data ${toHex0x(deployReceipt.abortData)}`
+    : "";
+  throw new Error(
+    `Deployment failed with ${ExecResult[deployReceipt.execResult]}${abort}`,
+  );
+}
+if (deployReceipt.returnData !== null) {
+  const returnedAddress = contractAddress(deployReceipt.returnData);
+  if (toHex0x(returnedAddress) !== toHex0x(deployedAddress)) {
+    throw new Error(
+      `Deployment returned ${toHex0x(returnedAddress)}, predicted ${toHex0x(deployedAddress)}`,
+    );
+  }
+}
 
 const increment = Counter.increment(deployedAddress, counterGasLimit, {
   amount: 5n,
 });
-const callHash = await submit(wrapWalletAction(increment), []);
-await waitForSuccessfulReceipt(callHash, "counter increment");
+const callHash = await submit(wrapInWalletInvocation(increment), []);
+const callReceipt = await client.waitForTransactionReceipt(callHash);
+if (callReceipt.execResult !== ExecResult.ExecResultOK) {
+  const abort = callReceipt.abortData
+    ? `, abort data ${toHex0x(callReceipt.abortData)}`
+    : "";
+  throw new Error(
+    `Counter increment failed with ${ExecResult[callReceipt.execResult]}${abort}`,
+  );
+}
 
 const get = Counter.get(deployedAddress, counterGasLimit);
 const view = await client.view({
@@ -165,66 +186,7 @@ async function submit(
   return client.sendTransaction(signed);
 }
 
-async function waitForSuccessfulReceipt(
-  txHash: SHA256Hash,
-  operation: string,
-): Promise<TransactionReceipt> {
-  const deadline = Date.now() + receiptTimeoutMs;
-  let advisoryFailure: string | undefined;
-  while (Date.now() < deadline) {
-    const receipt = await client.getTransactionReceipt(txHash);
-    if (receipt) {
-      if (receipt.execResult !== ExecResult.ExecResultOK) {
-        const abort = receipt.abortData
-          ? `, abort data ${toHex0x(receipt.abortData)}`
-          : "";
-        throw new Error(
-          `${operation} failed with ${ExecResult[receipt.execResult]}${abort}`,
-        );
-      }
-      return receipt;
-    }
-
-    const status = await client.getTransactionStatus(txHash);
-    if (status.status === "invalid") {
-      throw new Error(`${operation} was rejected: ${status.reason}`);
-    }
-    if (status.status === "recentFailure") {
-      advisoryFailure =
-        `Last advisory failure at height ${status.attemptHeight}: ` +
-        `${status.conflict.code} conflict at ${toHex0x(status.conflict.address)} ` +
-        `key ${toHex0x(status.conflict.key)}`;
-    }
-    await delay(receiptPollMs);
-  }
-  throw new Error(
-    `Timed out waiting for ${operation} receipt ${toHex0x(txHash)}` +
-      (advisoryFailure ? `. ${advisoryFailure}` : ""),
-  );
-}
-
-function resolveDeployedAddress(
-  receipt: TransactionReceipt,
-  predicted: ContractAddress,
-): ContractAddress {
-  if (receipt.returnData === null) return predicted;
-  const returned = contractAddress(receipt.returnData);
-  if (toHex0x(returned) !== toHex0x(predicted)) {
-    throw new Error(
-      `Deployment returned ${toHex0x(returned)}, predicted ${toHex0x(predicted)}`,
-    );
-  }
-  return returned;
-}
-
-function encodeDeployCalldata(nonce: SHA256Hash, contractHash: SHA256Hash) {
-  const writer = new CxsWriter();
-  writer.writeFixedOpaque(nonce, 32);
-  writer.writeFixedOpaque(contractHash, 32);
-  return calldata(writer.finish());
-}
-
-function wrapWalletAction(invocation: Invocation): Invocation {
+function wrapInWalletInvocation(invocation: Invocation): Invocation {
   const writer = new CxsWriter();
   writer.writeVarOpaque(serialize(invocation, codec.Invocation), 0xffffffff);
   return createInvocation({
