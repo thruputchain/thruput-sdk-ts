@@ -51,7 +51,7 @@
     "typecheck": "tsc --noEmit",
     "docs": "typedoc",
     "docs:check": "typedoc --emit none",
-    "example": "tsx",
+    "example": "node scripts/run-example.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

@@ -9,17 +9,17 @@ groundhog node
 Run them from the repository root:
 
 ```bash
-npm run example -- examples/chain-tip.ts
-npm run example -- examples/view-hog-balance.ts
-npm run example -- examples/transfer-hog.ts
-npm run example -- examples/deploy-counter.ts
+npm run example chain-tip
+npm run example view-hog-balance
+npm run example transfer-hog
+npm run example deploy-counter
 ```
 
 `chain-tip.ts` defaults to the localhost endpoint. Set `GROUNDHOG_RPC_URL` to
 override it:
 
 ```bash
-GROUNDHOG_RPC_URL=http://127.0.0.1:9545 npm run example -- examples/chain-tip.ts
+GROUNDHOG_RPC_URL=http://127.0.0.1:9545 npm run example chain-tip
 ```
 
 `groundhog node` records its active RPC URL and runtime manifest in the global
