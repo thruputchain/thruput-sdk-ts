@@ -10,7 +10,7 @@ import { ERC20 } from "../src/contracts/index.js";
 const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";
 const accountAddress = addressFromHex(
   process.env.GROUNDHOG_ACCOUNT_ADDRESS ??
-    "0x7171717171717171717171717171717171717171717171717171717171717171",
+    "0x8bb77020223781a5653404392b824efe17574924c5a41b4995c8f034a8ed9229",
 );
 
 // HOG is predeployed on local/dev networks and implements the ERC20 interface.

@@ -30,34 +30,34 @@ GROUNDHOG_ACCOUNT_ADDRESS=0x... npm run example -- examples/view-hog-balance.ts
 GROUNDHOG_SENDER_ADDRESS=0x... \
 GROUNDHOG_RECIPIENT_ADDRESS=0x... \
 GROUNDHOG_SENDER_PRIVATE_KEY=0x... \
-GROUNDHOG_WALLET_ENTRYPOINT=0x... \
 npm run example -- examples/transfer-hog.ts
 ```
 
 `deploy-counter.ts` deploys the included Counter fixture, increments it, and
-reads the value back from the derived address. Its wallet selectors can be
-overridden when a network does not use the local defaults. See
+reads the value back from the derived address. It uses the checked-in DevWallet
+binding for the local node's wallet calls. See
 [`docs/contract-deployment.md`](../docs/contract-deployment.md) for the deployment
 model and address derivation rules.
 
 ```bash
 GROUNDHOG_SENDER_ADDRESS=0x... \
 GROUNDHOG_SENDER_PRIVATE_KEY=0x... \
-GROUNDHOG_WALLET_DEPLOY_ENTRYPOINT=0x... \
-GROUNDHOG_WALLET_ENTRYPOINT=0x... \
-GROUNDHOG_DEPLOYMENT_NONCE=0x... \
 npm run example -- examples/deploy-counter.ts
 ```
 
-`GROUNDHOG_DEPLOYMENT_NONCE` is optional and must contain exactly 32 bytes. A
-random value is generated when it is omitted. See
+Each run generates a random 32-byte deployment nonce. See
 [`fixtures/README.md`](fixtures/README.md) for the artifact's source, license,
 checksums, and reproduction steps. The fixture is stored in this repository but
 is not part of the published npm package.
 
-The checked-in defaults were verified with `groundhog 0.9.1`. Other runtime
-manifests may advertise different wallet addresses and entrypoints; pass the
-overrides above when they do.
+The checked-in defaults and DevWallet binding were verified with `groundhog
+0.9.1`. A network using another wallet interface needs its corresponding
+generated binding.
+
+The local DevWallet funds each derived contract address with 100,000,000 HOG
+before deployment because that address pays the deployment storage charge. The
+sender wallet must have enough HOG for this wallet-specific policy; it is not
+part of the protocol-level contract deployment mechanism.
 
 The defaults are intended for local dev nodes only. They are not testnet or
 mainnet account material.

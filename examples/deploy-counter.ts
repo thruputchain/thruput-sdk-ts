@@ -4,15 +4,12 @@ import {
   AuthClaimType,
   ContractType,
   CxsReader,
-  CxsWriter,
   ExecResult,
   Uint64Codec,
   bitMap,
   blockHeight,
-  calldata,
   codec,
   contractAddress,
-  contractEntrypointID,
   gasAmount,
   serialize,
   sha256Hash,
@@ -29,7 +26,6 @@ import {
   PrivateKeySigner,
   addressFromHex,
   createGroundhogClient,
-  createInvocation,
   createTransaction,
   deriveContractAddress,
   fromHex0x,
@@ -38,6 +34,7 @@ import {
   toHex0x,
 } from "../src/index.js";
 import { Counter } from "./generated/counter.js";
+import { DevWallet } from "./generated/dev_wallet.js";
 
 const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";
 const senderAddress = addressFromHex(
@@ -48,22 +45,11 @@ const senderPrivateKey = fromHex0x(
   process.env.GROUNDHOG_SENDER_PRIVATE_KEY ??
     "0x9b0da61c2f4271584ebb7629c54213edef7328d429ebcca39c83686d81d166ca",
 );
-const walletDeployEntrypoint = contractEntrypointID(
-  fromHex0x(
-    process.env.GROUNDHOG_WALLET_DEPLOY_ENTRYPOINT ?? "0xf969542572bd6860",
-  ),
-);
-const walletActionEntrypoint = contractEntrypointID(
-  fromHex0x(process.env.GROUNDHOG_WALLET_ENTRYPOINT ?? "0xa0fff94c64fbaf3c"),
-);
-const deploymentNonce = sha256Hash(
-  process.env.GROUNDHOG_DEPLOYMENT_NONCE
-    ? fromHex0x(process.env.GROUNDHOG_DEPLOYMENT_NONCE)
-    : randomBytes(32),
-);
+const deploymentNonce = sha256Hash(randomBytes(32));
 
 const walletGasLimit = gasAmount(10_000_000n);
 const counterGasLimit = gasAmount(500_000n);
+// Authorize key 0 with the wallet's required weight of 1.
 const sourceAuthClaim: AuthClaim = {
   claim_type: AuthClaimType.kSourceAddressAuthData,
   source_address_claim: {
@@ -72,12 +58,14 @@ const sourceAuthClaim: AuthClaim = {
   },
 };
 
+// Connect to the node and prepare the signer for the outer transaction.
 const client = createGroundhogClient(
   new HttpTransport(rpcUrl, { timeoutMs: 5_000 }),
 );
 const signer = new PrivateKeySigner(senderPrivateKey);
 let transactionNonce = randomBytes(8).readBigUInt64BE() % ((1n << 64n) - 1n);
 
+// Load the compiled contract and derive the address before deploying it.
 const artifact = await readFile(
   new URL("./fixtures/counter.rv32a", import.meta.url),
 );
@@ -92,14 +80,10 @@ const deployedAddress = deriveContractAddress(
   contractHash,
 );
 
-const deploymentCalldata = new CxsWriter();
-deploymentCalldata.writeFixedOpaque(deploymentNonce, 32);
-deploymentCalldata.writeFixedOpaque(contractHash, 32);
-const deployInvocation = createInvocation({
-  invoked_address: senderAddress,
-  entrypoint: walletDeployEntrypoint,
-  gas_limit: walletGasLimit,
-  calldata: calldata(deploymentCalldata.finish()),
+// Deploy through the sender's DevWallet and wait for the transaction to commit.
+const deployInvocation = DevWallet.deploy(senderAddress, walletGasLimit, {
+  nonce: deploymentNonce,
+  contractHash,
 });
 const deployHash = await submit(deployInvocation, [contract]);
 const deployReceipt = await client.waitForTransactionReceipt(deployHash);
@@ -120,10 +104,14 @@ if (deployReceipt.returnData !== null) {
   }
 }
 
+// Build a Counter.increment call, then ask the wallet to execute it.
 const increment = Counter.increment(deployedAddress, counterGasLimit, {
   amount: 5n,
 });
-const callHash = await submit(wrapInWalletInvocation(increment), []);
+const walletInvocation = DevWallet.doAction(senderAddress, walletGasLimit, {
+  invocationBytes: serialize(increment, codec.Invocation),
+});
+const callHash = await submit(walletInvocation, []);
 const callReceipt = await client.waitForTransactionReceipt(callHash);
 if (callReceipt.execResult !== ExecResult.ExecResultOK) {
   const abort = callReceipt.abortData
@@ -134,6 +122,7 @@ if (callReceipt.execResult !== ExecResult.ExecResultOK) {
   );
 }
 
+// Read the committed value without submitting another transaction.
 const get = Counter.get(deployedAddress, counterGasLimit);
 const view = await client.view({
   contract: get.invoked_address,
@@ -172,6 +161,7 @@ async function submit(
   invocation: Invocation,
   contractsToDeploy: Contract[],
 ): Promise<SHA256Hash> {
+  // This replay-protection nonce is separate from the deployment nonce above.
   const tip = await client.getChainTip();
   const tx = createTransaction({
     invocation,
@@ -184,15 +174,4 @@ async function submit(
   });
   const signed = await signTransaction(tx, [{ signer, publicKeyId: 0n }]);
   return client.sendTransaction(signed);
-}
-
-function wrapInWalletInvocation(invocation: Invocation): Invocation {
-  const writer = new CxsWriter();
-  writer.writeVarOpaque(serialize(invocation, codec.Invocation), 0xffffffff);
-  return createInvocation({
-    invoked_address: senderAddress,
-    entrypoint: walletActionEntrypoint,
-    gas_limit: walletGasLimit,
-    calldata: calldata(writer.finish()),
-  });
 }

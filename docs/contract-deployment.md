@@ -26,6 +26,11 @@ For the local dev wallet:
 5. Wait for a successful receipt. If it includes a returned address, confirm that it matches the derived address.
 6. Use the derived address as the target for subsequent contract calls.
 
+The local DevWallet transfers 100,000,000 HOG from the wallet to the derived
+address before deploying it so that address can pay the storage charge. This is
+DevWallet policy, not part of the protocol-level `contracts_to_deploy`
+mechanism.
+
 `sendTransaction` returns after submission. Use `waitForTransactionReceipt`
 before invoking the deployed address, and inspect the returned receipt's
 `execResult` to confirm execution succeeded.

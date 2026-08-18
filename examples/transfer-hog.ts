@@ -1,16 +1,13 @@
+import { randomBytes } from "node:crypto";
 import {
   AuthClaimType,
-  CxsWriter,
   bitMap,
   blockHeight,
-  calldata,
   codec,
-  contractEntrypointID,
   gasAmount,
   serialize,
   weight,
 } from "@groundhogchain/protocol";
-import type { ContractAddress, Invocation } from "@groundhogchain/protocol";
 import {
   HttpTransport,
   PrivateKeySigner,
@@ -22,16 +19,17 @@ import {
   toHex0x,
 } from "../src/index.js";
 import { ERC20 } from "../src/contracts/index.js";
+import { DevWallet } from "./generated/dev_wallet.js";
 
 const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";
 const amount = 1000n;
 const senderAddress = addressFromHex(
   process.env.GROUNDHOG_SENDER_ADDRESS ??
-    "0x7171717171717171717171717171717171717171717171717171717171717171",
+    "0x8bb77020223781a5653404392b824efe17574924c5a41b4995c8f034a8ed9229",
 );
 const recipientAddress = addressFromHex(
   process.env.GROUNDHOG_RECIPIENT_ADDRESS ??
-    "0x7272727272727272727272727272727272727272727272727272727272727272",
+    "0x76eb899b5172cad517b73c163778602bd60ba476809972041d748739f53d81dc",
 );
 const senderPrivateKey = fromHex0x(
   process.env.GROUNDHOG_SENDER_PRIVATE_KEY ??
@@ -44,10 +42,6 @@ const hogToken = addressFromHex(
 );
 const walletGasLimit = gasAmount(10_000_000n);
 const callGasLimit = gasAmount(500_000n);
-// TODO: replace this with a generated smart-wallet binding or wallet helper.
-const walletEntrypoint = contractEntrypointID(
-  fromHex0x(process.env.GROUNDHOG_WALLET_ENTRYPOINT ?? "0x646f416374696f6e"),
-);
 
 const client = createGroundhogClient(new HttpTransport(rpcUrl));
 const signer = new PrivateKeySigner(senderPrivateKey);
@@ -61,14 +55,15 @@ const tokenInvocation = ERC20.transfer(hogToken, callGasLimit, {
 
 // Wallet accounts are contracts. The transaction calls the sender wallet, and
 // the wallet performs the inner HOG transfer as its action.
-const walletInvocation = wrapInWalletInvocation(tokenInvocation, senderAddress);
+const walletInvocation = DevWallet.doAction(senderAddress, walletGasLimit, {
+  invocationBytes: serialize(tokenInvocation, codec.Invocation),
+});
 
 const tx = createTransaction({
   invocation: walletInvocation,
   uniquifier: {
     block_expiry_height: blockHeight(tip.height + 100n),
-    nonce:
-      BigInt(Date.now()) * 1000n + BigInt(Math.floor(Math.random() * 1000)),
+    nonce: randomBytes(8).readBigUInt64BE(),
   },
   contracts_to_deploy: [],
   auth_claim: {
@@ -81,6 +76,7 @@ const tx = createTransaction({
 });
 
 const signed = await signTransaction(tx, [{ signer, publicKeyId: 0n }]);
+// Submission returns a hash; wait for its receipt when confirmation is needed.
 const txHash = await client.sendTransaction(signed);
 
 console.log({
@@ -91,20 +87,3 @@ console.log({
   amount: amount.toString(),
   txHash: toHex0x(txHash),
 });
-
-function wrapInWalletInvocation(
-  invocation: Invocation,
-  walletAddress: ContractAddress,
-): Invocation {
-  // The wallet expects the inner invocation as one CXS var-opaque blob.
-  const inner = serialize(invocation, codec.Invocation);
-  const writer = new CxsWriter();
-  writer.writeVarOpaque(inner, 0xffffffff);
-
-  return {
-    invoked_address: walletAddress,
-    entrypoint: walletEntrypoint,
-    gas_limit: walletGasLimit,
-    calldata: calldata(writer.finish()),
-  };
-}
