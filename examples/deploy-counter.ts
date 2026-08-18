@@ -52,7 +52,6 @@ const sourceAuthClaim: AuthClaim = {
 const client = createGroundhogClient(
   new HttpTransport(rpcUrl, { timeoutMs: 5_000 }),
 );
-let transactionNonce = randomBytes(8).readBigUInt64BE() % ((1n << 64n) - 1n);
 
 // Load the compiled contract and derive the address before deploying it.
 const artifact = await readFile(
@@ -156,7 +155,7 @@ async function submit(
     invocation,
     uniquifier: {
       block_expiry_height: blockHeight(tip.height + 100n),
-      nonce: transactionNonce++,
+      nonce: randomBytes(8).readBigUInt64BE(),
     },
     contracts_to_deploy: contractsToDeploy,
     auth_claim: sourceAuthClaim,
