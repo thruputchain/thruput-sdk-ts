@@ -14,7 +14,7 @@ import { resolveCodec } from "./encode.js";
 export function buildNamedCodecs(
   typeDefs: ContractTypeDef[],
 ): Record<string, XdrCodec<unknown>> {
-  const codecs: Record<string, XdrCodec<unknown>> = {};
+  const codecs: Record<string, XdrCodec<unknown>> = Object.create(null);
 
   for (const def of typeDefs) {
     switch (def.v) {
@@ -44,7 +44,7 @@ export function buildNamedCodecs(
             const obj: Record<string, unknown> = {};
             for (const field of structDef.fields) {
               const fieldCodec = resolveCodec(field.ty, codecs);
-              obj[field.name] = fieldCodec.decode(r);
+              defineRecordValue(obj, field.name, fieldCodec.decode(r));
             }
             return obj;
           },
@@ -190,7 +190,7 @@ function decodeUnionCase(
       const value: Record<string, unknown> = {};
       for (const field of caseType.struct_fields) {
         const c = resolveCodec(field.ty, codecs);
-        value[field.name] = c.decode(r);
+        defineRecordValue(value, field.name, c.decode(r));
       }
       return { case: caseName, value };
     }
@@ -201,4 +201,17 @@ function decodeUnionCase(
       );
     }
   }
+}
+
+function defineRecordValue(
+  record: Record<string, unknown>,
+  name: string,
+  value: unknown,
+): void {
+  Object.defineProperty(record, name, {
+    configurable: true,
+    enumerable: true,
+    value,
+    writable: true,
+  });
 }

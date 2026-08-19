@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  BoolCodec,
-  CxsWriter,
-  Int32Codec,
-  Uint32Codec,
-} from "@groundhogchain/protocol";
+import { CxsWriter, Int32Codec, Uint32Codec } from "@groundhogchain/protocol";
 import {
   contractSpecString,
   ContractTypeDefKind,
@@ -135,9 +130,14 @@ describe("contract codecs", () => {
     const type = { v: ContractTypeKind.U32 } as ContractType;
     const namedCodecs = {};
 
-    expect(resolveCodec(type, namedCodecs)).toBe(Uint32Codec);
+    const uint32 = resolveCodec(type, namedCodecs);
     Object.assign(type, { v: ContractTypeKind.Bool });
-    expect(resolveCodec(type, namedCodecs)).toBe(BoolCodec);
+    const bool = resolveCodec(type, namedCodecs);
+
+    expect(bool).not.toBe(uint32);
+    const writer = new CxsWriter();
+    bool.encode(writer, true);
+    expect(writer.finish()).toEqual(Uint8Array.of(1));
   });
 
   it("snapshots named type definitions before caching them", () => {
@@ -159,6 +159,64 @@ describe("contract codecs", () => {
     });
 
     expect(codec.decode(codec.encode({ value: 63n }))).toEqual({ value: 63n });
+  });
+
+  it.each([
+    [
+      "undefined integers",
+      { v: ContractTypeKind.U32 },
+      undefined,
+      "U32 expected bigint",
+    ],
+    [
+      "fractional numbers",
+      { v: ContractTypeKind.U32 },
+      1.5,
+      "U32 expected bigint",
+    ],
+    [
+      "truthy strings",
+      { v: ContractTypeKind.Bool },
+      "false",
+      "Bool expected boolean",
+    ],
+    [
+      "plain byte arrays",
+      { v: ContractTypeKind.Bytes },
+      [1, 2],
+      "Expected Uint8Array for Bytes",
+    ],
+    [
+      "non-array vectors",
+      {
+        v: ContractTypeKind.Vector,
+        vector: { element: { v: ContractTypeKind.U32 }, max_len: 2n },
+      },
+      "12",
+      "Expected array",
+    ],
+    [
+      "non-void values",
+      { v: ContractTypeKind.Void },
+      null,
+      "Void expected undefined",
+    ],
+  ] satisfies [string, ContractType, unknown, string][])(
+    "rejects %s instead of coercing them",
+    (_label, type, value, message) => {
+      const codec = createContractCodec<unknown>(
+        createContractCodecContext([]),
+        type,
+      );
+
+      expect(() => codec.encode(value)).toThrow(message);
+    },
+  );
+
+  it("rejects inherited named-codec properties", () => {
+    expect(() =>
+      resolveCodec({ v: ContractTypeKind.Named, named: s("toString") }, {}),
+    ).toThrow('No codec for named type "toString"');
   });
 
   it("returns immutable fixed arrays and rejects incorrect input lengths", () => {

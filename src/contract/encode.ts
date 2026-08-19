@@ -27,14 +27,35 @@ import { ContractTypeKind } from "./spec.js";
 import { ContractDecodeError } from "./errors.js";
 import { fixedArray } from "./fixed.js";
 
-const BytesCodec: XdrCodec<Uint8Array> = {
-  encode(w, val) {
-    w.writeVarOpaque(val, 0xffffffff);
+const AddressCodec = requireByteArrayCodec(
+  codec.ContractAddress as XdrCodec<Uint8Array>,
+  "Address",
+);
+const BytesCodec = requireByteArrayCodec(VarOpaqueCodec(0xffffffff), "Bytes");
+const ContractBoolCodec: XdrCodec<boolean> = {
+  encode(writer, value) {
+    if (typeof value !== "boolean") {
+      throw new TypeError("Bool expected boolean");
+    }
+    BoolCodec.encode(writer, value);
   },
-  decode(r) {
-    return r.readVarOpaque(0xffffffff);
-  },
+  decode: BoolCodec.decode,
 };
+const ContractVoidCodec: XdrCodec<void> = {
+  encode(writer, value) {
+    if (value !== undefined) {
+      throw new TypeError("Void expected undefined");
+    }
+    VoidCodec.encode(writer, value);
+  },
+  decode: VoidCodec.decode,
+};
+const ContractU128Codec = requireBigIntCodec("U128", Uint128Codec);
+const ContractI128Codec = requireBigIntCodec("I128", Int128Codec);
+const ContractU64Codec = requireBigIntCodec("U64", Uint64Codec);
+const ContractI64Codec = requireBigIntCodec("I64", Int64Codec);
+const ContractU32Codec = requireBigIntCodec("U32", Uint32Codec);
+const ContractI32Codec = requireBigIntCodec("I32", Int32Codec);
 
 const StringCodec: XdrCodec<string> = {
   encode(w, val) {
@@ -78,11 +99,39 @@ function assertWellFormedString(value: string): void {
 
 function requireByteArrayCodec(
   codec: XdrCodec<Uint8Array>,
+  label = "U8 container",
 ): XdrCodec<Uint8Array> {
   return {
     encode(writer, value) {
       if (!(value instanceof Uint8Array)) {
-        throw new TypeError("Expected Uint8Array for U8 container");
+        throw new TypeError(`Expected Uint8Array for ${label}`);
+      }
+      codec.encode(writer, value);
+    },
+    decode: codec.decode,
+  };
+}
+
+function requireBigIntCodec(
+  label: string,
+  codec: XdrCodec<bigint>,
+): XdrCodec<bigint> {
+  return {
+    encode(writer, value) {
+      if (typeof value !== "bigint") {
+        throw new TypeError(`${label} expected bigint`);
+      }
+      codec.encode(writer, value);
+    },
+    decode: codec.decode,
+  };
+}
+
+function requireArrayCodec<T>(codec: XdrCodec<T[]>): XdrCodec<T[]> {
+  return {
+    encode(writer, value) {
+      if (!Array.isArray(value)) {
+        throw new TypeError("Expected array");
       }
       codec.encode(writer, value);
     },
@@ -118,25 +167,25 @@ function resolveUncachedCodec(
 ): XdrCodec<unknown> {
   switch (ty.v) {
     case ContractTypeKind.Address:
-      return codec.ContractAddress as XdrCodec<unknown>;
+      return AddressCodec as XdrCodec<unknown>;
     case ContractTypeKind.U128:
-      return Uint128Codec as XdrCodec<unknown>;
+      return ContractU128Codec as XdrCodec<unknown>;
     case ContractTypeKind.I128:
-      return Int128Codec as XdrCodec<unknown>;
+      return ContractI128Codec as XdrCodec<unknown>;
     case ContractTypeKind.U64:
-      return Uint64Codec as XdrCodec<unknown>;
+      return ContractU64Codec as XdrCodec<unknown>;
     case ContractTypeKind.I64:
-      return Int64Codec as XdrCodec<unknown>;
+      return ContractI64Codec as XdrCodec<unknown>;
     case ContractTypeKind.U32:
-      return Uint32Codec as XdrCodec<unknown>;
+      return ContractU32Codec as XdrCodec<unknown>;
     case ContractTypeKind.I32:
-      return Int32Codec as XdrCodec<unknown>;
+      return ContractI32Codec as XdrCodec<unknown>;
     case ContractTypeKind.U8:
       return Uint8Codec as XdrCodec<unknown>;
     case ContractTypeKind.Bool:
-      return BoolCodec as XdrCodec<unknown>;
+      return ContractBoolCodec as XdrCodec<unknown>;
     case ContractTypeKind.Void:
-      return VoidCodec as XdrCodec<unknown>;
+      return ContractVoidCodec as XdrCodec<unknown>;
     case ContractTypeKind.Bytes:
       return BytesCodec as XdrCodec<unknown>;
     case ContractTypeKind.String:
@@ -151,9 +200,11 @@ function resolveUncachedCodec(
           VarOpaqueCodec(Number(ty.vector.max_len)),
         ) as XdrCodec<unknown>;
       }
-      return VarArrayCodec(
-        resolveCodec(ty.vector.element!, namedCodecs),
-        Number(ty.vector.max_len),
+      return requireArrayCodec(
+        VarArrayCodec(
+          resolveCodec(ty.vector.element!, namedCodecs),
+          Number(ty.vector.max_len),
+        ),
       ) as XdrCodec<unknown>;
     case ContractTypeKind.Array:
       if (ty.array.element?.v === ContractTypeKind.U8) {
@@ -162,9 +213,11 @@ function resolveUncachedCodec(
         ) as XdrCodec<unknown>;
       }
       const arrayLength = Number(ty.array.len);
-      const arrayCodec = FixedArrayCodec(
-        resolveCodec(ty.array.element!, namedCodecs),
-        arrayLength,
+      const arrayCodec = requireArrayCodec(
+        FixedArrayCodec(
+          resolveCodec(ty.array.element!, namedCodecs),
+          arrayLength,
+        ),
       );
       return {
         encode: arrayCodec.encode,
@@ -192,11 +245,10 @@ function resolveUncachedCodec(
       } as XdrCodec<unknown>;
     }
     case ContractTypeKind.Named: {
-      const c = namedCodecs?.[ty.named];
-      if (!c) {
+      if (!namedCodecs || !Object.hasOwn(namedCodecs, ty.named)) {
         throw new Error(`No codec for named type "${ty.named}".`);
       }
-      return c;
+      return namedCodecs[ty.named];
     }
     case ContractTypeKind.SignedToken:
       throw new Error("SignedToken contract types are not supported yet.");
@@ -288,7 +340,7 @@ export function decodeCalldata(
     const result: Record<string, unknown> = {};
     for (const arg of method.args) {
       const argCodec = resolveCodec(arg.ty, namedCodecs);
-      result[arg.name] = argCodec.decode(r);
+      defineRecordValue(result, arg.name, argCodec.decode(r));
     }
     if (r.remaining !== 0) {
       throw new Error(
@@ -303,4 +355,17 @@ export function decodeCalldata(
       { cause },
     );
   }
+}
+
+function defineRecordValue(
+  record: Record<string, unknown>,
+  name: string,
+  value: unknown,
+): void {
+  Object.defineProperty(record, name, {
+    configurable: true,
+    enumerable: true,
+    value,
+    writable: true,
+  });
 }

@@ -449,9 +449,11 @@ describe("buildNamedCodecs", () => {
     const codecs = buildNamedCodecs(typeDefs);
     const structCodec = codecs["TokenInfo"];
 
-    expect(() => structCodec.encode(new CxsWriter(), undefined)).toThrow(
-      'Expected object for struct "TokenInfo"',
-    );
+    for (const invalid of [undefined, null, 1, "value", []]) {
+      expect(() => structCodec.encode(new CxsWriter(), invalid)).toThrow(
+        'Expected object for struct "TokenInfo"',
+      );
+    }
 
     const owner = contractAddress(new Uint8Array(32).fill(0x01));
     const original = { owner, supply: 999n, frozen: true };
@@ -466,6 +468,30 @@ describe("buildNamedCodecs", () => {
     expect(decoded.owner).toEqual(owner);
     expect(decoded.supply).toBe(999n);
     expect(decoded.frozen).toBe(true);
+  });
+
+  it("supports ABI names that overlap object prototype properties", () => {
+    const codecs = buildNamedCodecs([
+      {
+        v: ContractTypeDefKind.TypeDefStruct,
+        struct_def: {
+          name: s("__proto__"),
+          fields: [{ name: s("__proto__"), ty: { v: ContractTypeKind.U32 } }],
+        },
+      },
+    ]);
+    const value: Record<string, unknown> = Object.create(null);
+    value.__proto__ = 7n;
+    const writer = new CxsWriter();
+
+    codecs.__proto__.encode(writer, value);
+    const decoded = codecs.__proto__.decode(
+      new CxsReader(writer.finish()),
+    ) as Record<string, unknown>;
+
+    expect(Object.getPrototypeOf(decoded)).toBe(Object.prototype);
+    expect(Object.hasOwn(decoded, "__proto__")).toBe(true);
+    expect(decoded.__proto__).toBe(7n);
   });
 
   it("generates a working codec for a union type", () => {
