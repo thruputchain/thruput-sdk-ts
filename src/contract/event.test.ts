@@ -296,6 +296,11 @@ describe("contract event receipt extraction", () => {
   const descriptor = defineContractEvent(definition());
   const matchingA = emitted();
   const matchingB = emitted({ contractAddress: emitterB });
+  const malformedA = emitted({ data: new Uint8Array() });
+  const malformedB = emitted({
+    contractAddress: emitterB,
+    data: new Uint8Array(),
+  });
   const unrelated = emitted({ topics: [new Uint8Array(32), account, id] });
   const receipt = { events: [matchingA, unrelated, matchingB] };
 
@@ -309,6 +314,24 @@ describe("contract event receipt extraction", () => {
     expect(
       descriptor.singleFromReceipt(receipt, { contractAddress: emitterA }),
     ).toMatchObject({ name: "Changed" });
+  });
+
+  it("skips malformed matching signatures from other emitters", () => {
+    expect(
+      descriptor.allFromReceipt(
+        { events: [malformedB, matchingA] },
+        { contractAddress: emitterA },
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("rejects malformed matching events from the selected emitter", () => {
+    expect(() =>
+      descriptor.allFromReceipt(
+        { events: [malformedA] },
+        { contractAddress: emitterA },
+      ),
+    ).toThrow(ContractDecodeError);
   });
 
   it("enforces zero and multiple match cardinality", () => {
