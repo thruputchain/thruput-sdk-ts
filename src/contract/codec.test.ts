@@ -153,6 +153,10 @@ describe("contract codecs", () => {
 
     const value = Uint8Array.of(1, 2, 255);
     expect(codec.decode(codec.encode(value))).toEqual(value);
+    // Generated independently with the CXS serializer used by hogexec.
+    expect(codec.encode(Uint8Array.of(0xde, 0xad, 0xbe, 0xef))).toEqual(
+      Uint8Array.of(0x04, 0xde, 0xad, 0xbe, 0xef),
+    );
     expect(() => codec.encode([1n, 2n] as never)).toThrow(
       "Expected Uint8Array",
     );

@@ -46,6 +46,20 @@ describe("generated RecursiveTypeContract bindings", () => {
     expect(decoded.tree).toEqual(tree);
   });
 
+  it("matches hogexec's CXS encoding for a recursive Tree", () => {
+    const tree: Tree = {
+      value: 1n,
+      left: { value: 2n, left: null, right: null },
+      right: null,
+    };
+
+    const invocation = RecursiveTypeContract.depth.invocation(contract, gas, {
+      tree,
+    });
+
+    expect(invocation.calldata).toEqual(Uint8Array.of(1, 1, 2, 0, 0, 0));
+  });
+
   it("depth() encodes a leaf node", () => {
     const leaf: Tree = { value: 42n, left: null, right: null };
 
