@@ -3,15 +3,18 @@ import type {
   ContractEntrypointID,
   GasAmount,
   Invocation,
+  SHA256Hash,
 } from "@groundhogchain/protocol";
 import {
+  ExecResult,
   calldata,
   contractEntrypointID,
   kMaxReturnBufferLen,
 } from "@groundhogchain/protocol";
+import { ContractTypeKind } from "@groundhogchain/contract-spec";
 import { CxsReader, CxsWriter, type XdrCodec } from "@groundhogchain/xdr";
 import type { GroundhogClient } from "../client.js";
-import type { EmittedEvent } from "../types/rpc.js";
+import type { EmittedEvent, TransactionReceipt } from "../types/rpc.js";
 import type { ContractCodecContext } from "./codec.js";
 import { decodeComplete, resolveContextCodec } from "./codec.js";
 import { ContractDecodeError } from "./errors.js";
@@ -57,6 +60,39 @@ export type ContractViewOutcome<TResult, TException> =
   | ({ kind: "return" } & ContractView<TResult>)
   | ContractViewFailure<TException>;
 
+/** Successfully decoded root contract receipt and its commit metadata. */
+export interface ContractReceipt<TResult> {
+  value: TResult;
+  txHash: SHA256Hash;
+  height: bigint;
+  events: EmittedEvent[];
+}
+
+/** Non-successful root contract receipt outcome. */
+export type ContractReceiptFailure<TException> =
+  | {
+      kind: "abort";
+      exception: TException;
+      abortData: Uint8Array;
+      txHash: SHA256Hash;
+      height: bigint;
+      events: EmittedEvent[];
+    }
+  | {
+      kind: "failure";
+      execResult: ExecResult;
+      returnData: Uint8Array | null;
+      abortData: Uint8Array | null;
+      txHash: SHA256Hash;
+      height: bigint;
+      events: EmittedEvent[];
+    };
+
+/** Typed return, abort, or execution failure from a root contract receipt. */
+export type ContractReceiptOutcome<TResult, TException> =
+  | ({ kind: "return" } & ContractReceipt<TResult>)
+  | ContractReceiptFailure<TException>;
+
 /** Error thrown by the ergonomic view API for contract aborts and faults. */
 export class ContractViewError<TException> extends Error {
   readonly outcome: ContractViewFailure<TException>;
@@ -72,6 +108,27 @@ export class ContractViewError<TException> extends Error {
         : "Contract view faulted",
     );
     this.name = "ContractViewError";
+    this.outcome = outcome;
+  }
+}
+
+/** Error thrown when a root contract receipt does not produce a typed return. */
+export class ContractReceiptError<TException> extends Error {
+  readonly outcome: ContractReceiptFailure<TException>;
+
+  constructor(outcome: ContractReceiptFailure<TException>) {
+    const selector =
+      outcome.kind === "abort"
+        ? exceptionSelector(outcome.exception)
+        : undefined;
+    super(
+      outcome.kind === "abort"
+        ? `Contract transaction aborted with selector ${selector ?? "unknown"}`
+        : outcome.execResult === ExecResult.ExecResultOK
+          ? "Contract transaction did not include return data"
+          : `Contract transaction failed with ${ExecResult[outcome.execResult] ?? outcome.execResult}`,
+    );
+    this.name = "ContractReceiptError";
     this.outcome = outcome;
   }
 }
@@ -131,6 +188,10 @@ export interface ContractMethod<TArgs, TResult, TDeclaredException> {
 
   decodeReturn(data: Uint8Array): TResult;
   decodeException(data: Uint8Array): ContractException<TDeclaredException>;
+  decodeReceipt(receipt: TransactionReceipt): ContractReceipt<TResult>;
+  decodeReceiptOutcome(
+    receipt: TransactionReceipt,
+  ): ContractReceiptOutcome<TResult, ContractException<TDeclaredException>>;
   view(options: ContractViewOptions<TArgs>): Promise<ContractView<TResult>>;
   viewOutcome(
     options: ContractViewOptions<TArgs>,
@@ -162,6 +223,7 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
     definition.codecs,
     definition.returnType,
   );
+  const returnsVoid = definition.returnType.v === ContractTypeKind.Void;
   const exceptionBySelector = new Map<bigint, ResolvedException>();
   for (const metadata of definition.throws) {
     if (exceptionBySelector.has(metadata.selector)) {
@@ -201,6 +263,61 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
     decodeException(data) {
       assertReturnBufferLimit(data, "abort");
       return decodeException<TDeclaredException>(data, exceptionBySelector);
+    },
+
+    decodeReceiptOutcome(receipt) {
+      const metadata = {
+        txHash: receipt.txHash,
+        height: receipt.height,
+        events: receipt.events,
+      };
+      if (receipt.execResult === ExecResult.ExecResultOK) {
+        if (receipt.returnData === null && !returnsVoid) {
+          return {
+            kind: "failure",
+            execResult: receipt.execResult,
+            returnData: receipt.returnData,
+            abortData: receipt.abortData,
+            ...metadata,
+          };
+        }
+        return {
+          kind: "return",
+          value: method.decodeReturn(receipt.returnData ?? new Uint8Array()),
+          ...metadata,
+        };
+      }
+      if (
+        receipt.execResult === ExecResult.ExecResultTxRootFrameReverted &&
+        receipt.abortData !== null
+      ) {
+        return {
+          kind: "abort",
+          exception: method.decodeException(receipt.abortData),
+          abortData: receipt.abortData,
+          ...metadata,
+        };
+      }
+      return {
+        kind: "failure",
+        execResult: receipt.execResult,
+        returnData: receipt.returnData,
+        abortData: receipt.abortData,
+        ...metadata,
+      };
+    },
+
+    decodeReceipt(receipt) {
+      const outcome = method.decodeReceiptOutcome(receipt);
+      if (outcome.kind === "return") {
+        return {
+          value: outcome.value,
+          txHash: outcome.txHash,
+          height: outcome.height,
+          events: outcome.events,
+        };
+      }
+      throw new ContractReceiptError(outcome);
     },
 
     async viewOutcome(options) {

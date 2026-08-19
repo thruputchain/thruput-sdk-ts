@@ -31,6 +31,7 @@ export {
   type DecodedContractEvent,
 } from "./event.js";
 export {
+  ContractReceiptError,
   ContractViewError,
   defineContractMethod,
   type ContractException,
@@ -38,6 +39,9 @@ export {
   type ContractExceptionMetadata,
   type ContractMethod,
   type ContractMethodDefinition,
+  type ContractReceipt,
+  type ContractReceiptFailure,
+  type ContractReceiptOutcome,
   type ContractView,
   type ContractViewFailure,
   type ContractViewOptions,

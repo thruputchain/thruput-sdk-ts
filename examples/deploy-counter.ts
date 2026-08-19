@@ -3,7 +3,6 @@ import { readFile } from "node:fs/promises";
 import {
   AuthClaimType,
   ContractType,
-  ExecResult,
   bitMap,
   blockHeight,
   codec,
@@ -76,19 +75,9 @@ const deployInvocation = DevWallet.deploy.invocation(
   },
 );
 const deployHash = await submit(deployInvocation, [contract]);
-const deployReceipt = await client.waitForTransactionReceipt(deployHash);
-if (deployReceipt.execResult !== ExecResult.ExecResultOK) {
-  const abort = deployReceipt.abortData
-    ? `, abort data ${toHex0x(deployReceipt.abortData)}`
-    : "";
-  throw new Error(
-    `Deployment failed with ${ExecResult[deployReceipt.execResult]}${abort}`,
-  );
-}
-if (deployReceipt.returnData === null) {
-  throw new Error("Deployment did not return the deployed contract address");
-}
-const returnedAddress = DevWallet.deploy.decodeReturn(deployReceipt.returnData);
+const { value: returnedAddress } = DevWallet.deploy.decodeReceipt(
+  await client.waitForTransactionReceipt(deployHash),
+);
 if (toHex0x(returnedAddress) !== toHex0x(deployedAddress)) {
   throw new Error(
     `Deployment returned ${toHex0x(returnedAddress)}, predicted ${toHex0x(deployedAddress)}`,
@@ -109,15 +98,9 @@ const walletInvocation = DevWallet.doAction.invocation(
   { invocationBytes: serialize(increment, codec.Invocation) },
 );
 const callHash = await submit(walletInvocation, []);
-const callReceipt = await client.waitForTransactionReceipt(callHash);
-if (callReceipt.execResult !== ExecResult.ExecResultOK) {
-  const abort = callReceipt.abortData
-    ? `, abort data ${toHex0x(callReceipt.abortData)}`
-    : "";
-  throw new Error(
-    `Counter increment failed with ${ExecResult[callReceipt.execResult]}${abort}`,
-  );
-}
+DevWallet.doAction.decodeReceipt(
+  await client.waitForTransactionReceipt(callHash),
+);
 
 // Read the committed value without submitting another transaction.
 const view = await Counter.get.view({

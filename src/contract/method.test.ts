@@ -2,17 +2,24 @@ import { describe, expect, it, vi } from "vitest";
 import {
   CxsReader,
   CxsWriter,
+  ExecResult,
   contractAddress,
   contractEntrypointID,
   gasAmount,
   kMaxReturnBufferLen,
+  sha256Hash,
 } from "@groundhogchain/protocol";
 import { ContractTypeKind } from "@groundhogchain/contract-spec";
 import type { GroundhogClient } from "../client.js";
-import type { EmittedEvent, ViewResponse } from "../types/rpc.js";
+import type {
+  EmittedEvent,
+  TransactionReceipt,
+  ViewResponse,
+} from "../types/rpc.js";
 import { createContractCodecContext } from "./codec.js";
 import { ContractDecodeError } from "./errors.js";
 import {
+  ContractReceiptError,
   ContractViewError,
   defineContractMethod,
   type ContractMethodDefinition,
@@ -21,6 +28,7 @@ import {
 const contract = contractAddress(new Uint8Array(32).fill(0x11));
 const caller = contractAddress(new Uint8Array(32).fill(0x22));
 const entrypoint = contractEntrypointID(new Uint8Array(8).fill(0x33));
+const txHash = sha256Hash(new Uint8Array(32).fill(0x44));
 const events: EmittedEvent[] = [];
 
 function definition(
@@ -63,6 +71,20 @@ function clientReturning(response: ViewResponse) {
   return {
     view: vi.fn(async () => response),
   } satisfies Pick<GroundhogClient, "view">;
+}
+
+function receipt(
+  overrides: Partial<TransactionReceipt> = {},
+): TransactionReceipt {
+  return {
+    txHash,
+    height: 12n,
+    execResult: ExecResult.ExecResultOK,
+    events,
+    returnData: null,
+    abortData: null,
+    ...overrides,
+  };
 }
 
 describe("contract method invocation", () => {
@@ -251,6 +273,100 @@ describe("contract method decoding", () => {
   it("wraps malformed exception selectors", () => {
     expect(() => method.decodeException(Uint8Array.of(0xff))).toThrow(
       /Failed to decode contract exception/,
+    );
+  });
+});
+
+describe("contract method receipts", () => {
+  const method = defineContractMethod<unknown, bigint, unknown>(definition());
+
+  it("decodes successful receipts and preserves commit metadata", () => {
+    const committed = receipt({
+      returnData: encode((writer) => writer.writeInt64(42n)),
+    });
+
+    expect(method.decodeReceiptOutcome(committed)).toEqual({
+      kind: "return",
+      value: 42n,
+      txHash,
+      height: 12n,
+      events,
+    });
+    expect(method.decodeReceipt(committed)).toEqual({
+      value: 42n,
+      txHash,
+      height: 12n,
+      events,
+    });
+  });
+
+  it("accepts missing return data for void methods", () => {
+    const voidMethod = defineContractMethod<void, void, never>(
+      definition({
+        args: [],
+        returnType: { v: ContractTypeKind.Void },
+        throws: [],
+      }),
+    );
+
+    expect(voidMethod.decodeReceipt(receipt())).toEqual({
+      value: undefined,
+      txHash,
+      height: 12n,
+      events,
+    });
+  });
+
+  it("decodes root-frame aborts as typed outcomes", () => {
+    const abortData = encode((writer) => {
+      writer.writeUint64(7n);
+      writer.writeInt32(-9n);
+    });
+    const reverted = receipt({
+      execResult: ExecResult.ExecResultTxRootFrameReverted,
+      abortData,
+    });
+
+    expect(method.decodeReceiptOutcome(reverted)).toEqual({
+      kind: "abort",
+      exception: {
+        kind: "declared",
+        selector: 7n,
+        name: "BadValue",
+        value: -9n,
+      },
+      abortData,
+      txHash,
+      height: 12n,
+      events,
+    });
+    expect(() => method.decodeReceipt(reverted)).toThrowError(
+      ContractReceiptError,
+    );
+  });
+
+  it("preserves other failures and successful receipts without return data", () => {
+    const failed = receipt({
+      execResult: ExecResult.ExecResultTxDeterministicError,
+    });
+    const missingReturn = receipt();
+
+    expect(method.decodeReceiptOutcome(failed)).toMatchObject({
+      kind: "failure",
+      execResult: ExecResult.ExecResultTxDeterministicError,
+      returnData: null,
+      abortData: null,
+    });
+    expect(() => method.decodeReceipt(failed)).toThrow(
+      "Contract transaction failed with ExecResultTxDeterministicError",
+    );
+    expect(method.decodeReceiptOutcome(missingReturn)).toMatchObject({
+      kind: "failure",
+      execResult: ExecResult.ExecResultOK,
+      returnData: null,
+    });
+    expect(() => method.decodeReceipt(missingReturn)).toThrow(
+      "Contract transaction did not include return data",
     );
   });
 });

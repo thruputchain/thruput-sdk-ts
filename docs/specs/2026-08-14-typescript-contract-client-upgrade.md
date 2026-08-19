@@ -22,7 +22,7 @@ The first release includes:
 
 - corrected, symmetric codecs for supported contract values;
 - fixed-byte and fixed-array public types with runtime length validation;
-- typed method descriptors for invocations, views, returns, and exceptions;
+- typed method descriptors for invocations, views, root receipts, returns, and exceptions;
 - strict generated event decoding;
 - named event filters for directly represented topics;
 - generic receipt event extraction with required emitter scoping and explicit cardinality;
@@ -34,7 +34,6 @@ The first release includes:
 The following features are useful but are not required to remove the swap app's primary integration work:
 
 - bound contract clients and generated `bind<Interface>` wrappers;
-- typed root-receipt method outcomes;
 - event encoders for mocks and fixtures;
 - typed filters for hashed topic preimages;
 - full camelCase migration for struct, union, and event fields;
@@ -231,6 +230,10 @@ interface ContractMethod<TArgs, TResult, TDeclaredException> {
 
   decodeReturn(data: Uint8Array): TResult;
   decodeException(data: Uint8Array): ContractException<TDeclaredException>;
+  decodeReceipt(receipt: TransactionReceipt): ContractReceipt<TResult>;
+  decodeReceiptOutcome(
+    receipt: TransactionReceipt,
+  ): ContractReceiptOutcome<TResult, ContractException<TDeclaredException>>;
 
   view(options: ContractViewOptions<TArgs>): Promise<ContractView<TResult>>;
 
@@ -257,6 +260,18 @@ interface ContractMethod<TArgs, TResult, TDeclaredException> {
 - transport or RPC failure: propagate unchanged.
 
 `view` calls `viewOutcome`, returns `ContractView<TResult>` for a return, and throws `ContractViewError<TException>` for abort or fault. Callers that need statically typed exception handling use `viewOutcome`.
+
+### Root receipt behavior
+
+`decodeReceiptOutcome` interprets the root invocation result without performing RPC work:
+
+- success: strictly decode return data and preserve transaction hash, height, and raw events;
+- root-frame revert with abort data: return the typed declared-or-unknown exception and commit metadata;
+- any other execution status: return a lossless failure with its execution result and raw return and abort data;
+- a successful non-void legacy receipt without return data: return a failure rather than inventing a value;
+- malformed return or abort bytes: throw `ContractDecodeError`.
+
+`decodeReceipt` calls `decodeReceiptOutcome`, returns `ContractReceipt<TResult>` for a return, and throws `ContractReceiptError<TException>` for abort or execution failure. Receipt decoding applies only to the root method represented by the descriptor; nested invocation results are not inferred.
 
 Raw `view(ViewRequest): Promise<ViewResponse>` remains unchanged.
 
@@ -470,4 +485,4 @@ The release is ready when:
 6. raw RPC APIs remain available and use one strict emitted-event parser;
 7. regenerated curated and swap-shaped fixtures compile and pass runtime round trips through package declarations and builds;
 8. the swap app no longer uses runtime method-name lookup or handwritten return/exception decoding, fixed-length event repair, positional direct-topic filters, or handwritten receipt event scanning;
-9. deferred binders, method receipt outcomes, event encoders, hashed-topic filters, naming migration, and decode budgets are not implementation prerequisites.
+9. deferred binders, event encoders, hashed-topic filters, naming migration, and decode budgets are not implementation prerequisites.
