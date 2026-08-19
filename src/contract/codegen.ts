@@ -29,6 +29,11 @@ export function buildNamedCodecs(
         const structDef = def.struct_def;
         codecs[structDef.name] = {
           encode(w, val: unknown) {
+            if (!val || typeof val !== "object" || Array.isArray(val)) {
+              throw new TypeError(
+                `Expected object for struct "${structDef.name}"`,
+              );
+            }
             const obj = val as Record<string, unknown>;
             for (const field of structDef.fields) {
               const fieldCodec = resolveCodec(field.ty, codecs);

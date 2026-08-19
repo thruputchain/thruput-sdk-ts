@@ -100,7 +100,7 @@ export function fixedArray<T, N extends number>(
 ): FixedArray<T, N>;
 ```
 
-Constructors validate runtime length. `fixedArray` returns an immutable copy so mutation through the source array cannot invalidate the length. Decode paths use the same checks. A `FixedBytes<N>` remains assignable to `Uint8Array`, while an unchecked `Uint8Array` is not assignable to `FixedBytes<N>`.
+Constructors validate runtime length. `fixedArray` returns an immutable copy so mutation through the source array cannot invalidate the length. `fixedBytes` validates and brands the caller-owned mutable array without copying it. Decode paths use the same checks. A `FixedBytes<N>` remains assignable to `Uint8Array`, while an unchecked `Uint8Array` is not assignable to `FixedBytes<N>`.
 
 `FixedArray<T, N>` avoids recursively expanding arbitrary ABI lengths in declarations. Generated bindings may use concrete readonly tuples for small arrays.
 

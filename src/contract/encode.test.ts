@@ -449,6 +449,10 @@ describe("buildNamedCodecs", () => {
     const codecs = buildNamedCodecs(typeDefs);
     const structCodec = codecs["TokenInfo"];
 
+    expect(() => structCodec.encode(new CxsWriter(), undefined)).toThrow(
+      'Expected object for struct "TokenInfo"',
+    );
+
     const owner = contractAddress(new Uint8Array(32).fill(0x01));
     const original = { owner, supply: 999n, frozen: true };
 

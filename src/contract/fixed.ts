@@ -10,7 +10,7 @@ export type FixedArray<T, N extends number> = readonly T[] & {
   readonly length: N;
 };
 
-/** Validate and narrow a byte array to a fixed length. */
+/** Validate and brand a caller-owned mutable byte array without copying it. */
 export function fixedBytes<N extends number>(
   value: Uint8Array,
   length: N,
@@ -19,7 +19,7 @@ export function fixedBytes<N extends number>(
   return value as FixedBytes<N>;
 }
 
-/** Validate and narrow a readonly array to a fixed length. */
+/** Validate a readonly array's length and return a frozen copy. */
 export function fixedArray<T, N extends number>(
   value: readonly T[],
   length: N,
