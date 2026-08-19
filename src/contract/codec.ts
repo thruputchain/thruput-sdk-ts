@@ -1,7 +1,7 @@
 import { CxsReader, CxsWriter, type XdrCodec } from "@groundhogchain/xdr";
 import type { ContractType, ContractTypeDef } from "./spec.js";
 import { buildNamedCodecs } from "./codegen.js";
-import { resolveCodec } from "./encode.js";
+import { enableResolvedCodecCache, resolveCodec } from "./encode.js";
 import { ContractDecodeError } from "./errors.js";
 
 /** Complete-input codec used by generated contract descriptors. */
@@ -27,7 +27,9 @@ export function createContractCodecContext(
   typeDefs: readonly ContractTypeDef[],
 ): ContractCodecContext {
   const context = Object.freeze({}) as ContractCodecContext;
-  contextCodecs.set(context, buildNamedCodecs([...typeDefs]));
+  const namedCodecs = buildNamedCodecs(structuredClone([...typeDefs]));
+  enableResolvedCodecCache(namedCodecs);
+  contextCodecs.set(context, namedCodecs);
   return context;
 }
 

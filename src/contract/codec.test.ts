@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { CxsWriter, Int32Codec, Uint32Codec } from "@groundhogchain/protocol";
+import {
+  BoolCodec,
+  CxsWriter,
+  Int32Codec,
+  Uint32Codec,
+} from "@groundhogchain/protocol";
 import {
   contractSpecString,
   ContractTypeDefKind,
@@ -12,9 +17,10 @@ import {
   resolveContextCodec,
   type ContractCodecContext,
 } from "./codec.js";
+import { resolveCodec } from "./encode.js";
 import { ContractDecodeError } from "./errors.js";
 import type { FixedArray } from "./fixed.js";
-import type { ContractTypeDef } from "./spec.js";
+import type { ContractType, ContractTypeDef } from "./spec.js";
 
 const s = contractSpecString;
 
@@ -123,6 +129,36 @@ describe("contract codecs", () => {
         v: ContractTypeKind.U32,
       }),
     ).toThrow("Invalid ContractCodecContext");
+  });
+
+  it("does not cache mutable public resolver inputs", () => {
+    const type = { v: ContractTypeKind.U32 } as ContractType;
+    const namedCodecs = {};
+
+    expect(resolveCodec(type, namedCodecs)).toBe(Uint32Codec);
+    Object.assign(type, { v: ContractTypeKind.Bool });
+    expect(resolveCodec(type, namedCodecs)).toBe(BoolCodec);
+  });
+
+  it("snapshots named type definitions before caching them", () => {
+    const fieldType: ContractType = { v: ContractTypeKind.U32 };
+    const typeDefs: ContractTypeDef[] = [
+      {
+        v: ContractTypeDefKind.TypeDefStruct,
+        struct_def: {
+          name: s("Value"),
+          fields: [{ name: s("value"), ty: fieldType }],
+        },
+      },
+    ];
+    const context = createContractCodecContext(typeDefs);
+    Object.assign(fieldType, { v: ContractTypeKind.Bool });
+    const codec = createContractCodec<{ value: bigint }>(context, {
+      v: ContractTypeKind.Named,
+      named: s("Value"),
+    });
+
+    expect(codec.decode(codec.encode({ value: 63n }))).toEqual({ value: 63n });
   });
 
   it("returns immutable fixed arrays and rejects incorrect input lengths", () => {

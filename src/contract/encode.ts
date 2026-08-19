@@ -53,6 +53,13 @@ const resolvedCodecCaches = new WeakMap<
   WeakMap<ContractType, XdrCodec<unknown>>
 >();
 
+/** @internal Enable identity caching for an immutable named-codec map. */
+export function enableResolvedCodecCache(
+  namedCodecs: Record<string, XdrCodec<unknown>>,
+): void {
+  resolvedCodecCaches.set(namedCodecs, new WeakMap());
+}
+
 function assertWellFormedString(value: string): void {
   if (typeof value !== "string") throw new TypeError("Expected string");
   for (let index = 0; index < value.length; index++) {
@@ -95,11 +102,8 @@ export function resolveCodec(
 ): XdrCodec<unknown> {
   if (!namedCodecs) return resolveUncachedCodec(ty);
 
-  let cache = resolvedCodecCaches.get(namedCodecs);
-  if (!cache) {
-    cache = new WeakMap();
-    resolvedCodecCaches.set(namedCodecs, cache);
-  }
+  const cache = resolvedCodecCaches.get(namedCodecs);
+  if (!cache) return resolveUncachedCodec(ty, namedCodecs);
   const cached = cache.get(ty);
   if (cached) return cached;
 
