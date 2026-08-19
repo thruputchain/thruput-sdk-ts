@@ -1,6 +1,6 @@
 import type {
   SHA256Hash,
-  DbHash,
+  StorageLongHash,
   ContractAddress,
   ContractEntrypointID,
   Calldata,
@@ -43,7 +43,7 @@ export interface BlockInfo {
   txsetHash: SHA256Hash;
 
   /** Database state hash for the block. */
-  dbHash: DbHash;
+  dbHash: StorageLongHash;
 
   /** Event accumulator hash for the block. */
   eventsHash: SHA256Hash;
