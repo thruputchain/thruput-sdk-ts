@@ -188,7 +188,11 @@ export interface ContractMethod<TArgs, TResult, TDeclaredException> {
 
   decodeReturn(data: Uint8Array): TResult;
   decodeException(data: Uint8Array): ContractException<TDeclaredException>;
+
+  /** Decode a receipt whose root invocation called this method; nested invocation results are not inspected. */
   decodeReceipt(receipt: TransactionReceipt): ContractReceipt<TResult>;
+
+  /** Decode the outcome of a root invocation of this method; nested invocation results are not inspected. */
   decodeReceiptOutcome(
     receipt: TransactionReceipt,
   ): ContractReceiptOutcome<TResult, ContractException<TDeclaredException>>;
