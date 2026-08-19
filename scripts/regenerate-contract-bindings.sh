@@ -4,8 +4,8 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 groundhog_cli="${GROUNDHOG_CLI:?Set GROUNDHOG_CLI to the reviewed groundhog executable}"
-erc20_spec="${ERC20_CONTRACT_SPEC:?Set ERC20_CONTRACT_SPEC to the authoritative .spec.xdr file}"
-recursive_type_spec="${RECURSIVE_TYPE_CONTRACT_SPEC:?Set RECURSIVE_TYPE_CONTRACT_SPEC to the authoritative .spec.xdr file}"
+erc20_spec="${ERC20_CONTRACT_SPEC:-$repo_root/specs/contracts/erc20.spec.xdr}"
+recursive_type_spec="${RECURSIVE_TYPE_CONTRACT_SPEC:-$repo_root/specs/contracts/recursive_type.spec.xdr}"
 mode="${1:-write}"
 
 if [[ "$mode" != "write" && "$mode" != "--check" ]]; then
