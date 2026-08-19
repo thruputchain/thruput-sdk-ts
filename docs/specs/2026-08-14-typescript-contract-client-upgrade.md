@@ -25,7 +25,7 @@ The first release includes:
 - typed method descriptors for invocations, views, returns, and exceptions;
 - strict generated event decoding;
 - named event filters for directly represented topics;
-- generic receipt event extraction with optional emitter scoping and explicit cardinality;
+- generic receipt event extraction with required emitter scoping and explicit cardinality;
 - one strict RPC emitted-event parser;
 - focused runtime, type, fixture, and package-export tests.
 
@@ -304,7 +304,7 @@ export interface ContractEventFilterInput<TFilter> {
 }
 
 export interface ContractEventReceiptOptions {
-  contractAddress?: ContractAddress;
+  contractAddress: ContractAddress;
 }
 
 export interface DecodedContractEvent<TName extends string, TTopics, TFields> {

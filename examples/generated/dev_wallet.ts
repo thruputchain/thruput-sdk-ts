@@ -1,23 +1,20 @@
-// Generated from dev_wallet.spec.xdr - DevWallet interface v0.1.0.
-// DO NOT EDIT generated content. Regenerate, then reapply the local client imports.
-// Client imports point at local source so the repository example runs before build.
+// Generated from dev_wallet.spec.xdr - DevWallet interface v0.1.0
+// DO NOT EDIT. Re-run codegen to update.
 
-import type {
-  ContractAddress,
-  GasAmount,
-  Invocation,
-} from "@groundhogchain/protocol";
+import type { ContractAddress } from "@groundhogchain/protocol";
 import { contractEntrypointID } from "@groundhogchain/protocol";
 import { fromHex } from "@groundhogchain/protocol/utils";
 import {
   ContractTypeKind,
-  ContractTypeDefKind,
   contractSpecString,
 } from "@groundhogchain/contract-spec";
-import type { ContractSpec } from "../../src/index.js";
-import { encodeCalldata } from "../../src/index.js";
-import { buildNamedCodecs } from "../../src/index.js";
-import { createInvocation } from "../../src/index.js";
+import {
+  type ContractSpec,
+  createContractCodecContext,
+  defineContractMethod,
+  type ContractException,
+  type FixedBytes,
+} from "../../src/contract/index.js";
 
 const s = contractSpecString;
 
@@ -29,6 +26,32 @@ const entrypoints = {
     initialize: contractEntrypointID(fromHex("77b7af6606c91791")),
   },
 } as const;
+
+export interface DevWalletCreateWalletArgs {
+  nonce: FixedBytes<32>;
+  walletContractHash: FixedBytes<32>;
+  owner: FixedBytes<32>;
+}
+export type DevWalletCreateWalletResult = ContractAddress;
+
+export interface DevWalletDeployArgs {
+  nonce: FixedBytes<32>;
+  contractHash: FixedBytes<32>;
+}
+export type DevWalletDeployResult = ContractAddress;
+
+export interface DevWalletDoActionArgs {
+  invocationBytes: Uint8Array;
+}
+export type DevWalletDoActionResult = void;
+
+export interface DevWalletInitializeArgs {
+  owner: FixedBytes<32>;
+}
+export type DevWalletInitializeResult = void;
+
+export type DevWalletDeclaredException = never;
+export type DevWalletException = ContractException<DevWalletDeclaredException>;
 
 export const spec: ContractSpec = {
   interfaces: [
@@ -120,83 +143,90 @@ export const spec: ContractSpec = {
   events: [],
 };
 
-const namedCodecs = buildNamedCodecs(spec.type_defs);
+const codecs = createContractCodecContext(spec.type_defs);
 
 export const DevWallet = {
-  createWallet(
-    contract: ContractAddress,
-    gasLimit: GasAmount,
-    args: {
-      nonce: Uint8Array;
-      walletContractHash: Uint8Array;
-      owner: Uint8Array;
-    },
-  ): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.DevWallet.createWallet,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(
-        spec,
-        "DevWallet",
-        "create_wallet",
-        [args.nonce, args.walletContractHash, args.owner],
-        namedCodecs,
-      ),
-    });
-  },
-  deploy(
-    contract: ContractAddress,
-    gasLimit: GasAmount,
-    args: { nonce: Uint8Array; contractHash: Uint8Array },
-  ): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.DevWallet.deploy,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(
-        spec,
-        "DevWallet",
-        "deploy",
-        [args.nonce, args.contractHash],
-        namedCodecs,
-      ),
-    });
-  },
-  doAction(
-    contract: ContractAddress,
-    gasLimit: GasAmount,
-    args: { invocationBytes: Uint8Array },
-  ): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.DevWallet.doAction,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(
-        spec,
-        "DevWallet",
-        "do_action",
-        [args.invocationBytes],
-        namedCodecs,
-      ),
-    });
-  },
-  initialize(
-    contract: ContractAddress,
-    gasLimit: GasAmount,
-    args: { owner: Uint8Array },
-  ): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.DevWallet.initialize,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(
-        spec,
-        "DevWallet",
-        "initialize",
-        [args.owner],
-        namedCodecs,
-      ),
-    });
-  },
+  createWallet: defineContractMethod<
+    DevWalletCreateWalletArgs,
+    DevWalletCreateWalletResult,
+    DevWalletDeclaredException
+  >({
+    entrypoint: entrypoints.DevWallet.createWallet,
+    args: [
+      {
+        abiName: "nonce",
+        publicName: "nonce",
+        type: spec.interfaces[0]!.methods[0]!.args[0]!.ty,
+      },
+      {
+        abiName: "wallet_contract_hash",
+        publicName: "walletContractHash",
+        type: spec.interfaces[0]!.methods[0]!.args[1]!.ty,
+      },
+      {
+        abiName: "owner",
+        publicName: "owner",
+        type: spec.interfaces[0]!.methods[0]!.args[2]!.ty,
+      },
+    ],
+    returnType: spec.interfaces[0]!.methods[0]!.return_type,
+    throws: [],
+    codecs,
+  }),
+  deploy: defineContractMethod<
+    DevWalletDeployArgs,
+    DevWalletDeployResult,
+    DevWalletDeclaredException
+  >({
+    entrypoint: entrypoints.DevWallet.deploy,
+    args: [
+      {
+        abiName: "nonce",
+        publicName: "nonce",
+        type: spec.interfaces[0]!.methods[1]!.args[0]!.ty,
+      },
+      {
+        abiName: "contract_hash",
+        publicName: "contractHash",
+        type: spec.interfaces[0]!.methods[1]!.args[1]!.ty,
+      },
+    ],
+    returnType: spec.interfaces[0]!.methods[1]!.return_type,
+    throws: [],
+    codecs,
+  }),
+  doAction: defineContractMethod<
+    DevWalletDoActionArgs,
+    DevWalletDoActionResult,
+    DevWalletDeclaredException
+  >({
+    entrypoint: entrypoints.DevWallet.doAction,
+    args: [
+      {
+        abiName: "invocation_bytes",
+        publicName: "invocationBytes",
+        type: spec.interfaces[0]!.methods[2]!.args[0]!.ty,
+      },
+    ],
+    returnType: spec.interfaces[0]!.methods[2]!.return_type,
+    throws: [],
+    codecs,
+  }),
+  initialize: defineContractMethod<
+    DevWalletInitializeArgs,
+    DevWalletInitializeResult,
+    DevWalletDeclaredException
+  >({
+    entrypoint: entrypoints.DevWallet.initialize,
+    args: [
+      {
+        abiName: "owner",
+        publicName: "owner",
+        type: spec.interfaces[0]!.methods[3]!.args[0]!.ty,
+      },
+    ],
+    returnType: spec.interfaces[0]!.methods[3]!.return_type,
+    throws: [],
+    codecs,
+  }),
 } as const;

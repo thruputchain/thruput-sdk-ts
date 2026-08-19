@@ -25,8 +25,8 @@
 
 ## Generated And Spec Files
 
-- `src/contracts/erc20.ts` and `src/contracts/recursive_type.ts` are generated bindings; do not hand-edit. Standard bindings exported from `src/contracts/index.ts`.
-- TypeScript binding codegen lives in `groundhog-rpc`. Regenerate curated bindings with `scripts/regenerate-contract-bindings.sh`, setting `GROUNDHOG_CLI` to a reviewed generator build; use `--check` to verify checked-in output. The script uses the pinned inputs in `specs/contracts/` unless you override `ERC20_CONTRACT_SPEC` or `RECURSIVE_TYPE_CONTRACT_SPEC`.
+- `src/contracts/erc20.ts`, `src/contracts/recursive_type.ts`, and the example-local bindings under `examples/generated/` are generated; do not hand-edit. Only standard bindings are exported from `src/contracts/index.ts`.
+- TypeScript binding codegen lives in `groundhog-rpc`. Regenerate every checked-in binding with `scripts/regenerate-contract-bindings.sh`, setting `GROUNDHOG_CLI` to a reviewed generator build; use `--check` to verify checked-in output. The script always uses the pinned inputs in `specs/contracts/`.
 - The regeneration script rewrites only the generated self-import to a repository-relative import. Generated output must compile for strict consumers, including `noUncheckedIndexedAccess`.
 - `specs/openrpc.json` is the pinned Groundhog OpenRPC spec. Regenerate with `scripts/regen-openrpc.sh`, which installs a pinned `groundhog-open-rpc-spec@x.y.z` from the Cargo `groundhog` registry and formats the JSON; bump the hardcoded script version when syncing to a newer RPC spec release.
 - After changing `specs/openrpc.json` or action request serialization, run `npm test`; `src/actions/contract.test.ts` should cover every supported OpenRPC method and validates emitted JSON-RPC params against the OpenRPC schemas.

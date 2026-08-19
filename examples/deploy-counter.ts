@@ -3,13 +3,10 @@ import { readFile } from "node:fs/promises";
 import {
   AuthClaimType,
   ContractType,
-  CxsReader,
   ExecResult,
-  Uint64Codec,
   bitMap,
   blockHeight,
   codec,
-  contractAddress,
   gasAmount,
   serialize,
   sha256Hash,
@@ -26,6 +23,7 @@ import {
   createGroundhogClient,
   createTransaction,
   deriveContractAddress,
+  fixedBytes,
   hashContract,
   signTransaction,
   toHex0x,
@@ -69,10 +67,14 @@ const deployedAddress = deriveContractAddress(
 );
 
 // Deploy through the sender's DevWallet and wait for the transaction to commit.
-const deployInvocation = DevWallet.deploy(senderAddress, walletGasLimit, {
-  nonce: deploymentNonce,
-  contractHash,
-});
+const deployInvocation = DevWallet.deploy.invocation(
+  senderAddress,
+  walletGasLimit,
+  {
+    nonce: fixedBytes(deploymentNonce, 32),
+    contractHash: fixedBytes(contractHash, 32),
+  },
+);
 const deployHash = await submit(deployInvocation, [contract]);
 const deployReceipt = await client.waitForTransactionReceipt(deployHash);
 if (deployReceipt.execResult !== ExecResult.ExecResultOK) {
@@ -86,7 +88,7 @@ if (deployReceipt.execResult !== ExecResult.ExecResultOK) {
 if (deployReceipt.returnData === null) {
   throw new Error("Deployment did not return the deployed contract address");
 }
-const returnedAddress = contractAddress(deployReceipt.returnData);
+const returnedAddress = DevWallet.deploy.decodeReturn(deployReceipt.returnData);
 if (toHex0x(returnedAddress) !== toHex0x(deployedAddress)) {
   throw new Error(
     `Deployment returned ${toHex0x(returnedAddress)}, predicted ${toHex0x(deployedAddress)}`,
@@ -94,12 +96,18 @@ if (toHex0x(returnedAddress) !== toHex0x(deployedAddress)) {
 }
 
 // Build a Counter.increment call, then ask the wallet to execute it.
-const increment = Counter.increment(deployedAddress, counterGasLimit, {
-  amount: 5n,
-});
-const walletInvocation = DevWallet.doAction(senderAddress, walletGasLimit, {
-  invocationBytes: serialize(increment, codec.Invocation),
-});
+const increment = Counter.increment.invocation(
+  deployedAddress,
+  counterGasLimit,
+  {
+    amount: 5n,
+  },
+);
+const walletInvocation = DevWallet.doAction.invocation(
+  senderAddress,
+  walletGasLimit,
+  { invocationBytes: serialize(increment, codec.Invocation) },
+);
 const callHash = await submit(walletInvocation, []);
 const callReceipt = await client.waitForTransactionReceipt(callHash);
 if (callReceipt.execResult !== ExecResult.ExecResultOK) {
@@ -112,28 +120,13 @@ if (callReceipt.execResult !== ExecResult.ExecResultOK) {
 }
 
 // Read the committed value without submitting another transaction.
-const get = Counter.get(deployedAddress, counterGasLimit);
-const view = await client.view({
-  contract: get.invoked_address,
-  entrypoint: get.entrypoint,
-  calldata: get.calldata,
+const view = await Counter.get.view({
+  client,
+  contract: deployedAddress,
   caller: senderAddress,
 });
-if (view.output.result === "abort") {
-  throw new Error(
-    `Counter view aborted with ${toHex0x(view.output.abortData)}`,
-  );
-}
-if (view.output.result !== "return") {
-  throw new Error(`Counter view did not return: ${view.output.result}`);
-}
-const reader = new CxsReader(view.output.returnData);
-const value = Uint64Codec.decode(reader);
-if (reader.remaining !== 0) {
-  throw new Error(`Counter view returned ${reader.remaining} trailing bytes`);
-}
-if (value !== 5n) {
-  throw new Error(`Counter value is ${value}, expected 5`);
+if (view.value !== 5n) {
+  throw new Error(`Counter value is ${view.value}, expected 5`);
 }
 
 console.log({
@@ -143,7 +136,7 @@ console.log({
   contractAddress: toHex0x(deployedAddress),
   deployTxHash: toHex0x(deployHash),
   callTxHash: toHex0x(callHash),
-  value: value.toString(),
+  value: view.value.toString(),
 });
 
 async function submit(

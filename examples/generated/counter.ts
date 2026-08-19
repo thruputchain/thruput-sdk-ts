@@ -1,12 +1,6 @@
-// Generated from counter.spec.xdr - Counter interface v0.1.0.
-// DO NOT EDIT generated content. Regenerate, then reapply the local client imports.
-// Client imports point at local source so the repository example runs before build.
+// Generated from counter.spec.xdr - Counter interface v0.1.0
+// DO NOT EDIT. Re-run codegen to update.
 
-import type {
-  ContractAddress,
-  GasAmount,
-  Invocation,
-} from "@groundhogchain/protocol";
 import { contractEntrypointID, topic } from "@groundhogchain/protocol";
 import { fromHex } from "@groundhogchain/protocol/utils";
 import {
@@ -14,12 +8,14 @@ import {
   ContractTypeDefKind,
   contractSpecString,
 } from "@groundhogchain/contract-spec";
-import type { ContractSpec } from "../../src/index.js";
-import { encodeCalldata } from "../../src/index.js";
-import { buildNamedCodecs } from "../../src/index.js";
-import { createInvocation } from "../../src/index.js";
-import { resolveCodec } from "../../src/index.js";
-import { CxsReader } from "@groundhogchain/xdr";
+import {
+  type ContractSpec,
+  createContractCodecContext,
+  defineContractMethod,
+  type ContractException,
+  defineContractEvent,
+  type DecodedContractEvent,
+} from "../../src/contract/index.js";
 
 const s = contractSpecString;
 
@@ -34,9 +30,43 @@ const entrypoints = {
   },
 } as const;
 
-export enum CounterError {
-  NotAuthorized = 1,
+export const CounterError = { NotAuthorized: 1n } as const;
+
+export type CounterError = (typeof CounterError)[keyof typeof CounterError];
+
+export interface CounterDecrementArgs {
+  amount: bigint;
 }
+export type CounterDecrementResult = void;
+
+export type CounterErrorArgs = void;
+export type CounterErrorResult = bigint;
+
+export type CounterGetArgs = void;
+export type CounterGetResult = bigint;
+
+export interface CounterIncrementArgs {
+  amount: bigint;
+}
+export type CounterIncrementResult = void;
+
+export interface CounterInitializeArgs {
+  initialValue: bigint;
+}
+export type CounterInitializeResult = void;
+
+export interface CounterPingArgs {
+  tag: bigint;
+}
+export type CounterPingResult = void;
+
+export type CounterDeclaredException = {
+  kind: "declared";
+  name: "CounterError";
+  selector: 0xeb2cf72be75a4c62n;
+  value: CounterError;
+};
+export type CounterException = ContractException<CounterDeclaredException>;
 
 export const spec: ContractSpec = {
   interfaces: [
@@ -106,130 +136,163 @@ export const spec: ContractSpec = {
   ],
 };
 
-const namedCodecs = buildNamedCodecs(spec.type_defs);
+const codecs = createContractCodecContext(spec.type_defs);
 
 export const Counter = {
-  decrement(
-    contract: ContractAddress,
-    gasLimit: GasAmount,
-    args: { amount: bigint },
-  ): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.Counter.decrement,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(
-        spec,
-        "Counter",
-        "decrement",
-        [args.amount],
-        namedCodecs,
-      ),
-    });
-  },
-  error(contract: ContractAddress, gasLimit: GasAmount): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.Counter.error,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(spec, "Counter", "error", [], namedCodecs),
-    });
-  },
-  get(contract: ContractAddress, gasLimit: GasAmount): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.Counter.get,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(spec, "Counter", "get", [], namedCodecs),
-    });
-  },
-  increment(
-    contract: ContractAddress,
-    gasLimit: GasAmount,
-    args: { amount: bigint },
-  ): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.Counter.increment,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(
-        spec,
-        "Counter",
-        "increment",
-        [args.amount],
-        namedCodecs,
-      ),
-    });
-  },
-  initialize(
-    contract: ContractAddress,
-    gasLimit: GasAmount,
-    args: { initialValue: bigint },
-  ): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.Counter.initialize,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(
-        spec,
-        "Counter",
-        "initialize",
-        [args.initialValue],
-        namedCodecs,
-      ),
-    });
-  },
-  ping(
-    contract: ContractAddress,
-    gasLimit: GasAmount,
-    args: { tag: bigint },
-  ): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.Counter.ping,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(
-        spec,
-        "Counter",
-        "ping",
-        [args.tag],
-        namedCodecs,
-      ),
-    });
-  },
+  decrement: defineContractMethod<
+    CounterDecrementArgs,
+    CounterDecrementResult,
+    CounterDeclaredException
+  >({
+    entrypoint: entrypoints.Counter.decrement,
+    args: [
+      {
+        abiName: "amount",
+        publicName: "amount",
+        type: spec.interfaces[0]!.methods[0]!.args[0]!.ty,
+      },
+    ],
+    returnType: spec.interfaces[0]!.methods[0]!.return_type,
+    throws: [
+      {
+        selector: 0xeb2cf72be75a4c62n,
+        name: "CounterError",
+        type: spec.interfaces[0]!.throws[0]!.ty,
+      },
+    ],
+    codecs,
+  }),
+  error: defineContractMethod<
+    CounterErrorArgs,
+    CounterErrorResult,
+    CounterDeclaredException
+  >({
+    entrypoint: entrypoints.Counter.error,
+    args: [],
+    returnType: spec.interfaces[0]!.methods[1]!.return_type,
+    throws: [
+      {
+        selector: 0xeb2cf72be75a4c62n,
+        name: "CounterError",
+        type: spec.interfaces[0]!.throws[0]!.ty,
+      },
+    ],
+    codecs,
+  }),
+  get: defineContractMethod<
+    CounterGetArgs,
+    CounterGetResult,
+    CounterDeclaredException
+  >({
+    entrypoint: entrypoints.Counter.get,
+    args: [],
+    returnType: spec.interfaces[0]!.methods[2]!.return_type,
+    throws: [
+      {
+        selector: 0xeb2cf72be75a4c62n,
+        name: "CounterError",
+        type: spec.interfaces[0]!.throws[0]!.ty,
+      },
+    ],
+    codecs,
+  }),
+  increment: defineContractMethod<
+    CounterIncrementArgs,
+    CounterIncrementResult,
+    CounterDeclaredException
+  >({
+    entrypoint: entrypoints.Counter.increment,
+    args: [
+      {
+        abiName: "amount",
+        publicName: "amount",
+        type: spec.interfaces[0]!.methods[3]!.args[0]!.ty,
+      },
+    ],
+    returnType: spec.interfaces[0]!.methods[3]!.return_type,
+    throws: [
+      {
+        selector: 0xeb2cf72be75a4c62n,
+        name: "CounterError",
+        type: spec.interfaces[0]!.throws[0]!.ty,
+      },
+    ],
+    codecs,
+  }),
+  initialize: defineContractMethod<
+    CounterInitializeArgs,
+    CounterInitializeResult,
+    CounterDeclaredException
+  >({
+    entrypoint: entrypoints.Counter.initialize,
+    args: [
+      {
+        abiName: "initial_value",
+        publicName: "initialValue",
+        type: spec.interfaces[0]!.methods[4]!.args[0]!.ty,
+      },
+    ],
+    returnType: spec.interfaces[0]!.methods[4]!.return_type,
+    throws: [
+      {
+        selector: 0xeb2cf72be75a4c62n,
+        name: "CounterError",
+        type: spec.interfaces[0]!.throws[0]!.ty,
+      },
+    ],
+    codecs,
+  }),
+  ping: defineContractMethod<
+    CounterPingArgs,
+    CounterPingResult,
+    CounterDeclaredException
+  >({
+    entrypoint: entrypoints.Counter.ping,
+    args: [
+      {
+        abiName: "tag",
+        publicName: "tag",
+        type: spec.interfaces[0]!.methods[5]!.args[0]!.ty,
+      },
+    ],
+    returnType: spec.interfaces[0]!.methods[5]!.return_type,
+    throws: [
+      {
+        selector: 0xeb2cf72be75a4c62n,
+        name: "CounterError",
+        type: spec.interfaces[0]!.throws[0]!.ty,
+      },
+    ],
+    codecs,
+  }),
 } as const;
 
-function topicEquals(a: Uint8Array | undefined, b: Uint8Array): boolean {
-  if (a === undefined || a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-  return true;
-}
+export interface PingEvent extends DecodedContractEvent<
+  "PingEvent",
+  { tag: Uint8Array },
+  {}
+> {}
 
-export interface PingEvent {
-  name: "PingEvent";
-  topics: { tag: Uint8Array };
-  fields: {};
-}
-export const PingEvent = {
-  /** Topic-0 signature hash from the contract spec. */
-  signature: fromHex(
-    "f0c8fa264c489d9d6bc8796daa7d6ab408d76b37ef41b6d6d951e20f63d10f52",
-  ),
-  /** Returns null if topic 0 does not identify this event. */
-  decode(event: { topics: Uint8Array[]; data: Uint8Array }): PingEvent | null {
-    if (!topicEquals(event.topics[0], PingEvent.signature)) return null;
-    if (event.topics.length !== 2) {
-      throw new Error(
-        `PingEvent: expected 2 topics, got ${event.topics.length}`,
-      );
-    }
-    const r = new CxsReader(event.data);
-    if (r.remaining !== 0) {
-      throw new Error(`PingEvent: ${r.remaining} trailing bytes after payload`);
-    }
-    return { name: "PingEvent", topics: { tag: event.topics[1] }, fields: {} };
-  },
-} as const;
+export type PingEventFilter = Record<string, never>;
+
+export const PingEvent = defineContractEvent<
+  "PingEvent",
+  PingEvent["topics"],
+  PingEvent["fields"],
+  PingEventFilter
+>({
+  name: "PingEvent",
+  signature: spec.events[0]!.signature,
+  topics: [
+    {
+      name: "tag",
+      type: spec.events[0]!.topics[0]!.ty,
+      representation: "hash",
+    },
+  ],
+  fields: [],
+  codecs,
+});
 
 export type CounterEvent = PingEvent;
 
