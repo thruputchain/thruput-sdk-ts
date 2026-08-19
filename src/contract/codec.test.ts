@@ -129,14 +129,18 @@ describe("contract codecs", () => {
   it("does not cache mutable public resolver inputs", () => {
     const type = { v: ContractTypeKind.U32 } as ContractType;
     const namedCodecs = {};
+    const context = createContractCodecContext([]);
 
     const uint32 = resolveCodec(type, namedCodecs);
+    const contextUint32 = resolveContextCodec(context, type);
     Object.assign(type, { v: ContractTypeKind.Bool });
     const bool = resolveCodec(type, namedCodecs);
+    const contextBool = resolveContextCodec(context, type);
 
     expect(bool).not.toBe(uint32);
+    expect(contextBool).not.toBe(contextUint32);
     const writer = new CxsWriter();
-    bool.encode(writer, true);
+    contextBool.encode(writer, true);
     expect(writer.finish()).toEqual(Uint8Array.of(1));
   });
 

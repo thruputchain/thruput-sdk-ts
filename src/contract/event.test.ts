@@ -157,6 +157,35 @@ describe("contract event construction and decoding", () => {
     });
   });
 
+  it("decodes prototype-like topic and field names as own properties", () => {
+    const descriptor = defineContractEvent(
+      definition({
+        topics: [
+          {
+            name: "__proto__",
+            type: { v: ContractTypeKind.Address },
+            representation: "address",
+          },
+        ],
+        fields: [{ name: "__proto__", type: { v: ContractTypeKind.U32 } }],
+      }),
+    );
+    const writer = new CxsWriter();
+    writer.writeUint32(7n);
+
+    const decoded = descriptor.decode({
+      topics: [signature, account],
+      data: writer.finish(),
+    });
+    const topics = decoded!.topics as Record<string, unknown>;
+    const fields = decoded!.fields as Record<string, unknown>;
+
+    expect(Object.hasOwn(topics, "__proto__")).toBe(true);
+    expect(Object.hasOwn(fields, "__proto__")).toBe(true);
+    expect(topics.__proto__).toEqual(account);
+    expect(fields.__proto__).toBe(7n);
+  });
+
   it("rejects malformed topic lengths and payloads", () => {
     const descriptor = defineContractEvent(definition());
 

@@ -152,18 +152,23 @@ export function defineContractEvent<
         for (let index = 0; index < resolvedTopics.length; index++) {
           const metadata = resolvedTopics[index];
           const topic = fixedBytes(event.topics[index + 1], 32);
-          decodedTopics[metadata.name] =
+          const value =
             metadata.representation === "address"
               ? contractAddress(topic)
               : metadata.representation === "fixedBytes32"
                 ? topic
                 : event.topics[index + 1];
+          defineRecordValue(decodedTopics, metadata.name, value);
         }
 
         const reader = new CxsReader(event.data);
         const decodedFields: Record<string, unknown> = {};
         for (const field of fields) {
-          decodedFields[field.metadata.name] = field.codec.decode(reader);
+          defineRecordValue(
+            decodedFields,
+            field.metadata.name,
+            field.codec.decode(reader),
+          );
         }
         if (reader.remaining !== 0) {
           throw new Error(`${reader.remaining} trailing payload bytes`);
@@ -334,4 +339,17 @@ function assertUniqueNames(
     }
     names.add(value.name);
   }
+}
+
+function defineRecordValue(
+  record: Record<string, unknown>,
+  name: string,
+  value: unknown,
+): void {
+  Object.defineProperty(record, name, {
+    configurable: true,
+    enumerable: true,
+    value,
+    writable: true,
+  });
 }

@@ -69,16 +69,25 @@ const StringCodec: XdrCodec<string> = {
   },
 };
 
+interface ResolvedCodecCache {
+  cacheableTypes: WeakSet<ContractType>;
+  codecs: WeakMap<ContractType, XdrCodec<unknown>>;
+}
+
 const resolvedCodecCaches = new WeakMap<
   Record<string, XdrCodec<unknown>>,
-  WeakMap<ContractType, XdrCodec<unknown>>
+  ResolvedCodecCache
 >();
 
 /** @internal Enable identity caching for an immutable named-codec map. */
 export function enableResolvedCodecCache(
   namedCodecs: Record<string, XdrCodec<unknown>>,
+  cacheableTypes: Iterable<ContractType>,
 ): void {
-  resolvedCodecCaches.set(namedCodecs, new WeakMap());
+  resolvedCodecCaches.set(namedCodecs, {
+    cacheableTypes: new WeakSet(cacheableTypes),
+    codecs: new WeakMap(),
+  });
 }
 
 function assertWellFormedString(value: string): void {
@@ -151,13 +160,15 @@ export function resolveCodec(
 ): XdrCodec<unknown> {
   if (!namedCodecs) return resolveUncachedCodec(ty);
 
-  const cache = resolvedCodecCaches.get(namedCodecs);
-  if (!cache) return resolveUncachedCodec(ty, namedCodecs);
-  const cached = cache.get(ty);
+  const resolvedCache = resolvedCodecCaches.get(namedCodecs);
+  if (!resolvedCache?.cacheableTypes.has(ty)) {
+    return resolveUncachedCodec(ty, namedCodecs);
+  }
+  const cached = resolvedCache.codecs.get(ty);
   if (cached) return cached;
 
   const codec = resolveUncachedCodec(ty, namedCodecs);
-  cache.set(ty, codec);
+  resolvedCache.codecs.set(ty, codec);
   return codec;
 }
 
