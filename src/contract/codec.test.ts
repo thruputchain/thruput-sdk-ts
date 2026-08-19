@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CxsWriter, Int32Codec } from "@groundhogchain/protocol";
+import { CxsWriter, Int32Codec, Uint32Codec } from "@groundhogchain/protocol";
 import {
   contractSpecString,
   ContractTypeDefKind,
@@ -142,18 +142,30 @@ describe("contract codecs", () => {
     );
   });
 
-  it("matches CXS byte projection vectors", () => {
+  it("matches Rust CXS scalar U8 projection vectors", () => {
     const context = createContractCodecContext([]);
     const scalar = createContractCodec<bigint>(context, {
       v: ContractTypeKind.U8,
     });
+
+    expect(scalar.encode(62n)).toEqual(Uint8Array.of(0x3e));
+    expect(scalar.encode(63n)).toEqual(Uint8Array.of(0x3f, 0x3f));
+    expect(scalar.encode(255n)).toEqual(Uint8Array.of(0x3f, 0xff));
+
+    const outOfRange = new CxsWriter();
+    Uint32Codec.encode(outOfRange, 256n);
+    expect(() => scalar.decode(outOfRange.finish())).toThrow(
+      "uint8 overflow: 256",
+    );
+  });
+
+  it("matches Rust CXS fixed U8 container vectors", () => {
+    const context = createContractCodecContext([]);
     const fixed = createContractCodec<Uint8Array>(context, {
       v: ContractTypeKind.Array,
       array: { element: { v: ContractTypeKind.U8 }, len: 4n },
     });
 
-    // The container vector was generated with xdrs 0.8.4, used by hogexec 0.20.7.
-    expect(scalar.encode(255n)).toEqual(Uint8Array.of(0xff));
     expect(fixed.encode(Uint8Array.of(1, 2, 3, 4))).toEqual(
       Uint8Array.of(1, 2, 3, 4),
     );
