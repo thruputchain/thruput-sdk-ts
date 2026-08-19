@@ -48,6 +48,11 @@ const StringCodec: XdrCodec<string> = {
   },
 };
 
+const resolvedCodecCaches = new WeakMap<
+  Record<string, XdrCodec<unknown>>,
+  WeakMap<ContractType, XdrCodec<unknown>>
+>();
+
 function assertWellFormedString(value: string): void {
   if (typeof value !== "string") throw new TypeError("Expected string");
   for (let index = 0; index < value.length; index++) {
@@ -85,6 +90,25 @@ function requireByteArrayCodec(
  * contract spec. Build that map with {@link buildNamedCodecs}.
  */
 export function resolveCodec(
+  ty: ContractType,
+  namedCodecs?: Record<string, XdrCodec<unknown>>,
+): XdrCodec<unknown> {
+  if (!namedCodecs) return resolveUncachedCodec(ty);
+
+  let cache = resolvedCodecCaches.get(namedCodecs);
+  if (!cache) {
+    cache = new WeakMap();
+    resolvedCodecCaches.set(namedCodecs, cache);
+  }
+  const cached = cache.get(ty);
+  if (cached) return cached;
+
+  const codec = resolveUncachedCodec(ty, namedCodecs);
+  cache.set(ty, codec);
+  return codec;
+}
+
+function resolveUncachedCodec(
   ty: ContractType,
   namedCodecs?: Record<string, XdrCodec<unknown>>,
 ): XdrCodec<unknown> {

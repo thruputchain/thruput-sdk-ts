@@ -13,7 +13,7 @@ import type { ContractCodecContext } from "./codec.js";
 import { resolveContextCodec } from "./codec.js";
 import { ContractDecodeError } from "./errors.js";
 import { fixedBytes } from "./fixed.js";
-import type { ContractType } from "./spec.js";
+import { ContractTypeKind, type ContractType } from "./spec.js";
 
 /** Ordered metadata for one declared event topic after the signature. */
 export interface ContractEventTopicMetadata {
@@ -94,6 +94,11 @@ interface ResolvedField {
   codec: XdrCodec<unknown>;
 }
 
+interface ResolvedTopic {
+  name: string;
+  representation: ContractEventTopicMetadata["representation"];
+}
+
 /** Build one generated event descriptor from direct ABI metadata. */
 export function defineContractEvent<
   const TName extends string,
@@ -112,8 +117,18 @@ export function defineContractEvent<
   assertUniqueNames(definition.topics, `${definition.name} topic`);
   assertUniqueNames(definition.fields, `${definition.name} field`);
 
+  const resolvedTopics: ResolvedTopic[] = definition.topics.map((metadata) => {
+    const expected = topicRepresentation(metadata.type);
+    if (metadata.representation !== expected) {
+      throw new Error(
+        `${definition.name} topic "${metadata.name}" representation "${metadata.representation}" does not match its declared type; expected "${expected}"`,
+      );
+    }
+    return { name: metadata.name, representation: metadata.representation };
+  });
+
   const fields: ResolvedField[] = definition.fields.map((metadata) => ({
-    metadata,
+    metadata: { ...metadata },
     codec: resolveContextCodec(definition.codecs, metadata.type),
   }));
 
@@ -125,7 +140,7 @@ export function defineContractEvent<
     decode(event) {
       if (!bytesEqual(event.topics[0], signature)) return null;
       try {
-        const expectedTopicCount = definition.topics.length + 1;
+        const expectedTopicCount = resolvedTopics.length + 1;
         if (event.topics.length !== expectedTopicCount) {
           throw new Error(
             `expected ${expectedTopicCount} topics, got ${event.topics.length}`,
@@ -134,8 +149,8 @@ export function defineContractEvent<
         assertEventSize(event.topics, event.data);
 
         const decodedTopics: Record<string, unknown> = {};
-        for (let index = 0; index < definition.topics.length; index++) {
-          const metadata = definition.topics[index];
+        for (let index = 0; index < resolvedTopics.length; index++) {
+          const metadata = resolvedTopics[index];
           const topic = fixedBytes(event.topics[index + 1], 32);
           decodedTopics[metadata.name] =
             metadata.representation === "address"
@@ -177,13 +192,13 @@ export function defineContractEvent<
       }
       for (const address of input.contractAddresses) fixedBytes(address, 32);
 
-      const topics: NonNullable<EventFilter["topics"]> = {
+      const filterTopics: NonNullable<EventFilter["topics"]> = {
         topic0: [signature.slice()],
       };
       const constraints = input.topics as Record<string, unknown> | undefined;
       if (constraints) {
         const directTopics = new Map(
-          definition.topics
+          resolvedTopics
             .map((metadata, index) => ({ metadata, index }))
             .filter(({ metadata }) => metadata.representation !== "hash")
             .map(({ metadata, index }) => [metadata.name, index] as const),
@@ -197,12 +212,12 @@ export function defineContractEvent<
           }
           const values = filterValues(constraint, definition.name, name);
           const key = `topic${index + 1}` as "topic1" | "topic2";
-          topics[key] = values.map((value) => fixedBytes(value, 32));
+          filterTopics[key] = values.map((value) => fixedBytes(value, 32));
         }
       }
       return {
         contractAddresses: [...input.contractAddresses],
-        topics,
+        topics: filterTopics,
       };
     },
 
@@ -232,6 +247,20 @@ export function defineContractEvent<
   };
 
   return descriptor;
+}
+
+function topicRepresentation(
+  type: ContractType,
+): ContractEventTopicMetadata["representation"] {
+  if (type.v === ContractTypeKind.Address) return "address";
+  if (
+    type.v === ContractTypeKind.Array &&
+    type.array.len === 32n &&
+    type.array.element?.v === ContractTypeKind.U8
+  ) {
+    return "fixedBytes32";
+  }
+  return "hash";
 }
 
 /** Compare public byte identifiers. This function is not constant-time. */

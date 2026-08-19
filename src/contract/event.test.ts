@@ -84,6 +84,24 @@ describe("contract event construction and decoding", () => {
     ).toThrow("declares 4 topics; protocol maximum is 3");
   });
 
+  it("validates topic representations against their declared types", () => {
+    expect(() =>
+      defineContractEvent(
+        definition({
+          topics: [
+            {
+              name: "account",
+              type: { v: ContractTypeKind.Address },
+              representation: "hash",
+            },
+          ],
+        }),
+      ),
+    ).toThrow(
+      'Changed topic "account" representation "hash" does not match its declared type; expected "address"',
+    );
+  });
+
   it("returns independent signature copies", () => {
     const source = new Uint8Array(32).fill(0x66);
     const descriptor = defineContractEvent(definition({ signature: source }));
