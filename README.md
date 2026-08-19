@@ -4,9 +4,9 @@ TypeScript client for the [Groundhog](https://github.com/groundhogchain) blockch
 
 It provides typed JSON-RPC actions, transaction construction and signing,
 HTTP and mock transports, and generated contract bindings. Generated methods
-share one descriptor API for invocations, typed views, return decoding, and
-contract exceptions. Generated events provide strict decoding, named topic filters,
-and receipt extraction.
+share one descriptor API for invocations, typed views, root-receipt decoding,
+returns, and contract exceptions. Generated events provide strict decoding,
+named topic filters, and receipt extraction.
 
 ## Install
 
@@ -117,6 +117,7 @@ Then add this line to `~/.npmrc` (it holds no secret — npm expands
 `$(gh auth token)` itself):
 
 ```
+@groundhogchain:registry=https://npm.pkg.github.com
 //npm.pkg.github.com/:_authToken=${GH_NPM_TOKEN}
 ```
 

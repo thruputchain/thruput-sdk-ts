@@ -9,6 +9,7 @@ import {
   calldata,
   codec,
   BoolCodec,
+  kMaxReturnBufferLen,
   VoidCodec,
   Uint32Codec,
   Uint64Codec,
@@ -149,6 +150,35 @@ function requireArrayCodec<T>(codec: XdrCodec<T[]>): XdrCodec<T[]> {
   };
 }
 
+function safeVarArrayCodec<T>(
+  inner: XdrCodec<T>,
+  maxLength: number,
+): XdrCodec<T[]> {
+  const codec = VarArrayCodec(inner, maxLength);
+  return {
+    encode: codec.encode,
+    decode(reader) {
+      const length = Number(reader.readUint32());
+      if (length > maxLength) {
+        throw new Error(`VarArray length ${length} exceeds max ${maxLength}`);
+      }
+      // Non-empty values cannot outnumber the remaining bytes. Keep small
+      // zero-width vectors valid without letting a length prefix create a huge array.
+      if (length > reader.remaining && length > Number(kMaxReturnBufferLen)) {
+        throw new Error(
+          `VarArray length ${length} cannot be safely materialized from ${reader.remaining} remaining bytes`,
+        );
+      }
+
+      const values: T[] = [];
+      for (let index = 0; index < length; index++) {
+        values.push(inner.decode(reader));
+      }
+      return values;
+    },
+  };
+}
+
 /**
  * Resolve a contract-spec type into the XDR/CXS codec used to encode values.
  *
@@ -213,7 +243,7 @@ function resolveUncachedCodec(
         ) as XdrCodec<unknown>;
       }
       return requireArrayCodec(
-        VarArrayCodec(
+        safeVarArrayCodec(
           resolveCodec(ty.vector.element!, namedCodecs),
           Number(ty.vector.max_len),
         ),

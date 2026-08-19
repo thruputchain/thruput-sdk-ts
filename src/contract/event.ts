@@ -15,6 +15,9 @@ import { ContractDecodeError } from "./errors.js";
 import { fixedBytes } from "./fixed.js";
 import { ContractTypeKind, type ContractType } from "./spec.js";
 
+const maxFilterContractAddresses = 5;
+const maxFilterTopicValues = 16;
+
 /** Ordered metadata for one declared event topic after the signature. */
 export interface ContractEventTopicMetadata {
   name: string;
@@ -194,6 +197,11 @@ export function defineContractEvent<
       if (input.contractAddresses.length === 0) {
         throw new Error(`${eventName} filter requires a contract address`);
       }
+      if (input.contractAddresses.length > maxFilterContractAddresses) {
+        throw new Error(
+          `${eventName} filter supports at most ${maxFilterContractAddresses} contract addresses`,
+        );
+      }
       for (const address of input.contractAddresses) fixedBytes(address, 32);
 
       const filterTopics: NonNullable<EventFilter["topics"]> = {
@@ -295,6 +303,11 @@ function filterValues(
     if (!Array.isArray(values) || values.length === 0) {
       throw new Error(
         `${eventName} topic "${topicName}" oneOf must not be empty`,
+      );
+    }
+    if (values.length > maxFilterTopicValues) {
+      throw new Error(
+        `${eventName} topic "${topicName}" oneOf supports at most ${maxFilterTopicValues} values`,
       );
     }
     return values.map((value) => requireBytes(value, eventName, topicName));

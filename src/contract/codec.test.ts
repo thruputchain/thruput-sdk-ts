@@ -261,6 +261,25 @@ describe("contract codecs", () => {
       "Expected Uint8Array",
     );
   });
+
+  it("rejects vector lengths that cannot be safely materialized", () => {
+    const codec = createContractCodec<bigint[]>(
+      createContractCodecContext([]),
+      {
+        v: ContractTypeKind.Vector,
+        vector: {
+          element: { v: ContractTypeKind.U32 },
+          max_len: 0xffffffffn,
+        },
+      },
+    );
+    const writer = new CxsWriter();
+    writer.writeUint32(0xffffffffn);
+
+    expect(() => codec.decode(writer.finish())).toThrow(
+      "VarArray length 4294967295 cannot be safely materialized from 0 remaining bytes",
+    );
+  });
 });
 
 describe("signed enum and union codecs", () => {

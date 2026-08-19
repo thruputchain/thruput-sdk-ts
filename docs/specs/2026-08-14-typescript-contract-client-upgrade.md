@@ -1,6 +1,6 @@
 # TypeScript Contract Client Upgrade
 
-**Date:** 2026-08-14 **Status:** Ready for implementation
+**Date:** 2026-08-14 **Status:** Implemented
 
 ## Goal
 
@@ -369,6 +369,7 @@ Every generated event wrapper exposes `.filter(...)` and returns the existing pu
 - maps named direct topics to their declared positions;
 - accepts one value or `{ oneOf: readonly [T, ...T[]] }` for OR;
 - validates non-empty `oneOf` and 32-byte values;
+- enforces the RPC limits of five contract addresses and sixteen values per topic;
 - leaves omitted topics unconstrained.
 
 For hashed topic types, consumers continue to use raw `EventQuery` values. Generic `SHA-256(CXS(value))` topic encoding is deferred.

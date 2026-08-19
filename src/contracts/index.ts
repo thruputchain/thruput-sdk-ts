@@ -2,9 +2,9 @@
  * Generated method and event descriptors for the standard ERC-20 contract
  * interfaces shipped with the SDK.
  *
- * Method descriptors build typed invocations, execute and decode views, and
- * expose declared exceptions. Event descriptors decode events, build named topic
- * filters, and extract matching receipt events.
+ * Method descriptors build typed invocations, decode views and root receipts,
+ * and expose declared exceptions. Event descriptors decode events, build named
+ * topic filters, and extract matching receipt events.
  *
  * @example
  * ```ts

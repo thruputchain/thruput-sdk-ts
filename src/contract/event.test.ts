@@ -272,6 +272,11 @@ describe("contract event filters", () => {
         contractAddresses: [new Uint8Array(31) as typeof emitterA],
       }),
     ).toThrow("FixedBytes expected length 32, got 31");
+    expect(() =>
+      descriptor.filter({
+        contractAddresses: Array(6).fill(emitterA),
+      }),
+    ).toThrow("Changed filter supports at most 5 contract addresses");
   });
 
   it("rejects unknown, empty, non-byte, and incorrectly sized topic inputs", () => {
@@ -287,6 +292,12 @@ describe("contract event filters", () => {
         topics: { id: { oneOf: [] } },
       }),
     ).toThrow('topic "id" oneOf must not be empty');
+    expect(() =>
+      descriptor.filter({
+        contractAddresses: [emitterA],
+        topics: { id: { oneOf: Array(17).fill(id) } },
+      }),
+    ).toThrow('topic "id" oneOf supports at most 16 values');
     expect(() =>
       descriptor.filter({
         contractAddresses: [emitterA],
