@@ -15,6 +15,10 @@ import {
   decodeERC20Event,
 } from "@groundhogchain/client/contracts";
 import type {
+  ERC20TransferArgs,
+  ERC20TransferEventFilter,
+} from "@groundhogchain/client/contracts";
+import type {
   ContractAddress,
   GasAmount,
   Invocation,
@@ -32,10 +36,15 @@ async function packageBoundaryTypecheck(
     void,
     unknown
   > = ERC20.transfer;
-  const invocation: Invocation = transfer.invocation(contract, gasLimit, {
+  const transferArgs: ERC20TransferArgs = {
     receiver: recipient,
     amount: 1n,
-  });
+  };
+  const invocation: Invocation = transfer.invocation(
+    contract,
+    gasLimit,
+    transferArgs,
+  );
 
   const balance = await ERC20.getBalanceOf.view({
     client,
@@ -54,9 +63,12 @@ async function packageBoundaryTypecheck(
     contractAddresses: [contract],
     topics: { owner: contract },
   });
+  const transferTopics: ERC20TransferEventFilter = {
+    to: { oneOf: [recipient] },
+  };
   ERC20TransferEvent.filter({
     contractAddresses: [contract],
-    topics: { to: { oneOf: [recipient] } },
+    topics: transferTopics,
   });
   decodeERC20Event(event);
 
