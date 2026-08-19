@@ -45,6 +45,7 @@
   ],
   "scripts": {
     "build": "tsdown",
+    "contracts:check": "./scripts/regenerate-contract-bindings.sh --check",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:smoke": "node scripts/smoke-test.mjs",

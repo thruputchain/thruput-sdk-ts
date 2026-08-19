@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "category": "contract_cxs",
+  "provenance": {
+    "scalar": {
+      "implementation": "groundhog-rpc crates/tools/cli/src/codec/mod.rs",
+      "revision": "ed3f3309de82a361e082b386c08feaf163a11529",
+      "xdrs": "0.8.4",
+      "projection": "xdrs::cxs::encode(&u32::from(value))"
+    },
+    "containers": {
+      "implementation": "xdrs::cxs 0.8.4",
+      "fixedProjection": "xdrs::cxs::encode(&[1u8, 2, 3, 4])",
+      "variableProjection": "xdrs::cxs::encode(&VecM::<u8>::try_from(vec![0xde, 0xad, 0xbe, 0xef]).unwrap())"
+    },
+    "recursive": {
+      "implementation": "xdrs::cxs 0.8.4 with #[derive(xdrs::WriteXDR)]",
+      "rustType": "Tree { value: u32, left: Option<Box<Tree>>, right: Option<Box<Tree>> }"
+    }
+  },
+  "scalarU8": [
+    { "value": "62", "cxsHex": "3e" },
+    { "value": "63", "cxsHex": "3f3f" },
+    { "value": "255", "cxsHex": "3fff" }
+  ],
+  "fixedU8": {
+    "valueHex": "01020304",
+    "cxsHex": "01020304"
+  },
+  "variableU8": {
+    "valueHex": "deadbeef",
+    "cxsHex": "04deadbeef"
+  },
+  "recursiveTree": {
+    "value": {
+      "value": "1",
+      "left": { "value": "2", "left": null, "right": null },
+      "right": null
+    },
+    "cxsHex": "010102000000"
+  }
+}
