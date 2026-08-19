@@ -101,6 +101,29 @@ describe("contract method invocation", () => {
     expect(method.invocation(contract, gasAmount(1n)).calldata).toHaveLength(0);
   });
 
+  it("returns independent entrypoint copies", () => {
+    const source = contractEntrypointID(new Uint8Array(8).fill(0x44));
+    const method = defineContractMethod<void, void, never>(
+      definition({
+        entrypoint: source,
+        args: [],
+        returnType: { v: ContractTypeKind.Void },
+        throws: [],
+      }),
+    );
+
+    source.fill(0);
+    const exposed = method.entrypoint;
+    exposed.fill(0);
+    const invocation = method.invocation(contract, gasAmount(1n));
+    invocation.entrypoint.fill(0);
+
+    expect(method.entrypoint).toEqual(new Uint8Array(8).fill(0x44));
+    expect(method.invocation(contract, gasAmount(1n)).entrypoint).toEqual(
+      new Uint8Array(8).fill(0x44),
+    );
+  });
+
   it("rejects missing runtime argument objects", () => {
     const method = defineContractMethod<Record<string, bigint>, bigint, never>(
       definition(),

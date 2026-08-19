@@ -84,6 +84,21 @@ describe("contract event construction and decoding", () => {
     ).toThrow("declares 4 topics; protocol maximum is 3");
   });
 
+  it("returns independent signature copies", () => {
+    const source = new Uint8Array(32).fill(0x66);
+    const descriptor = defineContractEvent(definition({ signature: source }));
+
+    source.fill(0);
+    descriptor.signature.fill(0);
+    const filter = descriptor.filter({ contractAddresses: [emitterA] });
+    filter.topics!.topic0![0]!.fill(0);
+
+    expect(descriptor.signature).toEqual(new Uint8Array(32).fill(0x66));
+    expect(
+      descriptor.filter({ contractAddresses: [emitterA] }).topics!.topic0![0],
+    ).toEqual(new Uint8Array(32).fill(0x66));
+  });
+
   it("returns null on signature mismatch before validating the event", () => {
     const descriptor = defineContractEvent(definition());
 
@@ -266,10 +281,7 @@ describe("contract event receipt extraction", () => {
   const unrelated = emitted({ topics: [new Uint8Array(32), account, id] });
   const receipt = { events: [matchingA, unrelated, matchingB] };
 
-  it("extracts all matching events and supports emitter scope", () => {
-    expect(
-      descriptor.allFromReceipt(receipt).map((event) => event.contractAddress),
-    ).toEqual([emitterA, emitterB]);
+  it("extracts matching events from the selected emitter", () => {
     expect(
       descriptor.allFromReceipt(receipt, { contractAddress: emitterB }),
     ).toHaveLength(1);
@@ -282,11 +294,17 @@ describe("contract event receipt extraction", () => {
   });
 
   it("enforces zero and multiple match cardinality", () => {
-    expect(() => descriptor.singleFromReceipt({ events: [unrelated] })).toThrow(
-      "Expected exactly one Changed event, got 0",
-    );
-    expect(() => descriptor.singleFromReceipt(receipt)).toThrow(
-      "Expected exactly one Changed event, got 2",
-    );
+    expect(() =>
+      descriptor.singleFromReceipt(
+        { events: [unrelated] },
+        { contractAddress: emitterA },
+      ),
+    ).toThrow("Expected exactly one Changed event, got 0");
+    expect(() =>
+      descriptor.singleFromReceipt(
+        { events: [matchingA, matchingA] },
+        { contractAddress: emitterA },
+      ),
+    ).toThrow("Expected exactly one Changed event, got 2");
   });
 });

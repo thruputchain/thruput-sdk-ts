@@ -4,7 +4,11 @@ import type {
   GasAmount,
   Invocation,
 } from "@groundhogchain/protocol";
-import { calldata, kMaxReturnBufferLen } from "@groundhogchain/protocol";
+import {
+  calldata,
+  contractEntrypointID,
+  kMaxReturnBufferLen,
+} from "@groundhogchain/protocol";
 import { CxsReader, CxsWriter, type XdrCodec } from "@groundhogchain/xdr";
 import type { GroundhogClient } from "../client.js";
 import type { EmittedEvent } from "../types/rpc.js";
@@ -144,6 +148,7 @@ interface ResolvedException {
 export function defineContractMethod<TArgs, TResult, TDeclaredException>(
   definition: ContractMethodDefinition,
 ): ContractMethod<TArgs, TResult, TDeclaredException> {
+  const entrypoint = copyEntrypoint(definition.entrypoint);
   const argumentCodecs = definition.args.map((argument) => ({
     metadata: argument,
     codec: resolveContextCodec(definition.codecs, argument.type),
@@ -166,12 +171,14 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
   }
 
   const method: ContractMethod<TArgs, TResult, TDeclaredException> = {
-    entrypoint: definition.entrypoint,
+    get entrypoint() {
+      return copyEntrypoint(entrypoint);
+    },
 
     invocation(contract, gasLimit, ...args) {
       return {
         invoked_address: contract,
-        entrypoint: definition.entrypoint,
+        entrypoint: copyEntrypoint(entrypoint),
         gas_limit: gasLimit,
         calldata: encodeArguments(argumentCodecs, args[0]),
       };
@@ -194,7 +201,7 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
     async viewOutcome(options) {
       const response = await options.client.view({
         contract: options.contract,
-        entrypoint: definition.entrypoint,
+        entrypoint: copyEntrypoint(entrypoint),
         calldata: encodeArguments(
           argumentCodecs,
           "args" in options ? options.args : undefined,
@@ -241,6 +248,10 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
   };
 
   return method;
+}
+
+function copyEntrypoint(value: ContractEntrypointID): ContractEntrypointID {
+  return contractEntrypointID(value.slice());
 }
 
 function encodeArguments(

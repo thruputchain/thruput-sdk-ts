@@ -46,9 +46,9 @@ export interface ContractEventFilterInput<TFilter> {
   topics?: TFilter;
 }
 
-/** Optional emitter scope for receipt extraction. */
+/** Emitter scope for receipt extraction. */
 export interface ContractEventReceiptOptions {
-  contractAddress?: ContractAddress;
+  contractAddress: ContractAddress;
 }
 
 /** Canonical value returned by generated event decoders. */
@@ -81,11 +81,11 @@ export interface ContractEvent<
   filter(input: ContractEventFilterInput<TFilter>): EventFilter;
   allFromReceipt(
     receipt: Pick<TransactionReceipt, "events">,
-    options?: ContractEventReceiptOptions,
+    options: ContractEventReceiptOptions,
   ): ContractReceiptEvent<TName, TTopics, TFields>[];
   singleFromReceipt(
     receipt: Pick<TransactionReceipt, "events">,
-    options?: ContractEventReceiptOptions,
+    options: ContractEventReceiptOptions,
   ): ContractReceiptEvent<TName, TTopics, TFields>;
 }
 
@@ -103,7 +103,7 @@ export function defineContractEvent<
 >(
   definition: ContractEventDefinition<TName>,
 ): ContractEvent<TName, TTopics, TFields, TFilter> {
-  fixedBytes(definition.signature, 32);
+  const signature = fixedBytes(definition.signature.slice(), 32);
   if (definition.topics.length > 2) {
     throw new Error(
       `${definition.name} declares ${definition.topics.length + 1} topics; protocol maximum is 3`,
@@ -118,10 +118,12 @@ export function defineContractEvent<
   }));
 
   const descriptor: ContractEvent<TName, TTopics, TFields, TFilter> = {
-    signature: definition.signature,
+    get signature() {
+      return signature.slice();
+    },
 
     decode(event) {
-      if (!bytesEqual(event.topics[0], definition.signature)) return null;
+      if (!bytesEqual(event.topics[0], signature)) return null;
       try {
         const expectedTopicCount = definition.topics.length + 1;
         if (event.topics.length !== expectedTopicCount) {
@@ -176,7 +178,7 @@ export function defineContractEvent<
       for (const address of input.contractAddresses) fixedBytes(address, 32);
 
       const topics: NonNullable<EventFilter["topics"]> = {
-        topic0: [definition.signature],
+        topic0: [signature.slice()],
       };
       const constraints = input.topics as Record<string, unknown> | undefined;
       if (constraints) {
@@ -207,10 +209,7 @@ export function defineContractEvent<
     allFromReceipt(receipt, options) {
       const matches: ContractReceiptEvent<TName, TTopics, TFields>[] = [];
       for (const event of receipt.events) {
-        if (
-          options?.contractAddress &&
-          !bytesEqual(event.contractAddress, options.contractAddress)
-        ) {
+        if (!bytesEqual(event.contractAddress, options.contractAddress)) {
           continue;
         }
         const decoded = descriptor.decode(event);

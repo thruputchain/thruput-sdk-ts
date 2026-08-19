@@ -334,11 +334,11 @@ export interface ContractEvent<
   filter(input: ContractEventFilterInput<TFilter>): EventFilter;
   allFromReceipt(
     receipt: Pick<TransactionReceipt, "events">,
-    options?: ContractEventReceiptOptions,
+    options: ContractEventReceiptOptions,
   ): ContractReceiptEvent<TName, TTopics, TFields>[];
   singleFromReceipt(
     receipt: Pick<TransactionReceipt, "events">,
-    options?: ContractEventReceiptOptions,
+    options: ContractEventReceiptOptions,
   ): ContractReceiptEvent<TName, TTopics, TFields>;
 }
 ```
@@ -363,11 +363,11 @@ For hashed topic types, consumers continue to use raw `EventQuery` values. Gener
 Expose generic helpers used by generated event wrappers:
 
 ```ts
-Event.allFromReceipt(receipt, { contractAddress? });
-Event.singleFromReceipt(receipt, { contractAddress? });
+Event.allFromReceipt(receipt, { contractAddress });
+Event.singleFromReceipt(receipt, { contractAddress });
 ```
 
-`ContractReceiptEvent` adds the emitting `contractAddress` to the canonical decoded event. `allFromReceipt` scans in receipt order, optionally scopes by emitter, ignores other signatures, and throws for a malformed matching event. `singleFromReceipt` uses the same scan and requires exactly one match, reporting the actual count.
+`ContractReceiptEvent` adds the emitting `contractAddress` to the canonical decoded event. `allFromReceipt` scans the selected emitter's events in receipt order, ignores other signatures, and throws for a malformed matching event. `singleFromReceipt` uses the same scan and requires exactly one match, reporting the actual count.
 
 Export ordinary `bytesEqual(left, right)` for public identifiers and addresses. It is not constant-time or suitable for secrets.
 
