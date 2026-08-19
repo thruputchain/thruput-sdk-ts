@@ -251,7 +251,7 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
 }
 
 function copyEntrypoint(value: ContractEntrypointID): ContractEntrypointID {
-  return contractEntrypointID(value.slice());
+  return contractEntrypointID(Uint8Array.from(value));
 }
 
 function encodeArguments(

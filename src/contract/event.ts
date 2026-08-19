@@ -108,7 +108,7 @@ export function defineContractEvent<
 >(
   definition: ContractEventDefinition<TName>,
 ): ContractEvent<TName, TTopics, TFields, TFilter> {
-  const signature = fixedBytes(definition.signature.slice(), 32);
+  const signature = fixedBytes(Uint8Array.from(definition.signature), 32);
   if (definition.topics.length > 2) {
     throw new Error(
       `${definition.name} declares ${definition.topics.length + 1} topics; protocol maximum is 3`,
@@ -134,7 +134,7 @@ export function defineContractEvent<
 
   const descriptor: ContractEvent<TName, TTopics, TFields, TFilter> = {
     get signature() {
-      return signature.slice();
+      return Uint8Array.from(signature);
     },
 
     decode(event) {
@@ -193,7 +193,7 @@ export function defineContractEvent<
       for (const address of input.contractAddresses) fixedBytes(address, 32);
 
       const filterTopics: NonNullable<EventFilter["topics"]> = {
-        topic0: [signature.slice()],
+        topic0: [Uint8Array.from(signature)],
       };
       const constraints = input.topics as Record<string, unknown> | undefined;
       if (constraints) {

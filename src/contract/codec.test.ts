@@ -142,6 +142,23 @@ describe("contract codecs", () => {
     );
   });
 
+  it("matches CXS byte projection vectors", () => {
+    const context = createContractCodecContext([]);
+    const scalar = createContractCodec<bigint>(context, {
+      v: ContractTypeKind.U8,
+    });
+    const fixed = createContractCodec<Uint8Array>(context, {
+      v: ContractTypeKind.Array,
+      array: { element: { v: ContractTypeKind.U8 }, len: 4n },
+    });
+
+    // The container vector was generated with xdrs 0.8.4, used by hogexec 0.20.7.
+    expect(scalar.encode(255n)).toEqual(Uint8Array.of(0xff));
+    expect(fixed.encode(Uint8Array.of(1, 2, 3, 4))).toEqual(
+      Uint8Array.of(1, 2, 3, 4),
+    );
+  });
+
   it("uses Uint8Array for variable U8 containers", () => {
     const codec = createContractCodec<Uint8Array>(
       createContractCodecContext([]),
@@ -153,7 +170,6 @@ describe("contract codecs", () => {
 
     const value = Uint8Array.of(1, 2, 255);
     expect(codec.decode(codec.encode(value))).toEqual(value);
-    // Generated independently with the CXS serializer used by hogexec.
     expect(codec.encode(Uint8Array.of(0xde, 0xad, 0xbe, 0xef))).toEqual(
       Uint8Array.of(0x04, 0xde, 0xad, 0xbe, 0xef),
     );

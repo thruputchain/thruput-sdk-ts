@@ -102,7 +102,7 @@ describe("contract method invocation", () => {
   });
 
   it("returns independent entrypoint copies", () => {
-    const source = contractEntrypointID(new Uint8Array(8).fill(0x44));
+    const source = contractEntrypointID(Buffer.alloc(8, 0x44));
     const method = defineContractMethod<void, void, never>(
       definition({
         entrypoint: source,

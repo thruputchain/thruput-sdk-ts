@@ -103,7 +103,7 @@ describe("contract event construction and decoding", () => {
   });
 
   it("returns independent signature copies", () => {
-    const source = new Uint8Array(32).fill(0x66);
+    const source = Buffer.alloc(32, 0x66);
     const descriptor = defineContractEvent(definition({ signature: source }));
 
     source.fill(0);
