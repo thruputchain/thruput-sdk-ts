@@ -279,7 +279,7 @@ describe("U8 codec", () => {
         [0n, 0n, 256n, 0n, 0n],
         rgbCodecs,
       ),
-    ).toThrow("U8 value out of range: 256");
+    ).toThrow("uint8 overflow: 256");
   });
 
   it("throws on negative u8 value", () => {
@@ -291,7 +291,7 @@ describe("U8 codec", () => {
         [0n, 0n, -1n, 0n, 0n],
         rgbCodecs,
       ),
-    ).toThrow("U8 value out of range: -1");
+    ).toThrow("uint8 overflow: -1");
   });
 
   it("encodes and decodes a [u8; 4] fixed array", () => {

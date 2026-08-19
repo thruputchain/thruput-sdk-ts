@@ -1,5 +1,10 @@
 import type { Calldata } from "@groundhogchain/protocol";
-import type { XdrCodec } from "@groundhogchain/xdr";
+import {
+  FixedOpaqueCodec,
+  Uint8Codec,
+  VarOpaqueCodec,
+  type XdrCodec,
+} from "@groundhogchain/xdr";
 import {
   calldata,
   codec,
@@ -59,54 +64,17 @@ function assertWellFormedString(value: string): void {
   }
 }
 
-const Uint8Codec: XdrCodec<bigint> = {
-  encode(w, val) {
-    if (typeof val !== "bigint" || val < 0n || val > 255n) {
-      throw new Error(`U8 value out of range: ${val}`);
-    }
-    (w as unknown as { putByte(b: number): void }).putByte(Number(val));
-  },
-  decode(r) {
-    return BigInt((r as unknown as { readByte(): number }).readByte());
-  },
-};
-
-function byteArrayCodec(
-  length: number,
-  variable: boolean,
+function requireByteArrayCodec(
+  codec: XdrCodec<Uint8Array>,
 ): XdrCodec<Uint8Array> {
   return {
-    encode(w, value) {
+    encode(writer, value) {
       if (!(value instanceof Uint8Array)) {
         throw new TypeError("Expected Uint8Array for U8 container");
       }
-      if (variable) {
-        if (value.length > length) {
-          throw new RangeError(
-            `Byte vector length ${value.length} exceeds max ${length}`,
-          );
-        }
-        w.writeUint32(BigInt(value.length));
-      } else if (value.length !== length) {
-        throw new RangeError(
-          `FixedBytes expected length ${length}, got ${value.length}`,
-        );
-      }
-      for (const byte of value) Uint8Codec.encode(w, BigInt(byte));
+      codec.encode(writer, value);
     },
-    decode(r) {
-      const decodedLength = variable ? Number(r.readUint32()) : length;
-      if (decodedLength > length) {
-        throw new RangeError(
-          `Byte vector length ${decodedLength} exceeds max ${length}`,
-        );
-      }
-      const value = new Uint8Array(decodedLength);
-      for (let index = 0; index < decodedLength; index++) {
-        value[index] = Number(Uint8Codec.decode(r));
-      }
-      return value;
-    },
+    decode: codec.decode,
   };
 }
 
@@ -151,9 +119,8 @@ export function resolveCodec(
       ) as XdrCodec<unknown>;
     case ContractTypeKind.Vector:
       if (ty.vector.element?.v === ContractTypeKind.U8) {
-        return byteArrayCodec(
-          Number(ty.vector.max_len),
-          true,
+        return requireByteArrayCodec(
+          VarOpaqueCodec(Number(ty.vector.max_len)),
         ) as XdrCodec<unknown>;
       }
       return VarArrayCodec(
@@ -162,7 +129,9 @@ export function resolveCodec(
       ) as XdrCodec<unknown>;
     case ContractTypeKind.Array:
       if (ty.array.element?.v === ContractTypeKind.U8) {
-        return byteArrayCodec(Number(ty.array.len), false) as XdrCodec<unknown>;
+        return requireByteArrayCodec(
+          FixedOpaqueCodec(Number(ty.array.len)),
+        ) as XdrCodec<unknown>;
       }
       const arrayLength = Number(ty.array.len);
       const arrayCodec = FixedArrayCodec(
