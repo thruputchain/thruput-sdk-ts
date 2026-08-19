@@ -133,6 +133,40 @@ describe("contract method invocation", () => {
       method.invocation(contract, gasAmount(1n), undefined as never),
     ).toThrow("Contract method arguments must be an object");
   });
+
+  it("rejects arguments inherited through the prototype chain", () => {
+    const method = defineContractMethod<
+      { first: bigint; second: bigint },
+      bigint,
+      never
+    >(definition());
+    const inherited = Object.create({ first: -4n, second: 300n }) as {
+      first: bigint;
+      second: bigint;
+    };
+
+    expect(() => method.invocation(contract, gasAmount(1n), inherited)).toThrow(
+      'Contract method arguments require own property "second"',
+    );
+  });
+
+  it("snapshots argument metadata used by invocations", () => {
+    const source = definition();
+    const method = defineContractMethod<
+      { first: bigint; second: bigint },
+      bigint,
+      never
+    >(source);
+
+    source.args[0]!.publicName = "mutated";
+
+    expect(() =>
+      method.invocation(contract, gasAmount(1n), {
+        first: -4n,
+        second: 300n,
+      }),
+    ).not.toThrow();
+  });
 });
 
 describe("contract method decoding", () => {
@@ -185,6 +219,20 @@ describe("contract method decoding", () => {
     expect(() => method.decodeException(trailing)).toThrow(
       /Failed to decode contract exception: 1 trailing bytes/,
     );
+  });
+
+  it("snapshots declared exception metadata", () => {
+    const source = definition();
+    const descriptor = defineContractMethod<unknown, bigint, unknown>(source);
+    source.throws[0]!.name = "Mutated";
+    const data = encode((writer) => {
+      writer.writeUint64(7n);
+      writer.writeInt32(-9n);
+    });
+
+    expect(descriptor.decodeException(data)).toMatchObject({
+      name: "BadValue",
+    });
   });
 
   it("preserves unknown exceptions and their complete abort data", () => {

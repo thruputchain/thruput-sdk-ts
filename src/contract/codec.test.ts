@@ -238,6 +238,12 @@ describe("contract codecs", () => {
     expect(() => codec.encode([1n] as never)).toThrow(
       "FixedArray expected 2 elements, got 1",
     );
+
+    const inherited = Array<bigint>(2);
+    Object.setPrototypeOf(inherited, { 0: 1n, 1: 2n });
+    expect(() => codec.encode(inherited as never)).toThrow(
+      "Array requires own value at index 0",
+    );
   });
 
   it("uses Uint8Array for variable U8 containers", () => {

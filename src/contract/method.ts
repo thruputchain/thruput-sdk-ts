@@ -139,8 +139,13 @@ export interface ContractMethod<TArgs, TResult, TDeclaredException> {
   >;
 }
 
+interface ResolvedArgument {
+  publicName: string;
+  codec: XdrCodec<unknown>;
+}
+
 interface ResolvedException {
-  metadata: ContractExceptionMetadata;
+  name: string | null;
   codec: XdrCodec<unknown>;
 }
 
@@ -150,7 +155,7 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
 ): ContractMethod<TArgs, TResult, TDeclaredException> {
   const entrypoint = copyEntrypoint(definition.entrypoint);
   const argumentCodecs = definition.args.map((argument) => ({
-    metadata: argument,
+    publicName: argument.publicName,
     codec: resolveContextCodec(definition.codecs, argument.type),
   }));
   const returnCodec = resolveContextCodec(
@@ -165,7 +170,7 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
       );
     }
     exceptionBySelector.set(metadata.selector, {
-      metadata,
+      name: metadata.name,
       codec: resolveContextCodec(definition.codecs, metadata.type),
     });
   }
@@ -255,10 +260,7 @@ function copyEntrypoint(value: ContractEntrypointID): ContractEntrypointID {
 }
 
 function encodeArguments(
-  argumentsAndCodecs: readonly {
-    metadata: ContractArgumentMetadata;
-    codec: XdrCodec<unknown>;
-  }[],
+  argumentsAndCodecs: readonly ResolvedArgument[],
   args: unknown,
 ) {
   if (argumentsAndCodecs.length > 0 && (!args || typeof args !== "object")) {
@@ -267,7 +269,12 @@ function encodeArguments(
   const values = args as Record<string, unknown> | undefined;
   const writer = new CxsWriter();
   for (const argument of argumentsAndCodecs) {
-    argument.codec.encode(writer, values?.[argument.metadata.publicName]);
+    if (!values || !Object.hasOwn(values, argument.publicName)) {
+      throw new TypeError(
+        `Contract method arguments require own property "${argument.publicName}"`,
+      );
+    }
+    argument.codec.encode(writer, values[argument.publicName]);
   }
   return calldata(writer.finish());
 }
@@ -294,7 +301,7 @@ function decodeException<TDeclaredException>(
     return {
       kind: "declared",
       selector,
-      name: declared.metadata.name,
+      name: declared.name,
       value,
     } as ContractException<TDeclaredException>;
   } catch (cause) {

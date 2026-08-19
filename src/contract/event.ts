@@ -108,20 +108,21 @@ export function defineContractEvent<
 >(
   definition: ContractEventDefinition<TName>,
 ): ContractEvent<TName, TTopics, TFields, TFilter> {
+  const eventName = definition.name;
   const signature = fixedBytes(Uint8Array.from(definition.signature), 32);
   if (definition.topics.length > 2) {
     throw new Error(
-      `${definition.name} declares ${definition.topics.length + 1} topics; protocol maximum is 3`,
+      `${eventName} declares ${definition.topics.length + 1} topics; protocol maximum is 3`,
     );
   }
-  assertUniqueNames(definition.topics, `${definition.name} topic`);
-  assertUniqueNames(definition.fields, `${definition.name} field`);
+  assertUniqueNames(definition.topics, `${eventName} topic`);
+  assertUniqueNames(definition.fields, `${eventName} field`);
 
   const resolvedTopics: ResolvedTopic[] = definition.topics.map((metadata) => {
     const expected = topicRepresentation(metadata.type);
     if (metadata.representation !== expected) {
       throw new Error(
-        `${definition.name} topic "${metadata.name}" representation "${metadata.representation}" does not match its declared type; expected "${expected}"`,
+        `${eventName} topic "${metadata.name}" representation "${metadata.representation}" does not match its declared type; expected "${expected}"`,
       );
     }
     return { name: metadata.name, representation: metadata.representation };
@@ -175,7 +176,7 @@ export function defineContractEvent<
         }
 
         return {
-          name: definition.name,
+          name: eventName,
           topics: decodedTopics,
           fields: decodedFields,
         } as DecodedContractEvent<TName, TTopics, TFields>;
@@ -183,7 +184,7 @@ export function defineContractEvent<
         if (cause instanceof ContractDecodeError) throw cause;
         const detail = cause instanceof Error ? `: ${cause.message}` : "";
         throw new ContractDecodeError(
-          `Failed to decode ${definition.name}${detail}`,
+          `Failed to decode ${eventName}${detail}`,
           { cause },
         );
       }
@@ -191,9 +192,7 @@ export function defineContractEvent<
 
     filter(input) {
       if (input.contractAddresses.length === 0) {
-        throw new Error(
-          `${definition.name} filter requires a contract address`,
-        );
+        throw new Error(`${eventName} filter requires a contract address`);
       }
       for (const address of input.contractAddresses) fixedBytes(address, 32);
 
@@ -212,10 +211,10 @@ export function defineContractEvent<
           const index = directTopics.get(name);
           if (index === undefined) {
             throw new Error(
-              `${definition.name} topic "${name}" is not directly filterable`,
+              `${eventName} topic "${name}" is not directly filterable`,
             );
           }
-          const values = filterValues(constraint, definition.name, name);
+          const values = filterValues(constraint, eventName, name);
           const key = `topic${index + 1}` as "topic1" | "topic2";
           filterTopics[key] = values.map((value) => fixedBytes(value, 32));
         }
@@ -244,7 +243,7 @@ export function defineContractEvent<
       const matches = descriptor.allFromReceipt(receipt, options);
       if (matches.length !== 1) {
         throw new Error(
-          `Expected exactly one ${definition.name} event, got ${matches.length}`,
+          `Expected exactly one ${eventName} event, got ${matches.length}`,
         );
       }
       return matches[0];

@@ -37,7 +37,10 @@ export function buildNamedCodecs(
             const obj = val as Record<string, unknown>;
             for (const field of structDef.fields) {
               const fieldCodec = resolveCodec(field.ty, codecs);
-              fieldCodec.encode(w, obj[field.name]);
+              fieldCodec.encode(
+                w,
+                ownProperty(obj, field.name, `Struct "${structDef.name}"`),
+              );
             }
           },
           decode(r) {
@@ -62,16 +65,26 @@ export function buildNamedCodecs(
               );
             }
             const obj = val as { case?: unknown; value?: unknown };
+            const caseName = ownProperty(
+              obj,
+              "case",
+              `Union "${unionDef.name}"`,
+            );
             const caseSpec = unionDef.cases.find(
-              (candidate) => candidate.name === obj.case,
+              (candidate) => candidate.name === caseName,
             );
             if (!caseSpec) {
               throw new Error(
-                `Unknown case ${String(obj.case)} for union "${unionDef.name}"`,
+                `Unknown case ${String(caseName)} for union "${unionDef.name}"`,
               );
             }
             w.writeInt32(caseSpec.discriminant);
-            encodeUnionCase(caseSpec.case_type, obj.value, w, codecs);
+            encodeUnionCase(
+              caseSpec.case_type,
+              Object.hasOwn(obj, "value") ? obj.value : undefined,
+              w,
+              codecs,
+            );
           },
           decode(r) {
             const discriminant = r.readInt32();
@@ -145,6 +158,11 @@ function encodeUnionCase(
       }
       const arr = value;
       for (let i = 0; i < caseType.tuple.length; i++) {
+        if (!Object.hasOwn(arr, i)) {
+          throw new TypeError(
+            `Tuple union case requires own value at index ${i}`,
+          );
+        }
         const c = resolveCodec(caseType.tuple[i], codecs);
         c.encode(w, arr[i]);
       }
@@ -157,7 +175,7 @@ function encodeUnionCase(
       const fields = value as Record<string, unknown>;
       for (const field of caseType.struct_fields) {
         const c = resolveCodec(field.ty, codecs);
-        c.encode(w, fields[field.name]);
+        c.encode(w, ownProperty(fields, field.name, "Struct union case"));
       }
       break;
     }
@@ -201,6 +219,13 @@ function decodeUnionCase(
       );
     }
   }
+}
+
+function ownProperty(value: object, name: string, context: string): unknown {
+  if (!Object.hasOwn(value, name)) {
+    throw new TypeError(`${context} requires own property "${name}"`);
+  }
+  return (value as Record<string, unknown>)[name];
 }
 
 function defineRecordValue(

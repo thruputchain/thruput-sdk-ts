@@ -117,6 +117,14 @@ describe("contract event construction and decoding", () => {
     ).toEqual(new Uint8Array(32).fill(0x66));
   });
 
+  it("snapshots the event name", () => {
+    const source = definition();
+    const descriptor = defineContractEvent(source);
+    (source as ContractEventDefinition).name = "Mutated";
+
+    expect(descriptor.decode(emitted())).toMatchObject({ name: "Changed" });
+  });
+
   it("returns null on signature mismatch before validating the event", () => {
     const descriptor = defineContractEvent(definition());
 

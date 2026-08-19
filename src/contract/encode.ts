@@ -142,6 +142,7 @@ function requireArrayCodec<T>(codec: XdrCodec<T[]>): XdrCodec<T[]> {
       if (!Array.isArray(value)) {
         throw new TypeError("Expected array");
       }
+      assertOwnArrayElements(value);
       codec.encode(writer, value);
     },
     decode: codec.decode,
@@ -246,6 +247,7 @@ function resolveUncachedCodec(
             );
           }
           const arr = val;
+          assertOwnArrayElements(arr);
           for (let i = 0; i < innerCodecs.length; i++) {
             innerCodecs[i].encode(w, arr[i]);
           }
@@ -322,6 +324,7 @@ export function encodeCalldata(
       `Expected ${method.args.length} args for "${methodName}", got ${args.length}`,
     );
   }
+  assertOwnArrayElements(args);
 
   const w = new CxsWriter();
   for (let i = 0; i < method.args.length; i++) {
@@ -365,6 +368,14 @@ export function decodeCalldata(
       `Failed to decode calldata for "${interfaceName}.${methodName}"${detail}`,
       { cause },
     );
+  }
+}
+
+function assertOwnArrayElements(value: unknown[]): void {
+  for (let index = 0; index < value.length; index++) {
+    if (!Object.hasOwn(value, index)) {
+      throw new TypeError(`Array requires own value at index ${index}`);
+    }
   }
 }
 

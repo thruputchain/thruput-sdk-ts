@@ -114,6 +114,18 @@ describe("encodeCalldata", () => {
     ).toThrow('Expected 2 args for "transfer", got 0');
   });
 
+  it("rejects arguments inherited through the array prototype", () => {
+    const args = Array<unknown>(2);
+    Object.setPrototypeOf(args, {
+      0: contractAddress(new Uint8Array(32).fill(0xab)),
+      1: 1000n,
+    });
+
+    expect(() =>
+      encodeCalldata(erc20Spec, "ERC20", "transfer", args, erc20Codecs),
+    ).toThrow("Array requires own value at index 0");
+  });
+
   it("throws on unknown method", () => {
     expect(() =>
       encodeCalldata(erc20Spec, "ERC20", "nonexistent", [], erc20Codecs),
@@ -457,6 +469,11 @@ describe("buildNamedCodecs", () => {
 
     const owner = contractAddress(new Uint8Array(32).fill(0x01));
     const original = { owner, supply: 999n, frozen: true };
+    const inherited = Object.create(original) as typeof original;
+
+    expect(() => structCodec.encode(new CxsWriter(), inherited)).toThrow(
+      'Struct "TokenInfo" requires own property "owner"',
+    );
 
     const w = new CxsWriter();
     structCodec.encode(w, original);
@@ -556,5 +573,27 @@ describe("buildNamedCodecs", () => {
     unionCodec.encode(w3, detailVal);
     const decoded3 = unionCodec.decode(new CxsReader(w3.finish()));
     expect(decoded3).toEqual(detailVal);
+
+    const inheritedCase = Object.create(okVal) as typeof okVal;
+    expect(() => unionCodec.encode(new CxsWriter(), inheritedCase)).toThrow(
+      'Union "Result" requires own property "case"',
+    );
+
+    const inheritedTuple = Array<bigint>(1);
+    Object.setPrototypeOf(inheritedTuple, { 0: 1n });
+    expect(() =>
+      unionCodec.encode(new CxsWriter(), {
+        case: "Ok",
+        value: inheritedTuple,
+      }),
+    ).toThrow("Tuple union case requires own value at index 0");
+
+    const inheritedFields = {
+      case: "Detail",
+      value: Object.create(detailVal.value),
+    };
+    expect(() => unionCodec.encode(new CxsWriter(), inheritedFields)).toThrow(
+      'Struct union case requires own property "code"',
+    );
   });
 });
