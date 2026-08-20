@@ -114,6 +114,18 @@ describe("encodeCalldata", () => {
     ).toThrow('Expected 2 args for "transfer", got 0');
   });
 
+  it("rejects arguments inherited through the array prototype", () => {
+    const args = Array<unknown>(2);
+    Object.setPrototypeOf(args, {
+      0: contractAddress(new Uint8Array(32).fill(0xab)),
+      1: 1000n,
+    });
+
+    expect(() =>
+      encodeCalldata(erc20Spec, "ERC20", "transfer", args, erc20Codecs),
+    ).toThrow("Array requires own value at index 0");
+  });
+
   it("throws on unknown method", () => {
     expect(() =>
       encodeCalldata(erc20Spec, "ERC20", "nonexistent", [], erc20Codecs),
@@ -279,7 +291,7 @@ describe("U8 codec", () => {
         [0n, 0n, 256n, 0n, 0n],
         rgbCodecs,
       ),
-    ).toThrow("U8 value out of range: 256");
+    ).toThrow("uint8 overflow: 256");
   });
 
   it("throws on negative u8 value", () => {
@@ -291,11 +303,11 @@ describe("U8 codec", () => {
         [0n, 0n, -1n, 0n, 0n],
         rgbCodecs,
       ),
-    ).toThrow("U8 value out of range: -1");
+    ).toThrow("uint8 overflow: -1");
   });
 
   it("encodes and decodes a [u8; 4] fixed array", () => {
-    const color = [255n, 128n, 0n, 200n];
+    const color = Uint8Array.of(255, 128, 0, 200);
     const data = encodeCalldata(
       rgbSpec,
       "RGB",
@@ -317,7 +329,7 @@ describe("U8 codec", () => {
   });
 
   it("[u8; 4] wire format is exactly 4 bytes for the array", () => {
-    const color = [0n, 0n, 0n, 0n];
+    const color = new Uint8Array(4);
     const data = encodeCalldata(
       rgbSpec,
       "RGB",
@@ -449,8 +461,19 @@ describe("buildNamedCodecs", () => {
     const codecs = buildNamedCodecs(typeDefs);
     const structCodec = codecs["TokenInfo"];
 
+    for (const invalid of [undefined, null, 1, "value", []]) {
+      expect(() => structCodec.encode(new CxsWriter(), invalid)).toThrow(
+        'Expected object for struct "TokenInfo"',
+      );
+    }
+
     const owner = contractAddress(new Uint8Array(32).fill(0x01));
     const original = { owner, supply: 999n, frozen: true };
+    const inherited = Object.create(original) as typeof original;
+
+    expect(() => structCodec.encode(new CxsWriter(), inherited)).toThrow(
+      'Struct "TokenInfo" requires own property "owner"',
+    );
 
     const w = new CxsWriter();
     structCodec.encode(w, original);
@@ -462,6 +485,30 @@ describe("buildNamedCodecs", () => {
     expect(decoded.owner).toEqual(owner);
     expect(decoded.supply).toBe(999n);
     expect(decoded.frozen).toBe(true);
+  });
+
+  it("supports ABI names that overlap object prototype properties", () => {
+    const codecs = buildNamedCodecs([
+      {
+        v: ContractTypeDefKind.TypeDefStruct,
+        struct_def: {
+          name: s("__proto__"),
+          fields: [{ name: s("__proto__"), ty: { v: ContractTypeKind.U32 } }],
+        },
+      },
+    ]);
+    const value: Record<string, unknown> = Object.create(null);
+    value.__proto__ = 7n;
+    const writer = new CxsWriter();
+
+    codecs.__proto__.encode(writer, value);
+    const decoded = codecs.__proto__.decode(
+      new CxsReader(writer.finish()),
+    ) as Record<string, unknown>;
+
+    expect(Object.getPrototypeOf(decoded)).toBe(Object.prototype);
+    expect(Object.hasOwn(decoded, "__proto__")).toBe(true);
+    expect(decoded.__proto__).toBe(7n);
   });
 
   it("generates a working codec for a union type", () => {
@@ -504,14 +551,14 @@ describe("buildNamedCodecs", () => {
     const unionCodec = codecs["Result"];
 
     // Test tuple case
-    const okVal = { discriminant: 0n, value: [42n] };
+    const okVal = { case: "Ok", value: [42n] };
     const w1 = new CxsWriter();
     unionCodec.encode(w1, okVal);
     const decoded1 = unionCodec.decode(new CxsReader(w1.finish()));
     expect(decoded1).toEqual(okVal);
 
     // Test void case
-    const errVal = { discriminant: 1n };
+    const errVal = { case: "Err" };
     const w2 = new CxsWriter();
     unionCodec.encode(w2, errVal);
     const decoded2 = unionCodec.decode(new CxsReader(w2.finish()));
@@ -519,12 +566,34 @@ describe("buildNamedCodecs", () => {
 
     // Test struct case
     const detailVal = {
-      discriminant: 2n,
+      case: "Detail",
       value: { code: 404n, msg: "not found" },
     };
     const w3 = new CxsWriter();
     unionCodec.encode(w3, detailVal);
     const decoded3 = unionCodec.decode(new CxsReader(w3.finish()));
     expect(decoded3).toEqual(detailVal);
+
+    const inheritedCase = Object.create(okVal) as typeof okVal;
+    expect(() => unionCodec.encode(new CxsWriter(), inheritedCase)).toThrow(
+      'Union "Result" requires own property "case"',
+    );
+
+    const inheritedTuple = Array<bigint>(1);
+    Object.setPrototypeOf(inheritedTuple, { 0: 1n });
+    expect(() =>
+      unionCodec.encode(new CxsWriter(), {
+        case: "Ok",
+        value: inheritedTuple,
+      }),
+    ).toThrow("Tuple union case requires own value at index 0");
+
+    const inheritedFields = {
+      case: "Detail",
+      value: Object.create(detailVal.value),
+    };
+    expect(() => unionCodec.encode(new CxsWriter(), inheritedFields)).toThrow(
+      'Struct union case requires own property "code"',
+    );
   });
 });

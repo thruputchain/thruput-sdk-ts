@@ -1,12 +1,8 @@
-// Generated from erc20.wasm — ERC20 interface v0.1.3
-// Generated from erc20.wasm — ERC20Metadata interface v0.1.3
+// Generated from erc20.spec.xdr - ERC20 interface v0.1.9
+// Generated from erc20.spec.xdr - ERC20Metadata interface v0.1.9
 // DO NOT EDIT. Re-run codegen to update.
 
-import type {
-  ContractAddress,
-  GasAmount,
-  Invocation,
-} from "@groundhogchain/protocol";
+import type { ContractAddress } from "@groundhogchain/protocol";
 import { contractEntrypointID, topic } from "@groundhogchain/protocol";
 import { fromHex } from "@groundhogchain/protocol/utils";
 import {
@@ -14,12 +10,15 @@ import {
   ContractTypeDefKind,
   contractSpecString,
 } from "@groundhogchain/contract-spec";
-import type { ContractSpec } from "../contract/spec.js";
-import { encodeCalldata } from "../contract/encode.js";
-import { buildNamedCodecs } from "../contract/codegen.js";
-import { createInvocation } from "../transaction/build.js";
-import { resolveCodec } from "../contract/encode.js";
-import { CxsReader } from "@groundhogchain/xdr";
+import {
+  type ContractSpec,
+  createContractCodecContext,
+  defineContractMethod,
+  type ContractException,
+  defineContractEvent,
+  type DecodedContractEvent,
+  type ContractEventFilterValue,
+} from "../contract/index.js";
 
 const s = contractSpecString;
 
@@ -44,18 +43,102 @@ const entrypoints = {
   },
 } as const;
 
-export enum ERC20Error {
-  AlreadyInitialized = 1,
-  MustBeContractOwner = 2,
-  TooLarge = 3,
-  Internal = 100,
+export const ERC20Error = {
+  AlreadyInitialized: 1n,
+  MustBeContractOwner: 2n,
+  TooLarge: 3n,
+  Internal: 100n,
+} as const;
+
+export type ERC20Error = (typeof ERC20Error)[keyof typeof ERC20Error];
+
+export interface ERC20AdjustAllowanceArgs {
+  spender: ContractAddress;
+  diff: bigint;
 }
+export type ERC20AdjustAllowanceResult = void;
+
+export interface ERC20AllowanceArgs {
+  owner: ContractAddress;
+  spender: ContractAddress;
+}
+export type ERC20AllowanceResult = bigint;
+
+export interface ERC20BurnArgs {
+  owner: ContractAddress;
+  amount: bigint;
+}
+export type ERC20BurnResult = void;
+
+export type ERC20GetBalanceArgs = void;
+export type ERC20GetBalanceResult = bigint;
+
+export interface ERC20GetBalanceOfArgs {
+  addr: ContractAddress;
+}
+export type ERC20GetBalanceOfResult = bigint;
+
+export interface ERC20InitializeArgs {
+  administrator: ContractAddress;
+}
+export type ERC20InitializeResult = void;
+
+export interface ERC20MintArgs {
+  receiver: ContractAddress;
+  amount: bigint;
+}
+export type ERC20MintResult = void;
+
+export type ERC20TotalSupplyArgs = void;
+export type ERC20TotalSupplyResult = bigint;
+
+export interface ERC20TransferArgs {
+  receiver: ContractAddress;
+  amount: bigint;
+}
+export type ERC20TransferResult = void;
+
+export interface ERC20TransferFromArgs {
+  owner: ContractAddress;
+  receiver: ContractAddress;
+  amount: bigint;
+}
+export type ERC20TransferFromResult = void;
+
+export type ERC20DeclaredException = {
+  kind: "declared";
+  name: "ERC20Error";
+  selector: 0xb19947acb2fa14ffn;
+  value: ERC20Error;
+};
+export type ERC20Exception = ContractException<ERC20DeclaredException>;
+
+export type ERC20MetadataDecimalsArgs = void;
+export type ERC20MetadataDecimalsResult = bigint | null;
+
+export interface ERC20MetadataInitializeArgs {
+  administrator: ContractAddress;
+  name: string | null;
+  symbol: string | null;
+  decimals: bigint | null;
+}
+export type ERC20MetadataInitializeResult = void;
+
+export type ERC20MetadataNameArgs = void;
+export type ERC20MetadataNameResult = string | null;
+
+export type ERC20MetadataSymbolArgs = void;
+export type ERC20MetadataSymbolResult = string | null;
+
+export type ERC20MetadataDeclaredException = never;
+export type ERC20MetadataException =
+  ContractException<ERC20MetadataDeclaredException>;
 
 export const spec: ContractSpec = {
   interfaces: [
     {
       name: s("ERC20"),
-      vers: s("0.1.3"),
+      vers: s("0.1.9"),
       throws: [
         {
           selector: 0xb19947acb2fa14ffn,
@@ -138,7 +221,7 @@ export const spec: ContractSpec = {
     },
     {
       name: s("ERC20Metadata"),
-      vers: s("0.1.3"),
+      vers: s("0.1.9"),
       throws: [],
       methods: [
         {
@@ -240,314 +323,401 @@ export const spec: ContractSpec = {
   ],
 };
 
-const namedCodecs = buildNamedCodecs(spec.type_defs);
+const codecs = createContractCodecContext(spec.type_defs);
 
 export const ERC20 = {
-  adjustAllowance(
-    contract: ContractAddress,
-    gasLimit: GasAmount,
-    args: { spender: ContractAddress; diff: bigint },
-  ): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.ERC20.adjustAllowance,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(
-        spec,
-        "ERC20",
-        "adjust_allowance",
-        [args.spender, args.diff],
-        namedCodecs,
-      ),
-    });
-  },
-  allowance(
-    contract: ContractAddress,
-    gasLimit: GasAmount,
-    args: { owner: ContractAddress; spender: ContractAddress },
-  ): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.ERC20.allowance,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(
-        spec,
-        "ERC20",
-        "allowance",
-        [args.owner, args.spender],
-        namedCodecs,
-      ),
-    });
-  },
-  burn(
-    contract: ContractAddress,
-    gasLimit: GasAmount,
-    args: { owner: ContractAddress; amount: bigint },
-  ): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.ERC20.burn,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(
-        spec,
-        "ERC20",
-        "burn",
-        [args.owner, args.amount],
-        namedCodecs,
-      ),
-    });
-  },
-  getBalance(contract: ContractAddress, gasLimit: GasAmount): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.ERC20.getBalance,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(spec, "ERC20", "get_balance", [], namedCodecs),
-    });
-  },
-  getBalanceOf(
-    contract: ContractAddress,
-    gasLimit: GasAmount,
-    args: { addr: ContractAddress },
-  ): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.ERC20.getBalanceOf,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(
-        spec,
-        "ERC20",
-        "get_balance_of",
-        [args.addr],
-        namedCodecs,
-      ),
-    });
-  },
-  initialize(
-    contract: ContractAddress,
-    gasLimit: GasAmount,
-    args: { administrator: ContractAddress },
-  ): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.ERC20.initialize,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(
-        spec,
-        "ERC20",
-        "initialize",
-        [args.administrator],
-        namedCodecs,
-      ),
-    });
-  },
-  mint(
-    contract: ContractAddress,
-    gasLimit: GasAmount,
-    args: { receiver: ContractAddress; amount: bigint },
-  ): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.ERC20.mint,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(
-        spec,
-        "ERC20",
-        "mint",
-        [args.receiver, args.amount],
-        namedCodecs,
-      ),
-    });
-  },
-  totalSupply(contract: ContractAddress, gasLimit: GasAmount): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.ERC20.totalSupply,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(spec, "ERC20", "total_supply", [], namedCodecs),
-    });
-  },
-  transfer(
-    contract: ContractAddress,
-    gasLimit: GasAmount,
-    args: { receiver: ContractAddress; amount: bigint },
-  ): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.ERC20.transfer,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(
-        spec,
-        "ERC20",
-        "transfer",
-        [args.receiver, args.amount],
-        namedCodecs,
-      ),
-    });
-  },
-  transferFrom(
-    contract: ContractAddress,
-    gasLimit: GasAmount,
-    args: { owner: ContractAddress; receiver: ContractAddress; amount: bigint },
-  ): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.ERC20.transferFrom,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(
-        spec,
-        "ERC20",
-        "transfer_from",
-        [args.owner, args.receiver, args.amount],
-        namedCodecs,
-      ),
-    });
-  },
+  adjustAllowance: defineContractMethod<
+    ERC20AdjustAllowanceArgs,
+    ERC20AdjustAllowanceResult,
+    ERC20DeclaredException
+  >({
+    entrypoint: entrypoints.ERC20.adjustAllowance,
+    args: [
+      {
+        abiName: "spender",
+        publicName: "spender",
+        type: spec.interfaces[0]!.methods[0]!.args[0]!.ty,
+      },
+      {
+        abiName: "diff",
+        publicName: "diff",
+        type: spec.interfaces[0]!.methods[0]!.args[1]!.ty,
+      },
+    ],
+    returnType: spec.interfaces[0]!.methods[0]!.return_type,
+    throws: [
+      {
+        selector: 0xb19947acb2fa14ffn,
+        name: "ERC20Error",
+        type: spec.interfaces[0]!.throws[0]!.ty,
+      },
+    ],
+    codecs,
+  }),
+  allowance: defineContractMethod<
+    ERC20AllowanceArgs,
+    ERC20AllowanceResult,
+    ERC20DeclaredException
+  >({
+    entrypoint: entrypoints.ERC20.allowance,
+    args: [
+      {
+        abiName: "owner",
+        publicName: "owner",
+        type: spec.interfaces[0]!.methods[1]!.args[0]!.ty,
+      },
+      {
+        abiName: "spender",
+        publicName: "spender",
+        type: spec.interfaces[0]!.methods[1]!.args[1]!.ty,
+      },
+    ],
+    returnType: spec.interfaces[0]!.methods[1]!.return_type,
+    throws: [
+      {
+        selector: 0xb19947acb2fa14ffn,
+        name: "ERC20Error",
+        type: spec.interfaces[0]!.throws[0]!.ty,
+      },
+    ],
+    codecs,
+  }),
+  burn: defineContractMethod<
+    ERC20BurnArgs,
+    ERC20BurnResult,
+    ERC20DeclaredException
+  >({
+    entrypoint: entrypoints.ERC20.burn,
+    args: [
+      {
+        abiName: "owner",
+        publicName: "owner",
+        type: spec.interfaces[0]!.methods[2]!.args[0]!.ty,
+      },
+      {
+        abiName: "amount",
+        publicName: "amount",
+        type: spec.interfaces[0]!.methods[2]!.args[1]!.ty,
+      },
+    ],
+    returnType: spec.interfaces[0]!.methods[2]!.return_type,
+    throws: [
+      {
+        selector: 0xb19947acb2fa14ffn,
+        name: "ERC20Error",
+        type: spec.interfaces[0]!.throws[0]!.ty,
+      },
+    ],
+    codecs,
+  }),
+  getBalance: defineContractMethod<
+    ERC20GetBalanceArgs,
+    ERC20GetBalanceResult,
+    ERC20DeclaredException
+  >({
+    entrypoint: entrypoints.ERC20.getBalance,
+    args: [],
+    returnType: spec.interfaces[0]!.methods[3]!.return_type,
+    throws: [
+      {
+        selector: 0xb19947acb2fa14ffn,
+        name: "ERC20Error",
+        type: spec.interfaces[0]!.throws[0]!.ty,
+      },
+    ],
+    codecs,
+  }),
+  getBalanceOf: defineContractMethod<
+    ERC20GetBalanceOfArgs,
+    ERC20GetBalanceOfResult,
+    ERC20DeclaredException
+  >({
+    entrypoint: entrypoints.ERC20.getBalanceOf,
+    args: [
+      {
+        abiName: "addr",
+        publicName: "addr",
+        type: spec.interfaces[0]!.methods[4]!.args[0]!.ty,
+      },
+    ],
+    returnType: spec.interfaces[0]!.methods[4]!.return_type,
+    throws: [
+      {
+        selector: 0xb19947acb2fa14ffn,
+        name: "ERC20Error",
+        type: spec.interfaces[0]!.throws[0]!.ty,
+      },
+    ],
+    codecs,
+  }),
+  initialize: defineContractMethod<
+    ERC20InitializeArgs,
+    ERC20InitializeResult,
+    ERC20DeclaredException
+  >({
+    entrypoint: entrypoints.ERC20.initialize,
+    args: [
+      {
+        abiName: "administrator",
+        publicName: "administrator",
+        type: spec.interfaces[0]!.methods[5]!.args[0]!.ty,
+      },
+    ],
+    returnType: spec.interfaces[0]!.methods[5]!.return_type,
+    throws: [
+      {
+        selector: 0xb19947acb2fa14ffn,
+        name: "ERC20Error",
+        type: spec.interfaces[0]!.throws[0]!.ty,
+      },
+    ],
+    codecs,
+  }),
+  mint: defineContractMethod<
+    ERC20MintArgs,
+    ERC20MintResult,
+    ERC20DeclaredException
+  >({
+    entrypoint: entrypoints.ERC20.mint,
+    args: [
+      {
+        abiName: "receiver",
+        publicName: "receiver",
+        type: spec.interfaces[0]!.methods[6]!.args[0]!.ty,
+      },
+      {
+        abiName: "amount",
+        publicName: "amount",
+        type: spec.interfaces[0]!.methods[6]!.args[1]!.ty,
+      },
+    ],
+    returnType: spec.interfaces[0]!.methods[6]!.return_type,
+    throws: [
+      {
+        selector: 0xb19947acb2fa14ffn,
+        name: "ERC20Error",
+        type: spec.interfaces[0]!.throws[0]!.ty,
+      },
+    ],
+    codecs,
+  }),
+  totalSupply: defineContractMethod<
+    ERC20TotalSupplyArgs,
+    ERC20TotalSupplyResult,
+    ERC20DeclaredException
+  >({
+    entrypoint: entrypoints.ERC20.totalSupply,
+    args: [],
+    returnType: spec.interfaces[0]!.methods[7]!.return_type,
+    throws: [
+      {
+        selector: 0xb19947acb2fa14ffn,
+        name: "ERC20Error",
+        type: spec.interfaces[0]!.throws[0]!.ty,
+      },
+    ],
+    codecs,
+  }),
+  transfer: defineContractMethod<
+    ERC20TransferArgs,
+    ERC20TransferResult,
+    ERC20DeclaredException
+  >({
+    entrypoint: entrypoints.ERC20.transfer,
+    args: [
+      {
+        abiName: "receiver",
+        publicName: "receiver",
+        type: spec.interfaces[0]!.methods[8]!.args[0]!.ty,
+      },
+      {
+        abiName: "amount",
+        publicName: "amount",
+        type: spec.interfaces[0]!.methods[8]!.args[1]!.ty,
+      },
+    ],
+    returnType: spec.interfaces[0]!.methods[8]!.return_type,
+    throws: [
+      {
+        selector: 0xb19947acb2fa14ffn,
+        name: "ERC20Error",
+        type: spec.interfaces[0]!.throws[0]!.ty,
+      },
+    ],
+    codecs,
+  }),
+  transferFrom: defineContractMethod<
+    ERC20TransferFromArgs,
+    ERC20TransferFromResult,
+    ERC20DeclaredException
+  >({
+    entrypoint: entrypoints.ERC20.transferFrom,
+    args: [
+      {
+        abiName: "owner",
+        publicName: "owner",
+        type: spec.interfaces[0]!.methods[9]!.args[0]!.ty,
+      },
+      {
+        abiName: "receiver",
+        publicName: "receiver",
+        type: spec.interfaces[0]!.methods[9]!.args[1]!.ty,
+      },
+      {
+        abiName: "amount",
+        publicName: "amount",
+        type: spec.interfaces[0]!.methods[9]!.args[2]!.ty,
+      },
+    ],
+    returnType: spec.interfaces[0]!.methods[9]!.return_type,
+    throws: [
+      {
+        selector: 0xb19947acb2fa14ffn,
+        name: "ERC20Error",
+        type: spec.interfaces[0]!.throws[0]!.ty,
+      },
+    ],
+    codecs,
+  }),
 } as const;
 
 export const ERC20Metadata = {
-  decimals(contract: ContractAddress, gasLimit: GasAmount): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.ERC20Metadata.decimals,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(
-        spec,
-        "ERC20Metadata",
-        "decimals",
-        [],
-        namedCodecs,
-      ),
-    });
-  },
-  initialize(
-    contract: ContractAddress,
-    gasLimit: GasAmount,
-    args: {
-      administrator: ContractAddress;
-      name: string | null;
-      symbol: string | null;
-      decimals: bigint | null;
+  decimals: defineContractMethod<
+    ERC20MetadataDecimalsArgs,
+    ERC20MetadataDecimalsResult,
+    ERC20MetadataDeclaredException
+  >({
+    entrypoint: entrypoints.ERC20Metadata.decimals,
+    args: [],
+    returnType: spec.interfaces[1]!.methods[0]!.return_type,
+    throws: [],
+    codecs,
+  }),
+  initialize: defineContractMethod<
+    ERC20MetadataInitializeArgs,
+    ERC20MetadataInitializeResult,
+    ERC20MetadataDeclaredException
+  >({
+    entrypoint: entrypoints.ERC20Metadata.initialize,
+    args: [
+      {
+        abiName: "administrator",
+        publicName: "administrator",
+        type: spec.interfaces[1]!.methods[1]!.args[0]!.ty,
+      },
+      {
+        abiName: "name",
+        publicName: "name",
+        type: spec.interfaces[1]!.methods[1]!.args[1]!.ty,
+      },
+      {
+        abiName: "symbol",
+        publicName: "symbol",
+        type: spec.interfaces[1]!.methods[1]!.args[2]!.ty,
+      },
+      {
+        abiName: "decimals",
+        publicName: "decimals",
+        type: spec.interfaces[1]!.methods[1]!.args[3]!.ty,
+      },
+    ],
+    returnType: spec.interfaces[1]!.methods[1]!.return_type,
+    throws: [],
+    codecs,
+  }),
+  name: defineContractMethod<
+    ERC20MetadataNameArgs,
+    ERC20MetadataNameResult,
+    ERC20MetadataDeclaredException
+  >({
+    entrypoint: entrypoints.ERC20Metadata.name,
+    args: [],
+    returnType: spec.interfaces[1]!.methods[2]!.return_type,
+    throws: [],
+    codecs,
+  }),
+  symbol: defineContractMethod<
+    ERC20MetadataSymbolArgs,
+    ERC20MetadataSymbolResult,
+    ERC20MetadataDeclaredException
+  >({
+    entrypoint: entrypoints.ERC20Metadata.symbol,
+    args: [],
+    returnType: spec.interfaces[1]!.methods[3]!.return_type,
+    throws: [],
+    codecs,
+  }),
+} as const;
+
+export interface ApprovalEvent extends DecodedContractEvent<
+  "ApprovalEvent",
+  { owner: ContractAddress; spender: ContractAddress },
+  { difference: bigint }
+> {}
+
+export interface ApprovalEventFilter {
+  owner?: ContractEventFilterValue<ContractAddress>;
+  spender?: ContractEventFilterValue<ContractAddress>;
+}
+
+export const ApprovalEvent = defineContractEvent<
+  "ApprovalEvent",
+  ApprovalEvent["topics"],
+  ApprovalEvent["fields"],
+  ApprovalEventFilter
+>({
+  name: "ApprovalEvent",
+  signature: spec.events[0]!.signature,
+  topics: [
+    {
+      name: "owner",
+      type: spec.events[0]!.topics[0]!.ty,
+      representation: "address",
     },
-  ): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.ERC20Metadata.initialize,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(
-        spec,
-        "ERC20Metadata",
-        "initialize",
-        [args.administrator, args.name, args.symbol, args.decimals],
-        namedCodecs,
-      ),
-    });
-  },
-  name(contract: ContractAddress, gasLimit: GasAmount): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.ERC20Metadata.name,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(spec, "ERC20Metadata", "name", [], namedCodecs),
-    });
-  },
-  symbol(contract: ContractAddress, gasLimit: GasAmount): Invocation {
-    return createInvocation({
-      invoked_address: contract,
-      entrypoint: entrypoints.ERC20Metadata.symbol,
-      gas_limit: gasLimit,
-      calldata: encodeCalldata(
-        spec,
-        "ERC20Metadata",
-        "symbol",
-        [],
-        namedCodecs,
-      ),
-    });
-  },
-} as const;
+    {
+      name: "spender",
+      type: spec.events[0]!.topics[1]!.ty,
+      representation: "address",
+    },
+  ],
+  fields: [{ name: "difference", type: spec.events[0]!.fields[0]!.ty }],
+  codecs,
+});
 
-function topicEquals(a: Uint8Array | undefined, b: Uint8Array): boolean {
-  if (a === undefined || a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-  return true;
+export interface TransferEvent extends DecodedContractEvent<
+  "TransferEvent",
+  { from: ContractAddress; to: ContractAddress },
+  { amount: bigint }
+> {}
+
+export interface TransferEventFilter {
+  from?: ContractEventFilterValue<ContractAddress>;
+  to?: ContractEventFilterValue<ContractAddress>;
 }
 
-export interface ApprovalEvent {
-  name: "ApprovalEvent";
-  topics: { owner: Uint8Array; spender: Uint8Array };
-  fields: { difference: bigint };
-}
-export const ApprovalEvent = {
-  /** Topic-0 signature hash from the contract spec. */
-  signature: fromHex(
-    "296f450df2d1160d2c84d8e9e1361b46906b8497e3f8fbaeb9a1c2740294c6ef",
-  ),
-  /** Returns null if topic 0 does not identify this event. */
-  decode(event: {
-    topics: Uint8Array[];
-    data: Uint8Array;
-  }): ApprovalEvent | null {
-    if (!topicEquals(event.topics[0], ApprovalEvent.signature)) return null;
-    if (event.topics.length !== 3) {
-      throw new Error(
-        `ApprovalEvent: expected 3 topics, got ${event.topics.length}`,
-      );
-    }
-    const r = new CxsReader(event.data);
-    const f0 = resolveCodec(spec.events[0].fields[0].ty, namedCodecs).decode(
-      r,
-    ) as bigint;
-    if (r.remaining !== 0) {
-      throw new Error(
-        `ApprovalEvent: ${r.remaining} trailing bytes after payload`,
-      );
-    }
-    return {
-      name: "ApprovalEvent",
-      topics: { owner: event.topics[1], spender: event.topics[2] },
-      fields: { difference: f0 },
-    };
-  },
-} as const;
-
-export interface TransferEvent {
-  name: "TransferEvent";
-  topics: { from: Uint8Array; to: Uint8Array };
-  fields: { amount: bigint };
-}
-export const TransferEvent = {
-  /** Topic-0 signature hash from the contract spec. */
-  signature: fromHex(
-    "5ff62377bf52711e75461f4d8f9b4585f17d1c20f7e1eceb280194a7764bae5f",
-  ),
-  /** Returns null if topic 0 does not identify this event. */
-  decode(event: {
-    topics: Uint8Array[];
-    data: Uint8Array;
-  }): TransferEvent | null {
-    if (!topicEquals(event.topics[0], TransferEvent.signature)) return null;
-    if (event.topics.length !== 3) {
-      throw new Error(
-        `TransferEvent: expected 3 topics, got ${event.topics.length}`,
-      );
-    }
-    const r = new CxsReader(event.data);
-    const f0 = resolveCodec(spec.events[1].fields[0].ty, namedCodecs).decode(
-      r,
-    ) as bigint;
-    if (r.remaining !== 0) {
-      throw new Error(
-        `TransferEvent: ${r.remaining} trailing bytes after payload`,
-      );
-    }
-    return {
-      name: "TransferEvent",
-      topics: { from: event.topics[1], to: event.topics[2] },
-      fields: { amount: f0 },
-    };
-  },
-} as const;
+export const TransferEvent = defineContractEvent<
+  "TransferEvent",
+  TransferEvent["topics"],
+  TransferEvent["fields"],
+  TransferEventFilter
+>({
+  name: "TransferEvent",
+  signature: spec.events[1]!.signature,
+  topics: [
+    {
+      name: "from",
+      type: spec.events[1]!.topics[0]!.ty,
+      representation: "address",
+    },
+    {
+      name: "to",
+      type: spec.events[1]!.topics[1]!.ty,
+      representation: "address",
+    },
+  ],
+  fields: [{ name: "amount", type: spec.events[1]!.fields[0]!.ty }],
+  codecs,
+});
 
 export type ERC20Event = ApprovalEvent | TransferEvent;
 

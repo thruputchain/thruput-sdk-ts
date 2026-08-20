@@ -1,17 +1,7 @@
 import type { Transport } from "../../transport/types.js";
-import type {
-  EmittedEvent,
-  ViewOutput,
-  ViewRequest,
-  ViewResponse,
-} from "../../types/rpc.js";
-import { addressFromHex, fromHex0x, toHex0x } from "../hex.js";
-
-interface RawEmittedEvent {
-  contractAddress: string;
-  topics?: string[];
-  data?: string;
-}
+import type { ViewOutput, ViewRequest, ViewResponse } from "../../types/rpc.js";
+import { parseEmittedEvent } from "../emittedEvent.js";
+import { fromHex0x, toHex0x } from "../hex.js";
 
 interface RawViewOutput {
   result: string;
@@ -21,29 +11,8 @@ interface RawViewOutput {
 
 interface RawViewResponse {
   output: unknown;
-  events?: unknown[];
+  events: unknown;
   height: number | string;
-}
-
-function parseEvent(value: unknown): EmittedEvent {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("Expected view event to be an object");
-  }
-
-  const e = value as RawEmittedEvent;
-
-  const topics = e.topics ?? [];
-  if (!Array.isArray(topics)) {
-    throw new Error("Expected view event topics to be an array");
-  }
-
-  const data = e.data ?? "0x";
-
-  return {
-    contractAddress: addressFromHex(e.contractAddress),
-    topics: topics.map(fromHex0x),
-    data: fromHex0x(data),
-  };
 }
 
 function parseOutput(value: unknown): ViewOutput {
@@ -120,8 +89,7 @@ export async function view(
   }
 
   const response = raw as RawViewResponse;
-  const events = response.events ?? [];
-  if (!Array.isArray(events)) {
+  if (!Array.isArray(response.events)) {
     throw new Error("Expected view response events to be an array");
   }
 
@@ -134,7 +102,7 @@ export async function view(
 
   return {
     output: parseOutput(response.output),
-    events: events.map(parseEvent),
+    events: response.events.map(parseEmittedEvent),
     height: BigInt(response.height),
   };
 }

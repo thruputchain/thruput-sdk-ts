@@ -1,11 +1,6 @@
-// Generated from recursive_type.wasm — RecursiveTypeContract interface v0.1.0
+// Generated from recursive_type.spec.xdr - RecursiveTypeContract interface v0.1.0
 // DO NOT EDIT. Re-run codegen to update.
 
-import type {
-  ContractAddress,
-  GasAmount,
-  Invocation,
-} from "@groundhogchain/protocol";
 import { contractEntrypointID } from "@groundhogchain/protocol";
 import { fromHex } from "@groundhogchain/protocol/utils";
 import {
@@ -13,17 +8,21 @@ import {
   ContractTypeDefKind,
   contractSpecString,
 } from "@groundhogchain/contract-spec";
-import type { ContractSpec } from "../contract/spec.js";
-import { encodeCalldata } from "../contract/encode.js";
-import { buildNamedCodecs } from "../contract/codegen.js";
-import { createInvocation } from "../transaction/build.js";
+import {
+  type ContractSpec,
+  createContractCodecContext,
+  defineContractMethod,
+  type ContractException,
+} from "../contract/index.js";
 
 const s = contractSpecString;
 
 const entrypoints = {
-  depth: contractEntrypointID(fromHex("106679439ef5dc4a")),
-  forest_depth: contractEntrypointID(fromHex("c43faa39b39b4097")),
-  unbox: contractEntrypointID(fromHex("38343b330809190f")),
+  RecursiveTypeContract: {
+    depth: contractEntrypointID(fromHex("1abed5310419683c")),
+    forestDepth: contractEntrypointID(fromHex("a1ba4c1c500f0487")),
+    unbox: contractEntrypointID(fromHex("daa333c1ea91396a")),
+  },
 } as const;
 
 export interface Forest {
@@ -36,6 +35,25 @@ export interface Tree {
   left: Tree | null;
   right: Tree | null;
 }
+
+export interface RecursiveTypeContractDepthArgs {
+  tree: Tree;
+}
+export type RecursiveTypeContractDepthResult = bigint;
+
+export interface RecursiveTypeContractForestDepthArgs {
+  forest: Forest;
+}
+export type RecursiveTypeContractForestDepthResult = bigint;
+
+export interface RecursiveTypeContractUnboxArgs {
+  val: bigint;
+}
+export type RecursiveTypeContractUnboxResult = bigint;
+
+export type RecursiveTypeContractDeclaredException = never;
+export type RecursiveTypeContractException =
+  ContractException<RecursiveTypeContractDeclaredException>;
 
 export const spec: ContractSpec = {
   interfaces: [
@@ -119,61 +137,58 @@ export const spec: ContractSpec = {
   events: [],
 };
 
-const namedCodecs = buildNamedCodecs(spec.type_defs);
+const codecs = createContractCodecContext(spec.type_defs);
 
-export function depth(
-  contract: ContractAddress,
-  gasLimit: GasAmount,
-  args: { tree: Tree },
-): Invocation {
-  return createInvocation({
-    invoked_address: contract,
-    entrypoint: entrypoints.depth,
-    gas_limit: gasLimit,
-    calldata: encodeCalldata(
-      spec,
-      "RecursiveTypeContract",
-      "depth",
-      [args.tree],
-      namedCodecs,
-    ),
-  });
-}
-
-export function forest_depth(
-  contract: ContractAddress,
-  gasLimit: GasAmount,
-  args: { forest: Forest },
-): Invocation {
-  return createInvocation({
-    invoked_address: contract,
-    entrypoint: entrypoints.forest_depth,
-    gas_limit: gasLimit,
-    calldata: encodeCalldata(
-      spec,
-      "RecursiveTypeContract",
-      "forest_depth",
-      [args.forest],
-      namedCodecs,
-    ),
-  });
-}
-
-export function unbox(
-  contract: ContractAddress,
-  gasLimit: GasAmount,
-  args: { val: bigint },
-): Invocation {
-  return createInvocation({
-    invoked_address: contract,
-    entrypoint: entrypoints.unbox,
-    gas_limit: gasLimit,
-    calldata: encodeCalldata(
-      spec,
-      "RecursiveTypeContract",
-      "unbox",
-      [args.val],
-      namedCodecs,
-    ),
-  });
-}
+export const RecursiveTypeContract = {
+  depth: defineContractMethod<
+    RecursiveTypeContractDepthArgs,
+    RecursiveTypeContractDepthResult,
+    RecursiveTypeContractDeclaredException
+  >({
+    entrypoint: entrypoints.RecursiveTypeContract.depth,
+    args: [
+      {
+        abiName: "tree",
+        publicName: "tree",
+        type: spec.interfaces[0]!.methods[0]!.args[0]!.ty,
+      },
+    ],
+    returnType: spec.interfaces[0]!.methods[0]!.return_type,
+    throws: [],
+    codecs,
+  }),
+  forestDepth: defineContractMethod<
+    RecursiveTypeContractForestDepthArgs,
+    RecursiveTypeContractForestDepthResult,
+    RecursiveTypeContractDeclaredException
+  >({
+    entrypoint: entrypoints.RecursiveTypeContract.forestDepth,
+    args: [
+      {
+        abiName: "forest",
+        publicName: "forest",
+        type: spec.interfaces[0]!.methods[1]!.args[0]!.ty,
+      },
+    ],
+    returnType: spec.interfaces[0]!.methods[1]!.return_type,
+    throws: [],
+    codecs,
+  }),
+  unbox: defineContractMethod<
+    RecursiveTypeContractUnboxArgs,
+    RecursiveTypeContractUnboxResult,
+    RecursiveTypeContractDeclaredException
+  >({
+    entrypoint: entrypoints.RecursiveTypeContract.unbox,
+    args: [
+      {
+        abiName: "val",
+        publicName: "val",
+        type: spec.interfaces[0]!.methods[2]!.args[0]!.ty,
+      },
+    ],
+    returnType: spec.interfaces[0]!.methods[2]!.return_type,
+    throws: [],
+    codecs,
+  }),
+} as const;

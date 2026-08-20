@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import {
   AuthClaimType,
+  HOG_ADDRESS,
   bitMap,
   blockHeight,
   codec,
@@ -8,9 +9,9 @@ import {
   serialize,
   weight,
 } from "@groundhogchain/protocol";
+// Repository-local imports; applications use the published client entrypoints.
 import {
   HttpTransport,
-  addressFromHex,
   createGroundhogClient,
   createTransaction,
   signTransaction,
@@ -26,10 +27,6 @@ const { address: recipientAddress } = await loadLocalDevAccount({
   localUserOffset: 1,
 });
 
-// HOG is predeployed on local/dev networks and implements the ERC20 interface.
-const hogToken = addressFromHex(
-  "0x0000000000000000000000000000000000000000000000000000000000000001",
-);
 const walletGasLimit = gasAmount(10_000_000n);
 const callGasLimit = gasAmount(500_000n);
 
@@ -37,16 +34,18 @@ const client = createGroundhogClient(new HttpTransport(rpcUrl));
 const tip = await client.getChainTip();
 
 // Build the token call first: HOG.transfer(recipient, amount).
-const tokenInvocation = ERC20.transfer(hogToken, callGasLimit, {
+const tokenInvocation = ERC20.transfer.invocation(HOG_ADDRESS, callGasLimit, {
   receiver: recipientAddress,
   amount,
 });
 
 // Wallet accounts are contracts. The transaction calls the sender wallet, and
 // the wallet performs the inner HOG transfer as its action.
-const walletInvocation = DevWallet.doAction(senderAddress, walletGasLimit, {
-  invocationBytes: serialize(tokenInvocation, codec.Invocation),
-});
+const walletInvocation = DevWallet.doAction.invocation(
+  senderAddress,
+  walletGasLimit,
+  { invocationBytes: serialize(tokenInvocation, codec.Invocation) },
+);
 
 const tx = createTransaction({
   invocation: walletInvocation,
@@ -70,7 +69,7 @@ const txHash = await client.sendTransaction(signed);
 
 console.log({
   rpcUrl,
-  hogToken: toHex0x(hogToken),
+  hogToken: toHex0x(HOG_ADDRESS),
   from: toHex0x(senderAddress),
   to: toHex0x(recipientAddress),
   amount: amount.toString(),

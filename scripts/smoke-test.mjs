@@ -8,7 +8,7 @@
 // entry. This loads the real dist/ files, which is what the CI version matrix
 // needs to exercise for the matrix to mean anything.
 import { createRequire } from "node:module";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
@@ -17,25 +17,89 @@ const pkg = JSON.parse(readFileSync(new URL("package.json", root), "utf8"));
 
 const failures = [];
 let checked = 0;
+const requiredExports = {
+  ".": [
+    "ContractViewError",
+    "HttpTransport",
+    "PrivateKeySigner",
+    "createGroundhogClient",
+    "createTransaction",
+    "defineContractMethod",
+  ],
+  "./transaction": [
+    "createInvocation",
+    "createTransaction",
+    "serializeTransaction",
+    "signTransaction",
+  ],
+  "./transport": [
+    "GroundhogRpcErrorCode",
+    "HttpTransport",
+    "JsonRpcError",
+    "MockTransport",
+  ],
+  "./contract": [
+    "ContractDecodeError",
+    "ContractViewError",
+    "createContractCodecContext",
+    "defineContractEvent",
+    "defineContractMethod",
+    "fixedArray",
+    "fixedBytes",
+  ],
+  "./contracts": [
+    "ERC20",
+    "ERC20ApprovalEvent",
+    "ERC20Metadata",
+    "ERC20TransferEvent",
+    "decodeERC20Event",
+  ],
+  "./signers": ["PrivateKeySigner"],
+  "./actions": ["getChainTip", "getEvents", "sendTransaction", "view"],
+};
 
 for (const [subpath, entry] of Object.entries(pkg.exports)) {
-  for (const condition of ["import", "require"]) {
-    const relative = entry[condition];
-    if (!relative) continue;
+  const specifier =
+    subpath === "." ? pkg.name : `${pkg.name}/${subpath.slice(2)}`;
 
+  for (const condition of ["types", "import", "require"]) {
+    const relative = entry[condition];
+    if (typeof relative !== "string") {
+      failures.push(`${subpath}: missing ${condition} export target`);
+      continue;
+    }
     const target = fileURLToPath(new URL(relative, root));
+    if (!existsSync(target)) {
+      failures.push(`${subpath} (${condition}): missing ${relative}`);
+    }
+  }
+
+  for (const condition of ["import", "require"]) {
     checked++;
     try {
       const mod =
-        condition === "import" ? await import(target) : require(target);
+        condition === "import" ? await import(specifier) : require(specifier);
       const names = Object.keys(mod).filter(
         (k) => k !== "default" && k !== "__esModule",
       );
       if (names.length === 0) {
         failures.push(`${subpath} (${condition}): loaded but exported nothing`);
       }
-    } catch (err) {
-      failures.push(`${subpath} (${condition}): ${err.message}`);
+      for (const name of requiredExports[subpath] ?? []) {
+        if (!names.includes(name)) {
+          failures.push(`${subpath} (${condition}): missing ${name}`);
+        }
+      }
+      if (subpath === "./contracts") {
+        if (typeof mod.ERC20?.transfer?.invocation !== "function") {
+          failures.push(
+            `${subpath} (${condition}): ERC20.transfer is not a method descriptor`,
+          );
+        }
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      failures.push(`${subpath} (${condition}): ${message}`);
     }
   }
 }
@@ -50,5 +114,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Smoke test passed on Node ${process.version}: ${checked} entry points loaded from dist/.`,
+  `Smoke test passed on Node ${process.version}: ${checked} package export conditions loaded from dist/.`,
 );

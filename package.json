@@ -1,6 +1,6 @@
 {
   "name": "@groundhogchain/client",
-  "version": "0.1.7",
+  "version": "0.2.0",
   "description": "TypeScript client for the Groundhog blockchain",
   "type": "module",
   "exports": {
@@ -45,9 +45,12 @@
   ],
   "scripts": {
     "build": "tsdown",
+    "contracts:check": "./scripts/regenerate-contract-bindings.sh --check",
+    "contracts:generate": "./scripts/regenerate-contract-bindings.sh",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:smoke": "node scripts/smoke-test.mjs",
+    "test:package-boundary": "tsc -p scripts/tsconfig.package-boundary.json",
     "typecheck": "tsc --noEmit",
     "docs": "typedoc",
     "docs:check": "typedoc --emit none",
@@ -71,9 +74,10 @@
     "vitest": "4.1.8"
   },
   "dependencies": {
-    "@groundhogchain/contract-spec": "0.5.0",
-    "@groundhogchain/gateway": "0.5.0",
-    "@groundhogchain/protocol": "0.5.0",
+    "@groundhogchain/contract-spec": "0.7.1",
+    "@groundhogchain/gateway": "0.7.1",
+    "@groundhogchain/protocol": "0.7.1",
+    "@groundhogchain/xdr": "0.7.1",
     "@noble/ed25519": "^3.1.0",
     "@noble/hashes": "^2.2.0"
   }

@@ -321,6 +321,58 @@ describe("view", () => {
     expect(response.output).toEqual({ result: "fault" });
     expect(response.height).toBe(9n);
   });
+
+  it("rejects a response without an events array", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return {
+          output: { result: "fault" },
+          height: 9,
+        } as T;
+      },
+    };
+
+    await expect(
+      view(transport, {
+        contract: contractAddress(new Uint8Array(32)),
+        entrypoint: contractEntrypointID(new Uint8Array(8)),
+        calldata: calldata(new Uint8Array()),
+      }),
+    ).rejects.toThrow("Expected view response events to be an array");
+  });
+
+  it.each([
+    {
+      field: "contractAddress",
+      event: { topics: [], data: "0x" },
+    },
+    {
+      field: "topics",
+      event: { contractAddress: "0x" + "11".repeat(32), data: "0x" },
+    },
+    {
+      field: "data",
+      event: { contractAddress: "0x" + "11".repeat(32), topics: [] },
+    },
+  ])("rejects an event missing $field", async ({ field, event }) => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return {
+          output: { result: "fault" },
+          events: [event],
+          height: 9,
+        } as T;
+      },
+    };
+
+    await expect(
+      view(transport, {
+        contract: contractAddress(new Uint8Array(32)),
+        entrypoint: contractEntrypointID(new Uint8Array(8)),
+        calldata: calldata(new Uint8Array()),
+      }),
+    ).rejects.toThrow(field);
+  });
 });
 
 describe("getTransactionReceipt", () => {
@@ -340,6 +392,60 @@ describe("getTransactionReceipt", () => {
     const fakeHash = hashFromHex("0x" + "00".repeat(32));
     const receipt = await getTransactionReceipt(transport, fakeHash);
     expect(receipt).toBeNull();
+  });
+
+  it("parses a non-empty event list", async () => {
+    const txHash = hashFromHex("0x" + "aa".repeat(32));
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return {
+          txHash: "0x" + "aa".repeat(32),
+          height: "42",
+          status: { result: "ok" },
+          events: [
+            {
+              contractAddress: "0x" + "11".repeat(32),
+              topics: ["0x" + "22".repeat(32)],
+              data: "0x0304",
+            },
+          ],
+        } as T;
+      },
+    };
+
+    const receipt = await getTransactionReceipt(transport, txHash);
+
+    expect(receipt?.events).toEqual([
+      {
+        contractAddress: contractAddress(new Uint8Array(32).fill(0x11)),
+        topics: [new Uint8Array(32).fill(0x22)],
+        data: new Uint8Array([0x03, 0x04]),
+      },
+    ]);
+  });
+
+  it("rejects an event topic that is not exactly 32 bytes", async () => {
+    const txHash = hashFromHex("0x" + "aa".repeat(32));
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return {
+          txHash: "0x" + "aa".repeat(32),
+          height: 42,
+          status: { result: "ok" },
+          events: [
+            {
+              contractAddress: "0x" + "11".repeat(32),
+              topics: ["0x" + "22".repeat(31)],
+              data: "0x",
+            },
+          ],
+        } as T;
+      },
+    };
+
+    await expect(getTransactionReceipt(transport, txHash)).rejects.toThrow(
+      /topic 0.*exactly 32 bytes/,
+    );
   });
 });
 
@@ -605,6 +711,101 @@ describe("getEvents", () => {
     expect(query.anchor).toEqual({ kind: "atHeight", height: 42 });
 
     expect(query.limit).toBe(10);
+  });
+
+  it("parses a non-empty event page", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return {
+          events: [
+            {
+              txHash: "0x" + "aa".repeat(32),
+              blockHeight: "42",
+              sequenceNumber: 7,
+              event: {
+                contractAddress: "0x" + "11".repeat(32),
+                topics: ["0x" + "22".repeat(32)],
+                data: "0x0304",
+              },
+            },
+          ],
+          cursor: "0x05",
+          latestBlock: "50",
+          oldestBlock: 1,
+        } as T;
+      },
+    };
+
+    const page = await getEvents(transport, { filters: [] });
+
+    expect(page.events).toEqual([
+      {
+        txHash: hashFromHex("0x" + "aa".repeat(32)),
+        blockHeight: 42n,
+        sequenceNumber: 7,
+        event: {
+          contractAddress: contractAddress(new Uint8Array(32).fill(0x11)),
+          topics: [new Uint8Array(32).fill(0x22)],
+          data: new Uint8Array([0x03, 0x04]),
+        },
+      },
+    ]);
+  });
+
+  it("rejects an event with more than three topics", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return {
+          events: [
+            {
+              txHash: "0x" + "aa".repeat(32),
+              blockHeight: 42,
+              sequenceNumber: 7,
+              event: {
+                contractAddress: "0x" + "11".repeat(32),
+                topics: Array.from({ length: 4 }, () => "0x" + "22".repeat(32)),
+                data: "0x",
+              },
+            },
+          ],
+          cursor: "0x",
+          latestBlock: 42,
+          oldestBlock: 1,
+        } as T;
+      },
+    };
+
+    await expect(getEvents(transport, { filters: [] })).rejects.toThrow(
+      /at most 3 topics/,
+    );
+  });
+
+  it("rejects an event whose serialized topics and data exceed 1024 bytes", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return {
+          events: [
+            {
+              txHash: "0x" + "aa".repeat(32),
+              blockHeight: 42,
+              sequenceNumber: 7,
+              event: {
+                contractAddress: "0x" + "11".repeat(32),
+                topics: Array.from({ length: 3 }, () => "0x" + "22".repeat(32)),
+                data: "0x" + "33".repeat(929),
+              },
+            },
+          ],
+          cursor: "0x",
+          latestBlock: 42,
+          oldestBlock: 1,
+        } as T;
+      },
+    };
+
+    await expect(getEvents(transport, { filters: [] })).rejects.toThrow(
+      /exceed 1024 bytes/,
+    );
   });
 });
 

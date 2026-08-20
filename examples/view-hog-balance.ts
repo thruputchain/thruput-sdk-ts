@@ -1,51 +1,25 @@
-import { CxsReader, Uint128Codec, gasAmount } from "@groundhogchain/protocol";
-import {
-  HttpTransport,
-  addressFromHex,
-  createGroundhogClient,
-  toHex0x,
-} from "../src/index.js";
+import { HOG_ADDRESS } from "@groundhogchain/protocol";
+// Repository-local imports; applications use the published client entrypoints.
+import { HttpTransport, createGroundhogClient, toHex0x } from "../src/index.js";
 import { ERC20 } from "../src/contracts/index.js";
 import { loadLocalDevAccount } from "./helpers/local-dev.js";
 
 const { address: accountAddress, rpcUrl } = await loadLocalDevAccount();
 
-// HOG is predeployed on local/dev networks and implements the ERC20 interface.
-const hogToken = addressFromHex(
-  "0x0000000000000000000000000000000000000000000000000000000000000001",
-);
-
 const client = createGroundhogClient(new HttpTransport(rpcUrl));
 
-// Build a read-only ERC20 getBalanceOf call for the first local user.
-const invocation = ERC20.getBalanceOf(hogToken, gasAmount(500_000n), {
-  addr: accountAddress,
-});
-
-// `view` simulates the contract call and returns raw CXS bytes.
-const response = await client.view({
-  contract: invocation.invoked_address,
-  entrypoint: invocation.entrypoint,
-  calldata: invocation.calldata,
+// Simulate the read-only ERC20 call and decode its typed result.
+const response = await ERC20.getBalanceOf.view({
+  client,
+  contract: HOG_ADDRESS,
   caller: accountAddress,
+  args: { addr: accountAddress },
 });
-
-if (response.output.result !== "return") {
-  throw new Error(`HOG balance view did not return: ${response.output.result}`);
-}
-
-// ERC20 getBalanceOf returns a CXS-encoded U128.
-const reader = new CxsReader(response.output.returnData);
-const balance = Uint128Codec.decode(reader);
-
-if (reader.remaining !== 0) {
-  throw new Error(`Trailing balance bytes: ${reader.remaining}`);
-}
 
 console.log({
   rpcUrl,
-  hogToken: toHex0x(hogToken),
+  hogToken: toHex0x(HOG_ADDRESS),
   account: toHex0x(accountAddress),
-  balance: balance.toString(),
+  balance: response.value.toString(),
   height: response.height.toString(),
 });

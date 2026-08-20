@@ -3,9 +3,7 @@ import { contractAddress, gasAmount } from "@groundhogchain/protocol";
 import { decodeCalldata } from "../contract/encode.js";
 import { buildNamedCodecs } from "../contract/codegen.js";
 import {
-  depth,
-  forest_depth,
-  unbox,
+  RecursiveTypeContract,
   spec,
   type Tree,
   type Forest,
@@ -31,7 +29,9 @@ describe("generated RecursiveTypeContract bindings", () => {
       },
     };
 
-    const invocation = depth(contract, gas, { tree });
+    const invocation = RecursiveTypeContract.depth.invocation(contract, gas, {
+      tree,
+    });
 
     expect(invocation.invoked_address).toEqual(contract);
     expect(invocation.entrypoint.length).toBe(8);
@@ -49,7 +49,9 @@ describe("generated RecursiveTypeContract bindings", () => {
   it("depth() encodes a leaf node", () => {
     const leaf: Tree = { value: 42n, left: null, right: null };
 
-    const invocation = depth(contract, gas, { tree: leaf });
+    const invocation = RecursiveTypeContract.depth.invocation(contract, gas, {
+      tree: leaf,
+    });
     const decoded = decodeCalldata(
       spec,
       "RecursiveTypeContract",
@@ -72,7 +74,11 @@ describe("generated RecursiveTypeContract bindings", () => {
       label: 1n,
     };
 
-    const invocation = forest_depth(contract, gas, { forest });
+    const invocation = RecursiveTypeContract.forestDepth.invocation(
+      contract,
+      gas,
+      { forest },
+    );
     const decoded = decodeCalldata(
       spec,
       "RecursiveTypeContract",
@@ -86,7 +92,11 @@ describe("generated RecursiveTypeContract bindings", () => {
   it("forest_depth() encodes an empty Forest", () => {
     const forest: Forest = { trees: [], label: 0n };
 
-    const invocation = forest_depth(contract, gas, { forest });
+    const invocation = RecursiveTypeContract.forestDepth.invocation(
+      contract,
+      gas,
+      { forest },
+    );
     const decoded = decodeCalldata(
       spec,
       "RecursiveTypeContract",
@@ -98,7 +108,9 @@ describe("generated RecursiveTypeContract bindings", () => {
   });
 
   it("unbox() encodes a simple u32 arg", () => {
-    const invocation = unbox(contract, gas, { val: 99n });
+    const invocation = RecursiveTypeContract.unbox.invocation(contract, gas, {
+      val: 99n,
+    });
     const decoded = decodeCalldata(
       spec,
       "RecursiveTypeContract",

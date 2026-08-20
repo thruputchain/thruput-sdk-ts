@@ -2,16 +2,10 @@ import type { Transport } from "../../transport/types.js";
 import type {
   EventQuery,
   EventPage,
-  EmittedEvent,
   IdentifiedEvent,
 } from "../../types/rpc.js";
-import { toHex0x, fromHex0x, hashFromHex, addressFromHex } from "../hex.js";
-
-interface RawEmittedEvent {
-  contractAddress: string;
-  topics: string[];
-  data: string;
-}
+import { parseEmittedEvent } from "../emittedEvent.js";
+import { toHex0x, fromHex0x, hashFromHex } from "../hex.js";
 
 interface RawIdentifiedEvent {
   txHash: string;
@@ -53,23 +47,6 @@ function serializeQuery(query: EventQuery): unknown {
   };
 }
 
-function parseEvent(e: unknown): EmittedEvent {
-  if (!e || typeof e !== "object" || Array.isArray(e)) {
-    throw new Error("Invalid events response: expected event");
-  }
-  const event = e as RawEmittedEvent;
-
-  if (!Array.isArray(event.topics)) {
-    throw new Error("Invalid events response: expected event.topics");
-  }
-
-  return {
-    contractAddress: addressFromHex(event.contractAddress),
-    topics: event.topics.map(fromHex0x),
-    data: fromHex0x(event.data),
-  };
-}
-
 function parseIdentifiedEvent(value: unknown): IdentifiedEvent {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Invalid events response: expected event entry");
@@ -84,7 +61,7 @@ function parseIdentifiedEvent(value: unknown): IdentifiedEvent {
     txHash: hashFromHex(entry.txHash),
     blockHeight: BigInt(entry.blockHeight),
     sequenceNumber: entry.sequenceNumber,
-    event: parseEvent(entry.event),
+    event: parseEmittedEvent(entry.event),
   };
 }
 

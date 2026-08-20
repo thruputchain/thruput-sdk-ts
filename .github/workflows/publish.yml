@@ -9,6 +9,11 @@ jobs:
       contents: write
       packages: write
     runs-on: ubuntu-latest
+    env:
+      CARGO_REGISTRIES_GROUNDHOG_INDEX: "sparse+https://groundhog.dev/crates/api/v1/crates/"
+      CARGO_REGISTRIES_GROUNDHOG_TOKEN: ${{ secrets.GROUNDHOG_REGISTRY_TOKEN }}
+      CARGO_REGISTRY_GLOBAL_CREDENTIAL_PROVIDERS: cargo:token
+      GROUNDHOG_CLI_VERSION: "0.9.6"
 
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -19,9 +24,18 @@ jobs:
           registry-url: https://npm.pkg.github.com
           scope: "@groundhogchain"
 
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # master as of 2026-06
+        with:
+          toolchain: stable
+
       - run: npm ci
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install contract binding generator
+        run: |
+          cargo install "groundhog-cli@${GROUNDHOG_CLI_VERSION}" --registry groundhog --locked
+          echo "GROUNDHOG_CLI=$(command -v groundhog)" >> "$GITHUB_ENV"
 
       - name: Read version
         run: |
@@ -34,10 +48,12 @@ jobs:
       # trusting a green tick upstream.
       - run: npm run format:check
       - run: npm run docs:check
+      - run: npm run contracts:check
       - run: npm run typecheck
       - run: npm run test
       - run: npm run build
       - run: npm run test:smoke
+      - run: npm run test:package-boundary
 
       - name: Tag commit with version
         id: tag
