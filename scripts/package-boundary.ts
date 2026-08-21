@@ -23,6 +23,12 @@ import type {
   GasAmount,
   Invocation,
 } from "@groundhogchain/protocol";
+import {
+  loadLocalDevAccount,
+  type LoadLocalDevAccountOptions,
+  type LocalDevAccount,
+  type LocalDevAccountRole,
+} from "@groundhogchain/client/local-dev";
 
 async function packageBoundaryTypecheck(
   client: GroundhogClient,
@@ -77,6 +83,16 @@ async function packageBoundaryTypecheck(
   void outcome.kind;
   void ContractDecodeError;
   void defineContractMethod;
+
+  const localDevRole: LocalDevAccountRole = "faucet";
+  const localDevOptions: LoadLocalDevAccountOptions = {
+    role: localDevRole,
+    roleOffset: 0,
+    env: { GROUNDHOG_RUNTIME_MANIFEST: "/tmp/runtime-manifest.json" },
+  };
+  const localDevAccount: Promise<LocalDevAccount> =
+    loadLocalDevAccount(localDevOptions);
+  void localDevAccount;
 }
 
 void packageBoundaryTypecheck;

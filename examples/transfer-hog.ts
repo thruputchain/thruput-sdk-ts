@@ -18,13 +18,14 @@ import {
   toHex0x,
 } from "../src/index.js";
 import { ERC20 } from "../src/contracts/index.js";
+import { loadLocalDevAccount } from "../src/local-dev/index.js";
 import { DevWallet } from "./generated/dev_wallet.js";
-import { loadLocalDevAccount } from "./helpers/local-dev.js";
 
 const amount = 1000n;
-const { address: senderAddress, signer, rpcUrl } = await loadLocalDevAccount();
+const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";
+const { address: senderAddress, signer } = await loadLocalDevAccount();
 const { address: recipientAddress } = await loadLocalDevAccount({
-  localUserOffset: 1,
+  roleOffset: 1,
 });
 
 const walletGasLimit = gasAmount(10_000_000n);

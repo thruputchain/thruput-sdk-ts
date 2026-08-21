@@ -1,6 +1,6 @@
 {
   "name": "@groundhogchain/client",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "TypeScript client for the Groundhog blockchain",
   "type": "module",
   "exports": {
@@ -38,6 +38,11 @@
       "types": "./dist/actions.d.ts",
       "import": "./dist/actions.js",
       "require": "./dist/actions.cjs"
+    },
+    "./local-dev": {
+      "types": "./dist/local-dev.d.ts",
+      "import": "./dist/local-dev.js",
+      "require": "./dist/local-dev.cjs"
     }
   },
   "files": [
@@ -66,7 +71,6 @@
     "@types/node": "25.9.1",
     "ajv": "8.20.0",
     "prettier": "3.8.3",
-    "smol-toml": "1.8.0",
     "tsdown": "0.22.2",
     "tsx": "4.22.4",
     "typedoc": "0.28.19",
@@ -79,6 +83,7 @@
     "@groundhogchain/protocol": "0.7.1",
     "@groundhogchain/xdr": "0.7.1",
     "@noble/ed25519": "^3.1.0",
-    "@noble/hashes": "^2.2.0"
+    "@noble/hashes": "^2.2.0",
+    "smol-toml": "1.8.0"
   }
 }
