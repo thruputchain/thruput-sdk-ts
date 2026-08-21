@@ -23,15 +23,43 @@ describe("loadLocalDevAccount", () => {
   it("selects the lowest-index account marked as a local user", async () => {
     const fixture = await writeRuntimeFixture([
       makeAccount(2, "local_user"),
-      makeAccount(0, "local_user"),
+      makeAccount(0, "faucet"),
       makeAccount(1, "local_user"),
     ]);
 
     const account = await loadLocalDevAccount({ env: fixture.env });
 
+    expect(account.index).toBe(1);
+    expect(account.keyName).toBe("dev-1");
+    expect(account.role).toBe("local_user");
+    expect(toHex0x(account.address)).toBe(`0x${"01".repeat(32)}`);
+  });
+
+  it("selects the faucet account", async () => {
+    const fixture = await writeRuntimeFixture([
+      makeAccount(1, "local_user"),
+      makeAccount(0, "faucet"),
+    ]);
+
+    const account = await loadLocalDevAccount({
+      role: "faucet",
+      env: fixture.env,
+    });
+
     expect(account.index).toBe(0);
+    expect(account.keyName).toBe("dev-0");
+    expect(account.role).toBe("faucet");
     expect(toHex0x(account.address)).toBe(`0x${"00".repeat(32)}`);
-    expect(account.rpcUrl).toBe("http://127.0.0.1:9545");
+  });
+
+  it("reports when the requested role is unavailable", async () => {
+    const fixture = await writeRuntimeFixture([makeAccount(1, "local_user")]);
+
+    await expect(
+      loadLocalDevAccount({ role: "faucet", env: fixture.env }),
+    ).rejects.toThrow(
+      "Groundhog runtime manifest does not contain faucet account 1",
+    );
   });
 
   it("selects later local users by offset", async () => {
@@ -42,7 +70,7 @@ describe("loadLocalDevAccount", () => {
     ]);
 
     const account = await loadLocalDevAccount({
-      localUserOffset: 1,
+      roleOffset: 1,
       env: fixture.env,
     });
 
@@ -51,17 +79,18 @@ describe("loadLocalDevAccount", () => {
   });
 
   it.each([-1, 0.5, Number.MAX_SAFE_INTEGER + 1])(
-    "rejects invalid local user offset %s",
-    async (localUserOffset) => {
-      await expect(loadLocalDevAccount({ localUserOffset })).rejects.toThrow(
-        "localUserOffset must be a non-negative integer",
+    "rejects invalid role offset %s",
+    async (roleOffset) => {
+      await expect(loadLocalDevAccount({ roleOffset })).rejects.toThrow(
+        "roleOffset must be a non-negative integer",
       );
     },
   );
 
-  it("supports manifest and RPC environment overrides", async () => {
-    const fixture = await writeRuntimeFixture([makeAccount(1, "local_user")]);
-    const overrideManifest = join(fixture.root, "override-manifest.json");
+  it("supports a relative manifest override without a config file", async () => {
+    const root = await mkdtemp(join(tmpdir(), "groundhog-client-local-dev-"));
+    tempDirs.push(root);
+    const overrideManifest = join(root, "override-manifest.json");
     await writeFile(
       overrideManifest,
       JSON.stringify(makeManifest([makeAccount(2, "local_user")])),
@@ -69,62 +98,24 @@ describe("loadLocalDevAccount", () => {
 
     const account = await loadLocalDevAccount({
       env: {
-        ...fixture.env,
-        GROUNDHOG_RUNTIME_MANIFEST: overrideManifest,
-        GROUNDHOG_RPC_URL: "http://127.0.0.1:9999",
+        GROUNDHOG_RUNTIME_MANIFEST: relative(process.cwd(), overrideManifest),
       },
     });
 
     expect(account.index).toBe(2);
-    expect(account.rpcUrl).toBe("http://127.0.0.1:9999");
   });
 
-  it("supports a manifest override with the configured RPC URL", async () => {
-    const fixture = await writeRuntimeFixture([makeAccount(1, "local_user")]);
-    const overrideManifest = join(fixture.root, "override-manifest.json");
-    await writeFile(
-      overrideManifest,
-      JSON.stringify(makeManifest([makeAccount(2, "local_user")])),
-    );
-
-    const account = await loadLocalDevAccount({
-      env: {
-        ...fixture.env,
-        GROUNDHOG_RUNTIME_MANIFEST: overrideManifest,
-      },
-    });
-
-    expect(account.index).toBe(2);
-    expect(account.rpcUrl).toBe("http://127.0.0.1:9545");
-  });
-
-  it("supports an RPC override with the configured manifest", async () => {
-    const fixture = await writeRuntimeFixture([makeAccount(1, "local_user")]);
-
-    const account = await loadLocalDevAccount({
-      env: {
-        ...fixture.env,
-        GROUNDHOG_RPC_URL: "http://127.0.0.1:9999",
-      },
-    });
-
-    expect(account.index).toBe(1);
-    expect(account.rpcUrl).toBe("http://127.0.0.1:9999");
-  });
-
-  it("treats blank environment overrides as absent", async () => {
+  it("treats a blank manifest override as absent", async () => {
     const fixture = await writeRuntimeFixture([makeAccount(1, "local_user")]);
 
     const account = await loadLocalDevAccount({
       env: {
         ...fixture.env,
         GROUNDHOG_RUNTIME_MANIFEST: "  ",
-        GROUNDHOG_RPC_URL: "",
       },
     });
 
     expect(account.index).toBe(1);
-    expect(account.rpcUrl).toBe("http://127.0.0.1:9545");
   });
 
   it("uses the HOME config directory when XDG_CONFIG_HOME is unset", async () => {
@@ -161,34 +152,13 @@ describe("loadLocalDevAccount", () => {
     expect(account.index).toBe(1);
   });
 
-  it("accepts complete script overrides without a config file", async () => {
-    const root = await mkdtemp(join(tmpdir(), "groundhog-client-local-dev-"));
-    tempDirs.push(root);
-    const manifestPath = join(root, "runtime-manifest.json");
-    await writeFile(
-      manifestPath,
-      JSON.stringify(makeManifest([makeAccount(1, "local_user")])),
-    );
-
-    const account = await loadLocalDevAccount({
-      env: {
-        XDG_CONFIG_HOME: join(root, "missing"),
-        GROUNDHOG_RUNTIME_MANIFEST: relative(process.cwd(), manifestPath),
-        GROUNDHOG_RPC_URL: "http://127.0.0.1:9999",
-      },
-    });
-
-    expect(account.index).toBe(1);
-    expect(account.rpcUrl).toBe("http://127.0.0.1:9999");
-  });
-
   it("rejects a manifest whose public key does not match its index", async () => {
     const invalid = makeAccount(1, "local_user");
     invalid.publicKey = `0x${"ff".repeat(32)}`;
     const fixture = await writeRuntimeFixture([invalid]);
 
     await expect(loadLocalDevAccount({ env: fixture.env })).rejects.toThrow(
-      "Derived key does not match local user dev-1",
+      "Derived key does not match dev-1",
     );
   });
 
@@ -233,7 +203,7 @@ describe("loadLocalDevAccount", () => {
     const fixture = await writeRuntimeFixture([account]);
 
     await expect(loadLocalDevAccount({ env: fixture.env })).rejects.toThrow(
-      "Local user has an invalid derivation index",
+      "Bootstrap account has an invalid derivation index",
     );
   });
 
@@ -251,10 +221,7 @@ describe("loadLocalDevAccount", () => {
     async (home) => {
       await expect(
         loadLocalDevAccount({
-          env: {
-            HOME: home,
-            GROUNDHOG_RPC_URL: "http://127.0.0.1:9545",
-          },
+          env: { HOME: home },
         }),
       ).rejects.toThrow("HOME environment variable is not set");
     },
@@ -314,7 +281,7 @@ async function writeRuntimeFixture(
   await writeFile(manifestPath, JSON.stringify(makeManifest(accounts)));
   await writeFile(
     join(configDir, "config.toml"),
-    `[local_runtime_state]\nrpc_url = "http://127.0.0.1:9545"\nruntime_manifest = "${manifestPath}"\n`,
+    `[local_runtime_state]\nruntime_manifest = "${manifestPath}"\n`,
   );
   return {
     root,

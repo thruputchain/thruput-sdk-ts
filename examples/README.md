@@ -27,14 +27,13 @@ override it:
 GROUNDHOG_RPC_URL=http://127.0.0.1:9545 npm run example chain-tip
 ```
 
-`groundhog node` records its active RPC URL and runtime manifest in the global
-Groundhog config. The HOG and deployment examples use `loadLocalDevAccount`
-from the client's Node.js-only `local-dev` entrypoint to read that state and
-derive the well-known local signers. Accounts marked as `faucet` are excluded.
-The examples use the lowest-index `local_user`; the transfer example uses the
-next one as its recipient. No key setup or environment variables are required.
+`groundhog node` records its runtime manifest in the global Groundhog config.
+The HOG and deployment examples use `loadLocalDevAccount` from the client's
+Node.js-only `local-dev` entrypoint to derive the well-known local signers. The
+examples use the lowest-index `local_user`; the transfer example uses the next
+one as its recipient. No key setup or environment variables are required.
 
-Scripts can override the recorded RPC URL with `GROUNDHOG_RPC_URL` and the
+Scripts can override the default RPC URL with `GROUNDHOG_RPC_URL` and the
 manifest path with `GROUNDHOG_RUNTIME_MANIFEST`.
 
 The state-changing examples intentionally target `groundhog node`. Hosted

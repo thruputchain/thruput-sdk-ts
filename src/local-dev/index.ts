@@ -11,22 +11,27 @@ const supportedDerivationScheme = "groundhog-bootstrap-account-v1";
 const maxRuntimeManifestBytes = 1024 * 1024;
 const maxDerivationIndex = 0xffff_ffff;
 
+export type LocalDevAccountRole = "faucet" | "local_user";
+
 export interface LocalDevAccount {
   index: number;
+  keyName: `dev-${number}`;
+  role: LocalDevAccountRole;
   address: ContractAddress;
   signer: Signer;
-  rpcUrl: string;
 }
 
 export interface LoadLocalDevAccountOptions {
-  /** Zero-based position among accounts marked as local users. */
-  localUserOffset?: number;
+  /** Account role to select. Defaults to `local_user`. */
+  role?: LocalDevAccountRole;
+  /** Zero-based position among accounts with the selected role. */
+  roleOffset?: number;
   /** Environment override used by tests and scripted applications. */
   env?: Readonly<Record<string, string | undefined>>;
 }
 
 /**
- * Load one local-user account from the active `groundhog node` manifest.
+ * Load one account from the active `groundhog node` manifest.
  *
  * This Node.js-only helper is intended for local development. Its deterministic
  * signer must not be used with production networks or funds of value.
@@ -35,28 +40,25 @@ export async function loadLocalDevAccount(
   options: LoadLocalDevAccountOptions = {},
 ): Promise<LocalDevAccount> {
   const env = options.env ?? process.env;
-  const localUserOffset = options.localUserOffset ?? 0;
-  if (!Number.isSafeInteger(localUserOffset) || localUserOffset < 0) {
-    throw new RangeError("localUserOffset must be a non-negative integer");
+  const role = options.role ?? "local_user";
+  const roleOffset = options.roleOffset ?? 0;
+  if (!Number.isSafeInteger(roleOffset) || roleOffset < 0) {
+    throw new RangeError("roleOffset must be a non-negative integer");
   }
 
   const manifestOverride = nonBlank(env.GROUNDHOG_RUNTIME_MANIFEST);
-  const rpcOverride = nonBlank(env.GROUNDHOG_RPC_URL);
-  let runtimeState: Record<string, unknown> = {};
-  if (!manifestOverride || !rpcOverride) {
-    const configHome =
-      nonBlank(env.XDG_CONFIG_HOME) ?? join(requireHome(env), ".config");
-    const configPath = join(configHome, "groundhog", "config.toml");
-    const config = parse(await readLocalFile(configPath, "Groundhog config"));
-    runtimeState = requireRecord(
-      config.local_runtime_state,
-      "Groundhog config is missing local_runtime_state; start `groundhog node`",
-    );
-  }
   let manifestPath: string;
   if (manifestOverride) {
     manifestPath = resolve(manifestOverride);
   } else {
+    const configHome =
+      nonBlank(env.XDG_CONFIG_HOME) ?? join(requireHome(env), ".config");
+    const configPath = join(configHome, "groundhog", "config.toml");
+    const config = parse(await readLocalFile(configPath, "Groundhog config"));
+    const runtimeState = requireRecord(
+      config.local_runtime_state,
+      "Groundhog config is missing local_runtime_state; start `groundhog node`",
+    );
     manifestPath = requireString(
       runtimeState.runtime_manifest,
       "Groundhog config is missing local_runtime_state.runtime_manifest",
@@ -65,12 +67,6 @@ export async function loadLocalDevAccount(
       throw new Error("Groundhog runtime manifest path must be absolute");
     }
   }
-  const rpcUrl =
-    rpcOverride ??
-    requireString(
-      runtimeState.rpc_url,
-      "Groundhog config is missing local_runtime_state.rpc_url",
-    );
 
   const manifest = requireRecord(
     JSON.parse(
@@ -104,14 +100,14 @@ export async function loadLocalDevAccount(
     throw new Error("Groundhog runtime manifest is missing bootstrapAccounts");
   }
 
-  const localUsers = manifest.bootstrapAccounts
+  const accounts = manifest.bootstrapAccounts
     .map((value) => requireRecord(value, "Invalid bootstrap account"))
-    .filter((account) => account.role === "local_user")
+    .filter((account) => account.role === role)
     .sort((a, b) => requireIndex(a.index) - requireIndex(b.index));
-  const account = localUsers[localUserOffset];
+  const account = accounts[roleOffset];
   if (!account) {
     throw new Error(
-      `Groundhog runtime manifest does not contain local user ${localUserOffset + 1}`,
+      `Groundhog runtime manifest does not contain ${role} account ${roleOffset + 1}`,
     );
   }
 
@@ -121,22 +117,23 @@ export async function loadLocalDevAccount(
     .digest();
   const signer = new PrivateKeySigner(secretKey);
   const expectedPublicKey = fromHex0x(
-    requireString(account.publicKey, "Local user is missing publicKey"),
+    requireString(account.publicKey, "Bootstrap account is missing publicKey"),
   );
   if (toHex0x(signer.publicKey.ed25519) !== toHex0x(expectedPublicKey)) {
-    throw new Error(`Derived key does not match local user dev-${index}`);
+    throw new Error(`Derived key does not match dev-${index}`);
   }
 
   return {
     index,
+    keyName: `dev-${index}`,
+    role,
     address: addressFromHex(
       requireString(
         account.walletAddress,
-        "Local user is missing walletAddress",
+        "Bootstrap account is missing walletAddress",
       ),
     ),
     signer,
-    rpcUrl,
   };
 }
 
@@ -208,7 +205,7 @@ function requireIndex(value: unknown): number {
     (value as number) < 0 ||
     (value as number) > maxDerivationIndex
   ) {
-    throw new Error("Local user has an invalid derivation index");
+    throw new Error("Bootstrap account has an invalid derivation index");
   }
   return value as number;
 }

@@ -47,13 +47,14 @@ const transfer = ERC20.transfer.invocation(tokenAddress, gasLimit, {
 });
 ```
 
-Node.js applications targeting `groundhog node` can load its active RPC URL
-and a deterministic local signer:
+Node.js applications targeting `groundhog node` can load a deterministic local
+signer from its active runtime manifest:
 
 ```ts
 import { loadLocalDevAccount } from "@groundhogchain/client/local-dev";
 
-const { address, signer, rpcUrl } = await loadLocalDevAccount();
+const { address, signer } = await loadLocalDevAccount();
+const faucet = await loadLocalDevAccount({ role: "faucet" });
 ```
 
 The `local-dev` entrypoint is for local development only. Its deterministic

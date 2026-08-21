@@ -31,7 +31,8 @@ import { loadLocalDevAccount } from "../src/local-dev/index.js";
 import { Counter } from "./generated/counter.js";
 import { DevWallet } from "./generated/dev_wallet.js";
 
-const { address: senderAddress, signer, rpcUrl } = await loadLocalDevAccount();
+const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";
+const { address: senderAddress, signer } = await loadLocalDevAccount();
 const deploymentNonce = sha256Hash(randomBytes(32));
 
 const walletGasLimit = gasAmount(10_000_000n);
