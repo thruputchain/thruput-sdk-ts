@@ -138,6 +138,19 @@ describe("loadLocalDevAccount", () => {
     expect(account.index).toBe(1);
   });
 
+  it("uses the HOME config directory when XDG_CONFIG_HOME is blank", async () => {
+    const fixture = await writeRuntimeFixture(
+      [makeAccount(1, "local_user")],
+      true,
+    );
+
+    const account = await loadLocalDevAccount({
+      env: { ...fixture.env, XDG_CONFIG_HOME: "  " },
+    });
+
+    expect(account.index).toBe(1);
+  });
+
   it("uses a relative XDG_CONFIG_HOME like the Groundhog CLI", async () => {
     const fixture = await writeRuntimeFixture([makeAccount(1, "local_user")]);
 
@@ -233,13 +246,19 @@ describe("loadLocalDevAccount", () => {
     );
   });
 
-  it("reports when HOME is unavailable", async () => {
-    await expect(
-      loadLocalDevAccount({
-        env: { GROUNDHOG_RPC_URL: "http://127.0.0.1:9545" },
-      }),
-    ).rejects.toThrow("HOME environment variable is not set");
-  });
+  it.each([undefined, "", "  "])(
+    "reports when HOME is unavailable or blank (%j)",
+    async (home) => {
+      await expect(
+        loadLocalDevAccount({
+          env: {
+            HOME: home,
+            GROUNDHOG_RPC_URL: "http://127.0.0.1:9545",
+          },
+        }),
+      ).rejects.toThrow("HOME environment variable is not set");
+    },
+  );
 
   it("reports when no active local runtime is configured", async () => {
     const root = await mkdtemp(join(tmpdir(), "groundhog-client-local-dev-"));

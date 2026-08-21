@@ -45,9 +45,7 @@ export async function loadLocalDevAccount(
   let runtimeState: Record<string, unknown> = {};
   if (!manifestOverride || !rpcOverride) {
     const configHome =
-      env.XDG_CONFIG_HOME !== undefined
-        ? env.XDG_CONFIG_HOME
-        : join(requireHome(env), ".config");
+      nonBlank(env.XDG_CONFIG_HOME) ?? join(requireHome(env), ".config");
     const configPath = join(configHome, "groundhog", "config.toml");
     const config = parse(await readLocalFile(configPath, "Groundhog config"));
     runtimeState = requireRecord(
@@ -223,8 +221,9 @@ function nonBlank(value: string | undefined): string | undefined {
 function requireHome(
   env: Readonly<Record<string, string | undefined>>,
 ): string {
-  if (env.HOME === undefined) {
+  const home = nonBlank(env.HOME);
+  if (!home) {
     throw new Error("HOME environment variable is not set");
   }
-  return env.HOME;
+  return home;
 }
