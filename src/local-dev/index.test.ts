@@ -1,12 +1,16 @@
-import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { PrivateKeySigner, toHex0x } from "../../src/index.js";
-import { loadLocalDevAccount } from "./local-dev.js";
+import { toHex0x } from "../index.js";
+import { loadLocalDevAccount } from "./index.js";
 
 const seed = "groundhog-dev-accounts";
+const publicKeys = [
+  "591ff2bdaaf5a0cbfd31f7b0f88c1ddee39fd9e106ba46303bde718459960633",
+  "f5495b73debe0193757220005043944a3f03ff20cea7c4559db158eb1389e93f",
+  "b8c09ac34f6c3ff58ddb549b19751d4e8b52f217fe6138f47322989c55a279a5",
+] as const;
 const tempDirs: string[] = [];
 
 afterEach(async () => {
@@ -45,6 +49,15 @@ describe("loadLocalDevAccount", () => {
     expect(account.index).toBe(2);
     expect(toHex0x(account.address)).toBe(`0x${"02".repeat(32)}`);
   });
+
+  it.each([-1, 0.5, Number.MAX_SAFE_INTEGER + 1])(
+    "rejects invalid local user offset %s",
+    async (localUserOffset) => {
+      await expect(loadLocalDevAccount({ localUserOffset })).rejects.toThrow(
+        "localUserOffset must be a non-negative integer",
+      );
+    },
+  );
 
   it("supports manifest and RPC environment overrides", async () => {
     const fixture = await writeRuntimeFixture([makeAccount(1, "local_user")]);
@@ -125,21 +138,15 @@ describe("loadLocalDevAccount", () => {
     expect(account.index).toBe(1);
   });
 
-  it.each(["", "relative-config"])(
-    "ignores invalid XDG_CONFIG_HOME value %j",
-    async (xdgConfigHome) => {
-      const fixture = await writeRuntimeFixture(
-        [makeAccount(1, "local_user")],
-        true,
-      );
+  it("uses a relative XDG_CONFIG_HOME like the Groundhog CLI", async () => {
+    const fixture = await writeRuntimeFixture([makeAccount(1, "local_user")]);
 
-      const account = await loadLocalDevAccount({
-        env: { ...fixture.env, XDG_CONFIG_HOME: xdgConfigHome },
-      });
+    const account = await loadLocalDevAccount({
+      env: { XDG_CONFIG_HOME: relative(process.cwd(), fixture.root) },
+    });
 
-      expect(account.index).toBe(1);
-    },
-  );
+    expect(account.index).toBe(1);
+  });
 
   it("accepts complete script overrides without a config file", async () => {
     const root = await mkdtemp(join(tmpdir(), "groundhog-client-local-dev-"));
@@ -172,7 +179,7 @@ describe("loadLocalDevAccount", () => {
     );
   });
 
-  it("rejects unsupported manifest versions and kinds", async () => {
+  it("rejects unsupported manifests and derivation schemes", async () => {
     const fixture = await writeRuntimeFixture([makeAccount(1, "local_user")]);
     const manifest = makeManifest([makeAccount(1, "local_user")]);
 
@@ -191,6 +198,47 @@ describe("loadLocalDevAccount", () => {
     await expect(loadLocalDevAccount({ env: fixture.env })).rejects.toThrow(
       "Unsupported Groundhog runtime manifest",
     );
+
+    await writeFile(
+      fixture.manifestPath,
+      JSON.stringify({
+        ...manifest,
+        bootstrapAccountDerivation: {
+          ...manifest.bootstrapAccountDerivation,
+          scheme: "future-scheme",
+        },
+      }),
+    );
+    await expect(loadLocalDevAccount({ env: fixture.env })).rejects.toThrow(
+      "Unsupported local account derivation scheme: future-scheme",
+    );
+  });
+
+  it("rejects derivation indices outside the manifest's u32 range", async () => {
+    const account = makeAccount(1, "local_user");
+    account.index = 0x1_0000_0000;
+    const fixture = await writeRuntimeFixture([account]);
+
+    await expect(loadLocalDevAccount({ env: fixture.env })).rejects.toThrow(
+      "Local user has an invalid derivation index",
+    );
+  });
+
+  it("rejects runtime manifests larger than one MiB", async () => {
+    const fixture = await writeRuntimeFixture([makeAccount(1, "local_user")]);
+    await writeFile(fixture.manifestPath, " ".repeat(1024 * 1024 + 1));
+
+    await expect(loadLocalDevAccount({ env: fixture.env })).rejects.toThrow(
+      "Groundhog runtime manifest exceeds 1048576 bytes",
+    );
+  });
+
+  it("reports when HOME is unavailable", async () => {
+    await expect(
+      loadLocalDevAccount({
+        env: { GROUNDHOG_RPC_URL: "http://127.0.0.1:9545" },
+      }),
+    ).rejects.toThrow("HOME environment variable is not set");
   });
 
   it("reports when no active local runtime is configured", async () => {
@@ -211,14 +259,13 @@ interface FixtureAccount {
 }
 
 function makeAccount(index: number, role: string): FixtureAccount {
-  const secretKey = createHash("sha256")
-    .update(`${seed}:account-${index}`)
-    .digest();
-  const signer = new PrivateKeySigner(secretKey);
+  const publicKey = publicKeys[index];
+  if (!publicKey)
+    throw new Error(`Missing public-key fixture for dev-${index}`);
   return {
     index,
     role,
-    publicKey: toHex0x(signer.publicKey.ed25519),
+    publicKey: `0x${publicKey}`,
     walletAddress: `0x${index.toString(16).padStart(2, "0").repeat(32)}`,
   };
 }
@@ -253,8 +300,6 @@ async function writeRuntimeFixture(
   return {
     root,
     manifestPath,
-    env: (useHome
-      ? { HOME: root }
-      : { XDG_CONFIG_HOME: root }) satisfies NodeJS.ProcessEnv,
+    env: useHome ? { HOME: root } : { XDG_CONFIG_HOME: root },
   };
 }

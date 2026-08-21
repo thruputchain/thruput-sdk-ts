@@ -2,7 +2,7 @@ import { HOG_ADDRESS } from "@groundhogchain/protocol";
 // Repository-local imports; applications use the published client entrypoints.
 import { HttpTransport, createGroundhogClient, toHex0x } from "../src/index.js";
 import { ERC20 } from "../src/contracts/index.js";
-import { loadLocalDevAccount } from "./helpers/local-dev.js";
+import { loadLocalDevAccount } from "../src/local-dev/index.js";
 
 const { address: accountAddress, rpcUrl } = await loadLocalDevAccount();
 

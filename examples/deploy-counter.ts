@@ -27,9 +27,9 @@ import {
   signTransaction,
   toHex0x,
 } from "../src/index.js";
+import { loadLocalDevAccount } from "../src/local-dev/index.js";
 import { Counter } from "./generated/counter.js";
 import { DevWallet } from "./generated/dev_wallet.js";
-import { loadLocalDevAccount } from "./helpers/local-dev.js";
 
 const { address: senderAddress, signer, rpcUrl } = await loadLocalDevAccount();
 const deploymentNonce = sha256Hash(randomBytes(32));

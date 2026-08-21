@@ -56,6 +56,7 @@ const requiredExports = {
   ],
   "./signers": ["PrivateKeySigner"],
   "./actions": ["getChainTip", "getEvents", "sendTransaction", "view"],
+  "./local-dev": ["loadLocalDevAccount"],
 };
 
 for (const [subpath, entry] of Object.entries(pkg.exports)) {

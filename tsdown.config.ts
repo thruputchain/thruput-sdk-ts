@@ -9,6 +9,7 @@ export default defineConfig({
     signers: "src/signers/index.ts",
     transport: "src/transport/index.ts",
     actions: "src/actions/index.ts",
+    "local-dev": "src/local-dev/index.ts",
   },
   format: ["esm", "cjs"],
   // Match the extensions tsup produced (.js/.d.ts for ESM, .cjs/.d.cts for CJS)

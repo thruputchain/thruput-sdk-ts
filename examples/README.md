@@ -1,8 +1,9 @@
 ## Local Node Examples
 
 The `../src/...` imports run these examples against this checkout. Applications
-should install the package and import from `@groundhogchain/client` and
-`@groundhogchain/client/contracts`; they should not copy files from `src`.
+should install the package and import from `@groundhogchain/client`,
+`@groundhogchain/client/contracts`, and `@groundhogchain/client/local-dev`;
+they should not copy files from `src`.
 
 These examples expect a local Groundhog JSON-RPC node. Start one first:
 
@@ -27,11 +28,11 @@ GROUNDHOG_RPC_URL=http://127.0.0.1:9545 npm run example chain-tip
 ```
 
 `groundhog node` records its active RPC URL and runtime manifest in the global
-Groundhog config. The HOG and deployment examples use
-[`helpers/local-dev.ts`](helpers/local-dev.ts) to read that state and derive the
-well-known local signers. Accounts marked as `faucet` are excluded. The examples
-use the lowest-index `local_user`; the transfer example uses the next one as its
-recipient. No key setup or environment variables are required.
+Groundhog config. The HOG and deployment examples use `loadLocalDevAccount`
+from the client's Node.js-only `local-dev` entrypoint to read that state and
+derive the well-known local signers. Accounts marked as `faucet` are excluded.
+The examples use the lowest-index `local_user`; the transfer example uses the
+next one as its recipient. No key setup or environment variables are required.
 
 Scripts can override the recorded RPC URL with `GROUNDHOG_RPC_URL` and the
 manifest path with `GROUNDHOG_RUNTIME_MANIFEST`.

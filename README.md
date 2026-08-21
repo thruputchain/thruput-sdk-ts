@@ -47,6 +47,18 @@ const transfer = ERC20.transfer.invocation(tokenAddress, gasLimit, {
 });
 ```
 
+Node.js applications targeting `groundhog node` can load its active RPC URL
+and a deterministic local signer:
+
+```ts
+import { loadLocalDevAccount } from "@groundhogchain/client/local-dev";
+
+const { address, signer, rpcUrl } = await loadLocalDevAccount();
+```
+
+The `local-dev` entrypoint is for local development only. Its deterministic
+signers must never be used with production networks or funds of value.
+
 ## Examples
 
 - [`chain-tip.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/chain-tip.ts) reads the latest block height and hash.
@@ -71,6 +83,7 @@ helpers, generated standard contracts, signers, and standalone actions.
 - `src/contracts/` — generated standard contract bindings exported through `@groundhogchain/client/contracts`.
 - `src/transport/` — `HttpTransport` (JSON-RPC over HTTP) and `MockTransport` for tests.
 - `src/signers/` — `Signer` interface and `PrivateKeySigner` (ed25519 via `@noble/ed25519`).
+- `src/local-dev/` — Node.js-only local runtime discovery and deterministic bootstrap signer loading.
 - `src/types/rpc.ts` — typed RPC request/response shapes.
 - `specs/openrpc.json` — pinned Groundhog OpenRPC spec; `scripts/regen-openrpc.sh` refreshes it. After a regen, `npm test` (specifically `src/actions/contract.test.ts`) names any TS action whose serialized request no longer matches the new spec.
 - `docs/` — implementation specifications and generated API documentation.
@@ -78,7 +91,8 @@ helpers, generated standard contracts, signers, and standalone actions.
 ## Subpath exports
 
 The package exposes focused entry points alongside the root: `./transaction`,
-`./transport`, `./contract`, `./contracts`, `./signers`, and `./actions`.
+`./transport`, `./contract`, `./contracts`, `./signers`, `./actions`, and the
+Node.js-only `./local-dev` helper.
 
 ## API docs
 

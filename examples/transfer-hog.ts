@@ -18,8 +18,8 @@ import {
   toHex0x,
 } from "../src/index.js";
 import { ERC20 } from "../src/contracts/index.js";
+import { loadLocalDevAccount } from "../src/local-dev/index.js";
 import { DevWallet } from "./generated/dev_wallet.js";
-import { loadLocalDevAccount } from "./helpers/local-dev.js";
 
 const amount = 1000n;
 const { address: senderAddress, signer, rpcUrl } = await loadLocalDevAccount();

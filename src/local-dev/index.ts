@@ -1,33 +1,36 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
+import { open } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
 import type { ContractAddress } from "@groundhogchain/protocol";
 import { parse } from "smol-toml";
-import {
-  PrivateKeySigner,
-  addressFromHex,
-  fromHex0x,
-  toHex0x,
-} from "../../src/index.js";
+import { addressFromHex, fromHex0x, toHex0x } from "../actions/hex.js";
+import { PrivateKeySigner } from "../signers/index.js";
+import type { Signer } from "../signers/index.js";
 
 const supportedDerivationScheme = "groundhog-bootstrap-account-v1";
+const maxRuntimeManifestBytes = 1024 * 1024;
+const maxDerivationIndex = 0xffff_ffff;
 
 export interface LocalDevAccount {
   index: number;
   address: ContractAddress;
-  signer: PrivateKeySigner;
+  signer: Signer;
   rpcUrl: string;
 }
 
 export interface LoadLocalDevAccountOptions {
   /** Zero-based position among accounts marked as local users. */
   localUserOffset?: number;
-  /** Environment override used by tests and scripted examples. */
-  env?: NodeJS.ProcessEnv;
+  /** Environment override used by tests and scripted applications. */
+  env?: Readonly<Record<string, string | undefined>>;
 }
 
-/** Load one local-user account from the active `groundhog node` manifest. */
+/**
+ * Load one local-user account from the active `groundhog node` manifest.
+ *
+ * This Node.js-only helper is intended for local development. Its deterministic
+ * signer must not be used with production networks or funds of value.
+ */
 export async function loadLocalDevAccount(
   options: LoadLocalDevAccountOptions = {},
 ): Promise<LocalDevAccount> {
@@ -37,17 +40,15 @@ export async function loadLocalDevAccount(
     throw new RangeError("localUserOffset must be a non-negative integer");
   }
 
-  const xdgConfigHome = nonBlank(env.XDG_CONFIG_HOME);
-  const home = nonBlank(env.HOME) ?? homedir();
-  const configHome =
-    xdgConfigHome && isAbsolute(xdgConfigHome)
-      ? xdgConfigHome
-      : join(home, ".config");
-  const configPath = join(configHome, "groundhog", "config.toml");
   const manifestOverride = nonBlank(env.GROUNDHOG_RUNTIME_MANIFEST);
   const rpcOverride = nonBlank(env.GROUNDHOG_RPC_URL);
   let runtimeState: Record<string, unknown> = {};
   if (!manifestOverride || !rpcOverride) {
+    const configHome =
+      env.XDG_CONFIG_HOME !== undefined
+        ? env.XDG_CONFIG_HOME
+        : join(requireHome(env), ".config");
+    const configPath = join(configHome, "groundhog", "config.toml");
     const config = parse(await readLocalFile(configPath, "Groundhog config"));
     runtimeState = requireRecord(
       config.local_runtime_state,
@@ -74,7 +75,13 @@ export async function loadLocalDevAccount(
     );
 
   const manifest = requireRecord(
-    JSON.parse(await readLocalFile(manifestPath, "Groundhog runtime manifest")),
+    JSON.parse(
+      await readLocalFile(
+        manifestPath,
+        "Groundhog runtime manifest",
+        maxRuntimeManifestBytes,
+      ),
+    ),
     "Groundhog runtime manifest must be an object",
   );
   if (manifest.schemaVersion !== 2 || manifest.kind !== "hogd-dev-runtime") {
@@ -135,12 +142,49 @@ export async function loadLocalDevAccount(
   };
 }
 
-async function readLocalFile(path: string, label: string): Promise<string> {
+async function readLocalFile(
+  path: string,
+  label: string,
+  maxBytes?: number,
+): Promise<string> {
+  let file;
   try {
-    return await readFile(path, "utf8");
+    file = await open(path, "r");
   } catch (cause) {
     throw new Error(`${label} is unavailable at ${path}`, { cause });
   }
+
+  let contents: string;
+  let exceededLimit = false;
+  try {
+    if (maxBytes === undefined) {
+      contents = await file.readFile("utf8");
+    } else {
+      const buffer = Buffer.allocUnsafe(maxBytes + 1);
+      let length = 0;
+      while (length < buffer.length) {
+        const { bytesRead } = await file.read(
+          buffer,
+          length,
+          buffer.length - length,
+          length,
+        );
+        if (bytesRead === 0) break;
+        length += bytesRead;
+      }
+      exceededLimit = length > maxBytes;
+      contents = buffer.toString("utf8", 0, length);
+    }
+  } catch (cause) {
+    throw new Error(`${label} is unavailable at ${path}`, { cause });
+  } finally {
+    await file.close();
+  }
+
+  if (exceededLimit) {
+    throw new Error(`${label} exceeds ${maxBytes} bytes at ${path}`);
+  }
+  return contents;
 }
 
 function requireRecord(
@@ -161,7 +205,11 @@ function requireString(value: unknown, message: string): string {
 }
 
 function requireIndex(value: unknown): number {
-  if (!Number.isSafeInteger(value) || (value as number) < 0) {
+  if (
+    !Number.isSafeInteger(value) ||
+    (value as number) < 0 ||
+    (value as number) > maxDerivationIndex
+  ) {
     throw new Error("Local user has an invalid derivation index");
   }
   return value as number;
@@ -170,4 +218,13 @@ function requireIndex(value: unknown): number {
 function nonBlank(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
+}
+
+function requireHome(
+  env: Readonly<Record<string, string | undefined>>,
+): string {
+  if (env.HOME === undefined) {
+    throw new Error("HOME environment variable is not set");
+  }
+  return env.HOME;
 }

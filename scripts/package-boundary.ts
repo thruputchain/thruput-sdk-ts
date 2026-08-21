@@ -23,6 +23,11 @@ import type {
   GasAmount,
   Invocation,
 } from "@groundhogchain/protocol";
+import {
+  loadLocalDevAccount,
+  type LoadLocalDevAccountOptions,
+  type LocalDevAccount,
+} from "@groundhogchain/client/local-dev";
 
 async function packageBoundaryTypecheck(
   client: GroundhogClient,
@@ -77,6 +82,14 @@ async function packageBoundaryTypecheck(
   void outcome.kind;
   void ContractDecodeError;
   void defineContractMethod;
+
+  const localDevOptions: LoadLocalDevAccountOptions = {
+    localUserOffset: 1,
+    env: { GROUNDHOG_RPC_URL: "http://127.0.0.1:9545" },
+  };
+  const localDevAccount: Promise<LocalDevAccount> =
+    loadLocalDevAccount(localDevOptions);
+  void localDevAccount;
 }
 
 void packageBoundaryTypecheck;
