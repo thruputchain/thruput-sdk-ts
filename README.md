@@ -179,9 +179,20 @@ const receipt = await wallet.waitForTransactionReceipt(txHash);
 cryptographically random 64-bit nonce and expires 100 blocks after the current
 chain tip.
 
-The SDK includes `defaultWalletAdapter` and `devWalletAdapter`. Implement
-`WalletInvocationAdapter` or use `defineWalletInvocationAdapter` to integrate a
-custom account contract without changing the SDK.
+The SDK includes `defaultWalletAdapter` and `devWalletAdapter`. Custom account
+contracts can publish their generated binding and a structural adapter without
+changing the SDK:
+
+```ts
+const customWalletAdapter = defineWalletInvocationAdapter({
+  createRootInvocation(accountAddress, request: CustomWalletRequest) {
+    return CustomWallet.execute.invocation(accountAddress, request.gasLimit, {
+      call: request.invocation,
+      policy: request.policy,
+    });
+  },
+});
+```
 
 Because wallet decoration binds account-specific closures to the supplied
 client, each client instance can be bound once. Create another client instance
@@ -189,10 +200,10 @@ when operating multiple accounts against the same endpoint.
 
 ## Examples
 
-- [`chain-tip.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/chain-tip.ts) reads the latest block height and hash.
-- [`view-hog-balance.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/view-hog-balance.ts) reads a HOG balance.
-- [`transfer-hog.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/transfer-hog.ts) submits a HOG transfer.
-- [`deploy-counter.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/deploy-counter.ts) deploys and calls a Counter contract.
+- [`chain-tip.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/chain-tip.ts) validates Devnet and reads its latest block.
+- [`transfer-hog.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/transfer-hog.ts) funds a pubkey account and transfers HOG on Devnet.
+- [`view-hog-balance.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/view-hog-balance.ts) reads local `dev-1`'s HOG balance.
+- [`deploy-counter.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/deploy-counter.ts) deploys and calls a Counter contract through DevWallet.
 
 See the [examples guide](https://github.com/groundhogchain/client-ts/blob/main/examples/README.md) for local-node setup and configuration.
 

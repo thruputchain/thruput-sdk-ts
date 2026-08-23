@@ -22,7 +22,8 @@ For the local dev wallet:
 1. Put the protocol `Contract` in `contracts_to_deploy`.
 2. Target the wallet's deployment entrypoint with the root invocation.
 3. Encode the deployment nonce and canonical contract hash in the invocation calldata.
-4. Sign and submit the transaction.
+4. Submit it through `wallet.sendInvocation`, passing the artifact in
+   `contractsToDeploy`.
 5. Wait for a successful receipt and confirm its returned address matches the derived address.
 6. Use the derived address as the target for subsequent contract calls.
 
@@ -31,9 +32,10 @@ the derived address before deploying it so that address can pay the storage
 charge. This is DevWallet policy, not part of the protocol-level
 `contracts_to_deploy` mechanism.
 
-`sendTransaction` returns after submission. Use `waitForTransactionReceipt`
-before invoking the deployed address, and inspect the returned receipt's
-`execResult` to confirm execution succeeded.
+`sendInvocation` returns after submission. Use `waitForTransactionReceipt`
+before invoking the deployed address, then pass the receipt to the generated
+method descriptor's `decodeReceipt` method. The decoder validates root
+execution and returns the typed deployment result.
 
 A timeout only stops the local wait. The transaction may still commit, so query
 the same transaction hash again before constructing or submitting a replacement.

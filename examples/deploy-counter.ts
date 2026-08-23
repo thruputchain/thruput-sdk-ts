@@ -1,59 +1,54 @@
 import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import {
-  AuthClaimType,
   ContractType,
   bitMap,
-  blockHeight,
-  codec,
   gasAmount,
-  serialize,
   sha256Hash,
   weight,
-} from "@groundhogchain/protocol";
-import type {
-  AuthClaim,
-  Contract,
-  Invocation,
-  SHA256Hash,
+  type Contract,
 } from "@groundhogchain/protocol";
 import {
-  HttpTransport,
-  createGroundhogClient,
-  createTransaction,
+  connectGroundhogClient,
+  createSourceAddressAccount,
+  createWalletClient,
   deriveContractAddress,
+  devWalletAdapter,
   fixedBytes,
   hashContract,
-  signTransaction,
+  localnet,
   toHex0x,
 } from "../src/index.js";
 import { DevWallet } from "../src/contracts/index.js";
 import { loadLocalDevAccount } from "../src/local-dev/index.js";
 import { Counter } from "./generated/counter.js";
 
-const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";
-const {
-  address: senderAddress,
-  signer,
-  networkHash,
-} = await loadLocalDevAccount();
+const rpcUrl = process.env.GROUNDHOG_RPC_URL;
+if (rpcUrl && !process.env.GROUNDHOG_RUNTIME_MANIFEST) {
+  throw new Error(
+    "Set GROUNDHOG_RUNTIME_MANIFEST when overriding the Localnet RPC URL",
+  );
+}
+const local = await loadLocalDevAccount();
 const deploymentNonce = sha256Hash(randomBytes(32));
-
 const walletGasLimit = gasAmount(10_000_000n);
 const counterGasLimit = gasAmount(500_000n);
-// Authorize key 0 with the wallet's required weight of 1.
-const sourceAuthClaim: AuthClaim = {
-  claim_type: AuthClaimType.kSourceAddressAuthData,
-  source_address_claim: {
-    allowed_keys: bitMap(0x01n),
-    required_weight: weight(1n),
-  },
-};
 
-// Connect to the node and prepare the signer for the outer transaction.
-const client = createGroundhogClient(
-  new HttpTransport(rpcUrl, { timeoutMs: 5_000 }),
-);
+const client = await connectGroundhogClient({
+  cluster: localnet(rpcUrl ? { rpcUrl } : {}),
+});
+const account = createSourceAddressAccount({
+  address: local.address,
+  signers: [{ signer: local.signer, publicKeyId: 0n }],
+  allowedKeys: bitMap(0x01n),
+  requiredWeight: weight(1n),
+});
+const wallet = createWalletClient({
+  client,
+  account,
+  networkHash: local.networkHash,
+  invocationAdapter: devWalletAdapter,
+});
 
 // Load the compiled contract and derive the address before deploying it.
 const artifact = await readFile(
@@ -65,23 +60,27 @@ const contract: Contract = {
 };
 const contractHash = hashContract(contract);
 const deployedAddress = deriveContractAddress(
-  senderAddress,
+  account.address,
   deploymentNonce,
   contractHash,
 );
 
-// Deploy through the sender's DevWallet and wait for the transaction to commit.
+// Deployment is a wallet-specific root operation, so use the explicit escape
+// hatch and include the artifact in this transaction.
 const deployInvocation = DevWallet.deploy.invocation(
-  senderAddress,
+  account.address,
   walletGasLimit,
   {
     nonce: fixedBytes(deploymentNonce, 32),
     contractHash: fixedBytes(contractHash, 32),
   },
 );
-const deployHash = await submit(deployInvocation, [contract]);
+const deployHash = await wallet.sendInvocation({
+  invocation: deployInvocation,
+  contractsToDeploy: [contract],
+});
 const { value: returnedAddress } = DevWallet.deploy.decodeReceipt(
-  await client.waitForTransactionReceipt(deployHash),
+  await wallet.waitForTransactionReceipt(deployHash),
 );
 if (toHex0x(returnedAddress) !== toHex0x(deployedAddress)) {
   throw new Error(
@@ -89,36 +88,33 @@ if (toHex0x(returnedAddress) !== toHex0x(deployedAddress)) {
   );
 }
 
-// Build a Counter.increment call, then ask the wallet to execute it.
+// Normal contract calls are inner invocations wrapped by the configured
+// DevWallet adapter.
 const increment = Counter.increment.invocation(
   deployedAddress,
   counterGasLimit,
-  {
-    amount: 5n,
-  },
+  { amount: 5n },
 );
-const walletInvocation = DevWallet.doAction.invocation(
-  senderAddress,
-  walletGasLimit,
-  { invocationBytes: serialize(increment, codec.Invocation) },
-);
-const callHash = await submit(walletInvocation, []);
+const callHash = await wallet.execute({
+  invocation: increment,
+  gasLimit: walletGasLimit,
+});
 DevWallet.doAction.decodeReceipt(
-  await client.waitForTransactionReceipt(callHash),
+  await wallet.waitForTransactionReceipt(callHash),
 );
 
-// Read the committed value without submitting another transaction.
 const view = await Counter.get.view({
-  client,
+  client: wallet,
   contract: deployedAddress,
-  caller: senderAddress,
+  caller: account.address,
 });
 if (view.value !== 5n) {
   throw new Error(`Counter value is ${view.value}, expected 5`);
 }
 
 console.log({
-  rpcUrl,
+  rpcUrl: client.cluster.rpcUrl,
+  accountName: local.keyName,
   contractHash: toHex0x(contractHash),
   deploymentNonce: toHex0x(deploymentNonce),
   contractAddress: toHex0x(deployedAddress),
@@ -126,26 +122,3 @@ console.log({
   callTxHash: toHex0x(callHash),
   value: view.value.toString(),
 });
-
-async function submit(
-  invocation: Invocation,
-  contractsToDeploy: Contract[],
-): Promise<SHA256Hash> {
-  // This replay-protection nonce is separate from the deployment nonce above.
-  const tip = await client.getChainTip();
-  const tx = createTransaction({
-    invocation,
-    uniquifier: {
-      block_expiry_height: blockHeight(tip.height + 100n),
-      nonce: randomBytes(8).readBigUInt64BE(),
-    },
-    contracts_to_deploy: contractsToDeploy,
-    auth_claim: sourceAuthClaim,
-  });
-  const signed = await signTransaction(
-    tx,
-    [{ signer, publicKeyId: 0n }],
-    networkHash,
-  );
-  return client.sendTransaction(signed);
-}
