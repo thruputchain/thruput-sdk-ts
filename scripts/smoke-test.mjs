@@ -22,9 +22,11 @@ const requiredExports = {
     "ContractViewError",
     "HttpTransport",
     "PrivateKeySigner",
+    "connectGroundhogClient",
     "createGroundhogClient",
     "createTransaction",
     "defineContractMethod",
+    "devnet",
   ],
   "./transaction": [
     "createInvocation",
@@ -55,7 +57,13 @@ const requiredExports = {
     "decodeERC20Event",
   ],
   "./signers": ["PrivateKeySigner"],
-  "./actions": ["getChainTip", "getEvents", "sendTransaction", "view"],
+  "./actions": [
+    "getChainTip",
+    "getEvents",
+    "getNetworkInfo",
+    "sendTransaction",
+    "view",
+  ],
   "./local-dev": ["loadLocalDevAccount"],
 };
 

@@ -1,8 +1,19 @@
 import type {
+  ClusterHasCapability,
+  Cluster,
+  ConnectedGroundhogClient,
   ContractMethod,
   ContractViewOutcome,
   GroundhogClient,
 } from "@groundhogchain/client";
+import {
+  connectGroundhogClient,
+  customCluster,
+  devnet,
+  localnet,
+  mainnet,
+} from "@groundhogchain/client";
+import type { Transport } from "@groundhogchain/client/transport";
 import {
   ContractDecodeError,
   defineContractMethod,
@@ -95,4 +106,40 @@ async function packageBoundaryTypecheck(
   void localDevAccount;
 }
 
+function clusterBoundaryTypecheck(transport: Transport): void {
+  const dev = devnet();
+  const local = localnet();
+  const production = mainnet();
+  const custom = customCluster({
+    networkId: "private-devnet",
+    capabilities: ["airdrop"],
+  });
+
+  const devCapability: "airdrop" = dev.capabilities[0];
+  const localSupportsAirdrop: ClusterHasCapability<typeof local, "airdrop"> =
+    true;
+  const mainnetSupportsAirdrop: ClusterHasCapability<
+    typeof production,
+    "airdrop"
+  > = false;
+  const widenedSupportsAirdrop: ClusterHasCapability<Cluster, "airdrop"> =
+    false;
+  const mixedSupportsAirdrop: ClusterHasCapability<
+    typeof dev | typeof production,
+    "airdrop"
+  > = false;
+  const customCapability: "airdrop" = custom.capabilities[0];
+  const connected: Promise<ConnectedGroundhogClient<typeof dev>> =
+    connectGroundhogClient({ cluster: dev, transport });
+
+  void devCapability;
+  void localSupportsAirdrop;
+  void mainnetSupportsAirdrop;
+  void widenedSupportsAirdrop;
+  void mixedSupportsAirdrop;
+  void customCapability;
+  void connected;
+}
+
 void packageBoundaryTypecheck;
+void clusterBoundaryTypecheck;

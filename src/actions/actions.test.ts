@@ -18,6 +18,7 @@ import { signTransaction } from "../transaction/sign.js";
 import { MockTransport } from "../transport/mock.js";
 import { sendTransaction } from "./wallet/sendTransaction.js";
 import { getChainTip } from "./public/getChainTip.js";
+import { getNetworkInfo } from "./public/getNetworkInfo.js";
 import { getBalance } from "./public/getBalance.js";
 import { getBlockByNumber } from "./public/getBlockByNumber.js";
 import { getPendingTransactionCount } from "./public/getPendingTransactionCount.js";
@@ -89,6 +90,56 @@ describe("getChainTip", () => {
     await sendTransaction(transport, signedTx);
     const tip = await getChainTip(transport);
     expect(tip.height).toBe(1n);
+  });
+});
+
+describe("getNetworkInfo", () => {
+  it("requests immutable network identity without parameters", async () => {
+    const calls: { method: string; params?: unknown[] }[] = [];
+    const transport: Transport = {
+      async request<T>(method: string, params?: unknown[]): Promise<T> {
+        calls.push({ method, params });
+        return {
+          networkId: "devnet-preview",
+          genesisHash: "0x" + "ab".repeat(32),
+          futureField: true,
+        } as T;
+      },
+    };
+
+    const network = await getNetworkInfo(transport);
+
+    expect(calls).toEqual([
+      { method: "groundhog_networkInfo", params: undefined },
+    ]);
+    expect(network.networkId).toBe("devnet-preview");
+    expect(network.genesisHash).toEqual(new Uint8Array(32).fill(0xab));
+  });
+
+  it("returns localnet identity from the mock transport", async () => {
+    const network = await getNetworkInfo(new MockTransport());
+
+    expect(network.networkId).toBe("localnet");
+    expect(network.genesisHash).toEqual(new Uint8Array(32));
+  });
+
+  it.each([
+    null,
+    {},
+    { networkId: "", genesisHash: "0x" + "00".repeat(32) },
+    { networkId: "localnet", genesisHash: "00".repeat(32) },
+    { networkId: "localnet", genesisHash: "0x" + "AA".repeat(32) },
+    { networkId: "localnet", genesisHash: "0x00" },
+  ])("rejects malformed network identity: %j", async (result) => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return result as T;
+      },
+    };
+
+    await expect(getNetworkInfo(transport)).rejects.toThrow(
+      /Invalid network info response/,
+    );
   });
 });
 

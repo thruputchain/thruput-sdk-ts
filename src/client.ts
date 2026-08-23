@@ -18,8 +18,12 @@ import type {
   EventQuery,
   EventPage,
   StorageItemRead,
+  NetworkInfo,
 } from "./types/rpc.js";
+import type { Cluster } from "./cluster.js";
+import { assertNetworkMatchesCluster } from "./cluster.js";
 import { getChainTip } from "./actions/public/getChainTip.js";
+import { getNetworkInfo } from "./actions/public/getNetworkInfo.js";
 import { getBalance } from "./actions/public/getBalance.js";
 import { getBlockByNumber } from "./actions/public/getBlockByNumber.js";
 import { getPendingTransactionCount } from "./actions/public/getPendingTransactionCount.js";
@@ -44,6 +48,9 @@ import { sendTransaction } from "./actions/wallet/sendTransaction.js";
  * transport into every action call.
  */
 export interface GroundhogClient {
+  /** Return the immutable identity configured for the RPC endpoint. */
+  getNetworkInfo(): Promise<NetworkInfo>;
+
   /** Return the latest block height and hash reported by the gateway. */
   getChainTip(): Promise<ChainTip>;
 
@@ -115,6 +122,7 @@ export interface GroundhogClient {
  */
 export function createGroundhogClient(transport: Transport): GroundhogClient {
   return {
+    getNetworkInfo: () => getNetworkInfo(transport),
     getChainTip: () => getChainTip(transport),
     getBalance: (address) => getBalance(transport, address),
     getBlockByNumber: (height) => getBlockByNumber(transport, height),
@@ -131,4 +139,38 @@ export function createGroundhogClient(transport: Transport): GroundhogClient {
     getStorageAt: (address, key) => getStorageAt(transport, address, key),
     sendTransaction: (signedTx) => sendTransaction(transport, signedTx),
   };
+}
+
+/** A client whose RPC endpoint has been validated against a cluster. */
+export interface ConnectedGroundhogClient<
+  TCluster extends Cluster = Cluster,
+> extends GroundhogClient {
+  /** Cluster descriptor used to validate this client. */
+  readonly cluster: TCluster;
+
+  /** Identity returned by the endpoint during connection. */
+  readonly network: NetworkInfo;
+}
+
+/** Options for connecting and validating a cluster-aware client. */
+export interface ConnectGroundhogClientOptions<
+  TCluster extends Cluster = Cluster,
+> {
+  readonly cluster: TCluster;
+  readonly transport: Transport;
+}
+
+/**
+ * Create a client after validating the endpoint's runtime network identity.
+ *
+ * Use {@link createGroundhogClient} instead for an unqualified endpoint when
+ * runtime identity validation is not required.
+ */
+export async function connectGroundhogClient<TCluster extends Cluster>(
+  options: ConnectGroundhogClientOptions<TCluster>,
+): Promise<ConnectedGroundhogClient<TCluster>> {
+  const client = createGroundhogClient(options.transport);
+  const network = await client.getNetworkInfo();
+  assertNetworkMatchesCluster(options.cluster, network);
+  return Object.assign(client, { cluster: options.cluster, network });
 }

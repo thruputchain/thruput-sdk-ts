@@ -19,6 +19,8 @@ export class MockTransport implements Transport {
   /** Route a supported JSON-RPC method to the mock implementation. */
   async request<T = unknown>(method: string, params?: unknown[]): Promise<T> {
     switch (method) {
+      case "groundhog_networkInfo":
+        return this.#networkInfo() as T;
       case "groundhog_chainTip":
         return this.#chainTip() as T;
       case "groundhog_getBalance":
@@ -46,6 +48,13 @@ export class MockTransport implements Transport {
       default:
         throw new Error(`MockTransport: method not implemented: ${method}`);
     }
+  }
+
+  #networkInfo(): { networkId: string; genesisHash: string } {
+    return {
+      networkId: "localnet",
+      genesisHash: "0x" + "00".repeat(32),
+    };
   }
 
   #chainTip(): { height: number; blockHash: string } {

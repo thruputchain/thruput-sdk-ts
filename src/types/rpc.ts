@@ -10,6 +10,15 @@ import type {
 /** Execution result enum returned in transaction receipts. */
 export type { ExecResult } from "@groundhogchain/protocol";
 
+/** Immutable identity configured for a Groundhog RPC endpoint. */
+export interface NetworkInfo {
+  /** Stable logical identifier for the network deployment. */
+  networkId: string;
+
+  /** Hash of the materialized genesis state. */
+  genesisHash: SHA256Hash;
+}
+
 /** Latest chain tip reported by the JSON-RPC gateway. */
 export interface ChainTip {
   /** Latest block height known to the gateway. */

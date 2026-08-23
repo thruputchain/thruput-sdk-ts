@@ -27,12 +27,32 @@ export {
 export type { HttpTransportOptions } from "./transport/index.js";
 export type { Signer } from "./signers/index.js";
 export { PrivateKeySigner } from "./signers/index.js";
-export { createGroundhogClient } from "./client.js";
+export { createGroundhogClient, connectGroundhogClient } from "./client.js";
+export {
+  devnet,
+  mainnet,
+  localnet,
+  customCluster,
+  defineCluster,
+  assertNetworkMatchesCluster,
+  NetworkMismatchError,
+} from "./cluster.js";
+export type {
+  ConnectedGroundhogClient,
+  ConnectGroundhogClientOptions,
+  GroundhogClient,
+} from "./client.js";
+export type {
+  Cluster,
+  ClusterCapability,
+  ClusterHasCapability,
+  ClusterName,
+  PredefinedClusterOptions,
+} from "./cluster.js";
 export { derivePubkeyAccountAddress } from "./derivation/pubkeyAccount.js";
 export { hashSignedTransaction } from "./derivation/transactionHash.js";
 export {
   deriveEntrypointID,
   majorVersionFromSemver,
 } from "./derivation/entrypointId.js";
-export type { GroundhogClient } from "./client.js";
 export type * from "./types/rpc.js";

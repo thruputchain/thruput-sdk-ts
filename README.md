@@ -30,6 +30,30 @@ const tip = await client.getChainTip();
 const txHash = await client.sendTransaction(signedTransaction);
 ```
 
+Use a cluster-aware client when the application must validate the endpoint
+before making requests:
+
+```ts
+import {
+  connectGroundhogClient,
+  devnet,
+  HttpTransport,
+} from "@groundhogchain/client";
+
+const client = await connectGroundhogClient({
+  cluster: devnet(),
+  transport: new HttpTransport("https://rpc.example.com"),
+});
+
+console.log(client.network.networkId);
+```
+
+The predefined clusters are `mainnet`, `devnet`, and `localnet`. Use
+`customCluster` to declare a deployment-specific network ID and capabilities.
+Supply a genesis hash to any cluster descriptor when the application must pin
+one materialized genesis state. The existing `createGroundhogClient` remains
+appropriate for unknown endpoints and performs no runtime identity validation.
+
 Generated contract bindings are exported separately:
 
 ```ts
