@@ -95,6 +95,73 @@ const faucet = await loadLocalDevAccount({ role: "faucet" });
 The `local-dev` entrypoint is for local development only. Its deterministic
 signers must never be used with production networks or funds of value.
 
+## Wallet clients
+
+A wallet client binds account authorization and signers to an existing client:
+
+```ts
+import {
+  connectGroundhogClient,
+  createPubkeyAccount,
+  createWalletClient,
+  devnet,
+  PrivateKeySigner,
+} from "@groundhogchain/client";
+
+const client = await connectGroundhogClient({ cluster: devnet() });
+const signer = new PrivateKeySigner(secretKey);
+const account = createPubkeyAccount({ signer, nonce: 0n });
+const wallet = createWalletClient({ client, account });
+
+await wallet.requestAirdrop();
+const balance = await wallet.getBalance();
+```
+
+Use `createSourceAddressAccount` for an existing account contract, including
+the wallets created by `groundhog node`:
+
+```ts
+import { bitMap, weight } from "@groundhogchain/protocol";
+import {
+  createSourceAddressAccount,
+  createWalletClient,
+} from "@groundhogchain/client";
+import { loadLocalDevAccount } from "@groundhogchain/client/local-dev";
+
+const local = await loadLocalDevAccount();
+const account = createSourceAddressAccount({
+  address: local.address,
+  signers: [{ signer: local.signer, publicKeyId: 0n }],
+  allowedKeys: bitMap(0x01n),
+  requiredWeight: weight(1n),
+});
+const wallet = createWalletClient({ client, account });
+```
+
+Wallet clients prepare fresh transaction expiry and replay nonces, sign with
+the account's configured signers, and submit explicit root invocations:
+
+```ts
+const transaction = await wallet.prepareTransaction({
+  invocation: rootInvocation,
+  expiryBlocks: 100n,
+});
+const signed = await wallet.signTransaction(transaction);
+const submittedHash = await wallet.sendTransaction(signed);
+
+const txHash = await wallet.sendInvocation({ invocation: rootInvocation });
+const receipt = await wallet.waitForTransactionReceipt(txHash);
+```
+
+`prepareTransaction` accepts explicit `nonce`, `blockExpiryHeight`,
+`expiryBlocks`, and `contractsToDeploy` overrides. Without overrides it uses a
+cryptographically random 64-bit nonce and expires 100 blocks after the current
+chain tip.
+
+Source-address wallet contracts still control invocation wrapping. Construct
+the wallet contract's root invocation explicitly before calling
+`sendInvocation`.
+
 ## Examples
 
 - [`chain-tip.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/chain-tip.ts) reads the latest block height and hash.

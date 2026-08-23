@@ -7,9 +7,12 @@ import type {
   ContractMethod,
   ContractViewOutcome,
   GroundhogClient,
+  WalletClient,
 } from "@groundhogchain/client";
 import {
   connectGroundhogClient,
+  createSourceAddressAccount,
+  createWalletClient,
   customCluster,
   devnet,
   localnet,
@@ -35,7 +38,11 @@ import type {
   ContractAddress,
   GasAmount,
   Invocation,
+  Transaction,
+  BitMap,
+  Weight,
 } from "@groundhogchain/protocol";
+import type { Signer } from "@groundhogchain/client/signers";
 import {
   loadLocalDevAccount,
   type LoadLocalDevAccountOptions,
@@ -171,5 +178,35 @@ function clusterBoundaryTypecheck(
   void defaultConnected;
 }
 
+function walletBoundaryTypecheck(
+  client: GroundhogClient,
+  address: ContractAddress,
+  signer: Signer,
+  allowedKeys: BitMap,
+  requiredWeight: Weight,
+  invocation: Invocation,
+  transaction: Transaction,
+): void {
+  const account = createSourceAddressAccount({
+    address,
+    signers: [{ signer, publicKeyId: 0n }],
+    allowedKeys,
+    requiredWeight,
+  });
+  const wallet: WalletClient<GroundhogClient, typeof account> =
+    createWalletClient({ client, account });
+
+  wallet.getBalance();
+  wallet.getBalance(address);
+  wallet.requestAirdrop();
+  wallet.prepareTransaction({
+    invocation,
+    nonce: 1n,
+  });
+  wallet.signTransaction(transaction);
+  wallet.sendInvocation({ invocation });
+}
+
 void packageBoundaryTypecheck;
 void clusterBoundaryTypecheck;
+void walletBoundaryTypecheck;

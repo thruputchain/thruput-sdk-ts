@@ -168,6 +168,39 @@ describe("signTransaction", () => {
       signed.signatures[1].signature.ed25519,
     );
   });
+
+  it("snapshots the transaction and key IDs before asynchronous signing", async () => {
+    const baseSigner = new PrivateKeySigner(new Uint8Array(32).fill(3));
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const delayedSigner = {
+      publicKey: baseSigner.publicKey,
+      async sign(message: Uint8Array) {
+        await gate;
+        return baseSigner.sign(message);
+      },
+    };
+    const tx = makeDummyTransaction();
+    const entry = { signer: delayedSigner, publicKeyId: 0n };
+    const pending = signTransaction(tx, [entry]);
+
+    tx.invocation.calldata.fill(0xff);
+    entry.publicKeyId = 1n;
+    release();
+    const signed = await pending;
+
+    expect(signed.tx.invocation.calldata).toEqual(new Uint8Array([1, 2, 3, 4]));
+    expect(signed.signatures[0]!.public_key_id).toBe(0n);
+    expect(
+      verify(
+        signed.signatures[0]!.signature.ed25519,
+        serialize(signed.tx, codec.Transaction),
+        baseSigner.publicKey.ed25519,
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("transactionSignaturePreimage", () => {

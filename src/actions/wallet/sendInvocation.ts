@@ -1,0 +1,31 @@
+import type {
+  SHA256Hash,
+  SignedTransaction,
+  Transaction,
+} from "@groundhogchain/protocol";
+import type { CoreGroundhogClient } from "../../client.js";
+import type { WalletAccount } from "../../wallet/account.js";
+import { signTransaction as sign } from "../../transaction/sign.js";
+import {
+  prepareTransaction,
+  type PrepareTransactionRequest,
+} from "./prepareTransaction.js";
+
+/** Sign a transaction with a wallet account's configured signers. */
+export function signWalletTransaction(
+  account: WalletAccount,
+  transaction: Transaction,
+): Promise<SignedTransaction> {
+  return sign(transaction, account.signers);
+}
+
+/** Prepare, sign, and submit one explicit root invocation. */
+export async function sendInvocation(
+  client: Pick<CoreGroundhogClient, "getChainTip" | "sendTransaction">,
+  account: WalletAccount,
+  request: PrepareTransactionRequest,
+): Promise<SHA256Hash> {
+  const transaction = await prepareTransaction(client, account, request);
+  const signed = await signWalletTransaction(account, transaction);
+  return client.sendTransaction(signed);
+}
