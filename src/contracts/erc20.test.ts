@@ -8,7 +8,7 @@ import {
   weight,
   sha256Hash,
 } from "@groundhogchain/protocol";
-import { hashSignedTransaction } from "@groundhogchain/protocol/utils";
+import { hashSignedTransaction } from "../derivation/transactionHash.js";
 import { PrivateKeySigner } from "../signers/privateKey.js";
 import { createTransaction } from "../transaction/build.js";
 import { signTransaction } from "../transaction/sign.js";

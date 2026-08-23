@@ -13,10 +13,8 @@ import {
   toHex,
   sha256Hash,
 } from "@groundhogchain/protocol";
-import {
-  deriveEntrypointID,
-  hashSignedTransaction,
-} from "@groundhogchain/protocol/utils";
+import { deriveEntrypointID } from "./derivation/entrypointId.js";
+import { hashSignedTransaction } from "./derivation/transactionHash.js";
 import {
   contractSpecString,
   ContractTypeKind,
@@ -159,12 +157,11 @@ describe("end-to-end: build, sign, serialize an ERC20 transfer", () => {
     expect(decoded.to).toEqual(recipient);
     expect(decoded.amount).toBe(amount);
 
-    // Hash is deterministic. The value moved when the signature preimage
-    // gained its domain separator and network hash: hashSignedTransaction
-    // covers the signatures, so a new signature is a new hash.
+    // Hash is deterministic, and now covers the inner transaction only, so it
+    // no longer moves when the signature bytes do.
     const txHash = hashSignedTransaction(signed);
     expect(toHex(txHash)).toBe(
-      "0c7aa73c558033524181e6c9eef7a91bb54ae229b27d3117642b1519d3ccb22a",
+      "b7c97dc9323aa4015e0e6068a0f518cbbb94bf82b9794a06adb65761e845aaa1",
     );
     const txHash2 = hashSignedTransaction(restored);
     expect(txHash2).toEqual(txHash);
