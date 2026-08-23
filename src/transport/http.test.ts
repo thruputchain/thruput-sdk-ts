@@ -92,4 +92,21 @@ describe("HttpTransport", () => {
       }).request("groundhog_version"),
     ).rejects.toMatchObject({ name: "AbortError" });
   });
+
+  it("forwards per-request cancellation to fetch", async () => {
+    const fetchMock: typeof fetch = async (_url, init) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => {
+          reject(init.signal?.reason);
+        });
+      });
+    const abort = new AbortController();
+    const result = new HttpTransport("http://localhost", {
+      fetch: fetchMock,
+    }).request("groundhog_requestAirdrop", [], { signal: abort.signal });
+
+    abort.abort(new Error("cancelled"));
+
+    await expect(result).rejects.toThrow("cancelled");
+  });
 });

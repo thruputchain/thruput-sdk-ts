@@ -19,6 +19,46 @@ export interface NetworkInfo {
   genesisHash: SHA256Hash;
 }
 
+/** One idempotent airdrop attempt. */
+export interface AirdropAttemptRequest {
+  /** Address to fund. */
+  recipient: ContractAddress;
+
+  /** Caller-generated 1-32 byte idempotency key. */
+  clientNonce: Uint8Array;
+}
+
+/** Execution status attached to a committed airdrop transaction. */
+export type AirdropExecutionStatus =
+  | { result: "ok" }
+  | { result: "reverted"; message?: string | null }
+  | { result: "deterministicError"; kind: string }
+  | { result: "nonDeterministicError" }
+  | { result: "failedGasSponsorship" }
+  | { result: "other" };
+
+/** Airdrop attempt accepted but not yet committed. */
+export interface AirdropPending {
+  attemptStatus: "pending";
+  recipient: ContractAddress;
+  rawAmount: bigint;
+  txHash?: SHA256Hash;
+  retryAfterSeconds: number;
+}
+
+/** Airdrop transaction committed to the network. */
+export interface AirdropSucceeded {
+  attemptStatus: "succeeded";
+  recipient: ContractAddress;
+  rawAmount: bigint;
+  txHash: SHA256Hash;
+  height: bigint;
+  status: AirdropExecutionStatus;
+}
+
+/** Tagged result of one airdrop attempt request. */
+export type AirdropResponse = AirdropPending | AirdropSucceeded;
+
 /** Latest chain tip reported by the JSON-RPC gateway. */
 export interface ChainTip {
   /** Latest block height known to the gateway. */

@@ -17,7 +17,7 @@ export {
   hashFromHex,
   addressFromHex,
 } from "./actions/hex.js";
-export type { Transport } from "./transport/index.js";
+export type { Transport, TransportRequestOptions } from "./transport/index.js";
 export {
   GroundhogRpcErrorCode,
   HttpTransport,
@@ -36,10 +36,14 @@ export {
   defineCluster,
   assertNetworkMatchesCluster,
   NetworkMismatchError,
+  DEVNET_RPC_URL,
+  LOCALNET_RPC_URL,
 } from "./cluster.js";
 export type {
   ConnectedGroundhogClient,
   ConnectGroundhogClientOptions,
+  CoreGroundhogClient,
+  AirdropActions,
   GroundhogClient,
 } from "./client.js";
 export type {

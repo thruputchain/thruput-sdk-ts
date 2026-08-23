@@ -61,6 +61,8 @@ const requiredExports = {
     "getChainTip",
     "getEvents",
     "getNetworkInfo",
+    "requestAirdrop",
+    "requestAirdropAttempt",
     "sendTransaction",
     "view",
   ],

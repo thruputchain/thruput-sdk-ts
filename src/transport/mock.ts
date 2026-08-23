@@ -21,6 +21,8 @@ export class MockTransport implements Transport {
     switch (method) {
       case "groundhog_networkInfo":
         return this.#networkInfo() as T;
+      case "groundhog_requestAirdrop":
+        return this.#requestAirdrop(params) as T;
       case "groundhog_chainTip":
         return this.#chainTip() as T;
       case "groundhog_getBalance":
@@ -54,6 +56,25 @@ export class MockTransport implements Transport {
     return {
       networkId: "localnet",
       genesisHash: "0x" + "00".repeat(32),
+    };
+  }
+
+  #requestAirdrop(params?: unknown[]): {
+    attemptStatus: "succeeded";
+    recipient: string;
+    rawAmount: string;
+    txHash: string;
+    height: number;
+    status: { result: "ok" };
+  } {
+    const request = (params?.[0] ?? {}) as { recipient?: unknown };
+    return {
+      attemptStatus: "succeeded",
+      recipient: String(request.recipient ?? "0x"),
+      rawAmount: "100000000",
+      txHash: this.#blockHash(this.#height),
+      height: Number(this.#height),
+      status: { result: "ok" },
     };
   }
 

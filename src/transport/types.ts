@@ -11,5 +11,15 @@ export interface Transport {
    *
    * @typeParam T - Expected JSON-RPC result type before action-level parsing.
    */
-  request<T = unknown>(method: string, params?: unknown[]): Promise<T>;
+  request<T = unknown>(
+    method: string,
+    params?: unknown[],
+    options?: TransportRequestOptions,
+  ): Promise<T>;
+}
+
+/** Per-request transport controls supported by built-in transports. */
+export interface TransportRequestOptions {
+  /** Cancel the in-flight transport operation. */
+  readonly signal?: AbortSignal;
 }

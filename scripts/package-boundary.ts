@@ -1,4 +1,6 @@
 import type {
+  AirdropResponse,
+  AirdropSucceeded,
   ClusterHasCapability,
   Cluster,
   ConnectedGroundhogClient,
@@ -95,6 +97,21 @@ async function packageBoundaryTypecheck(
   void ContractDecodeError;
   void defineContractMethod;
 
+  const attempt: Promise<AirdropResponse> = client.requestAirdropAttempt(
+    {
+      recipient,
+      clientNonce: new Uint8Array(16),
+    },
+    {
+      signal: new AbortController().signal,
+    },
+  );
+  const airdrop: Promise<AirdropSucceeded> = client.requestAirdrop({
+    recipient,
+  });
+  void attempt;
+  void airdrop;
+
   const localDevRole: LocalDevAccountRole = "faucet";
   const localDevOptions: LoadLocalDevAccountOptions = {
     role: localDevRole,
@@ -106,12 +123,16 @@ async function packageBoundaryTypecheck(
   void localDevAccount;
 }
 
-function clusterBoundaryTypecheck(transport: Transport): void {
+function clusterBoundaryTypecheck(
+  transport: Transport,
+  recipient: ContractAddress,
+): void {
   const dev = devnet();
   const local = localnet();
   const production = mainnet();
   const custom = customCluster({
     networkId: "private-devnet",
+    rpcUrl: "https://rpc.example.com",
     capabilities: ["airdrop"],
   });
 
@@ -131,6 +152,14 @@ function clusterBoundaryTypecheck(transport: Transport): void {
   const customCapability: "airdrop" = custom.capabilities[0];
   const connected: Promise<ConnectedGroundhogClient<typeof dev>> =
     connectGroundhogClient({ cluster: dev, transport });
+  const defaultConnected: Promise<ConnectedGroundhogClient<typeof dev>> =
+    connectGroundhogClient({ cluster: dev });
+
+  connected.then((client) => client.requestAirdrop({ recipient }));
+  connectGroundhogClient({ cluster: production, transport }).then((client) => {
+    // @ts-expect-error Mainnet clients do not expose airdrop actions.
+    client.requestAirdrop({ recipient });
+  });
 
   void devCapability;
   void localSupportsAirdrop;
@@ -139,6 +168,7 @@ function clusterBoundaryTypecheck(transport: Transport): void {
   void mixedSupportsAirdrop;
   void customCapability;
   void connected;
+  void defaultConnected;
 }
 
 void packageBoundaryTypecheck;

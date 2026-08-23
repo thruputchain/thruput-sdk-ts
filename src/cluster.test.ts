@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { hashFromHex } from "./actions/hex.js";
 import {
   NetworkMismatchError,
@@ -7,6 +7,8 @@ import {
   devnet,
   localnet,
   mainnet,
+  DEVNET_RPC_URL,
+  LOCALNET_RPC_URL,
 } from "./cluster.js";
 import { connectGroundhogClient } from "./client.js";
 import type { Transport } from "./transport/types.js";
@@ -41,11 +43,13 @@ describe("cluster descriptors", () => {
     expect(devnet()).toEqual({
       name: "devnet",
       networkId: "devnet-preview",
+      rpcUrl: DEVNET_RPC_URL,
       capabilities: ["airdrop"],
     });
     expect(localnet()).toEqual({
       name: "localnet",
       networkId: "localnet",
+      rpcUrl: LOCALNET_RPC_URL,
       capabilities: ["airdrop"],
     });
   });
@@ -56,14 +60,29 @@ describe("cluster descriptors", () => {
     expect(
       customCluster({
         networkId: "company-devnet",
+        rpcUrl: "https://rpc.company.example",
         genesisHash,
         capabilities: ["airdrop"],
       }),
     ).toEqual({
       name: "custom",
       networkId: "company-devnet",
+      rpcUrl: "https://rpc.company.example",
       genesisHash,
       capabilities: ["airdrop"],
+    });
+  });
+
+  it("allows transport-only custom clusters without a default URL", () => {
+    expect(
+      customCluster({
+        networkId: "transport-only",
+        capabilities: [],
+      }),
+    ).toEqual({
+      name: "custom",
+      networkId: "transport-only",
+      capabilities: [],
     });
   });
 
@@ -75,6 +94,15 @@ describe("cluster descriptors", () => {
         capabilities: [],
       }),
     ).toThrow("Cluster networkId must not be empty");
+  });
+
+  it("supports endpoint overrides and rejects invalid URLs", () => {
+    expect(devnet({ rpcUrl: "https://rpc.devnet.example" }).rpcUrl).toBe(
+      "https://rpc.devnet.example",
+    );
+    expect(() => localnet({ rpcUrl: "not-a-url" })).toThrow(
+      "Cluster rpcUrl must be an absolute HTTP URL",
+    );
   });
 });
 
@@ -88,7 +116,52 @@ describe("connectGroundhogClient", () => {
 
     expect(client.cluster).toBe(cluster);
     expect(client.network.networkId).toBe("localnet");
+    expect(client.requestAirdrop).toBeTypeOf("function");
     await expect(client.getChainTip()).resolves.toMatchObject({ height: 0n });
+  });
+
+  it("omits unavailable capabilities at runtime", async () => {
+    const client = await connectGroundhogClient({
+      cluster: mainnet(),
+      transport: networkTransport("mainnet", "22"),
+    });
+
+    expect(client).not.toHaveProperty("requestAirdrop");
+    expect(client).not.toHaveProperty("requestAirdropAttempt");
+  });
+
+  it("uses the cluster's default HTTP endpoint", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      Response.json({
+        jsonrpc: "2.0",
+        id: 1,
+        result: {
+          networkId: "localnet",
+          genesisHash: "0x" + "00".repeat(32),
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const client = await connectGroundhogClient({ cluster: localnet() });
+
+      expect(client.network.networkId).toBe("localnet");
+      expect(fetchMock).toHaveBeenCalledWith(
+        LOCALNET_RPC_URL,
+        expect.objectContaining({ method: "POST" }),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("requires an explicit endpoint for mainnet", async () => {
+    await expect(
+      connectGroundhogClient({ cluster: mainnet() }),
+    ).rejects.toThrow(
+      "Cluster mainnet has no default RPC URL; provide a transport or rpcUrl",
+    );
   });
 
   it("accepts an unpinned resettable network genesis", async () => {

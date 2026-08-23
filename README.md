@@ -34,25 +34,36 @@ Use a cluster-aware client when the application must validate the endpoint
 before making requests:
 
 ```ts
-import {
-  connectGroundhogClient,
-  devnet,
-  HttpTransport,
-} from "@groundhogchain/client";
+import { connectGroundhogClient, devnet } from "@groundhogchain/client";
 
 const client = await connectGroundhogClient({
   cluster: devnet(),
-  transport: new HttpTransport("https://rpc.example.com"),
 });
 
 console.log(client.network.networkId);
 ```
 
+Development clusters expose a typed airdrop action. It generates an
+idempotency nonce and polls pending attempts until the transfer commits:
+
+```ts
+const airdrop = await client.requestAirdrop({ recipient: accountAddress });
+console.log(airdrop.txHash, airdrop.rawAmount);
+```
+
+Remote airdrops retain the faucet's per-recipient cooldown and share the
+gateway's configured aggregate quota. Localnet airdrops are unlimited. Use
+`requestAirdropAttempt` when an application needs to persist the nonce or
+control polling itself.
+
 The predefined clusters are `mainnet`, `devnet`, and `localnet`. Use
 `customCluster` to declare a deployment-specific network ID and capabilities.
-Supply a genesis hash to any cluster descriptor when the application must pin
-one materialized genesis state. The existing `createGroundhogClient` remains
-appropriate for unknown endpoints and performs no runtime identity validation.
+Devnet and localnet include default RPC URLs; pass `rpcUrl` to override them.
+Mainnet has no default endpoint yet. Supply a genesis hash to any cluster
+descriptor when the application must pin one materialized genesis state. Pass
+an explicit transport for custom headers or request handling. The existing
+`createGroundhogClient` remains appropriate for unknown endpoints and performs
+no runtime identity validation.
 
 Generated contract bindings are exported separately:
 

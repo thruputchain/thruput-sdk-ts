@@ -1,4 +1,4 @@
-import type { Transport } from "./types.js";
+import type { Transport, TransportRequestOptions } from "./types.js";
 
 /** JSON-RPC error codes currently returned by Groundhog gateways. */
 export const GroundhogRpcErrorCode = {
@@ -84,7 +84,11 @@ export class HttpTransport implements Transport {
   }
 
   /** Send one JSON-RPC request and return the decoded `result` value. */
-  async request<T = unknown>(method: string, params?: unknown[]): Promise<T> {
+  async request<T = unknown>(
+    method: string,
+    params?: unknown[],
+    options: TransportRequestOptions = {},
+  ): Promise<T> {
     const id = this.#nextId++;
     const body = JSON.stringify({
       jsonrpc: "2.0",
@@ -94,6 +98,10 @@ export class HttpTransport implements Transport {
     });
 
     const abort = this.#timeoutMs ? new AbortController() : undefined;
+    const signal =
+      abort && options.signal
+        ? AbortSignal.any([abort.signal, options.signal])
+        : (abort?.signal ?? options.signal);
     const timeout = abort
       ? setTimeout(() => abort.abort(), this.#timeoutMs)
       : undefined;
@@ -103,7 +111,7 @@ export class HttpTransport implements Transport {
         method: "POST",
         headers: { "Content-Type": "application/json", ...this.#headers },
         body,
-        signal: abort?.signal,
+        signal,
       });
     } finally {
       if (timeout !== undefined) clearTimeout(timeout);

@@ -1,4 +1,5 @@
-import type { Transport } from "./transport/types.js";
+import type { Transport, TransportRequestOptions } from "./transport/types.js";
+import { HttpTransport } from "./transport/http.js";
 import type {
   ContractAddress,
   SHA256Hash,
@@ -20,10 +21,20 @@ import type {
   StorageItemRead,
   NetworkInfo,
 } from "./types/rpc.js";
-import type { Cluster } from "./cluster.js";
+import type { Cluster, ClusterHasCapability } from "./cluster.js";
 import { assertNetworkMatchesCluster } from "./cluster.js";
 import { getChainTip } from "./actions/public/getChainTip.js";
 import { getNetworkInfo } from "./actions/public/getNetworkInfo.js";
+import {
+  requestAirdrop,
+  requestAirdropAttempt,
+  type RequestAirdropOptions,
+} from "./actions/public/requestAirdrop.js";
+import type {
+  AirdropAttemptRequest,
+  AirdropResponse,
+  AirdropSucceeded,
+} from "./types/rpc.js";
 import { getBalance } from "./actions/public/getBalance.js";
 import { getBlockByNumber } from "./actions/public/getBlockByNumber.js";
 import { getPendingTransactionCount } from "./actions/public/getPendingTransactionCount.js";
@@ -47,7 +58,7 @@ import { sendTransaction } from "./actions/wallet/sendTransaction.js";
  * Use {@link createGroundhogClient} when application code should not pass a
  * transport into every action call.
  */
-export interface GroundhogClient {
+export interface CoreGroundhogClient {
   /** Return the immutable identity configured for the RPC endpoint. */
   getNetworkInfo(): Promise<NetworkInfo>;
 
@@ -103,6 +114,21 @@ export interface GroundhogClient {
   sendTransaction(signedTx: SignedTransaction): Promise<SHA256Hash>;
 }
 
+/** Airdrop actions available on development clusters and unqualified clients. */
+export interface AirdropActions {
+  /** Perform one airdrop attempt request without polling. */
+  requestAirdropAttempt(
+    request: AirdropAttemptRequest,
+    options?: TransportRequestOptions,
+  ): Promise<AirdropResponse>;
+
+  /** Request an airdrop and wait for it to commit. */
+  requestAirdrop(options: RequestAirdropOptions): Promise<AirdropSucceeded>;
+}
+
+/** Unqualified client with every supported SDK action. */
+export interface GroundhogClient extends CoreGroundhogClient, AirdropActions {}
+
 /**
  * Create a convenience client by binding all SDK actions to a transport.
  *
@@ -121,6 +147,13 @@ export interface GroundhogClient {
  * ```
  */
 export function createGroundhogClient(transport: Transport): GroundhogClient {
+  return Object.assign(
+    createCoreGroundhogClient(transport),
+    createAirdropActions(transport),
+  );
+}
+
+function createCoreGroundhogClient(transport: Transport): CoreGroundhogClient {
   return {
     getNetworkInfo: () => getNetworkInfo(transport),
     getChainTip: () => getChainTip(transport),
@@ -141,23 +174,34 @@ export function createGroundhogClient(transport: Transport): GroundhogClient {
   };
 }
 
-/** A client whose RPC endpoint has been validated against a cluster. */
-export interface ConnectedGroundhogClient<
-  TCluster extends Cluster = Cluster,
-> extends GroundhogClient {
-  /** Cluster descriptor used to validate this client. */
-  readonly cluster: TCluster;
-
-  /** Identity returned by the endpoint during connection. */
-  readonly network: NetworkInfo;
+function createAirdropActions(transport: Transport): AirdropActions {
+  return {
+    requestAirdropAttempt: (request, options) =>
+      requestAirdropAttempt(transport, request, options),
+    requestAirdrop: (options) => requestAirdrop(transport, options),
+  };
 }
+
+/** A client whose RPC endpoint has been validated against a cluster. */
+export type ConnectedGroundhogClient<TCluster extends Cluster = Cluster> =
+  CoreGroundhogClient &
+    (ClusterHasCapability<TCluster, "airdrop"> extends true
+      ? AirdropActions
+      : object) & {
+      /** Cluster descriptor used to validate this client. */
+      readonly cluster: TCluster;
+
+      /** Identity returned by the endpoint during connection. */
+      readonly network: NetworkInfo;
+    };
 
 /** Options for connecting and validating a cluster-aware client. */
 export interface ConnectGroundhogClientOptions<
   TCluster extends Cluster = Cluster,
 > {
   readonly cluster: TCluster;
-  readonly transport: Transport;
+  /** Custom transport. Defaults to an HTTP transport for `cluster.rpcUrl`. */
+  readonly transport?: Transport;
 }
 
 /**
@@ -169,8 +213,25 @@ export interface ConnectGroundhogClientOptions<
 export async function connectGroundhogClient<TCluster extends Cluster>(
   options: ConnectGroundhogClientOptions<TCluster>,
 ): Promise<ConnectedGroundhogClient<TCluster>> {
-  const client = createGroundhogClient(options.transport);
+  const transport = resolveClusterTransport(options);
+  const client = createCoreGroundhogClient(transport);
   const network = await client.getNetworkInfo();
   assertNetworkMatchesCluster(options.cluster, network);
-  return Object.assign(client, { cluster: options.cluster, network });
+  return Object.assign(
+    client,
+    options.cluster.capabilities.includes("airdrop")
+      ? createAirdropActions(transport)
+      : {},
+    { cluster: options.cluster, network },
+  ) as ConnectedGroundhogClient<TCluster>;
+}
+
+function resolveClusterTransport<TCluster extends Cluster>(
+  options: ConnectGroundhogClientOptions<TCluster>,
+): Transport {
+  if (options.transport) return options.transport;
+  if (options.cluster.rpcUrl) return new HttpTransport(options.cluster.rpcUrl);
+  throw new Error(
+    `Cluster ${options.cluster.name} has no default RPC URL; provide a transport or rpcUrl`,
+  );
 }

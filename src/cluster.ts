@@ -2,6 +2,12 @@ import type { SHA256Hash } from "@groundhogchain/protocol";
 import type { NetworkInfo } from "./types/rpc.js";
 import { toHex0x } from "./actions/hex.js";
 
+/** Public Groundhog Devnet JSON-RPC endpoint. */
+export const DEVNET_RPC_URL = "http://44.236.180.135:8545";
+
+/** Default JSON-RPC endpoint for `groundhog node`. */
+export const LOCALNET_RPC_URL = "http://127.0.0.1:9545";
+
 /** Optional feature exposed by a Groundhog cluster. */
 export type ClusterCapability = "airdrop";
 
@@ -19,6 +25,9 @@ export interface Cluster<
 
   /** Exact logical network identifier returned by `groundhog_networkInfo`. */
   readonly networkId: string;
+
+  /** Default JSON-RPC endpoint, when the cluster has one. */
+  readonly rpcUrl?: string;
 
   /** Optional genesis hash pin for deployments that require exact identity. */
   readonly genesisHash?: SHA256Hash;
@@ -45,6 +54,9 @@ export type ClusterHasCapability<
 
 /** Options shared by predefined cluster descriptors. */
 export interface PredefinedClusterOptions {
+  /** Override the cluster's default JSON-RPC endpoint. */
+  readonly rpcUrl?: string;
+
   /** Pin the endpoint to one materialized genesis state. */
   readonly genesisHash?: SHA256Hash;
 }
@@ -57,6 +69,7 @@ export function defineCluster<
   if (cluster.networkId.trim().length === 0) {
     throw new Error("Cluster networkId must not be empty");
   }
+  if (cluster.rpcUrl !== undefined) validateRpcUrl(cluster.rpcUrl);
   return cluster;
 }
 
@@ -68,6 +81,7 @@ export function mainnet(
     name: "mainnet",
     networkId: "mainnet",
     capabilities: [] as const,
+    ...withOptionalRpcUrl(options),
     ...withGenesisHash(options),
   });
 }
@@ -79,6 +93,7 @@ export function devnet(
   return defineCluster({
     name: "devnet",
     networkId: "devnet-preview",
+    rpcUrl: options.rpcUrl ?? DEVNET_RPC_URL,
     capabilities: ["airdrop"] as const,
     ...withGenesisHash(options),
   });
@@ -91,6 +106,7 @@ export function localnet(
   return defineCluster({
     name: "localnet",
     networkId: "localnet",
+    rpcUrl: options.rpcUrl ?? LOCALNET_RPC_URL,
     capabilities: ["airdrop"] as const,
     ...withGenesisHash(options),
   });
@@ -143,6 +159,24 @@ function withGenesisHash(options: PredefinedClusterOptions): {
   return options.genesisHash === undefined
     ? {}
     : { genesisHash: options.genesisHash };
+}
+
+function withOptionalRpcUrl(options: PredefinedClusterOptions): {
+  rpcUrl?: string;
+} {
+  return options.rpcUrl === undefined ? {} : { rpcUrl: options.rpcUrl };
+}
+
+function validateRpcUrl(rpcUrl: string): void {
+  let url: URL;
+  try {
+    url = new URL(rpcUrl);
+  } catch {
+    throw new Error(`Cluster rpcUrl must be an absolute HTTP URL: ${rpcUrl}`);
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error(`Cluster rpcUrl must use HTTP or HTTPS: ${rpcUrl}`);
+  }
 }
 
 function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
