@@ -256,10 +256,14 @@ function makeAccount(index: number, role: string): FixtureAccount {
   };
 }
 
+// Bare hex, no 0x prefix — how `hog-devnode` writes it into the manifest.
+const fixtureNetworkHash = "5a".repeat(32);
+
 function makeManifest(accounts: FixtureAccount[]) {
   return {
     schemaVersion: 2,
     kind: "hogd-dev-runtime",
+    networkHash: fixtureNetworkHash,
     bootstrapAccountDerivation: {
       scheme: "groundhog-bootstrap-account-v1",
       seed,

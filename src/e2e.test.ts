@@ -11,6 +11,7 @@ import {
   codec,
   ExecResult,
   toHex,
+  sha256Hash,
 } from "@groundhogchain/protocol";
 import {
   deriveEntrypointID,
@@ -24,6 +25,7 @@ import {
 import { PrivateKeySigner } from "./signers/privateKey.js";
 import { createInvocation, createTransaction } from "./transaction/build.js";
 import { signTransaction } from "./transaction/sign.js";
+import { transactionSignaturePreimage } from "./transaction/preimage.js";
 import {
   serializeSignedTransaction,
   deserializeSignedTransaction,
@@ -77,6 +79,8 @@ const erc20Spec: ContractSpec = {
   events: [],
 };
 
+const testNetworkHash = sha256Hash(new Uint8Array(32).fill(0x5a));
+
 describe("end-to-end: build, sign, serialize an ERC20 transfer", () => {
   it("round-trips a complete signed transaction", async () => {
     const secretKey = new Uint8Array(32);
@@ -121,12 +125,16 @@ describe("end-to-end: build, sign, serialize an ERC20 transfer", () => {
       },
     });
 
-    const signed = await signTransaction(tx, [{ signer, publicKeyId: 0n }]);
+    const signed = await signTransaction(
+      tx,
+      [{ signer, publicKeyId: 0n }],
+      testNetworkHash,
+    );
 
-    // Verify signature
-    const txBytes = serialize(tx, codec.Transaction);
+    // Verify signature over the canonical preimage, not the bare transaction
+    const preimage = transactionSignaturePreimage(testNetworkHash, tx);
     const sig = signed.signatures[0].signature;
-    expect(verify(sig.ed25519, txBytes, signer.publicKey.ed25519)).toBe(true);
+    expect(verify(sig.ed25519, preimage, signer.publicKey.ed25519)).toBe(true);
 
     // Round-trip through serialization
     const wireBytes = serializeSignedTransaction(signed);
@@ -151,10 +159,12 @@ describe("end-to-end: build, sign, serialize an ERC20 transfer", () => {
     expect(decoded.to).toEqual(recipient);
     expect(decoded.amount).toBe(amount);
 
-    // Hash is deterministic
+    // Hash is deterministic. The value moved when the signature preimage
+    // gained its domain separator and network hash: hashSignedTransaction
+    // covers the signatures, so a new signature is a new hash.
     const txHash = hashSignedTransaction(signed);
     expect(toHex(txHash)).toBe(
-      "96e684333c21fa2976b69866e8a39bcd5cb5d757291c113adb73c58d18c714ef",
+      "0c7aa73c558033524181e6c9eef7a91bb54ae229b27d3117642b1519d3ccb22a",
     );
     const txHash2 = hashSignedTransaction(restored);
     expect(txHash2).toEqual(txHash);
@@ -203,7 +213,11 @@ describe("end-to-end: full pipeline via MockTransport client", () => {
     const secretKey = new Uint8Array(32);
     secretKey[0] = 0xfe;
     const signer = new PrivateKeySigner(secretKey);
-    const signedTx = await signTransaction(tx, [{ signer, publicKeyId: 0n }]);
+    const signedTx = await signTransaction(
+      tx,
+      [{ signer, publicKeyId: 0n }],
+      testNetworkHash,
+    );
 
     // Send via client
     const txHash = await client.sendTransaction(signedTx);

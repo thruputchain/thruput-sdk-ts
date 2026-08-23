@@ -15,3 +15,4 @@ export {
 } from "./serialize.js";
 export { signTransaction } from "./sign.js";
 export type { SignerEntry } from "./sign.js";
+export { transactionSignaturePreimage } from "./preimage.js";

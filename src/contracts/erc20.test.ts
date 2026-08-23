@@ -6,6 +6,7 @@ import {
   AuthClaimType,
   bitMap,
   weight,
+  sha256Hash,
 } from "@groundhogchain/protocol";
 import { hashSignedTransaction } from "@groundhogchain/protocol/utils";
 import { PrivateKeySigner } from "../signers/privateKey.js";
@@ -16,6 +17,8 @@ import { buildNamedCodecs } from "../contract/codegen.js";
 import { ERC20, ERC20Metadata, spec } from "./erc20.js";
 
 const namedCodecs = buildNamedCodecs(spec.type_defs);
+
+const testNetworkHash = sha256Hash(new Uint8Array(32).fill(0x5a));
 
 describe("generated ERC20 contract bindings", () => {
   it("transfer() builds a valid invocation", () => {
@@ -87,7 +90,11 @@ describe("generated ERC20 contract bindings", () => {
       },
     });
 
-    const signed = await signTransaction(tx, [{ signer, publicKeyId: 0n }]);
+    const signed = await signTransaction(
+      tx,
+      [{ signer, publicKeyId: 0n }],
+      testNetworkHash,
+    );
     const hash = hashSignedTransaction(signed);
     expect(hash.length).toBe(32);
   });

@@ -66,3 +66,13 @@ export class DomainSeparator {
 /** Domain separator for pubkey account address derivation. */
 export const PUBKEY_ACCOUNT: DomainSeparator =
   DomainSeparator.make("PubkeyAccount");
+
+/**
+ * Domain separator for transaction signature preimages.
+ *
+ * Unlike {@link PUBKEY_ACCOUNT} this one prefixes a message that is signed
+ * directly rather than hashed, so it is used through its {@link
+ * DomainSeparator.bytes} rather than `hash` / `hashObject`. See
+ * `transactionSignaturePreimage`.
+ */
+export const TRANSACTION: DomainSeparator = DomainSeparator.make("Transaction");

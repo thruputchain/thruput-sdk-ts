@@ -2,9 +2,10 @@ import type {
   Transaction,
   SignedTransaction,
   DecoratedSignature,
+  SHA256Hash,
 } from "@groundhogchain/protocol";
-import { serialize, codec } from "@groundhogchain/protocol";
 import type { Signer } from "../signers/types.js";
+import { transactionSignaturePreimage } from "./preimage.js";
 
 /** A signer plus the protocol public-key ID to attach to its signature. */
 export interface SignerEntry {
@@ -18,9 +19,15 @@ export interface SignerEntry {
 /**
  * Sign a transaction with one or more signers.
  *
- * The transaction is serialized once and each signer signs the same canonical
+ * The signature preimage is built once and each signer signs the same canonical
  * bytes. The result can be passed to `sendTransaction` or serialized with
  * `serializeSignedTransaction`.
+ *
+ * `networkHash` identifies the network the transaction is for. It is part of
+ * what gets signed, so a transaction signed for one chain will be rejected by
+ * another — see {@link transactionSignaturePreimage}. Local development can
+ * read it from the runtime manifest via `loadLocalDevAccount`; elsewhere it
+ * comes from whoever operates the network.
  *
  * @example
  * ```ts
@@ -28,20 +35,23 @@ export interface SignerEntry {
  * import { PrivateKeySigner } from "@groundhogchain/client/signers";
  *
  * const signer = new PrivateKeySigner(secretKey);
- * const signedTx = await signTransaction(tx, [
- *   { signer, publicKeyId: 0n },
- * ]);
+ * const signedTx = await signTransaction(
+ *   tx,
+ *   [{ signer, publicKeyId: 0n }],
+ *   networkHash,
+ * );
  * ```
  */
 export async function signTransaction(
   tx: Transaction,
   signers: SignerEntry[],
+  networkHash: SHA256Hash,
 ): Promise<SignedTransaction> {
-  const txBytes = serialize(tx, codec.Transaction);
+  const preimage = transactionSignaturePreimage(networkHash, tx);
 
   const signatures: DecoratedSignature[] = await Promise.all(
     signers.map(async (entry) => {
-      const signature = await entry.signer.sign(txBytes);
+      const signature = await entry.signer.sign(preimage);
       return {
         public_key_id: entry.publicKeyId,
         signature,
