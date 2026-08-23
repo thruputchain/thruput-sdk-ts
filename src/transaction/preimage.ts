@@ -28,14 +28,11 @@ import { TRANSACTION } from "../derivation/domainSeparator.js";
  *
  * {@link signTransaction} calls this; reach for it directly only when handing
  * bytes to a signer this package does not drive.
- *
- * `networkHash` is typed as `SHA256Hash` rather than the protocol's
- * `NetworkHash`, which is currently unusable: it is declared as
- * `SHA256Hash & { __brand: "NetworkHash" }`, and the conflicting `__brand`
- * values collapse the intersection to `never`. The same applies to every
- * `typedef SHA256Hash` in the protocol bindings. Tighten this once that is
- * fixed upstream.
  */
+// `networkHash` takes SHA256Hash rather than the protocol's NetworkHash: that
+// type is declared as an intersection whose conflicting `__brand` members
+// reduce it to `never`, so it cannot be used in a signature. Tighten once the
+// protocol bindings are fixed.
 export function transactionSignaturePreimage(
   networkHash: SHA256Hash,
   tx: Transaction,
