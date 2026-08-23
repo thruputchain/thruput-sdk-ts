@@ -1,4 +1,4 @@
-import type { SHA256Hash, Transaction } from "@groundhogchain/protocol";
+import type { NetworkHash, Transaction } from "@groundhogchain/protocol";
 import { codec, serialize } from "@groundhogchain/protocol";
 import { TRANSACTION } from "../derivation/domainSeparator.js";
 
@@ -29,12 +29,8 @@ import { TRANSACTION } from "../derivation/domainSeparator.js";
  * {@link signTransaction} calls this; reach for it directly only when handing
  * bytes to a signer this package does not drive.
  */
-// `networkHash` takes SHA256Hash rather than the protocol's NetworkHash: that
-// type is declared as an intersection whose conflicting `__brand` members
-// reduce it to `never`, so it cannot be used in a signature. Tighten once the
-// protocol bindings are fixed.
 export function transactionSignaturePreimage(
-  networkHash: SHA256Hash,
+  networkHash: NetworkHash,
   tx: Transaction,
 ): Uint8Array {
   const prefix = TRANSACTION.bytes;

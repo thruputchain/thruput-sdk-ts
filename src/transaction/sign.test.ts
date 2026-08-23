@@ -14,6 +14,7 @@ import {
   codec,
   sha256Hash,
   ContractType,
+  networkHash,
 } from "@groundhogchain/protocol";
 import type { Contract } from "@groundhogchain/protocol";
 import { PrivateKeySigner } from "../signers/privateKey.js";
@@ -22,8 +23,8 @@ import { transactionSignaturePreimage } from "./preimage.js";
 import { TRANSACTION } from "../derivation/domainSeparator.js";
 import { createInvocation, createTransaction } from "./build.js";
 
-const testNetworkHash = sha256Hash(new Uint8Array(32).fill(0x5a));
-const otherNetworkHash = sha256Hash(new Uint8Array(32).fill(0xa5));
+const testNetworkHash = networkHash(sha256Hash(new Uint8Array(32).fill(0x5a)));
+const otherNetworkHash = networkHash(sha256Hash(new Uint8Array(32).fill(0xa5)));
 
 function makeDummyTransaction(contractsToDeploy: Contract[] = []) {
   const invocation = createInvocation({

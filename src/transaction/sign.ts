@@ -2,7 +2,7 @@ import type {
   Transaction,
   SignedTransaction,
   DecoratedSignature,
-  SHA256Hash,
+  NetworkHash,
 } from "@groundhogchain/protocol";
 import type { Signer } from "../signers/types.js";
 import { transactionSignaturePreimage } from "./preimage.js";
@@ -45,7 +45,7 @@ export interface SignerEntry {
 export async function signTransaction(
   tx: Transaction,
   signers: SignerEntry[],
-  networkHash: SHA256Hash,
+  networkHash: NetworkHash,
 ): Promise<SignedTransaction> {
   const preimage = transactionSignaturePreimage(networkHash, tx);
 

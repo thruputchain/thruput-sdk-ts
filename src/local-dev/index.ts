@@ -1,8 +1,11 @@
 import { createHash } from "node:crypto";
 import { open } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
-import type { ContractAddress, SHA256Hash } from "@groundhogchain/protocol";
-import { sha256Hash } from "@groundhogchain/protocol";
+import type { ContractAddress, NetworkHash } from "@groundhogchain/protocol";
+import {
+  networkHash as toNetworkHash,
+  sha256Hash,
+} from "@groundhogchain/protocol";
 import { parse } from "smol-toml";
 import { addressFromHex, fromHex, fromHex0x, toHex0x } from "../actions/hex.js";
 import { PrivateKeySigner } from "../signers/index.js";
@@ -25,7 +28,7 @@ export interface LocalDevAccount {
    * `signTransaction`: it is part of every signature preimage, so a signature
    * made against the wrong one is rejected.
    */
-  networkHash: SHA256Hash;
+  networkHash: NetworkHash;
 }
 
 export interface LoadLocalDevAccountOptions {
@@ -157,7 +160,7 @@ export async function loadLocalDevAccount(
       ),
     ),
     signer,
-    networkHash: sha256Hash(manifestNetworkHash),
+    networkHash: toNetworkHash(sha256Hash(manifestNetworkHash)),
   };
 }
 

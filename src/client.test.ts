@@ -10,6 +10,7 @@ import {
   weight,
   ExecResult,
   sha256Hash,
+  networkHash,
 } from "@groundhogchain/protocol";
 import { PrivateKeySigner } from "./signers/privateKey.js";
 import { createInvocation, createTransaction } from "./transaction/build.js";
@@ -17,7 +18,7 @@ import { signTransaction } from "./transaction/sign.js";
 import { MockTransport } from "./transport/mock.js";
 import { createGroundhogClient } from "./client.js";
 
-const testNetworkHash = sha256Hash(new Uint8Array(32).fill(0x5a));
+const testNetworkHash = networkHash(sha256Hash(new Uint8Array(32).fill(0x5a)));
 
 function makeDummySignedTx() {
   const secretKey = new Uint8Array(32);

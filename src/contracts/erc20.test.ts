@@ -7,6 +7,7 @@ import {
   bitMap,
   weight,
   sha256Hash,
+  networkHash,
 } from "@groundhogchain/protocol";
 import { hashSignedTransaction } from "../derivation/transactionHash.js";
 import { PrivateKeySigner } from "../signers/privateKey.js";
@@ -18,7 +19,7 @@ import { ERC20, ERC20Metadata, spec } from "./erc20.js";
 
 const namedCodecs = buildNamedCodecs(spec.type_defs);
 
-const testNetworkHash = sha256Hash(new Uint8Array(32).fill(0x5a));
+const testNetworkHash = networkHash(sha256Hash(new Uint8Array(32).fill(0x5a)));
 
 describe("generated ERC20 contract bindings", () => {
   it("transfer() builds a valid invocation", () => {

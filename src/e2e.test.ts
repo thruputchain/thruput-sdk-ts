@@ -12,6 +12,7 @@ import {
   ExecResult,
   toHex,
   sha256Hash,
+  networkHash,
 } from "@groundhogchain/protocol";
 import { deriveEntrypointID } from "./derivation/entrypointId.js";
 import { hashSignedTransaction } from "./derivation/transactionHash.js";
@@ -77,7 +78,7 @@ const erc20Spec: ContractSpec = {
   events: [],
 };
 
-const testNetworkHash = sha256Hash(new Uint8Array(32).fill(0x5a));
+const testNetworkHash = networkHash(sha256Hash(new Uint8Array(32).fill(0x5a)));
 
 describe("end-to-end: build, sign, serialize an ERC20 transfer", () => {
   it("round-trips a complete signed transaction", async () => {
