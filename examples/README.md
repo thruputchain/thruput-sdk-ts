@@ -40,7 +40,7 @@ The state-changing examples intentionally target `groundhog node`. Hosted
 networks require a user-owned wallet and signer rather than local bootstrap keys.
 
 `deploy-counter.ts` deploys the included Counter fixture, increments it, and
-reads the value back from the derived address. It uses the checked-in DevWallet
+reads the value back from the derived address. It uses the public DevWallet
 binding for the local node's wallet calls. See
 [`docs/contract-deployment.md`](../docs/contract-deployment.md) for the deployment
 model and address derivation rules.
@@ -53,7 +53,7 @@ its canonical Groundhog contract hash is
 `4eb0b279d37ff9ff0d73a94ec26102cc5d0b9ea7f726ba63bdf123a876d2c2ef`.
 The DevWallet binding and pinned spec come from
 [`integration_test_contracts/dev_wallet`](https://github.com/groundhogchain/integration_test_contracts/tree/c2036930aee317f5cb0ad0c887237b7ed1db6c42/dev_wallet).
-Both bindings are reproduced from `specs/contracts/` with `groundhog-cli`
+The Counter and public wallet bindings are reproduced from `specs/contracts/` with `groundhog-cli`
 0.9.6 and checked in CI. See [`specs/contracts/README.md`](../specs/contracts/README.md)
 for input hashes and recovery provenance. A network using another wallet
 interface needs its corresponding generated binding.

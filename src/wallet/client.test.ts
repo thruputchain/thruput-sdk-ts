@@ -16,8 +16,13 @@ import { localnet, mainnet } from "../cluster.js";
 import { MockTransport } from "../transport/mock.js";
 import { PrivateKeySigner } from "../signers/privateKey.js";
 import type { Transport } from "../transport/types.js";
-import { createSourceAddressAccount } from "./account.js";
+import { createPubkeyAccount, createSourceAddressAccount } from "./account.js";
 import { createWalletClient } from "./client.js";
+import {
+  defineWalletInvocationAdapter,
+  devWalletAdapter,
+  type WalletExecutionRequest,
+} from "./invocationAdapter.js";
 
 const address = contractAddress(new Uint8Array(32).fill(0x11));
 
@@ -46,6 +51,28 @@ function invocation(invokedAddress = address): Invocation {
 }
 
 describe("wallet account defaults", () => {
+  it("rejects rebinding a client to another account", () => {
+    const client = createGroundhogClient(new MockTransport());
+    createWalletClient({ client, account: account() });
+
+    expect(() =>
+      createWalletClient({
+        client,
+        account: createPubkeyAccount({ signer: signer() }),
+      }),
+    ).toThrow("only be bound to one wallet account");
+  });
+
+  it("rejects clients with wallet execution method collisions", () => {
+    const client = Object.assign(createGroundhogClient(new MockTransport()), {
+      execute: () => "unrelated",
+    });
+
+    expect(() => createWalletClient({ client, account: account() })).toThrow(
+      "reserved names execute or prepareExecution",
+    );
+  });
+
   it("defaults balance and airdrop recipients to the account address", async () => {
     const calls: Array<{ method: string; params?: unknown[] }> = [];
     const transport: Transport = {
@@ -145,6 +172,7 @@ describe("wallet account defaults", () => {
     });
     expect(localWallet.cluster).toBe(local.cluster);
     expect(localWallet.requestAirdrop).toBeTypeOf("function");
+    expect(localWallet).not.toHaveProperty("execute");
 
     const mainnetClient = await connectGroundhogClient({
       cluster: mainnet(),
@@ -305,5 +333,72 @@ describe("wallet transactions", () => {
         expiryBlocks: 10n,
       }),
     ).rejects.toThrow("mutually exclusive");
+  });
+});
+
+describe("wallet execution adapters", () => {
+  it("uses DefaultWallet automatically for pubkey accounts", async () => {
+    const pubkeyAccount = createPubkeyAccount({ signer: signer() });
+    const wallet = createWalletClient({
+      client: createGroundhogClient(new MockTransport()),
+      account: pubkeyAccount,
+    });
+
+    const transaction = await wallet.prepareExecution({
+      invocation: invocation(contractAddress(new Uint8Array(32).fill(0x55))),
+      gasLimit: gasAmount(2_000_000n),
+      nonce: 42n,
+      blockExpiryHeight: blockHeight(500n),
+    });
+
+    expect(transaction.invocation.invoked_address).toEqual(
+      pubkeyAccount.address,
+    );
+    expect(transaction.invocation.gas_limit).toBe(2_000_000n);
+    expect(transaction.uniquifier.nonce).toBe(42n);
+  });
+
+  it("executes through an explicit source-address adapter", async () => {
+    const wallet = createWalletClient({
+      client: createGroundhogClient(new MockTransport()),
+      account: account(),
+      invocationAdapter: devWalletAdapter,
+    });
+
+    await expect(
+      wallet.execute({
+        invocation: invocation(contractAddress(new Uint8Array(32).fill(0x55))),
+        gasLimit: gasAmount(2_000_000n),
+        nonce: 42n,
+        blockExpiryHeight: blockHeight(500n),
+      }),
+    ).resolves.toHaveLength(32);
+  });
+
+  it("passes custom request fields to an explicit adapter", async () => {
+    interface CustomRequest extends WalletExecutionRequest {
+      readonly marker: number;
+    }
+    let receivedMarker: number | undefined;
+    const customAdapter = defineWalletInvocationAdapter({
+      createRootInvocation(accountAddress, request: CustomRequest) {
+        receivedMarker = request.marker;
+        return invocation(accountAddress);
+      },
+    });
+    const wallet = createWalletClient({
+      client: createGroundhogClient(new MockTransport()),
+      account: createPubkeyAccount({ signer: signer() }),
+      invocationAdapter: customAdapter,
+    });
+
+    await wallet.prepareExecution({
+      invocation: invocation(),
+      gasLimit: gasAmount(1n),
+      marker: 7,
+      blockExpiryHeight: blockHeight(500n),
+    });
+
+    expect(receivedMarker).toBe(7);
   });
 });

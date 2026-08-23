@@ -3,8 +3,12 @@ import {
   connectGroundhogClient,
   customCluster,
   createWalletClient,
+  defineWalletInvocationAdapter,
+  devWalletAdapter,
   type ConnectedGroundhogClient,
+  type PubkeyAccount,
   type SourceAddressAccount,
+  type WalletExecutionRequest,
 } from "../../index.js";
 import type { devnet, mainnet } from "../../cluster.js";
 import type { Transport } from "../../transport/types.js";
@@ -13,6 +17,7 @@ function assertWalletTypes(
   devnetClient: ConnectedGroundhogClient<ReturnType<typeof devnet>>,
   mainnetClient: ConnectedGroundhogClient<ReturnType<typeof mainnet>>,
   account: SourceAddressAccount,
+  pubkeyAccount: PubkeyAccount,
   otherAddress: ContractAddress,
   invocation: Invocation,
   transport: Transport,
@@ -25,6 +30,38 @@ function assertWalletTypes(
   devnetWallet.requestAirdrop();
   devnetWallet.requestAirdrop({ recipient: otherAddress });
   devnetWallet.prepareTransaction({ invocation });
+  // @ts-expect-error Source-address wallets require an explicit adapter.
+  devnetWallet.execute({ invocation, gasLimit: invocation.gas_limit });
+
+  createWalletClient({
+    client: devnetClient,
+    account,
+    invocationAdapter: devWalletAdapter,
+  }).execute({ invocation, gasLimit: invocation.gas_limit });
+  createWalletClient({ client: devnetClient, account: pubkeyAccount }).execute({
+    invocation,
+    gasLimit: invocation.gas_limit,
+  });
+
+  interface CustomRequest extends WalletExecutionRequest {
+    readonly mode: "custom";
+  }
+  const customAdapter = defineWalletInvocationAdapter({
+    createRootInvocation: (_address, request: CustomRequest) =>
+      request.invocation,
+  });
+  const customWallet = createWalletClient({
+    client: devnetClient,
+    account,
+    invocationAdapter: customAdapter,
+  });
+  customWallet.execute({
+    invocation,
+    gasLimit: invocation.gas_limit,
+    mode: "custom",
+  });
+  // @ts-expect-error Custom adapter fields remain required.
+  customWallet.execute({ invocation, gasLimit: invocation.gas_limit });
   const address: ContractAddress = devnetWallet.account.address;
 
   // @ts-expect-error Mainnet wallet clients do not expose airdrops.
@@ -54,4 +91,33 @@ function assertWalletTypes(
   void address;
 }
 
+function assertCollidingClientMethods(
+  client: ConnectedGroundhogClient<ReturnType<typeof devnet>> & {
+    execute(value: string): string;
+    prepareExecution(value: string): string;
+  },
+  pubkeyAccount: PubkeyAccount,
+  invocation: Invocation,
+): void {
+  const wallet = createWalletClient({ client, account: pubkeyAccount });
+  wallet.execute({ invocation, gasLimit: invocation.gas_limit });
+  // @ts-expect-error Original execute signatures are replaced by wallet actions.
+  wallet.execute("invalid");
+  // @ts-expect-error Original prepareExecution signatures are replaced.
+  wallet.prepareExecution("invalid");
+}
+
+function assertSourceCollisionTypes(
+  client: ConnectedGroundhogClient<ReturnType<typeof devnet>> & {
+    execute(value: string): string;
+  },
+  account: SourceAddressAccount,
+): void {
+  const wallet = createWalletClient({ client, account });
+  // @ts-expect-error Reserved execution methods are omitted without an adapter.
+  wallet.execute("invalid");
+}
+
 void assertWalletTypes;
+void assertCollidingClientMethods;
+void assertSourceCollisionTypes;

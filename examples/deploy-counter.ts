@@ -27,9 +27,9 @@ import {
   signTransaction,
   toHex0x,
 } from "../src/index.js";
+import { DevWallet } from "../src/contracts/index.js";
 import { loadLocalDevAccount } from "../src/local-dev/index.js";
 import { Counter } from "./generated/counter.js";
-import { DevWallet } from "./generated/dev_wallet.js";
 
 const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";
 const {

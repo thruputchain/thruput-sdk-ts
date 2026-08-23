@@ -28,7 +28,10 @@ const requiredExports = {
     "createSourceAddressAccount",
     "createTransaction",
     "createWalletClient",
+    "defaultWalletAdapter",
     "defineContractMethod",
+    "defineWalletInvocationAdapter",
+    "devWalletAdapter",
     "devnet",
   ],
   "./transaction": [
@@ -53,11 +56,14 @@ const requiredExports = {
     "fixedBytes",
   ],
   "./contracts": [
+    "DefaultWallet",
+    "DevWallet",
     "ERC20",
     "ERC20ApprovalEvent",
     "ERC20Metadata",
     "ERC20TransferEvent",
     "decodeERC20Event",
+    "WalletError",
   ],
   "./signers": ["PrivateKeySigner"],
   "./actions": [

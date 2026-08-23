@@ -17,9 +17,8 @@ import {
   signTransaction,
   toHex0x,
 } from "../src/index.js";
-import { ERC20 } from "../src/contracts/index.js";
+import { DevWallet, ERC20 } from "../src/contracts/index.js";
 import { loadLocalDevAccount } from "../src/local-dev/index.js";
-import { DevWallet } from "./generated/dev_wallet.js";
 
 const amount = 1000n;
 const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";

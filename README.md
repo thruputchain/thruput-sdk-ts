@@ -125,6 +125,7 @@ import { bitMap, weight } from "@groundhogchain/protocol";
 import {
   createSourceAddressAccount,
   createWalletClient,
+  devWalletAdapter,
 } from "@groundhogchain/client";
 import { loadLocalDevAccount } from "@groundhogchain/client/local-dev";
 
@@ -135,11 +136,31 @@ const account = createSourceAddressAccount({
   allowedKeys: bitMap(0x01n),
   requiredWeight: weight(1n),
 });
-const wallet = createWalletClient({ client, account });
+const wallet = createWalletClient({
+  client,
+  account,
+  invocationAdapter: devWalletAdapter,
+});
 ```
 
 Wallet clients prepare fresh transaction expiry and replay nonces, sign with
-the account's configured signers, and submit explicit root invocations:
+the account's configured signers, and submit transactions. Pubkey accounts use
+the native-compatible DefaultWallet adapter automatically. Source-address
+accounts expose `execute` when configured with an adapter:
+
+```ts
+const txHash = await wallet.execute({
+  invocation: innerInvocation,
+  gasLimit: walletGasLimit,
+});
+const receipt = await wallet.waitForTransactionReceipt(txHash);
+```
+
+Use `prepareExecution` to inspect the wrapped transaction before signing. Both
+execution methods accept `nonce`, `blockExpiryHeight`, `expiryBlocks`, and
+`contractsToDeploy` overrides.
+
+The explicit root-invocation APIs remain available for advanced workflows:
 
 ```ts
 const transaction = await wallet.prepareTransaction({
@@ -158,9 +179,13 @@ const receipt = await wallet.waitForTransactionReceipt(txHash);
 cryptographically random 64-bit nonce and expires 100 blocks after the current
 chain tip.
 
-Source-address wallet contracts still control invocation wrapping. Construct
-the wallet contract's root invocation explicitly before calling
-`sendInvocation`.
+The SDK includes `defaultWalletAdapter` and `devWalletAdapter`. Implement
+`WalletInvocationAdapter` or use `defineWalletInvocationAdapter` to integrate a
+custom account contract without changing the SDK.
+
+Because wallet decoration binds account-specific closures to the supplied
+client, each client instance can be bound once. Create another client instance
+when operating multiple accounts against the same endpoint.
 
 ## Examples
 

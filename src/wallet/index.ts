@@ -9,8 +9,18 @@ export {
 } from "./account.js";
 export {
   createWalletClient,
+  type ExecutableWalletClient,
+  type PrepareExecutionRequest,
   type WalletActions,
   type WalletAirdropActions,
   type WalletClient,
+  type WalletExecutionActions,
   type WalletRequestAirdropOptions,
 } from "./client.js";
+export {
+  defaultWalletAdapter,
+  defineWalletInvocationAdapter,
+  devWalletAdapter,
+  type WalletExecutionRequest,
+  type WalletInvocationAdapter,
+} from "./invocationAdapter.js";

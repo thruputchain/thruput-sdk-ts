@@ -6,15 +6,22 @@ import type {
   ConnectedGroundhogClient,
   ContractMethod,
   ContractViewOutcome,
+  ExecutableWalletClient,
   GroundhogClient,
   WalletClient,
+  WalletExecutionRequest,
+  WalletInvocationAdapter,
 } from "@groundhogchain/client";
 import {
   connectGroundhogClient,
+  createPubkeyAccount,
   createSourceAddressAccount,
   createWalletClient,
   customCluster,
+  defaultWalletAdapter,
+  defineWalletInvocationAdapter,
   devnet,
+  devWalletAdapter,
   localnet,
   mainnet,
 } from "@groundhogchain/client";
@@ -22,17 +29,22 @@ import type { Transport } from "@groundhogchain/client/transport";
 import {
   ContractDecodeError,
   defineContractMethod,
+  fixedBytes,
 } from "@groundhogchain/client/contract";
 import {
   ERC20,
   ERC20ApprovalEvent,
   ERC20Metadata,
   ERC20TransferEvent,
+  DefaultWallet,
+  DevWallet,
+  WalletError,
   decodeERC20Event,
 } from "@groundhogchain/client/contracts";
 import type {
   ERC20TransferArgs,
   ERC20TransferEventFilter,
+  WalletCall,
 } from "@groundhogchain/client/contracts";
 import type {
   ContractAddress,
@@ -205,6 +217,58 @@ function walletBoundaryTypecheck(
   });
   wallet.signTransaction(transaction);
   wallet.sendInvocation({ invocation });
+  // @ts-expect-error Source-address clients need an explicit invocation adapter.
+  wallet.execute({ invocation, gasLimit: invocation.gas_limit });
+
+  const devWallet = createWalletClient({
+    client,
+    account,
+    invocationAdapter: devWalletAdapter,
+  });
+  devWallet.execute({ invocation, gasLimit: invocation.gas_limit });
+
+  const pubkeyAccount = createPubkeyAccount({ signer });
+  const pubkeyWallet: ExecutableWalletClient<
+    GroundhogClient,
+    typeof pubkeyAccount
+  > = createWalletClient({ client, account: pubkeyAccount });
+  pubkeyWallet.prepareExecution({
+    invocation,
+    gasLimit: invocation.gas_limit,
+  });
+
+  interface CustomRequest extends WalletExecutionRequest {
+    readonly policy: "custom";
+  }
+  const customAdapter: WalletInvocationAdapter<CustomRequest> =
+    defineWalletInvocationAdapter({
+      createRootInvocation: (_address, request: CustomRequest) =>
+        request.invocation,
+    });
+  createWalletClient({
+    client,
+    account,
+    invocationAdapter: customAdapter,
+  }).execute({
+    invocation,
+    gasLimit: invocation.gas_limit,
+    policy: "custom",
+  });
+
+  const call: WalletCall = {
+    target: address,
+    entrypoint: fixedBytes(invocation.entrypoint, 8),
+    gas_limit: invocation.gas_limit,
+    calldata: invocation.calldata,
+  };
+  DefaultWallet.execute.invocation(address, invocation.gas_limit, {
+    calls: [call],
+  });
+  DevWallet.doAction.invocation(address, invocation.gas_limit, {
+    invocationBytes: invocation.calldata,
+  });
+  void defaultWalletAdapter;
+  void WalletError.EmptyCallList;
 }
 
 void packageBoundaryTypecheck;

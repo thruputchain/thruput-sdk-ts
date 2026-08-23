@@ -14,7 +14,7 @@ import {
   defineContractMethod,
   type ContractException,
   type FixedBytes,
-} from "../../src/contract/index.js";
+} from "../contract/index.js";
 
 const s = contractSpecString;
 
