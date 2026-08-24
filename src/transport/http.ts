@@ -64,8 +64,21 @@ export interface HttpTransportOptions {
   /** Custom `fetch` implementation, useful for tests or non-standard runtimes. */
   fetch?: typeof fetch;
 
-  /** Abort each request attempt after this many milliseconds. Defaults to 30_000. */
+  /**
+   * Abort each request attempt after this many milliseconds.
+   *
+   * Defaults to 30_000. Pass `0` to disable the timeout. Must be a
+   * non-negative finite number.
+   */
   timeoutMs?: number;
+
+  /**
+   * External abort signal combined with the per-attempt timeout.
+   *
+   * Aborting it cancels the in-flight request and suppresses further
+   * retries.
+   */
+  signal?: AbortSignal;
 
   /**
    * Retry policy for transient failures. Enabled by default; pass `false` to
@@ -304,6 +317,7 @@ export class HttpTransport implements Transport {
   #headers?: Record<string, string>;
   #fetch: typeof fetch;
   #timeoutMs: number;
+  #signal?: AbortSignal;
   #retryAttempts: number;
   #retryBaseDelayMs: number;
   #nextId = 1;
@@ -314,6 +328,12 @@ export class HttpTransport implements Transport {
     this.#headers = options.headers;
     this.#fetch = options.fetch ?? fetch;
     this.#timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    if (!Number.isFinite(this.#timeoutMs) || this.#timeoutMs < 0) {
+      throw new RangeError(
+        `HttpTransport: timeoutMs must be a non-negative finite number, got ${this.#timeoutMs}`,
+      );
+    }
+    this.#signal = options.signal;
     if (options.retry === false) {
       this.#retryAttempts = 1;
       this.#retryBaseDelayMs = DEFAULT_RETRY_BASE_DELAY_MS;
@@ -344,7 +364,13 @@ export class HttpTransport implements Transport {
         return await this.#attempt<T>(method, params);
       } catch (error) {
         const retryAfterMs = retriableDelayMs(error);
-        if (retryAfterMs === undefined || attempt >= attempts - 1) {
+        if (
+          retryAfterMs === undefined ||
+          attempt >= attempts - 1 ||
+          // A caller-initiated abort is a cancellation, not a transient
+          // failure — never retry past it.
+          this.#signal?.aborted
+        ) {
           throw error;
         }
         const backoff = this.#retryBaseDelayMs * 2 ** attempt;
@@ -368,17 +394,26 @@ export class HttpTransport implements Transport {
       params: params ?? [],
     });
 
-    const abort = this.#timeoutMs ? new AbortController() : undefined;
+    const signals: AbortSignal[] = [];
+    if (this.#signal) signals.push(this.#signal);
+    const abort = this.#timeoutMs > 0 ? new AbortController() : undefined;
+    if (abort) signals.push(abort.signal);
     const timeout = abort
       ? setTimeout(() => abort.abort(), this.#timeoutMs)
       : undefined;
+    const signal =
+      signals.length === 0
+        ? undefined
+        : signals.length === 1
+          ? signals[0]
+          : AbortSignal.any(signals);
     let response: Response;
     try {
       response = await this.#fetch(this.#url, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...this.#headers },
         body,
-        signal: abort?.signal,
+        signal,
       });
     } finally {
       if (timeout !== undefined) clearTimeout(timeout);

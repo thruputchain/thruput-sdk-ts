@@ -161,6 +161,67 @@ describe("HttpTransport", () => {
     }
   });
 
+  it("rejects negative or non-finite timeoutMs", () => {
+    for (const timeoutMs of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(
+        () => new HttpTransport("http://localhost", { timeoutMs }),
+      ).toThrow(RangeError);
+    }
+  });
+
+  it("disables the timeout when timeoutMs is 0", async () => {
+    vi.useFakeTimers();
+    try {
+      let resolveFetch: ((response: Response) => void) | undefined;
+      let aborted = false;
+      const fetchMock: typeof fetch = async (_url, init) =>
+        new Promise((resolve) => {
+          init?.signal?.addEventListener("abort", () => {
+            aborted = true;
+          });
+          resolveFetch = resolve;
+        });
+
+      const pending = new HttpTransport("http://localhost", {
+        fetch: fetchMock,
+        timeoutMs: 0,
+        retry: false,
+      }).request("groundhog_version");
+
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(aborted).toBe(false);
+      resolveFetch!(
+        new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result: "ok" })),
+      );
+      await expect(pending).resolves.toBe("ok");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("aborts via an external AbortSignal without retrying", async () => {
+    let calls = 0;
+    const controller = new AbortController();
+    const fetchMock: typeof fetch = async (_url, init) => {
+      calls++;
+      return new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => {
+          reject(new DOMException("Aborted", "AbortError"));
+        });
+        queueMicrotask(() => controller.abort());
+      });
+    };
+
+    await expect(
+      new HttpTransport("http://localhost", {
+        fetch: fetchMock,
+        signal: controller.signal,
+        retry: { baseDelayMs: 1 },
+      }).request("groundhog_chainTip"),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(calls).toBe(1);
+  });
+
   describe("non-2xx responses", () => {
     it("throws HttpTransportError carrying status, statusText, body, method", async () => {
       const fetchMock: typeof fetch = async () =>
