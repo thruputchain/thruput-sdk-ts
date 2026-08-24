@@ -348,14 +348,55 @@ const HAS_JSON_PARSE_SOURCE: boolean = (() => {
 })();
 
 /**
+ * Longest plain-decimal expansion produced for an exponent-form integer
+ * literal, in digits.
+ *
+ * Comfortably covers uint64 (20 digits) and any realistic on-chain quantity
+ * while keeping a hostile literal like `1e1000000` from allocating a huge
+ * string. Beyond the bound the rounded number is kept, as before expansion
+ * existed.
+ */
+const MAX_EXPANDED_INTEGER_DIGITS = 100;
+
+/**
+ * Expand an exponent-form JSON number source (`1e21`, `1.5E+21`) into the
+ * plain decimal string of the integer it denotes.
+ *
+ * Returns `undefined` when the source is not exponent form, does not denote
+ * an integer, or would expand beyond {@link MAX_EXPANDED_INTEGER_DIGITS}.
+ */
+function decimalFromExponentForm(source: string): string | undefined {
+  const match = /^(-?)(\d+)(?:\.(\d+))?[eE]([+-]?\d+)$/.exec(source);
+  if (match === null) return undefined;
+  const [, sign, intDigits, fracDigits = "", exponentText] = match;
+  const exponent = Number(exponentText) - fracDigits.length;
+  let digits = (intDigits + fracDigits).replace(/^0+(?=\d)/, "");
+  if (exponent >= 0) {
+    if (digits.length + exponent > MAX_EXPANDED_INTEGER_DIGITS) {
+      return undefined;
+    }
+    digits += "0".repeat(exponent);
+  } else {
+    const cut = digits.length + exponent;
+    // A negative adjusted exponent denotes an integer only when it strips
+    // nothing but trailing zeros.
+    if (cut <= 0 || !/^0*$/.test(digits.slice(cut))) return undefined;
+    digits = digits.slice(0, cut);
+  }
+  return sign + digits;
+}
+
+/**
  * Parse a JSON document, preserving integer literals outside the IEEE-754
- * safe-integer range as their original decimal strings.
+ * safe-integer range as plain decimal strings.
  *
  * Spec uint64 fields (for example `BlockInfo.networkId`) are JSON numbers;
  * `JSON.parse` alone would silently round them before the action layer
  * converts to `bigint`. The `Raw*` action interfaces accept `number | string`,
- * so out-of-range values are handed through as strings. On runtimes without
- * reviver source access this falls back to plain `JSON.parse`.
+ * so out-of-range values are handed through as strings. Exponent-form integer
+ * literals (`1e21`) are expanded to plain decimal, up to
+ * {@link MAX_EXPANDED_INTEGER_DIGITS} digits. On runtimes without reviver
+ * source access this falls back to plain `JSON.parse`.
  */
 function parseJsonPreservingLargeIntegers(text: string): unknown {
   if (!HAS_JSON_PARSE_SOURCE) return JSON.parse(text);
@@ -367,10 +408,11 @@ function parseJsonPreservingLargeIntegers(text: string): unknown {
     if (
       typeof value === "number" &&
       !Number.isSafeInteger(value) &&
-      context?.source !== undefined &&
-      /^-?\d+$/.test(context.source)
+      context?.source !== undefined
     ) {
-      return context.source;
+      const source = context.source;
+      if (/^-?\d+$/.test(source)) return source;
+      return decimalFromExponentForm(source) ?? value;
     }
     return value;
   };

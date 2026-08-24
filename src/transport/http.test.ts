@@ -100,7 +100,7 @@ describe("HttpTransport", () => {
     const uint64Max = 2n ** 64n - 1n;
     const fetchMock: typeof fetch = async () =>
       new Response(
-        `{"jsonrpc":"2.0","id":1,"result":{"networkId":${uint64Max},"small":7,"float":1e21,"negative":-${uint64Max}}}`,
+        `{"jsonrpc":"2.0","id":1,"result":{"networkId":${uint64Max},"small":7,"float":2.5,"negative":-${uint64Max}}}`,
       );
 
     const result = await new HttpTransport("http://localhost", {
@@ -111,8 +111,35 @@ describe("HttpTransport", () => {
     expect(BigInt(result.networkId as string)).toBe(uint64Max);
     // In-range integers and non-integer literals stay plain numbers.
     expect(result.small).toBe(7);
-    expect(result.float).toBe(1e21);
+    expect(result.float).toBe(2.5);
     expect(result.negative).toBe(`-${uint64Max}`);
+  });
+
+  it("expands exponent-form integer literals beyond the safe range to decimal strings", async () => {
+    const fetchMock: typeof fetch = async () =>
+      new Response(
+        `{"jsonrpc":"2.0","id":1,"result":{` +
+          `"plain":1e21,"fractionMantissa":1.5E+21,"negative":-2e21,` +
+          `"trailingZeros":9007199254740993000e-3,` +
+          `"float":1e-3,"safe":1.5e1,"oversized":1e400}}`,
+      );
+
+    const result = await new HttpTransport("http://localhost", {
+      fetch: fetchMock,
+    }).request<Record<string, unknown>>("groundhog_getBlockByNumber", [0]);
+
+    expect(result.plain).toBe("1" + "0".repeat(21));
+    expect(BigInt(result.plain as string)).toBe(10n ** 21n);
+    expect(result.fractionMantissa).toBe("15" + "0".repeat(20));
+    expect(result.negative).toBe("-2" + "0".repeat(21));
+    // A negative exponent that only strips trailing zeros still denotes
+    // an integer; 2**53 + 1 would otherwise round.
+    expect(result.trailingZeros).toBe("9007199254740993");
+    // Non-integers and safe integers stay plain numbers.
+    expect(result.float).toBe(1e-3);
+    expect(result.safe).toBe(15);
+    // Beyond the expansion bound the (overflowed) number is kept as-is.
+    expect(result.oversized).toBe(Number.POSITIVE_INFINITY);
   });
 
   it("delivers uint64-max networkId to getBlockByNumber unchanged", async () => {
@@ -247,8 +274,7 @@ describe("HttpTransport", () => {
       2 ** 31,
     ]) {
       expect(
-        () =>
-          new HttpTransport("http://localhost", { retry: { baseDelayMs } }),
+        () => new HttpTransport("http://localhost", { retry: { baseDelayMs } }),
       ).toThrow(RangeError);
     }
     expect(
