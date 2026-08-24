@@ -22,6 +22,7 @@ export {
   GroundhogRpcErrorCode,
   HttpTransport,
   HttpTransportError,
+  IDEMPOTENT_RPC_METHODS,
   JsonRpcError,
   MockTransport,
 } from "./transport/index.js";

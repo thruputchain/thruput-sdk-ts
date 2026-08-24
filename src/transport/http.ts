@@ -110,8 +110,10 @@ export interface HttpTransportOptions {
    * Only idempotent failures are retried: HTTP 429/502/503/504, network-level
    * fetch failures (abort/`TypeError`), and the JSON-RPC backend-transient
    * codes `BackendUnavailable`, `BackendTimeout`, and `Overloaded`.
-   * `groundhog_sendRawTransaction` is never retried — a submission whose
-   * outcome is unknown must not be re-sent.
+   * Retries apply only to the known-idempotent read methods in
+   * {@link IDEMPOTENT_RPC_METHODS}; any other method — notably
+   * `groundhog_sendRawTransaction`, whose outcome-unknown submissions must
+   * not be re-sent — is sent exactly once.
    */
   retry?: HttpTransportRetryOptions | false;
 }
@@ -124,6 +126,29 @@ const DEFAULT_RETRY_ATTEMPTS = 3;
 const DEFAULT_RETRY_BASE_DELAY_MS = 250;
 /** Upper bound applied to server-supplied `Retry-After` delays. */
 const MAX_RETRY_AFTER_MS = 60_000;
+
+/**
+ * JSON-RPC methods known to be idempotent and therefore safe to retry.
+ *
+ * Derived from the pinned OpenRPC spec (`specs/openrpc.json`): every read
+ * method, i.e. everything except `groundhog_sendRawTransaction` — a
+ * submission whose outcome is unknown must not be re-sent. The retry gate
+ * checks membership here, so methods not in this set — future mutating
+ * methods and unknown method names alike — are never retried.
+ */
+export const IDEMPOTENT_RPC_METHODS: ReadonlySet<string> = new Set([
+  "groundhog_chainTip",
+  "groundhog_getBalance",
+  "groundhog_getBlockByNumber",
+  "groundhog_getEvents",
+  "groundhog_getStorageAt",
+  "groundhog_getTransactionReceipt",
+  "groundhog_getTransactionStatus",
+  "groundhog_getTransactionsByAddress",
+  "groundhog_pendingTransactionCount",
+  "groundhog_version",
+  "groundhog_view",
+]);
 
 /** HTTP statuses that are safe to retry for idempotent JSON-RPC reads. */
 const RETRIABLE_HTTP_STATUSES = new Set([429, 502, 503, 504]);
@@ -415,12 +440,14 @@ export class HttpTransport implements Transport {
   /**
    * Send one JSON-RPC request and return the decoded `result` value.
    *
-   * Transient idempotent failures are retried per the transport's retry
-   * policy; `groundhog_sendRawTransaction` is always sent exactly once.
+   * Transient failures of methods in {@link IDEMPOTENT_RPC_METHODS} are
+   * retried per the transport's retry policy; any other method — including
+   * `groundhog_sendRawTransaction` — is always sent exactly once.
    */
   async request<T = unknown>(method: string, params?: unknown[]): Promise<T> {
-    const attempts =
-      method === "groundhog_sendRawTransaction" ? 1 : this.#retryAttempts;
+    const attempts = IDEMPOTENT_RPC_METHODS.has(method)
+      ? this.#retryAttempts
+      : 1;
     const id = this.#nextId++;
 
     for (let attempt = 0; ; attempt++) {

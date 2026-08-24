@@ -11,6 +11,7 @@ export {
   GroundhogRpcErrorCode,
   HttpTransport,
   HttpTransportError,
+  IDEMPOTENT_RPC_METHODS,
   JsonRpcError,
 } from "./http.js";
 export type {

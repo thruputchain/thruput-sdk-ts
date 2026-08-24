@@ -5,6 +5,7 @@ import {
   GroundhogRpcErrorCode,
   HttpTransport,
   HttpTransportError,
+  IDEMPOTENT_RPC_METHODS,
   JsonRpcError,
 } from "./http.js";
 
@@ -21,6 +22,18 @@ function documentedErrorCodes() {
 describe("GroundhogRpcErrorCode", () => {
   it("matches specs/openrpc.json error codes", () => {
     expect(GroundhogRpcErrorCode).toEqual(documentedErrorCodes());
+  });
+});
+
+describe("IDEMPOTENT_RPC_METHODS", () => {
+  it("matches the specs/openrpc.json read methods", () => {
+    const specMethods = (openrpcSpec.methods as { name: string }[]).map(
+      (method) => method.name,
+    );
+    const readMethods = specMethods.filter(
+      (name) => name !== "groundhog_sendRawTransaction",
+    );
+    expect([...IDEMPOTENT_RPC_METHODS].sort()).toEqual(readMethods.sort());
   });
 });
 
@@ -500,6 +513,30 @@ describe("HttpTransport", () => {
         }).request("groundhog_sendRawTransaction", ["0x00"]),
       ).rejects.toThrow("HTTP 503");
       expect(calls).toBe(1);
+    });
+
+    it("never retries methods outside the idempotent allowlist", async () => {
+      for (const method of [
+        "groundhog_futureMutatingMethod",
+        "unknown_method",
+      ]) {
+        let calls = 0;
+        const fetchMock: typeof fetch = async () => {
+          calls++;
+          return new Response("unavailable", {
+            status: 503,
+            statusText: "Service Unavailable",
+          });
+        };
+
+        await expect(
+          new HttpTransport("http://localhost", {
+            fetch: fetchMock,
+            retry: { baseDelayMs: 1 },
+          }).request(method),
+        ).rejects.toThrow("HTTP 503");
+        expect(calls).toBe(1);
+      }
     });
 
     it("retries a 429 whose body is a non-transient JSON-RPC envelope, honoring Retry-After", async () => {
