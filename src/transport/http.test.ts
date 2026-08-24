@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import openrpcSpec from "../../specs/openrpc.json";
 import { GroundhogRpcErrorCode, HttpTransport, JsonRpcError } from "./http.js";
 
@@ -89,7 +89,217 @@ describe("HttpTransport", () => {
       new HttpTransport("http://localhost", {
         fetch: fetchMock,
         timeoutMs: 1,
+        retry: false,
       }).request("groundhog_version"),
     ).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("applies a 30s default timeout when timeoutMs is omitted", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchMock: typeof fetch = async (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(new DOMException("Aborted", "AbortError"));
+          });
+        });
+
+      const pending = new HttpTransport("http://localhost", {
+        fetch: fetchMock,
+        retry: false,
+      }).request("groundhog_version");
+      const outcome = expect(pending).rejects.toMatchObject({
+        name: "AbortError",
+      });
+      await vi.advanceTimersByTimeAsync(30_000);
+      await outcome;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  describe("retry", () => {
+    const ok = () =>
+      new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result: "ok" }));
+
+    it("retries HTTP 503 and succeeds", async () => {
+      let calls = 0;
+      const fetchMock: typeof fetch = async () => {
+        calls++;
+        if (calls === 1) {
+          return new Response("unavailable", {
+            status: 503,
+            statusText: "Service Unavailable",
+          });
+        }
+        return ok();
+      };
+
+      const result = await new HttpTransport("http://localhost", {
+        fetch: fetchMock,
+        retry: { baseDelayMs: 1 },
+      }).request("groundhog_chainTip");
+
+      expect(result).toBe("ok");
+      expect(calls).toBe(2);
+    });
+
+    it("gives up after the configured number of attempts", async () => {
+      let calls = 0;
+      const fetchMock: typeof fetch = async () => {
+        calls++;
+        return new Response("unavailable", {
+          status: 503,
+          statusText: "Service Unavailable",
+        });
+      };
+
+      await expect(
+        new HttpTransport("http://localhost", {
+          fetch: fetchMock,
+          retry: { attempts: 2, baseDelayMs: 1 },
+        }).request("groundhog_chainTip"),
+      ).rejects.toThrow("HTTP 503");
+      expect(calls).toBe(2);
+    });
+
+    it("honors Retry-After delta-seconds on 429", async () => {
+      vi.useFakeTimers();
+      try {
+        let calls = 0;
+        const fetchMock: typeof fetch = async () => {
+          calls++;
+          if (calls === 1) {
+            return new Response("slow down", {
+              status: 429,
+              statusText: "Too Many Requests",
+              headers: { "Retry-After": "2" },
+            });
+          }
+          return ok();
+        };
+
+        const pending = new HttpTransport("http://localhost", {
+          fetch: fetchMock,
+          retry: { baseDelayMs: 1 },
+        }).request("groundhog_chainTip");
+        // The retry waits the server-requested 2s, not the 1ms backoff.
+        await vi.advanceTimersByTimeAsync(1_999);
+        expect(calls).toBe(1);
+        await vi.advanceTimersByTimeAsync(1);
+        await expect(pending).resolves.toBe("ok");
+        expect(calls).toBe(2);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("retries transient JSON-RPC backend errors", async () => {
+      let calls = 0;
+      const fetchMock: typeof fetch = async () => {
+        calls++;
+        if (calls === 1) {
+          return new Response(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              error: {
+                code: GroundhogRpcErrorCode.BackendUnavailable,
+                message: "backend unavailable",
+              },
+            }),
+          );
+        }
+        return ok();
+      };
+
+      const result = await new HttpTransport("http://localhost", {
+        fetch: fetchMock,
+        retry: { baseDelayMs: 1 },
+      }).request("groundhog_chainTip");
+
+      expect(result).toBe("ok");
+      expect(calls).toBe(2);
+    });
+
+    it("does not retry non-transient JSON-RPC errors", async () => {
+      let calls = 0;
+      const fetchMock: typeof fetch = async () => {
+        calls++;
+        return new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            error: {
+              code: GroundhogRpcErrorCode.TxInvalid,
+              message: "tx invalid",
+            },
+          }),
+        );
+      };
+
+      await expect(
+        new HttpTransport("http://localhost", {
+          fetch: fetchMock,
+          retry: { baseDelayMs: 1 },
+        }).request("groundhog_chainTip"),
+      ).rejects.toBeInstanceOf(JsonRpcError);
+      expect(calls).toBe(1);
+    });
+
+    it("retries network-level fetch failures", async () => {
+      let calls = 0;
+      const fetchMock: typeof fetch = async () => {
+        calls++;
+        if (calls === 1) throw new TypeError("fetch failed");
+        return ok();
+      };
+
+      const result = await new HttpTransport("http://localhost", {
+        fetch: fetchMock,
+        retry: { baseDelayMs: 1 },
+      }).request("groundhog_chainTip");
+
+      expect(result).toBe("ok");
+      expect(calls).toBe(2);
+    });
+
+    it("never retries groundhog_sendRawTransaction", async () => {
+      let calls = 0;
+      const fetchMock: typeof fetch = async () => {
+        calls++;
+        return new Response("unavailable", {
+          status: 503,
+          statusText: "Service Unavailable",
+        });
+      };
+
+      await expect(
+        new HttpTransport("http://localhost", {
+          fetch: fetchMock,
+          retry: { baseDelayMs: 1 },
+        }).request("groundhog_sendRawTransaction", ["0x00"]),
+      ).rejects.toThrow("HTTP 503");
+      expect(calls).toBe(1);
+    });
+
+    it("does not retry when retry is disabled", async () => {
+      let calls = 0;
+      const fetchMock: typeof fetch = async () => {
+        calls++;
+        return new Response("unavailable", {
+          status: 503,
+          statusText: "Service Unavailable",
+        });
+      };
+
+      await expect(
+        new HttpTransport("http://localhost", {
+          fetch: fetchMock,
+          retry: false,
+        }).request("groundhog_chainTip"),
+      ).rejects.toThrow("HTTP 503");
+      expect(calls).toBe(1);
+    });
   });
 });

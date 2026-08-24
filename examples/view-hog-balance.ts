@@ -7,7 +7,9 @@ import { loadLocalDevAccount } from "../src/local-dev/index.js";
 const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";
 const { address: accountAddress } = await loadLocalDevAccount();
 
-const client = createGroundhogClient(new HttpTransport(rpcUrl));
+const client = createGroundhogClient(
+  new HttpTransport(rpcUrl, { timeoutMs: 10_000 }),
+);
 
 // Simulate the read-only ERC20 call and decode its typed result.
 const response = await ERC20.getBalanceOf.view({

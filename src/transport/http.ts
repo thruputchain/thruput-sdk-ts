@@ -38,6 +38,24 @@ export class JsonRpcError extends Error {
   }
 }
 
+/** Retry policy for {@link HttpTransport}. */
+export interface HttpTransportRetryOptions {
+  /**
+   * Total number of request attempts, including the first one.
+   *
+   * Defaults to 3.
+   */
+  attempts?: number;
+
+  /**
+   * Base delay for exponential backoff between attempts, in milliseconds.
+   *
+   * Attempt `n` waits roughly `baseDelayMs * 2 ** n` with jitter, unless the
+   * server supplies a `Retry-After` header. Defaults to 250.
+   */
+  baseDelayMs?: number;
+}
+
 /** Options for {@link HttpTransport}. */
 export interface HttpTransportOptions {
   /** Additional HTTP headers to include with each JSON-RPC request. */
@@ -46,16 +64,99 @@ export interface HttpTransportOptions {
   /** Custom `fetch` implementation, useful for tests or non-standard runtimes. */
   fetch?: typeof fetch;
 
-  /** Abort each request after this many milliseconds. */
+  /** Abort each request attempt after this many milliseconds. Defaults to 30_000. */
   timeoutMs?: number;
+
+  /**
+   * Retry policy for transient failures. Enabled by default; pass `false` to
+   * disable retries entirely.
+   *
+   * Only idempotent failures are retried: HTTP 429/502/503/504, network-level
+   * fetch failures (abort/`TypeError`), and the JSON-RPC backend-transient
+   * codes `BackendUnavailable`, `BackendTimeout`, and `Overloaded`.
+   * `groundhog_sendRawTransaction` is never retried — a submission whose
+   * outcome is unknown must not be re-sent.
+   */
+  retry?: HttpTransportRetryOptions | false;
+}
+
+/** Default timeout per request attempt, in milliseconds. */
+const DEFAULT_TIMEOUT_MS = 30_000;
+/** Default total attempts when retry is enabled. */
+const DEFAULT_RETRY_ATTEMPTS = 3;
+/** Default backoff base delay, in milliseconds. */
+const DEFAULT_RETRY_BASE_DELAY_MS = 250;
+/** Upper bound applied to server-supplied `Retry-After` delays. */
+const MAX_RETRY_AFTER_MS = 60_000;
+
+/** HTTP statuses that are safe to retry for idempotent JSON-RPC reads. */
+const RETRIABLE_HTTP_STATUSES = new Set([429, 502, 503, 504]);
+
+/** JSON-RPC error codes that indicate a transient backend condition. */
+const RETRIABLE_RPC_CODES = new Set<number>([
+  GroundhogRpcErrorCode.BackendUnavailable,
+  GroundhogRpcErrorCode.BackendTimeout,
+  GroundhogRpcErrorCode.Overloaded,
+]);
+
+/** Internal marker error for non-2xx responses, carrying retry metadata. */
+class HttpStatusError extends Error {
+  status: number;
+  retryAfterMs?: number;
+
+  constructor(status: number, statusText: string, retryAfterMs?: number) {
+    super(`HTTP ${status}: ${statusText}`);
+    this.name = "HttpStatusError";
+    this.status = status;
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
+/** Parse a `Retry-After` header (delta-seconds or HTTP-date) to milliseconds. */
+function parseRetryAfterMs(header: string | null): number | undefined {
+  if (header === null) return undefined;
+  const trimmed = header.trim();
+  if (/^\d+$/.test(trimmed)) {
+    return Math.min(Number(trimmed) * 1000, MAX_RETRY_AFTER_MS);
+  }
+  const date = Date.parse(trimmed);
+  if (Number.isNaN(date)) return undefined;
+  return Math.min(Math.max(date - Date.now(), 0), MAX_RETRY_AFTER_MS);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Decide whether a failed attempt may be retried.
+ *
+ * Returns `undefined` for non-retriable failures. For retriable failures,
+ * returns the server-requested delay in milliseconds (`Retry-After`), or `0`
+ * when the caller should apply its own backoff.
+ */
+function retriableDelayMs(error: unknown): number | undefined {
+  if (error instanceof HttpStatusError) {
+    if (!RETRIABLE_HTTP_STATUSES.has(error.status)) return undefined;
+    return error.retryAfterMs ?? 0;
+  }
+  if (error instanceof JsonRpcError) {
+    return RETRIABLE_RPC_CODES.has(error.code) ? 0 : undefined;
+  }
+  // Network-level failures: fetch rejects with TypeError on connection
+  // errors and with an AbortError DOMException on timeout.
+  if (error instanceof TypeError) return 0;
+  if (error instanceof Error && error.name === "AbortError") return 0;
+  return undefined;
 }
 
 /**
  * JSON-RPC 2.0 transport over HTTP POST.
  *
  * `HttpTransport` handles request IDs, JSON-RPC envelopes, optional custom
- * headers, optional timeout cancellation, and conversion of JSON-RPC error
- * responses into {@link JsonRpcError}.
+ * headers, per-attempt timeout cancellation (30 seconds by default), retry of
+ * transient idempotent failures, and conversion of JSON-RPC error responses
+ * into {@link JsonRpcError}.
  *
  * @example
  * ```ts
@@ -72,7 +173,9 @@ export class HttpTransport implements Transport {
   #url: string;
   #headers?: Record<string, string>;
   #fetch: typeof fetch;
-  #timeoutMs?: number;
+  #timeoutMs: number;
+  #retryAttempts: number;
+  #retryBaseDelayMs: number;
   #nextId = 1;
 
   /** Create an HTTP transport for a Groundhog JSON-RPC endpoint URL. */
@@ -80,11 +183,53 @@ export class HttpTransport implements Transport {
     this.#url = url;
     this.#headers = options.headers;
     this.#fetch = options.fetch ?? fetch;
-    this.#timeoutMs = options.timeoutMs;
+    this.#timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    if (options.retry === false) {
+      this.#retryAttempts = 1;
+      this.#retryBaseDelayMs = DEFAULT_RETRY_BASE_DELAY_MS;
+    } else {
+      this.#retryAttempts = options.retry?.attempts ?? DEFAULT_RETRY_ATTEMPTS;
+      this.#retryBaseDelayMs =
+        options.retry?.baseDelayMs ?? DEFAULT_RETRY_BASE_DELAY_MS;
+    }
+    if (!Number.isInteger(this.#retryAttempts) || this.#retryAttempts < 1) {
+      throw new RangeError(
+        `HttpTransport: retry.attempts must be a positive integer, got ${this.#retryAttempts}`,
+      );
+    }
   }
 
-  /** Send one JSON-RPC request and return the decoded `result` value. */
+  /**
+   * Send one JSON-RPC request and return the decoded `result` value.
+   *
+   * Transient idempotent failures are retried per the transport's retry
+   * policy; `groundhog_sendRawTransaction` is always sent exactly once.
+   */
   async request<T = unknown>(method: string, params?: unknown[]): Promise<T> {
+    const attempts =
+      method === "groundhog_sendRawTransaction" ? 1 : this.#retryAttempts;
+
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.#attempt<T>(method, params);
+      } catch (error) {
+        const retryAfterMs = retriableDelayMs(error);
+        if (retryAfterMs === undefined || attempt >= attempts - 1) {
+          throw error;
+        }
+        const backoff = this.#retryBaseDelayMs * 2 ** attempt;
+        // Equal jitter unless the server asked for a specific delay.
+        const delay =
+          retryAfterMs > 0
+            ? retryAfterMs
+            : backoff / 2 + Math.random() * (backoff / 2);
+        await sleep(delay);
+      }
+    }
+  }
+
+  /** Send a single JSON-RPC request attempt without retrying. */
+  async #attempt<T>(method: string, params?: unknown[]): Promise<T> {
     const id = this.#nextId++;
     const body = JSON.stringify({
       jsonrpc: "2.0",
@@ -110,7 +255,11 @@ export class HttpTransport implements Transport {
     }
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      throw new HttpStatusError(
+        response.status,
+        response.statusText,
+        parseRetryAfterMs(response.headers.get("Retry-After")),
+      );
     }
     const json = await response.json();
     if (!json || typeof json !== "object" || Array.isArray(json)) {

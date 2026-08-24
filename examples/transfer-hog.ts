@@ -31,7 +31,9 @@ const { address: recipientAddress } = await loadLocalDevAccount({
 const walletGasLimit = gasAmount(10_000_000n);
 const callGasLimit = gasAmount(500_000n);
 
-const client = createGroundhogClient(new HttpTransport(rpcUrl));
+const client = createGroundhogClient(
+  new HttpTransport(rpcUrl, { timeoutMs: 10_000 }),
+);
 const tip = await client.getChainTip();
 
 // Build the token call first: HOG.transfer(recipient, amount).
