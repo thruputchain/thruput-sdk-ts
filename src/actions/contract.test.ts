@@ -132,6 +132,7 @@ function spyTransport<R>(stub: R): {
   const transport: Transport = {
     async request<T = unknown>(method: string, params?: unknown[]): Promise<T> {
       calls.push({ method, params });
+      coveredMethods.add(method);
       const validate = resultValidator(method);
       if (!validate(stub)) {
         throw new Error(
@@ -143,6 +144,16 @@ function spyTransport<R>(stub: R): {
   };
   return { transport, calls };
 }
+
+/** Every JSON-RPC method exercised through {@link spyTransport} in this file. */
+const coveredMethods = new Set<string>();
+
+/**
+ * Spec methods this SDK deliberately does not implement yet.  Adding a name
+ * here must be a conscious decision — the coverage test below fails on any
+ * spec method that is neither exercised nor listed.
+ */
+const UNIMPLEMENTED_METHODS: readonly string[] = [];
 
 function assertCapturedParamsMatchSpec(
   methodName: string,
@@ -367,5 +378,18 @@ describe("contract tests against specs/openrpc.json", () => {
 
     expect(calls).toHaveLength(1);
     assertCapturedParamsMatchSpec("groundhog_view", calls[0]!.params);
+  });
+
+  // Keep this test last: it asserts over the methods the earlier tests in
+  // this file exercised through spyTransport.
+  it("covers every method declared in specs/openrpc.json", () => {
+    const expected = (
+      openrpcSpec as { methods: Array<{ name: string }> }
+    ).methods
+      .map((m) => m.name)
+      .filter((name) => !UNIMPLEMENTED_METHODS.includes(name))
+      .sort();
+
+    expect([...coveredMethods].sort()).toEqual(expected);
   });
 });
