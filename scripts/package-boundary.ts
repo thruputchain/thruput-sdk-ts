@@ -13,11 +13,11 @@ import type {
   WalletInvocationAdapter,
 } from "@groundhogchain/client";
 import {
-  connectGroundhogClient,
+  createGroundhogClient,
   createPubkeyAccount,
   createSourceAddressAccount,
   createWalletClient,
-  customCluster,
+  defineCluster,
   defaultWalletAdapter,
   defineWalletInvocationAdapter,
   devnet,
@@ -149,7 +149,7 @@ function clusterBoundaryTypecheck(
   const dev = devnet();
   const local = localnet();
   const production = mainnet();
-  const custom = customCluster({
+  const custom = defineCluster({
     networkId: "private-devnet",
     rpcUrl: "https://rpc.example.com",
     capabilities: ["airdrop"],
@@ -170,12 +170,12 @@ function clusterBoundaryTypecheck(
   > = false;
   const customCapability: "airdrop" = custom.capabilities[0];
   const connected: Promise<ConnectedGroundhogClient<typeof dev>> =
-    connectGroundhogClient({ cluster: dev, transport });
+    createGroundhogClient({ cluster: dev, transport });
   const defaultConnected: Promise<ConnectedGroundhogClient<typeof dev>> =
-    connectGroundhogClient({ cluster: dev });
+    createGroundhogClient({ cluster: dev });
 
   connected.then((client) => client.requestAirdrop({ recipient }));
-  connectGroundhogClient({ cluster: production, transport }).then((client) => {
+  createGroundhogClient({ cluster: production, transport }).then((client) => {
     // @ts-expect-error Mainnet clients do not expose airdrop actions.
     client.requestAirdrop({ recipient });
   });

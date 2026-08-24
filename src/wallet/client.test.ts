@@ -11,7 +11,7 @@ import {
   type Invocation,
 } from "@groundhogchain/protocol";
 import { describe, expect, it, vi } from "vitest";
-import { createGroundhogClient, connectGroundhogClient } from "../client.js";
+import { createGroundhogClient } from "../client.js";
 import { localnet, mainnet } from "../cluster.js";
 import { MockTransport } from "../transport/mock.js";
 import { PrivateKeySigner } from "../signers/privateKey.js";
@@ -51,8 +51,10 @@ function invocation(invokedAddress = address): Invocation {
 }
 
 describe("wallet account defaults", () => {
-  it("rejects rebinding a client to another account", () => {
-    const client = createGroundhogClient(new MockTransport());
+  it("rejects rebinding a client to another account", async () => {
+    const client = await createGroundhogClient({
+      transport: new MockTransport(),
+    });
     createWalletClient({ client, account: account() });
 
     expect(() =>
@@ -70,15 +72,19 @@ describe("wallet account defaults", () => {
     "sendInvocation",
     "prepareExecution",
     "execute",
-  ] as const)("rejects clients with a reserved %s property", (property) => {
-    const client = Object.assign(createGroundhogClient(new MockTransport()), {
-      [property]: () => "unrelated",
-    });
+  ] as const)(
+    "rejects clients with a reserved %s property",
+    async (property) => {
+      const client = Object.assign(
+        await createGroundhogClient({ transport: new MockTransport() }),
+        { [property]: () => "unrelated" },
+      );
 
-    expect(() => createWalletClient({ client, account: account() })).toThrow(
-      `Client property ${property} conflicts with a wallet client property`,
-    );
-  });
+      expect(() => createWalletClient({ client, account: account() })).toThrow(
+        `Client property ${property} conflicts with a wallet client property`,
+      );
+    },
+  );
 
   it("defaults balance and airdrop recipients to the account address", async () => {
     const calls: Array<{ method: string; params?: unknown[] }> = [];
@@ -103,7 +109,7 @@ describe("wallet account defaults", () => {
       },
     };
     const wallet = createWalletClient({
-      client: createGroundhogClient(transport),
+      client: await createGroundhogClient({ transport }),
       account: account(),
     });
 
@@ -132,7 +138,7 @@ describe("wallet account defaults", () => {
         } as T;
       },
     };
-    const client = createGroundhogClient(transport);
+    const client = await createGroundhogClient({ transport });
     const wallet = createWalletClient({ client, account: account() });
     const other = contractAddress(new Uint8Array(32).fill(0x44));
     const nonce = new Uint8Array([1, 2, 3]);
@@ -158,7 +164,7 @@ describe("wallet account defaults", () => {
     abort.abort(new Error("cancelled"));
 
     const cancelledWallet = createWalletClient({
-      client: createGroundhogClient({ request }),
+      client: await createGroundhogClient({ transport: { request } }),
       account: account(),
     });
     await expect(
@@ -166,7 +172,7 @@ describe("wallet account defaults", () => {
     ).rejects.toThrow("cancelled");
 
     const timedOutWallet = createWalletClient({
-      client: createGroundhogClient({ request }),
+      client: await createGroundhogClient({ transport: { request } }),
       account: account(),
     });
     await expect(
@@ -177,7 +183,7 @@ describe("wallet account defaults", () => {
 
   it("accepts explicit balance and airdrop recipients", async () => {
     const wallet = createWalletClient({
-      client: createGroundhogClient(new MockTransport()),
+      client: await createGroundhogClient({ transport: new MockTransport() }),
       account: account(),
     });
     const other = contractAddress(new Uint8Array(32).fill(0x44));
@@ -192,7 +198,7 @@ describe("wallet account defaults", () => {
 
   it("preserves connected metadata and omits unavailable funding", async () => {
     const transport = new MockTransport();
-    const local = await connectGroundhogClient({
+    const local = await createGroundhogClient({
       cluster: localnet(),
       transport,
     });
@@ -204,7 +210,7 @@ describe("wallet account defaults", () => {
     expect(localWallet.requestAirdrop).toBeTypeOf("function");
     expect(localWallet).not.toHaveProperty("execute");
 
-    const mainnetClient = await connectGroundhogClient({
+    const mainnetClient = await createGroundhogClient({
       cluster: mainnet(),
       transport: {
         async request<T>(method: string): Promise<T> {
@@ -229,7 +235,7 @@ describe("wallet account defaults", () => {
 describe("wallet transactions", () => {
   it("prepares with tip-based defaults", async () => {
     const wallet = createWalletClient({
-      client: createGroundhogClient(new MockTransport()),
+      client: await createGroundhogClient({ transport: new MockTransport() }),
       account: account(),
     });
 
@@ -254,7 +260,7 @@ describe("wallet transactions", () => {
     };
     const wallet = createWalletClient({
       client: {
-        ...createGroundhogClient(new MockTransport()),
+        ...(await createGroundhogClient({ transport: new MockTransport() })),
         getChainTip,
       },
       account: account(),
@@ -283,7 +289,7 @@ describe("wallet transactions", () => {
       rv32_contract: { data: new Uint8Array([1, 2, 3]) },
     } as const;
     const client = {
-      ...createGroundhogClient(new MockTransport()),
+      ...(await createGroundhogClient({ transport: new MockTransport() })),
       async getChainTip() {
         await tipGate;
         return {
@@ -311,7 +317,7 @@ describe("wallet transactions", () => {
 
   it("uses an explicit expiry offset and deployment contracts", async () => {
     const wallet = createWalletClient({
-      client: createGroundhogClient(new MockTransport()),
+      client: await createGroundhogClient({ transport: new MockTransport() }),
       account: account(),
     });
     const contract = {
@@ -332,7 +338,7 @@ describe("wallet transactions", () => {
 
   it("signs and submits an invocation", async () => {
     const wallet = createWalletClient({
-      client: createGroundhogClient(new MockTransport()),
+      client: await createGroundhogClient({ transport: new MockTransport() }),
       account: account(),
     });
 
@@ -356,7 +362,7 @@ describe("wallet transactions", () => {
       ...entry,
     }));
     const client = {
-      ...createGroundhogClient(new MockTransport()),
+      ...(await createGroundhogClient({ transport: new MockTransport() })),
       async getChainTip() {
         await tipGate;
         return { height: 10n, blockHash: new Uint8Array(32) as never };
@@ -381,7 +387,7 @@ describe("wallet transactions", () => {
 
   it("rejects mismatched roots and conflicting expiry options", async () => {
     const wallet = createWalletClient({
-      client: createGroundhogClient(new MockTransport()),
+      client: await createGroundhogClient({ transport: new MockTransport() }),
       account: account(),
     });
 
@@ -404,7 +410,7 @@ describe("wallet execution adapters", () => {
   it("uses DefaultWallet automatically for pubkey accounts", async () => {
     const pubkeyAccount = createPubkeyAccount({ signer: signer() });
     const wallet = createWalletClient({
-      client: createGroundhogClient(new MockTransport()),
+      client: await createGroundhogClient({ transport: new MockTransport() }),
       account: pubkeyAccount,
     });
 
@@ -424,7 +430,7 @@ describe("wallet execution adapters", () => {
 
   it("executes through an explicit source-address adapter", async () => {
     const wallet = createWalletClient({
-      client: createGroundhogClient(new MockTransport()),
+      client: await createGroundhogClient({ transport: new MockTransport() }),
       account: account(),
       invocationAdapter: devWalletAdapter,
     });
@@ -451,7 +457,7 @@ describe("wallet execution adapters", () => {
       },
     });
     const wallet = createWalletClient({
-      client: createGroundhogClient(new MockTransport()),
+      client: await createGroundhogClient({ transport: new MockTransport() }),
       account: createPubkeyAccount({ signer: signer() }),
       invocationAdapter: customAdapter,
     });

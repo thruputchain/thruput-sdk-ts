@@ -9,7 +9,7 @@ import {
   type Contract,
 } from "@groundhogchain/protocol";
 import {
-  connectGroundhogClient,
+  createGroundhogClient,
   createSourceAddressAccount,
   createWalletClient,
   deriveContractAddress,
@@ -34,7 +34,7 @@ const deploymentNonce = sha256Hash(randomBytes(32));
 const walletGasLimit = gasAmount(10_000_000n);
 const counterGasLimit = gasAmount(500_000n);
 
-const client = await connectGroundhogClient({
+const client = await createGroundhogClient({
   cluster: localnet(rpcUrl ? { rpcUrl } : {}),
 });
 const account = createSourceAddressAccount({

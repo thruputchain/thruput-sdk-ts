@@ -4,8 +4,7 @@ import type {
   Transaction,
 } from "@groundhogchain/protocol";
 import {
-  connectGroundhogClient,
-  customCluster,
+  createGroundhogClient,
   createWalletClient,
   defineWalletInvocationAdapter,
   devWalletAdapter,
@@ -72,24 +71,24 @@ function assertWalletTypes(
   // @ts-expect-error Mainnet wallet clients do not expose airdrops.
   mainnetWallet.requestAirdrop();
 
-  connectGroundhogClient({
+  createGroundhogClient({
     cluster: localnet(),
     transport,
   }).then((client) => createWalletClient({ client, account }).requestAirdrop());
-  connectGroundhogClient({
-    cluster: customCluster({
+  createGroundhogClient({
+    cluster: {
       networkId: "capable",
       rpcUrl: "https://rpc.example.com",
       capabilities: ["airdrop"],
-    }),
+    },
     transport,
   }).then((client) => createWalletClient({ client, account }).requestAirdrop());
-  connectGroundhogClient({
-    cluster: customCluster({
+  createGroundhogClient({
+    cluster: {
       networkId: "incapable",
       rpcUrl: "https://rpc.example.com",
       capabilities: [],
-    }),
+    },
     transport,
   }).then((client) => {
     const wallet = createWalletClient({ client, account });

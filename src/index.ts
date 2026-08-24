@@ -28,12 +28,11 @@ export {
 export type { HttpTransportOptions } from "./transport/index.js";
 export type { Signer } from "./signers/index.js";
 export { PrivateKeySigner } from "./signers/index.js";
-export { createGroundhogClient, connectGroundhogClient } from "./client.js";
+export { createGroundhogClient } from "./client.js";
 export {
   devnet,
   mainnet,
   localnet,
-  customCluster,
   defineCluster,
   assertNetworkMatchesCluster,
   NetworkMismatchError,
@@ -42,7 +41,8 @@ export {
 } from "./cluster.js";
 export type {
   ConnectedGroundhogClient,
-  ConnectGroundhogClientOptions,
+  ClusterGroundhogClientOptions,
+  GroundhogClientOptions,
   CoreGroundhogClient,
   AirdropActions,
   GroundhogClient,
@@ -51,7 +51,6 @@ export type {
   Cluster,
   ClusterCapability,
   ClusterHasCapability,
-  ClusterName,
   PredefinedClusterOptions,
 } from "./cluster.js";
 export { derivePubkeyAccountAddress } from "./derivation/pubkeyAccount.js";

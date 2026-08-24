@@ -1,6 +1,6 @@
 import { HOG_ADDRESS } from "@groundhogchain/protocol";
 // Repository-local imports; applications use the published client entrypoints.
-import { connectGroundhogClient, localnet, toHex0x } from "../src/index.js";
+import { createGroundhogClient, localnet, toHex0x } from "../src/index.js";
 import { ERC20 } from "../src/contracts/index.js";
 import { loadLocalDevAccount } from "../src/local-dev/index.js";
 
@@ -12,7 +12,7 @@ if (rpcUrl && !process.env.GROUNDHOG_RUNTIME_MANIFEST) {
 }
 const account = await loadLocalDevAccount();
 
-const client = await connectGroundhogClient({
+const client = await createGroundhogClient({
   cluster: localnet(rpcUrl ? { rpcUrl } : {}),
 });
 

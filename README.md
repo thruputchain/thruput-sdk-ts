@@ -22,21 +22,21 @@ token with `read:packages`. See [Registry auth](#registry-auth-one-time-setup).
 ```ts
 import { createGroundhogClient, HttpTransport } from "@groundhogchain/client";
 
-const client = createGroundhogClient(
-  new HttpTransport("https://rpc.example.com"),
-);
+const client = await createGroundhogClient({
+  transport: new HttpTransport("https://rpc.example.com"),
+});
 
 const tip = await client.getChainTip();
 const txHash = await client.sendTransaction(signedTransaction);
 ```
 
-Use a cluster-aware client when the application must validate the endpoint
-before making requests:
+Pass a cluster when the application must validate the endpoint before making
+requests:
 
 ```ts
-import { connectGroundhogClient, devnet } from "@groundhogchain/client";
+import { createGroundhogClient, devnet } from "@groundhogchain/client";
 
-const client = await connectGroundhogClient({
+const client = await createGroundhogClient({
   cluster: devnet(),
 });
 
@@ -56,14 +56,23 @@ gateway's configured aggregate quota. Localnet airdrops are unlimited. Use
 `requestAirdropAttempt` when an application needs to persist the nonce or
 control polling itself.
 
-The predefined clusters are `mainnet`, `devnet`, and `localnet`. Use
-`customCluster` to declare a deployment-specific network ID and capabilities.
-Devnet and localnet include default RPC URLs; pass `rpcUrl` to override them.
-Mainnet has no default endpoint yet. Supply a genesis hash to any cluster
-descriptor when the application must pin one materialized genesis state. Pass
-an explicit transport for custom headers or request handling. The existing
-`createGroundhogClient` remains appropriate for unknown endpoints and performs
-no runtime identity validation.
+The predefined clusters are `mainnet`, `devnet`, and `localnet`. Declare a
+deployment-specific cluster inline, or use `defineCluster` when the descriptor
+will be reused. Devnet and localnet include default RPC URLs; pass `rpcUrl` to
+override them. Mainnet has no default endpoint yet. Supply a genesis hash to
+any cluster descriptor when the application must pin one materialized genesis
+state. Pass an explicit transport for custom headers or request handling. Omit
+`cluster` to use an unknown endpoint without runtime identity validation.
+
+```ts
+const client = await createGroundhogClient({
+  cluster: {
+    networkId: "private-devnet",
+    rpcUrl: "https://rpc.example.com",
+    capabilities: ["airdrop"],
+  },
+});
+```
 
 Generated contract bindings are exported separately:
 
@@ -101,14 +110,14 @@ A wallet client binds account authorization and signers to an existing client:
 
 ```ts
 import {
-  connectGroundhogClient,
+  createGroundhogClient,
   createPubkeyAccount,
   createWalletClient,
   devnet,
   PrivateKeySigner,
 } from "@groundhogchain/client";
 
-const client = await connectGroundhogClient({ cluster: devnet() });
+const client = await createGroundhogClient({ cluster: devnet() });
 const signer = new PrivateKeySigner(secretKey);
 const account = createPubkeyAccount({ signer, nonce: 0n });
 const wallet = createWalletClient({ client, account });
@@ -213,7 +222,7 @@ helpers, generated standard contracts, signers, and standalone actions.
 
 ## What's in this repo
 
-- `src/client.ts` — `createGroundhogClient` factory that binds a transport to the SDK actions.
+- `src/client.ts` — async `createGroundhogClient` factory for unqualified and cluster-validated clients.
 - `src/actions/` — RPC actions grouped by namespace:
   - `public/` — chain, account, contract-view, event, and transaction queries.
   - `wallet/` — write methods (`sendTransaction`).

@@ -1,8 +1,8 @@
 // Repository-local import; applications use "@groundhogchain/client".
-import { connectGroundhogClient, devnet, toHex0x } from "../src/index.js";
+import { createGroundhogClient, devnet, toHex0x } from "../src/index.js";
 
 const rpcUrl = process.env.GROUNDHOG_RPC_URL;
-const client = await connectGroundhogClient({
+const client = await createGroundhogClient({
   cluster: devnet(rpcUrl ? { rpcUrl } : {}),
 });
 

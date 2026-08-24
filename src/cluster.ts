@@ -11,17 +11,13 @@ export const LOCALNET_RPC_URL = "http://127.0.0.1:9545";
 /** Optional feature exposed by a Groundhog cluster. */
 export type ClusterCapability = "airdrop";
 
-/** Supported Groundhog cluster categories. */
-export type ClusterName = "mainnet" | "devnet" | "localnet" | "custom";
-
 /** Network identity and optional features expected at an RPC endpoint. */
 export interface Cluster<
-  TName extends ClusterName = ClusterName,
   TCapabilities extends readonly ClusterCapability[] =
     readonly ClusterCapability[],
 > {
-  /** Human-readable cluster category. */
-  readonly name: TName;
+  /** Optional human-readable cluster name. */
+  readonly name?: string;
 
   /** Exact logical network identifier returned by `groundhog_networkInfo`. */
   readonly networkId: string;
@@ -41,7 +37,7 @@ export type ClusterHasCapability<
   TCluster extends Cluster,
   TCapability extends ClusterCapability,
 > = false extends (
-  TCluster extends Cluster<ClusterName, infer TCapabilities>
+  TCluster extends Cluster<infer TCapabilities>
     ? TCapabilities extends readonly ClusterCapability[]
       ? number extends TCapabilities["length"]
         ? false
@@ -63,11 +59,10 @@ export interface PredefinedClusterOptions {
   readonly genesisHash?: SHA256Hash;
 }
 
-/** Define a cluster while preserving literal name and capability types. */
-export function defineCluster<
-  const TName extends ClusterName,
-  const TCapabilities extends readonly ClusterCapability[],
->(cluster: Cluster<TName, TCapabilities>): Cluster<TName, TCapabilities> {
+/** Define a reusable cluster while preserving its literal capability types. */
+export function defineCluster<const TCluster extends Cluster>(
+  cluster: TCluster,
+): TCluster {
   if (cluster.networkId.trim().length === 0) {
     throw new Error("Cluster networkId must not be empty");
   }
@@ -79,14 +74,14 @@ export function defineCluster<
       : { genesisHash: sha256Hash(new Uint8Array(cluster.genesisHash)) }),
     capabilities: Object.freeze([
       ...cluster.capabilities,
-    ]) as unknown as TCapabilities,
-  });
+    ]) as unknown as TCluster["capabilities"],
+  }) as TCluster;
 }
 
 /** Define the canonical Groundhog mainnet cluster. */
 export function mainnet(
   options: PredefinedClusterOptions = {},
-): Cluster<"mainnet", readonly []> {
+): Cluster<readonly []> & { readonly name: "mainnet" } {
   return defineCluster({
     name: "mainnet",
     networkId: "mainnet",
@@ -99,7 +94,7 @@ export function mainnet(
 /** Define the resettable public Groundhog development network. */
 export function devnet(
   options: PredefinedClusterOptions = {},
-): Cluster<"devnet", readonly ["airdrop"]> {
+): Cluster<readonly ["airdrop"]> & { readonly name: "devnet" } {
   return defineCluster({
     name: "devnet",
     networkId: "devnet-preview",
@@ -112,7 +107,7 @@ export function devnet(
 /** Define a local `groundhog node` development network. */
 export function localnet(
   options: PredefinedClusterOptions = {},
-): Cluster<"localnet", readonly ["airdrop"]> {
+): Cluster<readonly ["airdrop"]> & { readonly name: "localnet" } {
   return defineCluster({
     name: "localnet",
     networkId: "localnet",
@@ -120,15 +115,6 @@ export function localnet(
     capabilities: ["airdrop"] as const,
     ...withGenesisHash(options),
   });
-}
-
-/** Define a deployment-specific cluster and its expected optional features. */
-export function customCluster<
-  const TCapabilities extends readonly ClusterCapability[],
->(
-  cluster: Omit<Cluster<"custom", TCapabilities>, "name">,
-): Cluster<"custom", TCapabilities> {
-  return defineCluster({ name: "custom", ...cluster });
 }
 
 /** Error thrown when an RPC endpoint does not match its declared cluster. */

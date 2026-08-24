@@ -129,30 +129,6 @@ export interface AirdropActions {
 /** Unqualified client with every supported SDK action. */
 export interface GroundhogClient extends CoreGroundhogClient, AirdropActions {}
 
-/**
- * Create a convenience client by binding all SDK actions to a transport.
- *
- * The returned object is intentionally thin: each method delegates to the
- * corresponding standalone action with the provided transport.
- *
- * @example
- * ```ts
- * import { createGroundhogClient, HttpTransport } from "@groundhogchain/client";
- *
- * const client = createGroundhogClient(
- *   new HttpTransport("http://127.0.0.1:9545"),
- * );
- *
- * const tip = await client.getChainTip();
- * ```
- */
-export function createGroundhogClient(transport: Transport): GroundhogClient {
-  return Object.assign(
-    createCoreGroundhogClient(transport),
-    createAirdropActions(transport),
-  );
-}
-
 function createCoreGroundhogClient(transport: Transport): CoreGroundhogClient {
   return {
     getNetworkInfo: () => getNetworkInfo(transport),
@@ -195,8 +171,14 @@ export type ConnectedGroundhogClient<TCluster extends Cluster = Cluster> =
       readonly network: NetworkInfo;
     };
 
-/** Options for connecting and validating a cluster-aware client. */
-export interface ConnectGroundhogClientOptions<
+/** Options for an unqualified client that skips runtime identity validation. */
+export interface GroundhogClientOptions {
+  readonly transport: Transport;
+  readonly cluster?: never;
+}
+
+/** Options for a client validated against a declared cluster. */
+export interface ClusterGroundhogClientOptions<
   TCluster extends Cluster = Cluster,
 > {
   readonly cluster: TCluster;
@@ -205,14 +187,25 @@ export interface ConnectGroundhogClientOptions<
 }
 
 /**
- * Create a client after validating the endpoint's runtime network identity.
- *
- * Use {@link createGroundhogClient} instead for an unqualified endpoint when
- * runtime identity validation is not required.
+ * Create a client and, when a cluster is supplied, validate the endpoint's
+ * runtime network identity before returning it.
  */
-export async function connectGroundhogClient<TCluster extends Cluster>(
-  options: ConnectGroundhogClientOptions<TCluster>,
-): Promise<ConnectedGroundhogClient<TCluster>> {
+export function createGroundhogClient<const TCluster extends Cluster>(
+  options: ClusterGroundhogClientOptions<TCluster>,
+): Promise<ConnectedGroundhogClient<TCluster>>;
+export function createGroundhogClient(
+  options: GroundhogClientOptions,
+): Promise<GroundhogClient>;
+export async function createGroundhogClient(
+  options: GroundhogClientOptions | ClusterGroundhogClientOptions<Cluster>,
+): Promise<GroundhogClient | ConnectedGroundhogClient> {
+  if (options.cluster === undefined) {
+    return Object.assign(
+      createCoreGroundhogClient(options.transport),
+      createAirdropActions(options.transport),
+    );
+  }
+
   const cluster = defineCluster(options.cluster);
   const transport = resolveClusterTransport({ ...options, cluster });
   const client = createCoreGroundhogClient(transport);
@@ -224,15 +217,15 @@ export async function connectGroundhogClient<TCluster extends Cluster>(
       ? createAirdropActions(transport)
       : {},
     { cluster, network },
-  ) as ConnectedGroundhogClient<TCluster>;
+  ) as ConnectedGroundhogClient;
 }
 
 function resolveClusterTransport<TCluster extends Cluster>(
-  options: ConnectGroundhogClientOptions<TCluster>,
+  options: ClusterGroundhogClientOptions<TCluster>,
 ): Transport {
   if (options.transport) return options.transport;
   if (options.cluster.rpcUrl) return new HttpTransport(options.cluster.rpcUrl);
   throw new Error(
-    `Cluster ${options.cluster.name} has no default RPC URL; provide a transport or rpcUrl`,
+    `Cluster ${options.cluster.name ?? options.cluster.networkId} has no default RPC URL; provide a transport or rpcUrl`,
   );
 }

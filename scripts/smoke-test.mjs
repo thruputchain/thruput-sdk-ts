@@ -22,7 +22,6 @@ const requiredExports = {
     "ContractViewError",
     "HttpTransport",
     "PrivateKeySigner",
-    "connectGroundhogClient",
     "createGroundhogClient",
     "createPubkeyAccount",
     "createSourceAddressAccount",

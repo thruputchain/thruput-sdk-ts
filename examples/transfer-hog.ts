@@ -3,7 +3,7 @@ import { HOG_ADDRESS, gasAmount } from "@groundhogchain/protocol";
 // Repository-local imports; applications use the published client entrypoints.
 import {
   PrivateKeySigner,
-  connectGroundhogClient,
+  createGroundhogClient,
   createPubkeyAccount,
   createWalletClient,
   devnet,
@@ -24,7 +24,7 @@ const recipient = createPubkeyAccount({
   signer: new PrivateKeySigner(randomBytes(32)),
 });
 
-const client = await connectGroundhogClient({
+const client = await createGroundhogClient({
   cluster: devnet(rpcUrl ? { rpcUrl } : {}),
 });
 const wallet = createWalletClient({
