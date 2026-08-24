@@ -467,6 +467,41 @@ describe("HttpTransport", () => {
       expect(calls).toBe(1);
     });
 
+    it("rejects promptly when aborted during a retry backoff delay", async () => {
+      const controller = new AbortController();
+      let calls = 0;
+      const fetchMock: typeof fetch = async () => {
+        calls++;
+        return new Response("slow down", {
+          status: 429,
+          statusText: "Too Many Requests",
+          headers: { "Retry-After": "60" },
+        });
+      };
+
+      const pending = new HttpTransport("http://localhost", {
+        fetch: fetchMock,
+        signal: controller.signal,
+        retry: { baseDelayMs: 1 },
+      }).request("groundhog_chainTip");
+      // Surface the rejection handler before the abort so the promise is
+      // never observed as unhandled.
+      const outcome = expect(pending).rejects.toMatchObject({
+        name: "AbortError",
+      });
+
+      // Let the first attempt fail and the transport enter its 60s
+      // Retry-After backoff sleep, then abort.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(calls).toBe(1);
+      const abortedAt = Date.now();
+      controller.abort();
+      await outcome;
+      // The rejection must arrive from the abort, not the 60s sleep.
+      expect(Date.now() - abortedAt).toBeLessThan(1_000);
+      expect(calls).toBe(1);
+    });
+
     it("does not retry when retry is disabled", async () => {
       let calls = 0;
       const fetchMock: typeof fetch = async () => {

@@ -214,8 +214,36 @@ function parseRetryAfterMs(header: string | null): number | undefined {
   return Math.min(Math.max(date - Date.now(), 0), MAX_RETRY_AFTER_MS);
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ * Sleep for `ms` milliseconds, rejecting as soon as `signal` aborts.
+ *
+ * The abort listener is removed on either outcome so a long-lived caller
+ * signal does not accumulate listeners across retries.
+ */
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(abortError(signal));
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(abortError(signal));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+/** The abort reason of an aborted signal, or a standard `AbortError`. */
+function abortError(signal?: AbortSignal): unknown {
+  return (
+    signal?.reason ??
+    new DOMException("This operation was aborted", "AbortError")
+  );
 }
 
 /**
@@ -380,7 +408,9 @@ export class HttpTransport implements Transport {
           retryAfterMs > 0
             ? retryAfterMs
             : backoff / 2 + Math.random() * (backoff / 2);
-        await sleep(delay);
+        // Abort-aware: a caller abort during backoff rejects immediately
+        // instead of waiting out the delay.
+        await sleep(delay, this.#signal);
       }
     }
   }
