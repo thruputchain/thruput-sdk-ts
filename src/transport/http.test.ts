@@ -467,6 +467,82 @@ describe("HttpTransport", () => {
       expect(calls).toBe(1);
     });
 
+    it("retries a 429 whose body is a non-transient JSON-RPC envelope, honoring Retry-After", async () => {
+      vi.useFakeTimers();
+      try {
+        let calls = 0;
+        const fetchMock: typeof fetch = async () => {
+          calls++;
+          if (calls === 1) {
+            return new Response(
+              JSON.stringify({
+                jsonrpc: "2.0",
+                id: 1,
+                error: {
+                  code: GroundhogRpcErrorCode.TxInvalid,
+                  message: "tx invalid",
+                },
+              }),
+              {
+                status: 429,
+                statusText: "Too Many Requests",
+                headers: { "Retry-After": "2" },
+              },
+            );
+          }
+          return ok();
+        };
+
+        const pending = new HttpTransport("http://localhost", {
+          fetch: fetchMock,
+          retry: { baseDelayMs: 1 },
+        }).request("groundhog_chainTip");
+        // The HTTP 429 governs retriability and the retry waits the
+        // server-requested 2s, even though the embedded RPC code is
+        // non-transient.
+        await vi.advanceTimersByTimeAsync(1_999);
+        expect(calls).toBe(1);
+        await vi.advanceTimersByTimeAsync(1);
+        await expect(pending).resolves.toBe("ok");
+        expect(calls).toBe(2);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("does not retry a non-transient JSON-RPC envelope on a non-retriable HTTP status", async () => {
+      let calls = 0;
+      const fetchMock: typeof fetch = async () => {
+        calls++;
+        return new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            error: {
+              code: GroundhogRpcErrorCode.TxInvalid,
+              message: "tx invalid",
+            },
+          }),
+          { status: 400, statusText: "Bad Request" },
+        );
+      };
+
+      try {
+        await new HttpTransport("http://localhost", {
+          fetch: fetchMock,
+          retry: { baseDelayMs: 1 },
+        }).request("groundhog_chainTip");
+        throw new Error("expected request to fail");
+      } catch (error) {
+        expect(error).toBeInstanceOf(JsonRpcError);
+        expect(error).toMatchObject({
+          code: GroundhogRpcErrorCode.TxInvalid,
+          httpStatus: 400,
+        });
+      }
+      expect(calls).toBe(1);
+    });
+
     it("rejects promptly when aborted during a retry backoff delay", async () => {
       const controller = new AbortController();
       let calls = 0;

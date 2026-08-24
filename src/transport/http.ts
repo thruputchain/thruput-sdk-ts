@@ -29,12 +29,33 @@ export class JsonRpcError extends Error {
   /** JSON-RPC method associated with the failed request, when known. */
   method?: string;
 
-  constructor(code: number, message: string, data?: unknown, method?: string) {
+  /**
+   * HTTP status of the non-2xx response that carried this error envelope.
+   *
+   * Absent when the envelope arrived on a 2xx response. Retriable statuses
+   * (429/502/503/504) keep the transport's HTTP-level retry policy in effect
+   * regardless of the embedded RPC code.
+   */
+  httpStatus?: number;
+
+  /** Server-requested retry delay from `Retry-After`, in milliseconds. */
+  retryAfterMs?: number;
+
+  constructor(
+    code: number,
+    message: string,
+    data?: unknown,
+    method?: string,
+    httpStatus?: number,
+    retryAfterMs?: number,
+  ) {
     super(message);
     this.name = "JsonRpcError";
     this.code = code;
     this.data = data;
     this.method = method;
+    this.httpStatus = httpStatus;
+    this.retryAfterMs = retryAfterMs;
   }
 }
 
@@ -181,11 +202,15 @@ async function errorFromHttpResponse(
           typeof rpcError.code === "number" &&
           typeof rpcError.message === "string"
         ) {
+          // Keep the HTTP status and Retry-After on the error so the
+          // retry classifier still sees the HTTP-level retry metadata.
           return new JsonRpcError(
             rpcError.code,
             rpcError.message,
             rpcError.data,
             method,
+            response.status,
+            parseRetryAfterMs(response.headers.get("Retry-After")),
           );
         }
       }
@@ -312,6 +337,14 @@ function retriableDelayMs(error: unknown): number | undefined {
     return error.retryAfterMs ?? 0;
   }
   if (error instanceof JsonRpcError) {
+    // An envelope delivered on a retriable HTTP status is retriable
+    // regardless of the embedded RPC code, and honors Retry-After.
+    if (
+      error.httpStatus !== undefined &&
+      RETRIABLE_HTTP_STATUSES.has(error.httpStatus)
+    ) {
+      return error.retryAfterMs ?? 0;
+    }
     return RETRIABLE_RPC_CODES.has(error.code) ? 0 : undefined;
   }
   // Network-level failures: fetch rejects with TypeError on connection
