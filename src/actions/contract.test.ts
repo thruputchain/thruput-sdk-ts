@@ -25,6 +25,8 @@ import {
   contractEntrypointID,
   gasAmount,
   weight,
+  sha256Hash,
+  networkHash,
 } from "@groundhogchain/protocol";
 import { getChainTip } from "./public/getChainTip.js";
 import { getBalance } from "./public/getBalance.js";
@@ -139,6 +141,8 @@ function assertCapturedParamsMatchSpec(
   }
 }
 
+const testNetworkHash = networkHash(sha256Hash(new Uint8Array(32).fill(0x5a)));
+
 async function makeDummySignedTx(): Promise<SignedTransaction> {
   const secretKey = new Uint8Array(32);
   secretKey[0] = 1;
@@ -167,7 +171,7 @@ async function makeDummySignedTx(): Promise<SignedTransaction> {
     },
   });
 
-  return signTransaction(tx, [{ signer, publicKeyId: 0n }]);
+  return signTransaction(tx, [{ signer, publicKeyId: 0n }], testNetworkHash);
 }
 
 // ---- tests -------------------------------------------------------------

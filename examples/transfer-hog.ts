@@ -23,7 +23,11 @@ import { DevWallet } from "./generated/dev_wallet.js";
 
 const amount = 1000n;
 const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";
-const { address: senderAddress, signer } = await loadLocalDevAccount();
+const {
+  address: senderAddress,
+  signer,
+  networkHash,
+} = await loadLocalDevAccount();
 const { address: recipientAddress } = await loadLocalDevAccount({
   roleOffset: 1,
 });
@@ -64,7 +68,11 @@ const tx = createTransaction({
   },
 });
 
-const signed = await signTransaction(tx, [{ signer, publicKeyId: 0n }]);
+const signed = await signTransaction(
+  tx,
+  [{ signer, publicKeyId: 0n }],
+  networkHash,
+);
 // Submission returns a hash; wait for its receipt when confirmation is needed.
 const txHash = await client.sendTransaction(signed);
 

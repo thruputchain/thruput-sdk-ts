@@ -29,5 +29,10 @@ export type { Signer } from "./signers/index.js";
 export { PrivateKeySigner } from "./signers/index.js";
 export { createGroundhogClient } from "./client.js";
 export { derivePubkeyAccountAddress } from "./derivation/pubkeyAccount.js";
+export { hashSignedTransaction } from "./derivation/transactionHash.js";
+export {
+  deriveEntrypointID,
+  majorVersionFromSemver,
+} from "./derivation/entrypointId.js";
 export type { GroundhogClient } from "./client.js";
 export type * from "./types/rpc.js";

@@ -1,9 +1,13 @@
 import { createHash } from "node:crypto";
 import { open } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
-import type { ContractAddress } from "@groundhogchain/protocol";
+import type { ContractAddress, NetworkHash } from "@groundhogchain/protocol";
+import {
+  networkHash as toNetworkHash,
+  sha256Hash,
+} from "@groundhogchain/protocol";
 import { parse } from "smol-toml";
-import { addressFromHex, fromHex0x, toHex0x } from "../actions/hex.js";
+import { addressFromHex, fromHex, fromHex0x, toHex0x } from "../actions/hex.js";
 import { PrivateKeySigner } from "../signers/index.js";
 import type { Signer } from "../signers/index.js";
 
@@ -19,6 +23,12 @@ export interface LocalDevAccount {
   role: LocalDevAccountRole;
   address: ContractAddress;
   signer: Signer;
+  /**
+   * Network hash of the running node, from the manifest. Pass it to
+   * `signTransaction`: it is part of every signature preimage, so a signature
+   * made against the wrong one is rejected.
+   */
+  networkHash: NetworkHash;
 }
 
 export interface LoadLocalDevAccountOptions {
@@ -123,6 +133,22 @@ export async function loadLocalDevAccount(
     throw new Error(`Derived key does not match dev-${index}`);
   }
 
+  // The manifest writes networkHash as bare hex, unlike its 0x-prefixed
+  // walletAddress and publicKey. The prefix is tolerated so a later
+  // normalization of the manifest does not break this reader.
+  const networkHashHex = requireString(
+    manifest.networkHash,
+    "Groundhog runtime manifest is missing networkHash",
+  );
+  const manifestNetworkHash = fromHex(
+    networkHashHex.startsWith("0x") ? networkHashHex.slice(2) : networkHashHex,
+  );
+  if (manifestNetworkHash.length !== 32) {
+    throw new Error(
+      `Groundhog runtime manifest networkHash is ${manifestNetworkHash.length} bytes, expected 32`,
+    );
+  }
+
   return {
     index,
     keyName: `dev-${index}`,
@@ -134,6 +160,7 @@ export async function loadLocalDevAccount(
       ),
     ),
     signer,
+    networkHash: toNetworkHash(sha256Hash(manifestNetworkHash)),
   };
 }
 

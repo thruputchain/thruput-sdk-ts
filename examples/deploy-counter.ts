@@ -32,7 +32,11 @@ import { Counter } from "./generated/counter.js";
 import { DevWallet } from "./generated/dev_wallet.js";
 
 const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";
-const { address: senderAddress, signer } = await loadLocalDevAccount();
+const {
+  address: senderAddress,
+  signer,
+  networkHash,
+} = await loadLocalDevAccount();
 const deploymentNonce = sha256Hash(randomBytes(32));
 
 const walletGasLimit = gasAmount(10_000_000n);
@@ -138,6 +142,10 @@ async function submit(
     contracts_to_deploy: contractsToDeploy,
     auth_claim: sourceAuthClaim,
   });
-  const signed = await signTransaction(tx, [{ signer, publicKeyId: 0n }]);
+  const signed = await signTransaction(
+    tx,
+    [{ signer, publicKeyId: 0n }],
+    networkHash,
+  );
   return client.sendTransaction(signed);
 }
