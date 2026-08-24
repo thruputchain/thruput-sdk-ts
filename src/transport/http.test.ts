@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import openrpcSpec from "../../specs/openrpc.json";
 import { getBlockByNumber } from "../actions/public/getBlockByNumber.js";
-import { GroundhogRpcErrorCode, HttpTransport, JsonRpcError } from "./http.js";
+import {
+  GroundhogRpcErrorCode,
+  HttpTransport,
+  HttpTransportError,
+  JsonRpcError,
+} from "./http.js";
 
 function documentedErrorCodes() {
   const errors = openrpcSpec.components.errors as Record<
@@ -154,6 +159,75 @@ describe("HttpTransport", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  describe("non-2xx responses", () => {
+    it("throws HttpTransportError carrying status, statusText, body, method", async () => {
+      const fetchMock: typeof fetch = async () =>
+        new Response("upstream exploded", {
+          status: 500,
+          statusText: "Internal Server Error",
+        });
+
+      try {
+        await new HttpTransport("http://localhost", {
+          fetch: fetchMock,
+        }).request("groundhog_chainTip");
+        throw new Error("expected request to fail");
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpTransportError);
+        expect(error).toMatchObject({
+          status: 500,
+          statusText: "Internal Server Error",
+          body: "upstream exploded",
+          method: "groundhog_chainTip",
+        });
+        expect((error as Error).message).toContain("HTTP 500");
+        expect((error as Error).message).toContain("upstream exploded");
+      }
+    });
+
+    it("truncates the retained body to 2 KiB", async () => {
+      const fetchMock: typeof fetch = async () =>
+        new Response("x".repeat(10_000), {
+          status: 500,
+          statusText: "Internal Server Error",
+        });
+
+      await expect(
+        new HttpTransport("http://localhost", { fetch: fetchMock }).request(
+          "groundhog_chainTip",
+        ),
+      ).rejects.toMatchObject({ body: "x".repeat(2048) });
+    });
+
+    it("throws JsonRpcError when the error body is a JSON-RPC envelope", async () => {
+      const fetchMock: typeof fetch = async () =>
+        new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            error: {
+              code: GroundhogRpcErrorCode.TxInvalid,
+              message: "tx invalid",
+            },
+          }),
+          { status: 400, statusText: "Bad Request" },
+        );
+
+      try {
+        await new HttpTransport("http://localhost", {
+          fetch: fetchMock,
+        }).request("groundhog_chainTip");
+        throw new Error("expected request to fail");
+      } catch (error) {
+        expect(error).toBeInstanceOf(JsonRpcError);
+        expect(error).toMatchObject({
+          code: GroundhogRpcErrorCode.TxInvalid,
+          method: "groundhog_chainTip",
+        });
+      }
+    });
   });
 
   describe("retry", () => {

@@ -7,7 +7,12 @@
  * @module
  */
 export type { Transport } from "./types.js";
-export { GroundhogRpcErrorCode, HttpTransport, JsonRpcError } from "./http.js";
+export {
+  GroundhogRpcErrorCode,
+  HttpTransport,
+  HttpTransportError,
+  JsonRpcError,
+} from "./http.js";
 export type {
   HttpTransportOptions,
   HttpTransportRetryOptions,

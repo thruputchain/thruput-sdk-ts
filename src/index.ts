@@ -21,6 +21,7 @@ export type { Transport } from "./transport/index.js";
 export {
   GroundhogRpcErrorCode,
   HttpTransport,
+  HttpTransportError,
   JsonRpcError,
   MockTransport,
 } from "./transport/index.js";

@@ -99,17 +99,94 @@ const RETRIABLE_RPC_CODES = new Set<number>([
   GroundhogRpcErrorCode.Overloaded,
 ]);
 
-/** Internal marker error for non-2xx responses, carrying retry metadata. */
-class HttpStatusError extends Error {
+/** Longest response-body prefix retained on {@link HttpTransportError}. */
+const MAX_ERROR_BODY_BYTES = 2048;
+
+/**
+ * Error thrown when the gateway returns a non-2xx HTTP response whose body is
+ * not a JSON-RPC error envelope.
+ *
+ * Envelope-shaped error bodies throw {@link JsonRpcError} instead, even on
+ * non-2xx statuses.
+ */
+export class HttpTransportError extends Error {
+  /** HTTP response status code. */
   status: number;
+
+  /** HTTP response status text. */
+  statusText: string;
+
+  /** Response body, truncated to 2 KiB. */
+  body: string;
+
+  /** JSON-RPC method associated with the failed request, when known. */
+  method?: string;
+
+  /** Server-requested retry delay from `Retry-After`, in milliseconds. */
   retryAfterMs?: number;
 
-  constructor(status: number, statusText: string, retryAfterMs?: number) {
-    super(`HTTP ${status}: ${statusText}`);
-    this.name = "HttpStatusError";
+  constructor(
+    status: number,
+    statusText: string,
+    body: string,
+    method?: string,
+    retryAfterMs?: number,
+  ) {
+    const detail = body === "" ? "" : `: ${body.slice(0, 200)}`;
+    super(`HTTP ${status}: ${statusText}${detail}`);
+    this.name = "HttpTransportError";
     this.status = status;
+    this.statusText = statusText;
+    this.body = body;
+    this.method = method;
     this.retryAfterMs = retryAfterMs;
   }
+}
+
+/**
+ * Convert a non-2xx response into the error to throw: a {@link JsonRpcError}
+ * when the body carries a JSON-RPC error envelope, otherwise an
+ * {@link HttpTransportError} with the truncated body attached.
+ */
+async function errorFromHttpResponse(
+  response: Response,
+  method: string,
+): Promise<Error> {
+  let body = "";
+  try {
+    body = (await response.text()).slice(0, MAX_ERROR_BODY_BYTES);
+  } catch {
+    // An unreadable body still produces a useful status-only error.
+  }
+  try {
+    const envelope: unknown = JSON.parse(body);
+    if (envelope && typeof envelope === "object" && !Array.isArray(envelope)) {
+      const error = (envelope as Record<string, unknown>).error;
+      if (error && typeof error === "object" && !Array.isArray(error)) {
+        const rpcError = error as Record<string, unknown>;
+        if (
+          typeof rpcError.code === "number" &&
+          typeof rpcError.message === "string"
+        ) {
+          return new JsonRpcError(
+            rpcError.code,
+            rpcError.message,
+            rpcError.data,
+            method,
+          );
+        }
+      }
+    }
+  } catch {
+    // Not JSON; fall through to the transport-level error.
+  }
+  return new HttpTransportError(
+    response.status,
+    response.statusText,
+    body,
+    method,
+    parseRetryAfterMs(response.headers.get("Retry-After")),
+  );
 }
 
 /** Parse a `Retry-After` header (delta-seconds or HTTP-date) to milliseconds. */
@@ -189,7 +266,7 @@ function parseJsonPreservingLargeIntegers(text: string): unknown {
  * when the caller should apply its own backoff.
  */
 function retriableDelayMs(error: unknown): number | undefined {
-  if (error instanceof HttpStatusError) {
+  if (error instanceof HttpTransportError) {
     if (!RETRIABLE_HTTP_STATUSES.has(error.status)) return undefined;
     return error.retryAfterMs ?? 0;
   }
@@ -308,11 +385,7 @@ export class HttpTransport implements Transport {
     }
 
     if (!response.ok) {
-      throw new HttpStatusError(
-        response.status,
-        response.statusText,
-        parseRetryAfterMs(response.headers.get("Retry-After")),
-      );
+      throw await errorFromHttpResponse(response, method);
     }
     const json = parseJsonPreservingLargeIntegers(await response.text());
     if (!json || typeof json !== "object" || Array.isArray(json)) {
