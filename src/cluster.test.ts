@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { hashFromHex } from "./actions/hex.js";
+import { networkHash } from "@groundhogchain/protocol";
 import {
   NetworkMismatchError,
   defineCluster,
@@ -12,13 +13,17 @@ import {
 import { createGroundhogClient } from "./client.js";
 import type { Transport } from "./transport/types.js";
 
-function networkTransport(networkId: string, byte: string): Transport {
+function protocolNetworkHash(byte: string) {
+  return networkHash(hashFromHex("0x" + byte.repeat(32)));
+}
+
+function networkTransport(networkByte: string, genesisByte: string): Transport {
   return {
     async request<T>(method: string): Promise<T> {
       if (method === "groundhog_networkInfo") {
         return {
-          networkId,
-          genesisHash: "0x" + byte.repeat(32),
+          networkHash: "0x" + networkByte.repeat(32),
+          genesisHash: "0x" + genesisByte.repeat(32),
         } as T;
       }
       if (method === "groundhog_chainTip") {
@@ -36,18 +41,16 @@ describe("cluster descriptors", () => {
   it("defines the canonical cluster taxonomy", () => {
     expect(mainnet()).toEqual({
       name: "mainnet",
-      networkId: "mainnet",
       capabilities: [],
     });
     expect(devnet()).toEqual({
       name: "devnet",
-      networkId: "devnet-preview",
       rpcUrl: DEVNET_RPC_URL,
       capabilities: ["airdrop"],
     });
     expect(localnet()).toEqual({
       name: "localnet",
-      networkId: "localnet",
+      networkHash: new Uint8Array(32),
       rpcUrl: LOCALNET_RPC_URL,
       capabilities: ["airdrop"],
     });
@@ -55,16 +58,17 @@ describe("cluster descriptors", () => {
 
   it("preserves custom network identity and capabilities", () => {
     const genesisHash = hashFromHex("0x" + "11".repeat(32));
+    const expectedNetworkHash = protocolNetworkHash("22");
 
     expect(
       defineCluster({
-        networkId: "company-devnet",
+        networkHash: expectedNetworkHash,
         rpcUrl: "https://rpc.company.example",
         genesisHash,
         capabilities: ["airdrop"],
       }),
     ).toEqual({
-      networkId: "company-devnet",
+      networkHash: expectedNetworkHash,
       rpcUrl: "https://rpc.company.example",
       genesisHash,
       capabilities: ["airdrop"],
@@ -74,7 +78,6 @@ describe("cluster descriptors", () => {
   it("snapshots and freezes declared capabilities", () => {
     const capabilities: ["airdrop"] = ["airdrop"];
     const cluster = defineCluster({
-      networkId: "immutable",
       capabilities,
     });
 
@@ -97,23 +100,11 @@ describe("cluster descriptors", () => {
   it("allows transport-only custom clusters without a default URL", () => {
     expect(
       defineCluster({
-        networkId: "transport-only",
         capabilities: [],
       }),
     ).toEqual({
-      networkId: "transport-only",
       capabilities: [],
     });
-  });
-
-  it("rejects an empty network identifier", () => {
-    expect(() =>
-      defineCluster({
-        name: "custom",
-        networkId: "  ",
-        capabilities: [],
-      }),
-    ).toThrow("Cluster networkId must not be empty");
   });
 
   it("supports endpoint overrides and rejects invalid URLs", () => {
@@ -131,12 +122,12 @@ describe("createGroundhogClient", () => {
     const cluster = localnet();
     const client = await createGroundhogClient({
       cluster,
-      transport: networkTransport("localnet", "22"),
+      transport: networkTransport("00", "22"),
     });
 
     expect(client.cluster).toEqual(cluster);
     expect(client.cluster).not.toBe(cluster);
-    expect(client.network.networkId).toBe("localnet");
+    expect(client.network.networkHash).toEqual(new Uint8Array(32));
     expect(client.requestAirdrop).toBeTypeOf("function");
     await expect(client.getChainTip()).resolves.toMatchObject({ height: 0n });
   });
@@ -144,7 +135,7 @@ describe("createGroundhogClient", () => {
   it("omits unavailable capabilities at runtime", async () => {
     const client = await createGroundhogClient({
       cluster: mainnet(),
-      transport: networkTransport("mainnet", "22"),
+      transport: networkTransport("11", "22"),
     });
 
     expect(client).not.toHaveProperty("requestAirdrop");
@@ -154,17 +145,15 @@ describe("createGroundhogClient", () => {
   it("uses explicitly declared custom capabilities at runtime", async () => {
     const capable = await createGroundhogClient({
       cluster: {
-        networkId: "capable",
         capabilities: ["airdrop"],
       },
-      transport: networkTransport("capable", "22"),
+      transport: networkTransport("11", "22"),
     });
     const incapable = await createGroundhogClient({
       cluster: {
-        networkId: "incapable",
         capabilities: [],
       },
-      transport: networkTransport("incapable", "22"),
+      transport: networkTransport("11", "22"),
     });
 
     expect(capable.requestAirdrop).toBeTypeOf("function");
@@ -177,7 +166,7 @@ describe("createGroundhogClient", () => {
         jsonrpc: "2.0",
         id: 1,
         result: {
-          networkId: "localnet",
+          networkHash: "0x" + "00".repeat(32),
           genesisHash: "0x" + "00".repeat(32),
         },
       }),
@@ -187,7 +176,7 @@ describe("createGroundhogClient", () => {
     try {
       const client = await createGroundhogClient({ cluster: localnet() });
 
-      expect(client.network.networkId).toBe("localnet");
+      expect(client.network.networkHash).toEqual(new Uint8Array(32));
       expect(fetchMock).toHaveBeenCalledWith(
         LOCALNET_RPC_URL,
         expect.objectContaining({ method: "POST" }),
@@ -206,7 +195,7 @@ describe("createGroundhogClient", () => {
   it("accepts an unpinned resettable network genesis", async () => {
     const client = await createGroundhogClient({
       cluster: devnet(),
-      transport: networkTransport("devnet-preview", "33"),
+      transport: networkTransport("77", "33"),
     });
 
     expect(client.network.genesisHash).toEqual(new Uint8Array(32).fill(0x33));
@@ -226,7 +215,7 @@ describe("createGroundhogClient", () => {
         async request<T>(): Promise<T> {
           await gate;
           return {
-            networkId: "localnet",
+            networkHash: "0x" + "00".repeat(32),
             genesisHash: "0x" + "11".repeat(32),
           } as T;
         },
@@ -241,16 +230,20 @@ describe("createGroundhogClient", () => {
     });
   });
 
-  it("rejects a different logical network", async () => {
+  it("rejects a different pinned network", async () => {
     const connection = createGroundhogClient({
-      cluster: mainnet(),
-      transport: networkTransport("devnet-preview", "44"),
+      cluster: mainnet({ networkHash: protocolNetworkHash("11") }),
+      transport: networkTransport("44", "55"),
     });
 
     await expect(connection).rejects.toBeInstanceOf(NetworkMismatchError);
     await expect(connection).rejects.toThrow(
-      "Network mismatch: expected mainnet, received devnet-preview at 0x" +
-        "44".repeat(32),
+      "Network mismatch: expected network 0x" +
+        "11".repeat(32) +
+        ", received network 0x" +
+        "44".repeat(32) +
+        ", genesis 0x" +
+        "55".repeat(32),
     );
   });
 
@@ -261,14 +254,18 @@ describe("createGroundhogClient", () => {
 
     const connection = createGroundhogClient({
       cluster,
-      transport: networkTransport("localnet", "66"),
+      transport: networkTransport("00", "66"),
     });
 
     await expect(connection).rejects.toBeInstanceOf(NetworkMismatchError);
     await expect(connection).rejects.toThrow(
-      "Network mismatch: expected localnet at 0x" +
+      "Network mismatch: expected network 0x" +
+        "00".repeat(32) +
+        ", genesis 0x" +
         "55".repeat(32) +
-        ", received localnet at 0x" +
+        ", received network 0x" +
+        "00".repeat(32) +
+        ", genesis 0x" +
         "66".repeat(32),
     );
   });

@@ -1,4 +1,9 @@
-import { sha256Hash, type SHA256Hash } from "@groundhogchain/protocol";
+import {
+  networkHash as toNetworkHash,
+  sha256Hash,
+  type NetworkHash,
+  type SHA256Hash,
+} from "@groundhogchain/protocol";
 import type { NetworkInfo } from "./types/rpc.js";
 import { toHex0x } from "./actions/hex.js";
 
@@ -19,8 +24,8 @@ export interface Cluster<
   /** Optional human-readable cluster name. */
   readonly name?: string;
 
-  /** Exact logical network identifier returned by `groundhog_networkInfo`. */
-  readonly networkId: string;
+  /** Optional protocol network identity pin. */
+  readonly networkHash?: NetworkHash;
 
   /** Default JSON-RPC endpoint, when the cluster has one. */
   readonly rpcUrl?: string;
@@ -55,6 +60,9 @@ export interface PredefinedClusterOptions {
   /** Override the cluster's default JSON-RPC endpoint. */
   readonly rpcUrl?: string;
 
+  /** Pin the endpoint to one protocol signing network. */
+  readonly networkHash?: NetworkHash;
+
   /** Pin the endpoint to one materialized genesis state. */
   readonly genesisHash?: SHA256Hash;
 }
@@ -63,12 +71,16 @@ export interface PredefinedClusterOptions {
 export function defineCluster<const TCluster extends Cluster>(
   cluster: TCluster,
 ): TCluster {
-  if (cluster.networkId.trim().length === 0) {
-    throw new Error("Cluster networkId must not be empty");
-  }
   if (cluster.rpcUrl !== undefined) validateRpcUrl(cluster.rpcUrl);
   return Object.freeze({
     ...cluster,
+    ...(cluster.networkHash === undefined
+      ? {}
+      : {
+          networkHash: toNetworkHash(
+            sha256Hash(new Uint8Array(cluster.networkHash)),
+          ),
+        }),
     ...(cluster.genesisHash === undefined
       ? {}
       : { genesisHash: sha256Hash(new Uint8Array(cluster.genesisHash)) }),
@@ -84,9 +96,9 @@ export function mainnet(
 ): Cluster<readonly []> & { readonly name: "mainnet" } {
   return defineCluster({
     name: "mainnet",
-    networkId: "mainnet",
     capabilities: [] as const,
     ...withOptionalRpcUrl(options),
+    ...withNetworkHash(options),
     ...withGenesisHash(options),
   });
 }
@@ -97,9 +109,9 @@ export function devnet(
 ): Cluster<readonly ["airdrop"]> & { readonly name: "devnet" } {
   return defineCluster({
     name: "devnet",
-    networkId: "devnet-preview",
     rpcUrl: options.rpcUrl ?? DEVNET_RPC_URL,
     capabilities: ["airdrop"] as const,
+    ...withNetworkHash(options),
     ...withGenesisHash(options),
   });
 }
@@ -110,7 +122,8 @@ export function localnet(
 ): Cluster<readonly ["airdrop"]> & { readonly name: "localnet" } {
   return defineCluster({
     name: "localnet",
-    networkId: "localnet",
+    networkHash:
+      options.networkHash ?? toNetworkHash(sha256Hash(new Uint8Array(32))),
     rpcUrl: options.rpcUrl ?? LOCALNET_RPC_URL,
     capabilities: ["airdrop"] as const,
     ...withGenesisHash(options),
@@ -123,11 +136,14 @@ export class NetworkMismatchError extends Error {
   readonly actual: NetworkInfo;
 
   constructor(cluster: Cluster, actual: NetworkInfo) {
-    const expectedIdentity = cluster.genesisHash
-      ? `${cluster.networkId} at ${toHex0x(cluster.genesisHash)}`
-      : cluster.networkId;
+    const expectedIdentity = [
+      cluster.networkHash && `network ${toHex0x(cluster.networkHash)}`,
+      cluster.genesisHash && `genesis ${toHex0x(cluster.genesisHash)}`,
+    ]
+      .filter(Boolean)
+      .join(", ");
     super(
-      `Network mismatch: expected ${expectedIdentity}, received ${actual.networkId} at ${toHex0x(actual.genesisHash)}`,
+      `Network mismatch: expected ${expectedIdentity}, received network ${toHex0x(actual.networkHash)}, genesis ${toHex0x(actual.genesisHash)}`,
     );
     this.name = "NetworkMismatchError";
     this.cluster = cluster;
@@ -141,12 +157,21 @@ export function assertNetworkMatchesCluster(
   actual: NetworkInfo,
 ): void {
   if (
-    actual.networkId !== cluster.networkId ||
+    (cluster.networkHash !== undefined &&
+      !bytesEqual(actual.networkHash, cluster.networkHash)) ||
     (cluster.genesisHash !== undefined &&
       !bytesEqual(actual.genesisHash, cluster.genesisHash))
   ) {
     throw new NetworkMismatchError(cluster, actual);
   }
+}
+
+function withNetworkHash(options: PredefinedClusterOptions): {
+  networkHash?: NetworkHash;
+} {
+  return options.networkHash === undefined
+    ? {}
+    : { networkHash: options.networkHash };
 }
 
 function withGenesisHash(options: PredefinedClusterOptions): {

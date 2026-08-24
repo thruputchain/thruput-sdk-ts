@@ -1,5 +1,6 @@
 import type { Transport } from "../../transport/types.js";
 import type { NetworkInfo } from "../../types/rpc.js";
+import { networkHash } from "@groundhogchain/protocol";
 import { hashFromHex } from "../hex.js";
 
 const CANONICAL_SHA256_HASH = /^0x[0-9a-f]{64}$/;
@@ -15,10 +16,12 @@ export async function getNetworkInfo(
 
   const network = result as Record<string, unknown>;
   if (
-    typeof network.networkId !== "string" ||
-    network.networkId.trim().length === 0
+    typeof network.networkHash !== "string" ||
+    !CANONICAL_SHA256_HASH.test(network.networkHash)
   ) {
-    throw new Error("Invalid network info response: expected networkId");
+    throw new Error(
+      "Invalid network info response: expected canonical networkHash",
+    );
   }
   if (
     typeof network.genesisHash !== "string" ||
@@ -30,7 +33,7 @@ export async function getNetworkInfo(
   }
 
   return {
-    networkId: network.networkId,
+    networkHash: networkHash(hashFromHex(network.networkHash)),
     genesisHash: hashFromHex(network.genesisHash),
   };
 }

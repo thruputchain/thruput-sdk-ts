@@ -34,13 +34,13 @@ Pass a cluster when the application must validate the endpoint before making
 requests:
 
 ```ts
-import { createGroundhogClient, devnet } from "@groundhogchain/client";
+import { createGroundhogClient, devnet, toHex0x } from "@groundhogchain/client";
 
 const client = await createGroundhogClient({
   cluster: devnet(),
 });
 
-console.log(client.network.networkId);
+console.log(toHex0x(client.network.networkHash));
 ```
 
 Development clusters expose a typed airdrop action. It generates an
@@ -67,7 +67,7 @@ state. Pass an explicit transport for custom headers or request handling. Omit
 ```ts
 const client = await createGroundhogClient({
   cluster: {
-    networkId: "private-devnet",
+    name: "private-devnet",
     rpcUrl: "https://rpc.example.com",
     capabilities: ["airdrop"],
   },
@@ -154,8 +154,12 @@ const wallet = createWalletClient({
 
 Wallet clients prepare fresh transaction expiry and replay nonces, sign with
 the account's configured signers, and submit transactions. Pubkey accounts use
-the native-compatible DefaultWallet adapter automatically. Source-address
-accounts expose `execute` when configured with an adapter:
+the native-compatible DefaultWallet adapter automatically. The signing network
+comes from a cluster-validated client's `networkHash`.
+When binding an unqualified client, pass an explicit `networkHash` to
+`createWalletClient`.
+
+Source-address accounts expose `execute` when configured with an adapter:
 
 ```ts
 const txHash = await wallet.execute({

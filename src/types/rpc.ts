@@ -1,4 +1,5 @@
 import type {
+  NetworkHash,
   SHA256Hash,
   StorageLongHash,
   ContractAddress,
@@ -12,8 +13,8 @@ export type { ExecResult } from "@groundhogchain/protocol";
 
 /** Immutable identity configured for a Groundhog RPC endpoint. */
 export interface NetworkInfo {
-  /** Stable logical identifier for the network deployment. */
-  readonly networkId: string;
+  /** Protocol network identity bound into every transaction signature. */
+  readonly networkHash: NetworkHash;
 
   /** Hash of the materialized genesis state. */
   readonly genesisHash: SHA256Hash;

@@ -207,14 +207,14 @@ describe("signTransaction", () => {
     },
   ])("rejects $label", async ({ signers }) => {
     await expect(
-      signTransaction(makeDummyTransaction(), signers),
+      signTransaction(makeDummyTransaction(), signers, testNetworkHash),
     ).rejects.toThrow();
   });
 
   it("allows an empty source-address signature list", async () => {
-    await expect(signTransaction(makeDummyTransaction(), [])).resolves.toEqual(
-      expect.objectContaining({ signatures: [] }),
-    );
+    await expect(
+      signTransaction(makeDummyTransaction(), [], testNetworkHash),
+    ).resolves.toEqual(expect.objectContaining({ signatures: [] }));
   });
 
   it("rejects keys outside the source-address auth bitmap", async () => {
@@ -227,12 +227,16 @@ describe("signTransaction", () => {
     transaction.auth_claim.source_address_claim.allowed_keys = bitMap(1n);
 
     await expect(
-      signTransaction(transaction, [
-        {
-          signer: new PrivateKeySigner(new Uint8Array(32).fill(1)),
-          publicKeyId: 1n,
-        },
-      ]),
+      signTransaction(
+        transaction,
+        [
+          {
+            signer: new PrivateKeySigner(new Uint8Array(32).fill(1)),
+            publicKeyId: 1n,
+          },
+        ],
+        testNetworkHash,
+      ),
     ).rejects.toThrow("is not selected by authClaim");
   });
 
@@ -245,7 +249,11 @@ describe("signTransaction", () => {
     };
 
     await expect(
-      signTransaction(transaction, [{ signer, publicKeyId: 1n }]),
+      signTransaction(
+        transaction,
+        [{ signer, publicKeyId: 1n }],
+        testNetworkHash,
+      ),
     ).rejects.toThrow("requires only publicKeyId 0");
   });
 
@@ -264,7 +272,7 @@ describe("signTransaction", () => {
     };
     const tx = makeDummyTransaction();
     const entry = { signer: delayedSigner, publicKeyId: 0n };
-    const pending = signTransaction(tx, [entry]);
+    const pending = signTransaction(tx, [entry], testNetworkHash);
 
     tx.invocation.calldata.fill(0xff);
     entry.publicKeyId = 1n;
@@ -276,7 +284,7 @@ describe("signTransaction", () => {
     expect(
       verify(
         signed.signatures[0]!.signature.ed25519,
-        serialize(signed.tx, codec.Transaction),
+        transactionSignaturePreimage(testNetworkHash, signed.tx),
         baseSigner.publicKey.ed25519,
       ),
     ).toBe(true);

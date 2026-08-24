@@ -21,7 +21,7 @@ function assertClusterTypes(
   const localnetCluster = localnet();
   const mainnetCluster = mainnet();
   const privateCluster = defineCluster({
-    networkId: "private-devnet",
+    name: "private-devnet",
     rpcUrl: "https://rpc.example.com",
     capabilities: ["airdrop"],
   });
@@ -59,7 +59,7 @@ function assertClusterTypes(
   // @ts-expect-error Unknown capabilities cannot be declared.
   createGroundhogClient({
     cluster: {
-      networkId: "invalid",
+      name: "invalid",
       rpcUrl: "https://rpc.example.com",
       capabilities: ["staking"],
     },

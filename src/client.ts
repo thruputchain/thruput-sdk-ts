@@ -226,6 +226,6 @@ function resolveClusterTransport<TCluster extends Cluster>(
   if (options.transport) return options.transport;
   if (options.cluster.rpcUrl) return new HttpTransport(options.cluster.rpcUrl);
   throw new Error(
-    `Cluster ${options.cluster.name ?? options.cluster.networkId} has no default RPC URL; provide a transport or rpcUrl`,
+    `Cluster ${options.cluster.name ?? "descriptor"} has no default RPC URL; provide a transport or rpcUrl`,
   );
 }

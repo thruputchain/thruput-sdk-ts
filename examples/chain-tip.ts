@@ -10,7 +10,7 @@ const tip = await client.getChainTip();
 
 console.log({
   rpcUrl: client.cluster.rpcUrl,
-  networkId: client.network.networkId,
+  networkHash: toHex0x(client.network.networkHash),
   genesisHash: toHex0x(client.network.genesisHash),
   height: tip.height.toString(),
   blockHash: toHex0x(tip.blockHash),

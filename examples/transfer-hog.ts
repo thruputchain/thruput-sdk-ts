@@ -30,7 +30,6 @@ const client = await createGroundhogClient({
 const wallet = createWalletClient({
   client,
   account: sender,
-  networkHash: client.network.networkHash,
 });
 
 const airdrop = await wallet.requestAirdrop();
@@ -65,7 +64,7 @@ const [senderBalance, recipientBalance] = await Promise.all([
 
 console.log({
   rpcUrl: client.cluster.rpcUrl,
-  networkId: client.network.networkId,
+  networkHash: toHex0x(client.network.networkHash),
   sender: toHex0x(sender.address),
   recipient: toHex0x(recipient.address),
   airdropAmount: airdrop.rawAmount.toString(),

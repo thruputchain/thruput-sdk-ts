@@ -6,10 +6,13 @@ import {
   contractAddress,
   contractEntrypointID,
   gasAmount,
+  networkHash,
+  sha256Hash,
   ContractType,
   weight,
   type Invocation,
 } from "@groundhogchain/protocol";
+import { verify } from "@noble/ed25519";
 import { describe, expect, it, vi } from "vitest";
 import { createGroundhogClient } from "../client.js";
 import { localnet, mainnet } from "../cluster.js";
@@ -18,6 +21,7 @@ import { PrivateKeySigner } from "../signers/privateKey.js";
 import type { Transport } from "../transport/types.js";
 import { createPubkeyAccount, createSourceAddressAccount } from "./account.js";
 import { createWalletClient } from "./client.js";
+import { transactionSignaturePreimage } from "../transaction/preimage.js";
 import {
   defineWalletInvocationAdapter,
   devWalletAdapter,
@@ -25,6 +29,7 @@ import {
 } from "./invocationAdapter.js";
 
 const address = contractAddress(new Uint8Array(32).fill(0x11));
+const testNetworkHash = networkHash(sha256Hash(new Uint8Array(32)));
 
 function signer(): PrivateKeySigner {
   const secret = new Uint8Array(32);
@@ -55,12 +60,17 @@ describe("wallet account defaults", () => {
     const client = await createGroundhogClient({
       transport: new MockTransport(),
     });
-    createWalletClient({ client, account: account() });
+    createWalletClient({
+      client,
+      account: account(),
+      networkHash: testNetworkHash,
+    });
 
     expect(() =>
       createWalletClient({
         client,
         account: createPubkeyAccount({ signer: signer() }),
+        networkHash: testNetworkHash,
       }),
     ).toThrow("only be bound to one wallet account");
   });
@@ -80,7 +90,13 @@ describe("wallet account defaults", () => {
         { [property]: () => "unrelated" },
       );
 
-      expect(() => createWalletClient({ client, account: account() })).toThrow(
+      expect(() =>
+        createWalletClient({
+          client,
+          account: account(),
+          networkHash: testNetworkHash,
+        }),
+      ).toThrow(
         `Client property ${property} conflicts with a wallet client property`,
       );
     },
@@ -111,6 +127,7 @@ describe("wallet account defaults", () => {
     const wallet = createWalletClient({
       client: await createGroundhogClient({ transport }),
       account: account(),
+      networkHash: testNetworkHash,
     });
 
     await wallet.getBalance();
@@ -139,7 +156,11 @@ describe("wallet account defaults", () => {
       },
     };
     const client = await createGroundhogClient({ transport });
-    const wallet = createWalletClient({ client, account: account() });
+    const wallet = createWalletClient({
+      client,
+      account: account(),
+      networkHash: testNetworkHash,
+    });
     const other = contractAddress(new Uint8Array(32).fill(0x44));
     const nonce = new Uint8Array([1, 2, 3]);
 
@@ -166,6 +187,7 @@ describe("wallet account defaults", () => {
     const cancelledWallet = createWalletClient({
       client: await createGroundhogClient({ transport: { request } }),
       account: account(),
+      networkHash: testNetworkHash,
     });
     await expect(
       cancelledWallet.requestAirdrop({ signal: abort.signal }),
@@ -174,6 +196,7 @@ describe("wallet account defaults", () => {
     const timedOutWallet = createWalletClient({
       client: await createGroundhogClient({ transport: { request } }),
       account: account(),
+      networkHash: testNetworkHash,
     });
     await expect(
       timedOutWallet.requestAirdrop({ timeoutMs: 0 }),
@@ -185,6 +208,7 @@ describe("wallet account defaults", () => {
     const wallet = createWalletClient({
       client: await createGroundhogClient({ transport: new MockTransport() }),
       account: account(),
+      networkHash: testNetworkHash,
     });
     const other = contractAddress(new Uint8Array(32).fill(0x44));
 
@@ -216,7 +240,7 @@ describe("wallet account defaults", () => {
         async request<T>(method: string): Promise<T> {
           if (method === "groundhog_networkInfo") {
             return {
-              networkId: "mainnet",
+              networkHash: "0x" + "11".repeat(32),
               genesisHash: "0x" + "00".repeat(32),
             } as T;
           }
@@ -233,10 +257,36 @@ describe("wallet account defaults", () => {
 });
 
 describe("wallet transactions", () => {
+  it("signs with a snapshot of the connected network identity", async () => {
+    const client = await createGroundhogClient({
+      cluster: localnet(),
+      transport: new MockTransport(),
+    });
+    const walletAccount = account();
+    const wallet = createWalletClient({ client, account: walletAccount });
+    const transaction = await wallet.prepareTransaction({
+      invocation: invocation(),
+      nonce: 42n,
+      blockExpiryHeight: blockHeight(500n),
+    });
+
+    client.network.networkHash.fill(0xff);
+    const signed = await wallet.signTransaction(transaction);
+
+    expect(
+      verify(
+        signed.signatures[0]!.signature.ed25519,
+        transactionSignaturePreimage(testNetworkHash, signed.tx),
+        walletAccount.signers[0]!.signer.publicKey.ed25519,
+      ),
+    ).toBe(true);
+  });
+
   it("prepares with tip-based defaults", async () => {
     const wallet = createWalletClient({
       client: await createGroundhogClient({ transport: new MockTransport() }),
       account: account(),
+      networkHash: testNetworkHash,
     });
 
     const transaction = await wallet.prepareTransaction({
@@ -264,6 +314,7 @@ describe("wallet transactions", () => {
         getChainTip,
       },
       account: account(),
+      networkHash: testNetworkHash,
     });
 
     const transaction = await wallet.prepareTransaction({
@@ -298,7 +349,11 @@ describe("wallet transactions", () => {
         };
       },
     };
-    const wallet = createWalletClient({ client, account: account() });
+    const wallet = createWalletClient({
+      client,
+      account: account(),
+      networkHash: testNetworkHash,
+    });
     const pending = wallet.prepareTransaction({
       invocation: root,
       contractsToDeploy: [contract],
@@ -319,6 +374,7 @@ describe("wallet transactions", () => {
     const wallet = createWalletClient({
       client: await createGroundhogClient({ transport: new MockTransport() }),
       account: account(),
+      networkHash: testNetworkHash,
     });
     const contract = {
       contract_type: ContractType.kRv32,
@@ -340,6 +396,7 @@ describe("wallet transactions", () => {
     const wallet = createWalletClient({
       client: await createGroundhogClient({ transport: new MockTransport() }),
       account: account(),
+      networkHash: testNetworkHash,
     });
 
     const txHash = await wallet.sendInvocation({
@@ -375,6 +432,7 @@ describe("wallet transactions", () => {
     const wallet = createWalletClient({
       client,
       account: { ...mutableAccount, signers: mutableSigners },
+      networkHash: testNetworkHash,
     });
     const pending = wallet.sendInvocation({ invocation: invocation() });
 
@@ -389,6 +447,7 @@ describe("wallet transactions", () => {
     const wallet = createWalletClient({
       client: await createGroundhogClient({ transport: new MockTransport() }),
       account: account(),
+      networkHash: testNetworkHash,
     });
 
     await expect(
@@ -412,6 +471,7 @@ describe("wallet execution adapters", () => {
     const wallet = createWalletClient({
       client: await createGroundhogClient({ transport: new MockTransport() }),
       account: pubkeyAccount,
+      networkHash: testNetworkHash,
     });
 
     const transaction = await wallet.prepareExecution({
@@ -432,6 +492,7 @@ describe("wallet execution adapters", () => {
     const wallet = createWalletClient({
       client: await createGroundhogClient({ transport: new MockTransport() }),
       account: account(),
+      networkHash: testNetworkHash,
       invocationAdapter: devWalletAdapter,
     });
 
@@ -459,6 +520,7 @@ describe("wallet execution adapters", () => {
     const wallet = createWalletClient({
       client: await createGroundhogClient({ transport: new MockTransport() }),
       account: createPubkeyAccount({ signer: signer() }),
+      networkHash: testNetworkHash,
       invocationAdapter: customAdapter,
     });
 

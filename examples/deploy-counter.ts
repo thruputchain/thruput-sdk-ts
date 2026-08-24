@@ -46,7 +46,6 @@ const account = createSourceAddressAccount({
 const wallet = createWalletClient({
   client,
   account,
-  networkHash: local.networkHash,
   invocationAdapter: devWalletAdapter,
 });
 

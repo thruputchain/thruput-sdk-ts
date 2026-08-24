@@ -52,9 +52,9 @@ export class MockTransport implements Transport {
     }
   }
 
-  #networkInfo(): { networkId: string; genesisHash: string } {
+  #networkInfo(): { networkHash: string; genesisHash: string } {
     return {
-      networkId: "localnet",
+      networkHash: "0x" + "00".repeat(32),
       genesisHash: "0x" + "00".repeat(32),
     };
   }

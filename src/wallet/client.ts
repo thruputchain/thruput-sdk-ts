@@ -1,4 +1,9 @@
-import type { ContractAddress } from "@groundhogchain/protocol";
+import {
+  networkHash as toNetworkHash,
+  sha256Hash,
+  type ContractAddress,
+  type NetworkHash,
+} from "@groundhogchain/protocol";
 import type { AirdropActions, CoreGroundhogClient } from "../client.js";
 import type { AirdropSucceeded, BalanceResponse } from "../types/rpc.js";
 import type { RequestAirdropOptions } from "../actions/public/requestAirdrop.js";
@@ -100,51 +105,80 @@ export type ExecutableWalletClient<
   TRequest extends WalletExecutionRequest = WalletExecutionRequest,
 > = WalletClient<TClient, TAccount> & WalletExecutionActions<TRequest>;
 
+/** Signing-network input inferred from whether a client has validated identity. */
+export type WalletNetworkOptions<TClient extends CoreGroundhogClient> =
+  TClient extends { readonly network: { readonly networkHash: NetworkHash } }
+    ? { readonly networkHash?: never }
+    : {
+        /** Signing network required when the client has no validated identity. */
+        readonly networkHash: NetworkHash;
+      };
+
 /** Decorate an existing client with signer-bound wallet behavior. */
 export function createWalletClient<
   TClient extends CoreGroundhogClient,
   TAccount extends WalletAccount,
   TRequest extends WalletExecutionRequest,
->(options: {
-  readonly client: TClient;
-  readonly account: TAccount;
-  readonly invocationAdapter: WalletInvocationAdapter<TRequest>;
-}): ExecutableWalletClient<TClient, TAccount, TRequest>;
+>(
+  options: {
+    readonly client: TClient;
+    readonly account: TAccount;
+    readonly invocationAdapter: WalletInvocationAdapter<TRequest>;
+  } & WalletNetworkOptions<TClient>,
+): ExecutableWalletClient<TClient, TAccount, TRequest>;
 export function createWalletClient<
   TClient extends CoreGroundhogClient,
   TAccount extends PubkeyAccount,
->(options: {
-  readonly client: TClient;
-  readonly account: TAccount;
-  readonly invocationAdapter?: undefined;
-}): ExecutableWalletClient<TClient, TAccount>;
+>(
+  options: {
+    readonly client: TClient;
+    readonly account: TAccount;
+    readonly invocationAdapter?: undefined;
+  } & WalletNetworkOptions<TClient>,
+): ExecutableWalletClient<TClient, TAccount>;
 export function createWalletClient<
   TClient extends CoreGroundhogClient,
   TAccount extends SourceAddressAccount,
->(options: {
-  readonly client: TClient;
-  readonly account: TAccount;
-  readonly invocationAdapter?: undefined;
-}): WalletClient<TClient, TAccount>;
+>(
+  options: {
+    readonly client: TClient;
+    readonly account: TAccount;
+    readonly invocationAdapter?: undefined;
+  } & WalletNetworkOptions<TClient>,
+): WalletClient<TClient, TAccount>;
 export function createWalletClient<
   TClient extends CoreGroundhogClient,
   TAccount extends WalletAccount,
->(options: {
-  readonly client: TClient;
-  readonly account: TAccount;
-  readonly invocationAdapter?: undefined;
-}): WalletClient<TClient, TAccount>;
+>(
+  options: {
+    readonly client: TClient;
+    readonly account: TAccount;
+    readonly invocationAdapter?: undefined;
+  } & WalletNetworkOptions<TClient>,
+): WalletClient<TClient, TAccount>;
 export function createWalletClient<
   TClient extends CoreGroundhogClient,
   TAccount extends WalletAccount,
->(options: {
-  readonly client: TClient;
-  readonly account: TAccount;
-  readonly invocationAdapter?: WalletInvocationAdapter<never>;
-}):
+>(
+  options: {
+    readonly client: TClient;
+    readonly account: TAccount;
+    readonly invocationAdapter?: WalletInvocationAdapter<never>;
+  } & { readonly networkHash?: NetworkHash },
+):
   | WalletClient<TClient, TAccount>
   | ExecutableWalletClient<TClient, TAccount, never> {
   const { client, account } = options;
+  const sourceNetworkHash =
+    getConnectedNetworkHash(client) ?? options.networkHash;
+  if (sourceNetworkHash === undefined) {
+    throw new Error(
+      "Wallet clients require a validated client or an explicit networkHash",
+    );
+  }
+  const signingNetworkHash = toNetworkHash(
+    sha256Hash(new Uint8Array(sourceNetworkHash)),
+  );
   if (walletClientMarker in client) {
     throw new Error("A client can only be bound to one wallet account");
   }
@@ -169,8 +203,9 @@ export function createWalletClient<
     prepareTransaction: (request) =>
       prepareTransaction(client, account, request),
     signTransaction: (transaction) =>
-      signWalletTransaction(account, transaction),
-    sendInvocation: (request) => sendInvocation(client, account, request),
+      signWalletTransaction(account, transaction, signingNetworkHash),
+    sendInvocation: (request) =>
+      sendInvocation(client, account, signingNetworkHash, request),
   };
 
   const airdrop = requestAirdrop
@@ -197,7 +232,7 @@ export function createWalletClient<
             ),
           }),
         execute: (request: PrepareExecutionRequest) =>
-          sendInvocation(client, account, {
+          sendInvocation(client, account, signingNetworkHash, {
             ...request,
             invocation: invocationAdapter.createRootInvocation(
               account.address,
@@ -215,4 +250,15 @@ export function createWalletClient<
   ) as WalletClient<TClient, TAccount>;
   Object.defineProperty(wallet, walletClientMarker, { value: true });
   return wallet;
+}
+
+function getConnectedNetworkHash(
+  client: CoreGroundhogClient,
+): NetworkHash | undefined {
+  if (!("network" in client)) return undefined;
+  const network = client.network;
+  if (!network || typeof network !== "object" || !("networkHash" in network)) {
+    return undefined;
+  }
+  return network.networkHash as NetworkHash;
 }

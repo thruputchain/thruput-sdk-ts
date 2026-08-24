@@ -100,7 +100,7 @@ describe("getNetworkInfo", () => {
       async request<T>(method: string, params?: unknown[]): Promise<T> {
         calls.push({ method, params });
         return {
-          networkId: "devnet-preview",
+          networkHash: "0x" + "cd".repeat(32),
           genesisHash: "0x" + "ab".repeat(32),
           futureField: true,
         } as T;
@@ -112,24 +112,27 @@ describe("getNetworkInfo", () => {
     expect(calls).toEqual([
       { method: "groundhog_networkInfo", params: undefined },
     ]);
-    expect(network.networkId).toBe("devnet-preview");
+    expect(network.networkHash).toEqual(new Uint8Array(32).fill(0xcd));
     expect(network.genesisHash).toEqual(new Uint8Array(32).fill(0xab));
   });
 
   it("returns localnet identity from the mock transport", async () => {
     const network = await getNetworkInfo(new MockTransport());
 
-    expect(network.networkId).toBe("localnet");
+    expect(network.networkHash).toEqual(new Uint8Array(32));
     expect(network.genesisHash).toEqual(new Uint8Array(32));
   });
 
   it.each([
     null,
     {},
-    { networkId: "", genesisHash: "0x" + "00".repeat(32) },
-    { networkId: "localnet", genesisHash: "00".repeat(32) },
-    { networkId: "localnet", genesisHash: "0x" + "AA".repeat(32) },
-    { networkId: "localnet", genesisHash: "0x00" },
+    { networkHash: "", genesisHash: "0x" + "00".repeat(32) },
+    { networkHash: "0x" + "00".repeat(32), genesisHash: "00".repeat(32) },
+    {
+      networkHash: "0x" + "00".repeat(32),
+      genesisHash: "0x" + "AA".repeat(32),
+    },
+    { networkHash: "0x" + "00".repeat(32), genesisHash: "0x00" },
   ])("rejects malformed network identity: %j", async (result) => {
     const transport: Transport = {
       async request<T>(): Promise<T> {

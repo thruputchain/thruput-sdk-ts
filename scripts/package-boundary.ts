@@ -53,6 +53,7 @@ import type {
   Transaction,
   BitMap,
   Weight,
+  NetworkHash,
 } from "@groundhogchain/protocol";
 import type { Signer } from "@groundhogchain/client/signers";
 import {
@@ -150,7 +151,7 @@ function clusterBoundaryTypecheck(
   const local = localnet();
   const production = mainnet();
   const custom = defineCluster({
-    networkId: "private-devnet",
+    name: "private-devnet",
     rpcUrl: "https://rpc.example.com",
     capabilities: ["airdrop"],
   });
@@ -198,6 +199,7 @@ function walletBoundaryTypecheck(
   requiredWeight: Weight,
   invocation: Invocation,
   transaction: Transaction,
+  networkHash: NetworkHash,
 ): void {
   const account = createSourceAddressAccount({
     address,
@@ -206,7 +208,7 @@ function walletBoundaryTypecheck(
     requiredWeight,
   });
   const wallet: WalletClient<GroundhogClient, typeof account> =
-    createWalletClient({ client, account });
+    createWalletClient({ client, account, networkHash });
 
   wallet.getBalance();
   wallet.getBalance(address);
@@ -223,6 +225,7 @@ function walletBoundaryTypecheck(
   const devWallet = createWalletClient({
     client,
     account,
+    networkHash,
     invocationAdapter: devWalletAdapter,
   });
   devWallet.execute({ invocation, gasLimit: invocation.gas_limit });
@@ -231,7 +234,7 @@ function walletBoundaryTypecheck(
   const pubkeyWallet: ExecutableWalletClient<
     GroundhogClient,
     typeof pubkeyAccount
-  > = createWalletClient({ client, account: pubkeyAccount });
+  > = createWalletClient({ client, account: pubkeyAccount, networkHash });
   pubkeyWallet.prepareExecution({
     invocation,
     gasLimit: invocation.gas_limit,
@@ -248,6 +251,7 @@ function walletBoundaryTypecheck(
   createWalletClient({
     client,
     account,
+    networkHash,
     invocationAdapter: customAdapter,
   }).execute({
     invocation,

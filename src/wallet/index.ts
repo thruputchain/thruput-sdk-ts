@@ -15,6 +15,7 @@ export {
   type WalletAirdropActions,
   type WalletClient,
   type WalletExecutionActions,
+  type WalletNetworkOptions,
   type WalletRequestAirdropOptions,
 } from "./client.js";
 export {

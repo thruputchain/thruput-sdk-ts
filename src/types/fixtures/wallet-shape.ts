@@ -1,6 +1,7 @@
 import type {
   ContractAddress,
   Invocation,
+  NetworkHash,
   Transaction,
 } from "@groundhogchain/protocol";
 import {
@@ -25,9 +26,12 @@ function assertWalletTypes(
   otherAddress: ContractAddress,
   invocation: Invocation,
   transport: Transport,
+  networkHash: NetworkHash,
 ): void {
   const devnetWallet = createWalletClient({ client: devnetClient, account });
   const mainnetWallet = createWalletClient({ client: mainnetClient, account });
+  // @ts-expect-error Validated clients always use their connected network identity.
+  createWalletClient({ client: devnetClient, account, networkHash });
 
   devnetWallet.getBalance();
   devnetWallet.getBalance(otherAddress);
@@ -77,7 +81,7 @@ function assertWalletTypes(
   }).then((client) => createWalletClient({ client, account }).requestAirdrop());
   createGroundhogClient({
     cluster: {
-      networkId: "capable",
+      name: "capable",
       rpcUrl: "https://rpc.example.com",
       capabilities: ["airdrop"],
     },
@@ -85,7 +89,7 @@ function assertWalletTypes(
   }).then((client) => createWalletClient({ client, account }).requestAirdrop());
   createGroundhogClient({
     cluster: {
-      networkId: "incapable",
+      name: "incapable",
       rpcUrl: "https://rpc.example.com",
       capabilities: [],
     },
@@ -94,6 +98,11 @@ function assertWalletTypes(
     const wallet = createWalletClient({ client, account });
     // @ts-expect-error Custom clients without the capability omit airdrops.
     wallet.requestAirdrop();
+  });
+  createGroundhogClient({ transport }).then((client) => {
+    // @ts-expect-error Unqualified clients require an explicit signing network.
+    createWalletClient({ client, account });
+    createWalletClient({ client, account, networkHash });
   });
 
   void address;
