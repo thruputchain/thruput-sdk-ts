@@ -81,26 +81,49 @@ function paramValidator(
 }
 
 /**
- * Rewrite `{$ref: "#/components/schemas/Foo"}` → `{$ref: "openrpc#/components/schemas/Foo"}`
- * so the compiled wrapper resolves into the registered spec doc.  Inline
- * schemas pass through unchanged.
+ * Compile a validator for a JSON-RPC method's declared result schema, so
+ * response-side test fixtures are held to the spec the same way emitted
+ * params are.
+ */
+function resultValidator(methodName: string): ValidateFunction {
+  const method = (
+    openrpcSpec as {
+      methods: Array<{ name: string; result: { schema: unknown } }>;
+    }
+  ).methods.find((m) => m.name === methodName);
+  if (!method) {
+    throw new Error(`method ${methodName} not present in specs/openrpc.json`);
+  }
+  return ajv.compile(rebaseRefs(method.result.schema));
+}
+
+/**
+ * Rewrite every `"$ref": "#/components/schemas/Foo"` in a schema tree to
+ * `"openrpc#/components/schemas/Foo"` so the compiled wrapper resolves into
+ * the registered spec doc.  Handles refs nested inside `anyOf`/`properties`
+ * (e.g. the nullable `Option` result schemas).
  */
 function rebaseRefs(schema: unknown): AnySchema {
-  if (
-    schema &&
-    typeof schema === "object" &&
-    "$ref" in (schema as object) &&
-    typeof (schema as { $ref?: unknown }).$ref === "string" &&
-    (schema as { $ref: string }).$ref.startsWith("#/")
-  ) {
-    return { $ref: `openrpc${(schema as { $ref: string }).$ref}` };
+  if (Array.isArray(schema)) {
+    return schema.map(rebaseRefs) as AnySchema;
+  }
+  if (schema && typeof schema === "object") {
+    const rebased: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(schema)) {
+      rebased[key] =
+        key === "$ref" && typeof value === "string" && value.startsWith("#/")
+          ? `openrpc${value}`
+          : rebaseRefs(value);
+    }
+    return rebased as AnySchema;
   }
   return schema as AnySchema;
 }
 
 /** Build a spy transport that captures every `request()` call and replies
- *  with a caller-supplied stub.  Only suitable for tests that don't care
- *  about response parsing — that's a separate concern. */
+ *  with a caller-supplied stub.  The stub is validated against the method's
+ *  declared result schema, so response-side fixtures cannot drift from the
+ *  spec either. */
 function spyTransport<R>(stub: R): {
   transport: Transport;
   calls: Array<{ method: string; params?: unknown[] }>;
@@ -109,6 +132,12 @@ function spyTransport<R>(stub: R): {
   const transport: Transport = {
     async request<T = unknown>(method: string, params?: unknown[]): Promise<T> {
       calls.push({ method, params });
+      const validate = resultValidator(method);
+      if (!validate(stub)) {
+        throw new Error(
+          `${method} stubbed result failed schema validation: ${ajv.errorsText(validate.errors)}`,
+        );
+      }
       return stub as unknown as T;
     },
   };
