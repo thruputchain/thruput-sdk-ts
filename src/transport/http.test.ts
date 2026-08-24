@@ -137,6 +137,41 @@ describe("HttpTransport", () => {
     ).rejects.toMatchObject({ name: "AbortError" });
   });
 
+  it("times out when the response body stalls after headers arrive", async () => {
+    vi.useFakeTimers();
+    try {
+      // Headers arrive immediately, but the body stream never produces a
+      // chunk. Real fetch implementations abort in-flight body reads when
+      // the request signal fires, which the mock mirrors by erroring the
+      // stream on abort.
+      const fetchMock: typeof fetch = async (_url, init) => {
+        let controller!: ReadableStreamDefaultController<Uint8Array>;
+        const stalled = new ReadableStream<Uint8Array>({
+          start(c) {
+            controller = c;
+          },
+        });
+        init?.signal?.addEventListener("abort", () => {
+          controller.error(new DOMException("Aborted", "AbortError"));
+        });
+        return new Response(stalled, { status: 200 });
+      };
+
+      const pending = new HttpTransport("http://localhost", {
+        fetch: fetchMock,
+        timeoutMs: 1_000,
+        retry: false,
+      }).request("groundhog_version");
+      const outcome = expect(pending).rejects.toMatchObject({
+        name: "AbortError",
+      });
+      await vi.advanceTimersByTimeAsync(1_000);
+      await outcome;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("applies a 30s default timeout when timeoutMs is omitted", async () => {
     vi.useFakeTimers();
     try {

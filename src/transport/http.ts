@@ -88,6 +88,8 @@ export interface HttpTransportOptions {
   /**
    * Abort each request attempt after this many milliseconds.
    *
+   * Covers the whole attempt, including response-body consumption — a
+   * server that returns headers but stalls the body still times out.
    * Defaults to 30_000. Pass `0` to disable the timeout. Must be a
    * non-negative finite number.
    */
@@ -474,22 +476,26 @@ export class HttpTransport implements Transport {
         : signals.length === 1
           ? signals[0]
           : AbortSignal.any(signals);
-    let response: Response;
+    // The timeout stays armed until the body has been fully consumed: the
+    // fetch signal also aborts in-flight body reads, so a server that
+    // returns headers promptly but stalls the body still times out.
+    let text: string;
     try {
-      response = await this.#fetch(this.#url, {
+      const response = await this.#fetch(this.#url, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...this.#headers },
         body,
         signal,
       });
+      if (!response.ok) {
+        throw await errorFromHttpResponse(response, method);
+      }
+      text = await response.text();
     } finally {
       if (timeout !== undefined) clearTimeout(timeout);
     }
 
-    if (!response.ok) {
-      throw await errorFromHttpResponse(response, method);
-    }
-    const json = parseJsonPreservingLargeIntegers(await response.text());
+    const json = parseJsonPreservingLargeIntegers(text);
     if (!json || typeof json !== "object" || Array.isArray(json)) {
       throw new Error("Invalid JSON-RPC response");
     }
