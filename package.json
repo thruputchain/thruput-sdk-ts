@@ -2,6 +2,27 @@
   "name": "@groundhogchain/client",
   "version": "0.3.0",
   "description": "TypeScript client for the Groundhog blockchain",
+  "keywords": [
+    "groundhog",
+    "blockchain",
+    "json-rpc",
+    "client",
+    "sdk",
+    "smart-contracts",
+    "ed25519"
+  ],
+  "author": "Groundhog Chain contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/groundhogchain/client-ts.git"
+  },
+  "homepage": "https://github.com/groundhogchain/client-ts#readme",
+  "bugs": {
+    "url": "https://github.com/groundhogchain/client-ts/issues"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "type": "module",
   "exports": {
     ".": {
