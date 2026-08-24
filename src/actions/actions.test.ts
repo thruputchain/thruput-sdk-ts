@@ -26,6 +26,7 @@ import { getEvents } from "./public/getEvents.js";
 import { getStorageAt } from "./public/getStorageAt.js";
 import { getVersion } from "./public/getVersion.js";
 import { view } from "./public/view.js";
+import { UnsafeIntegerError } from "./serialize.js";
 import type { Transport } from "../transport/types.js";
 import { hashFromHex } from "./hex.js";
 
@@ -166,6 +167,21 @@ describe("getBlockByNumber", () => {
     expect(calls).toEqual([
       { method: "groundhog_getBlockByNumber", params: [42] },
     ]);
+  });
+
+  it("rejects heights that cannot be serialized as JSON numbers", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        throw new Error("bug: request should not be sent");
+      },
+    };
+
+    await expect(
+      getBlockByNumber(transport, BigInt(Number.MAX_SAFE_INTEGER) + 1n),
+    ).rejects.toBeInstanceOf(UnsafeIntegerError);
+    await expect(getBlockByNumber(transport, -1n)).rejects.toBeInstanceOf(
+      UnsafeIntegerError,
+    );
   });
 });
 
@@ -596,6 +612,23 @@ describe("getTransactionsByAddress", () => {
     ]);
   });
 
+  it("serializes an omitted limit as 0 (server default page size)", async () => {
+    const calls: { method: string; params?: unknown[] }[] = [];
+    const transport: Transport = {
+      async request<T>(method: string, params?: unknown[]): Promise<T> {
+        calls.push({ method, params });
+        return { refs: [], cursor: "0x", latestBlock: 0, oldestBlock: 0 } as T;
+      },
+    };
+
+    await getTransactionsByAddress(transport, {
+      address: contractAddress(new Uint8Array(32).fill(0xab)),
+    });
+
+    const query = calls[0].params![0] as Record<string, unknown>;
+    expect(query.limit).toBe(0);
+  });
+
   it("parses transaction refs and page metadata", async () => {
     const transport: Transport = {
       async request<T>(): Promise<T> {
@@ -711,6 +744,26 @@ describe("getEvents", () => {
     expect(query.anchor).toEqual({ kind: "atHeight", height: 42 });
 
     expect(query.limit).toBe(10);
+  });
+
+  it("serializes an omitted limit as 0 (server default page size)", async () => {
+    const calls: { method: string; params?: unknown[] }[] = [];
+    const transport: Transport = {
+      async request<T>(method: string, params?: unknown[]): Promise<T> {
+        calls.push({ method, params });
+        return {
+          events: [],
+          cursor: "0x",
+          latestBlock: 0,
+          oldestBlock: 0,
+        } as T;
+      },
+    };
+
+    await getEvents(transport, { filters: [] });
+
+    const query = calls[0].params![0] as Record<string, unknown>;
+    expect(query.limit).toBe(0);
   });
 
   it("parses a non-empty event page", async () => {

@@ -358,10 +358,11 @@ export class HttpTransport implements Transport {
   async request<T = unknown>(method: string, params?: unknown[]): Promise<T> {
     const attempts =
       method === "groundhog_sendRawTransaction" ? 1 : this.#retryAttempts;
+    const id = this.#nextId++;
 
     for (let attempt = 0; ; attempt++) {
       try {
-        return await this.#attempt<T>(method, params);
+        return await this.#attempt<T>(id, method, params);
       } catch (error) {
         const retryAfterMs = retriableDelayMs(error);
         if (
@@ -385,8 +386,11 @@ export class HttpTransport implements Transport {
   }
 
   /** Send a single JSON-RPC request attempt without retrying. */
-  async #attempt<T>(method: string, params?: unknown[]): Promise<T> {
-    const id = this.#nextId++;
+  async #attempt<T>(
+    id: number,
+    method: string,
+    params?: unknown[],
+  ): Promise<T> {
     const body = JSON.stringify({
       jsonrpc: "2.0",
       id,
@@ -448,6 +452,15 @@ export class HttpTransport implements Transport {
       );
     }
 
+    // Error envelopes are exempt: JSON-RPC allows a null id when the server
+    // could not read the request id.
+    if (envelope.id !== id) {
+      throw new Error(
+        `Invalid JSON-RPC response: id mismatch (expected ${id}, got ${String(
+          envelope.id,
+        )})`,
+      );
+    }
     if (!Object.prototype.hasOwnProperty.call(envelope, "result")) {
       throw new Error("Invalid JSON-RPC response");
     }

@@ -2,6 +2,7 @@ import type { Transport } from "../../transport/types.js";
 import { storageLongHash } from "@groundhogchain/protocol";
 import type { BlockInfo } from "../../types/rpc.js";
 import { fromHex0x, hashFromHex } from "../hex.js";
+import { toJsonNumber } from "../serialize.js";
 
 interface RawBlockInfo {
   networkId: number | string;
@@ -19,7 +20,7 @@ export async function getBlockByNumber(
 ): Promise<BlockInfo | null> {
   const result = await transport.request<unknown>(
     "groundhog_getBlockByNumber",
-    [Number(height)],
+    [toJsonNumber(height, "block height")],
   );
   if (result === null) return null;
 

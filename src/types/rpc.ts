@@ -263,7 +263,12 @@ export interface EventQuery {
   /** Cursor returned by a previous page. */
   cursor?: Uint8Array;
 
-  /** Maximum number of events to return. */
+  /**
+   * Maximum number of events to return per page.
+   *
+   * Omitted or `0` means the server-side default page size; values above
+   * the server's per-page cap are rejected as invalid params.
+   */
   limit?: number;
 }
 
@@ -281,7 +286,12 @@ export interface AddressTransactionQuery {
   /** Cursor returned by a previous page. */
   cursor?: Uint8Array;
 
-  /** Maximum number of refs to return. */
+  /**
+   * Maximum number of refs to return per page.
+   *
+   * Omitted or `0` means the server-side default page size; values above
+   * the server's per-page cap are rejected as invalid params.
+   */
   limit?: number;
 }
 

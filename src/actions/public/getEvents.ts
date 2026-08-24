@@ -6,6 +6,7 @@ import type {
 } from "../../types/rpc.js";
 import { parseEmittedEvent } from "../emittedEvent.js";
 import { toHex0x, fromHex0x, hashFromHex } from "../hex.js";
+import { toJsonNumber } from "../serialize.js";
 
 interface RawIdentifiedEvent {
   txHash: string;
@@ -28,7 +29,10 @@ function serializeQuery(query: EventQuery): unknown {
       : query.anchor === "end"
         ? { kind: "atEnd" }
         : query.anchor
-          ? { kind: "atHeight", height: Number(query.anchor.height) }
+          ? {
+              kind: "atHeight",
+              height: toJsonNumber(query.anchor.height, "anchor height"),
+            }
           : { kind: "atBeginning" };
 
   return {
@@ -43,7 +47,8 @@ function serializeQuery(query: EventQuery): unknown {
     order: query.order ?? "ascending",
     anchor,
     cursor: query.cursor ? toHex0x(query.cursor) : "0x",
-    limit: query.limit ?? 50,
+    // 0 asks the server to apply its own default page size.
+    limit: query.limit ?? 0,
   };
 }
 

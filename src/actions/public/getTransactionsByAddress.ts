@@ -5,6 +5,7 @@ import type {
   TransactionRefPage,
 } from "../../types/rpc.js";
 import { fromHex0x, hashFromHex, toHex0x } from "../hex.js";
+import { toJsonNumber } from "../serialize.js";
 
 interface RawTransactionRef {
   txHash: string;
@@ -25,7 +26,10 @@ function serializeQuery(query: AddressTransactionQuery): unknown {
       : query.anchor === "end"
         ? { kind: "atEnd" }
         : query.anchor
-          ? { kind: "atHeight", height: Number(query.anchor.height) }
+          ? {
+              kind: "atHeight",
+              height: toJsonNumber(query.anchor.height, "anchor height"),
+            }
           : { kind: "atBeginning" };
 
   return {
@@ -33,7 +37,8 @@ function serializeQuery(query: AddressTransactionQuery): unknown {
     order: query.order ?? "ascending",
     anchor,
     cursor: query.cursor ? toHex0x(query.cursor) : "0x",
-    limit: query.limit ?? 50,
+    // 0 asks the server to apply its own default page size.
+    limit: query.limit ?? 0,
   };
 }
 

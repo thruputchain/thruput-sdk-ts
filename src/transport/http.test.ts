@@ -161,6 +161,17 @@ describe("HttpTransport", () => {
     }
   });
 
+  it("rejects success envelopes whose id does not match the request", async () => {
+    const fetchMock: typeof fetch = async () =>
+      new Response(JSON.stringify({ jsonrpc: "2.0", id: 999, result: "ok" }));
+
+    await expect(
+      new HttpTransport("http://localhost", { fetch: fetchMock }).request(
+        "groundhog_version",
+      ),
+    ).rejects.toThrow("id mismatch");
+  });
+
   it("rejects negative or non-finite timeoutMs", () => {
     for (const timeoutMs of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
       expect(
