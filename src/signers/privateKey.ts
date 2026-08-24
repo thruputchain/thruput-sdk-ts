@@ -32,12 +32,23 @@ export class PrivateKeySigner implements Signer {
   publicKey: PublicKey;
   #secretKey: Uint8Array;
 
-  /** Create an Ed25519 signer from a 32-byte private key. */
+  /**
+   * Create an Ed25519 signer from a 32-byte private key.
+   *
+   * The key bytes are copied, so later mutation of the caller's buffer does
+   * not affect the signer. Throws `RangeError` when the key is not exactly
+   * 32 bytes.
+   */
   constructor(secretKey: Uint8Array) {
-    this.#secretKey = secretKey;
+    if (secretKey.length !== 32) {
+      throw new RangeError(
+        `PrivateKeySigner: secret key must be exactly 32 bytes, got ${secretKey.length}`,
+      );
+    }
+    this.#secretKey = new Uint8Array(secretKey);
     this.publicKey = {
       scheme: CryptographicScheme.Ed25519,
-      ed25519: ed25519PublicKey(new Uint8Array(getPublicKey(secretKey))),
+      ed25519: ed25519PublicKey(new Uint8Array(getPublicKey(this.#secretKey))),
     };
   }
 
