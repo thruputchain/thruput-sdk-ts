@@ -321,6 +321,38 @@ describe("HttpTransport", () => {
       ).rejects.toMatchObject({ body: "x".repeat(2048) });
     });
 
+    it("throws JsonRpcError for an envelope error body larger than 2 KiB", async () => {
+      const largeData = "x".repeat(8_192);
+      const fetchMock: typeof fetch = async () =>
+        new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            error: {
+              code: GroundhogRpcErrorCode.TxInvalid,
+              message: "tx invalid",
+              data: largeData,
+            },
+          }),
+          { status: 400, statusText: "Bad Request" },
+        );
+
+      try {
+        await new HttpTransport("http://localhost", {
+          fetch: fetchMock,
+        }).request("groundhog_chainTip");
+        throw new Error("expected request to fail");
+      } catch (error) {
+        expect(error).toBeInstanceOf(JsonRpcError);
+        expect(error).toMatchObject({
+          code: GroundhogRpcErrorCode.TxInvalid,
+          message: "tx invalid",
+          data: largeData,
+          httpStatus: 400,
+        });
+      }
+    });
+
     it("throws JsonRpcError when the error body is a JSON-RPC envelope", async () => {
       const fetchMock: typeof fetch = async () =>
         new Response(

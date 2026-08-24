@@ -164,6 +164,15 @@ const RETRIABLE_RPC_CODES = new Set<number>([
 const MAX_ERROR_BODY_BYTES = 2048;
 
 /**
+ * Longest error body considered for JSON-RPC envelope parsing.
+ *
+ * Bodies beyond this bound skip envelope detection and become
+ * {@link HttpTransportError} directly; a legitimate gateway error envelope is
+ * far smaller than 1 MiB.
+ */
+const MAX_ERROR_PARSE_BYTES = 1024 * 1024;
+
+/**
  * Error thrown when the gateway returns a non-2xx HTTP response whose body is
  * not a JSON-RPC error envelope.
  *
@@ -213,14 +222,19 @@ async function errorFromHttpResponse(
   response: Response,
   method: string,
 ): Promise<Error> {
-  let body = "";
+  let text = "";
   try {
-    body = (await response.text()).slice(0, MAX_ERROR_BODY_BYTES);
+    text = await response.text();
   } catch {
     // An unreadable body still produces a useful status-only error.
   }
+  // Only the diagnostic body retained on HttpTransportError is truncated;
+  // envelope detection parses the full body (up to a sanity bound) so a
+  // large but valid JSON-RPC error envelope keeps its RPC semantics.
+  const body = text.slice(0, MAX_ERROR_BODY_BYTES);
   try {
-    const envelope: unknown = JSON.parse(body);
+    const envelope: unknown =
+      text.length <= MAX_ERROR_PARSE_BYTES ? JSON.parse(text) : undefined;
     if (envelope && typeof envelope === "object" && !Array.isArray(envelope)) {
       const error = (envelope as Record<string, unknown>).error;
       if (error && typeof error === "object" && !Array.isArray(error)) {
