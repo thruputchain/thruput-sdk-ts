@@ -2,7 +2,12 @@ import type { ContractAddress } from "@groundhogchain/protocol";
 import type { Transport } from "../../transport/types.js";
 import type { StorageItemInfo, StorageItemRead } from "../../types/rpc.js";
 import { fromHex0x, hashFromHex, toHex0x } from "../hex.js";
-import { requireObject, requireString, requireUint } from "../parse.js";
+import {
+  requireInt32,
+  requireObject,
+  requireString,
+  requireUint,
+} from "../parse.js";
 
 /**
  * Read a committed storage item at a contract address and 32-byte storage key.
@@ -65,7 +70,9 @@ function parseStorageItemInfo(raw: unknown): StorageItemInfo {
         kind: "deployedContract",
         hash: hashFromHex(requireString(r, "hash", "storage")),
         size: Number(requireUint(r, "size", "storage")),
-        contractType: Number(requireUint(r, "contractType", "storage")),
+        // The spec types contractType as a signed int32 (raw protocol
+        // value); negative values are schema-valid.
+        contractType: requireInt32(r, "contractType", "storage"),
       };
     case "unknown":
       return { kind: "unknown", typeId: Number(r.typeId) };

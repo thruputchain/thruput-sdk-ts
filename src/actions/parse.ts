@@ -64,3 +64,36 @@ export function requireUint(
   }
   return parsed;
 }
+
+/** Smallest value representable as a signed 32-bit integer. */
+const INT32_MIN = -2_147_483_648;
+/** Largest value representable as a signed 32-bit integer. */
+const INT32_MAX = 2_147_483_647;
+
+/**
+ * Require a signed 32-bit integer field on a response object, returned as
+ * `number`.
+ *
+ * Accepts JSON numbers and decimal strings (matching {@link requireUint}'s
+ * transport contract) and rejects non-integers and values outside the
+ * int32 range.
+ */
+export function requireInt32(
+  obj: Record<string, unknown>,
+  field: string,
+  method: string,
+): number {
+  const value = obj[field];
+  let parsed: number;
+  if (typeof value === "number") {
+    parsed = value;
+  } else if (typeof value === "string" && /^-?\d+$/.test(value)) {
+    parsed = Number(value);
+  } else {
+    throw new Error(`Invalid ${method} response: expected int32 ${field}`);
+  }
+  if (!Number.isInteger(parsed) || parsed < INT32_MIN || parsed > INT32_MAX) {
+    throw new Error(`Invalid ${method} response: expected int32 ${field}`);
+  }
+  return parsed;
+}

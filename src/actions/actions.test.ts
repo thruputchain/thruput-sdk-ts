@@ -1056,4 +1056,54 @@ describe("getStorageAt", () => {
     );
     expect(r6.item).toEqual({ kind: "unknown", typeId: 99 });
   });
+
+  it("accepts a negative deployedContract contractType (spec int32)", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return {
+          blockHeight: 1,
+          item: {
+            kind: "deployedContract",
+            hash: "0x" + "ab".repeat(32),
+            size: 64,
+            contractType: -2,
+          },
+        } as T;
+      },
+    };
+
+    const read = await getStorageAt(
+      transport,
+      contractAddress(new Uint8Array(32)),
+      new Uint8Array(32),
+    );
+    expect(read.item?.kind).toBe("deployedContract");
+    if (read.item?.kind === "deployedContract") {
+      expect(read.item.contractType).toBe(-2);
+    }
+  });
+
+  it("rejects a deployedContract contractType outside the int32 range", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return {
+          blockHeight: 1,
+          item: {
+            kind: "deployedContract",
+            hash: "0x" + "ab".repeat(32),
+            size: 64,
+            contractType: 2_147_483_648,
+          },
+        } as T;
+      },
+    };
+
+    await expect(
+      getStorageAt(
+        transport,
+        contractAddress(new Uint8Array(32)),
+        new Uint8Array(32),
+      ),
+    ).rejects.toThrow(/Invalid storage response: expected int32 contractType/);
+  });
 });
