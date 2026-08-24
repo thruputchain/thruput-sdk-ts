@@ -2,11 +2,7 @@ import type { ContractAddress } from "@groundhogchain/protocol";
 import type { Transport } from "../../transport/types.js";
 import type { StorageItemInfo, StorageItemRead } from "../../types/rpc.js";
 import { fromHex0x, hashFromHex, toHex0x } from "../hex.js";
-
-interface RawStorageItemRead {
-  blockHeight: number | string;
-  item?: unknown;
-}
+import { requireObject, requireString, requireUint } from "../parse.js";
 
 /**
  * Read a committed storage item at a contract address and 32-byte storage key.
@@ -31,13 +27,10 @@ export async function getStorageAt(
     toHex0x(key),
   ]);
 
-  if (!result || typeof result !== "object" || Array.isArray(result)) {
-    throw new Error("Invalid storage response");
-  }
-  const read = result as RawStorageItemRead;
+  const read = requireObject(result, "storage");
 
   return {
-    blockHeight: BigInt(read.blockHeight),
+    blockHeight: requireUint(read, "blockHeight", "storage"),
     item:
       read.item !== undefined && read.item !== null
         ? parseStorageItemInfo(read.item)
@@ -52,9 +45,15 @@ function parseStorageItemInfo(raw: unknown): StorageItemInfo {
   const r = raw as Record<string, unknown>;
   switch (r.kind) {
     case "nonnegativeInt":
-      return { kind: "nonnegativeInt", value: BigInt(r.value as string) };
+      return {
+        kind: "nonnegativeInt",
+        value: requireUint(r, "value", "storage"),
+      };
     case "bytestring":
-      return { kind: "bytestring", bytes: fromHex0x(r.bytes as string) };
+      return {
+        kind: "bytestring",
+        bytes: fromHex0x(requireString(r, "bytes", "storage")),
+      };
     case "authData":
       return { kind: "authData" };
     case "retrocausalQueue":
@@ -64,9 +63,9 @@ function parseStorageItemInfo(raw: unknown): StorageItemInfo {
     case "deployedContract":
       return {
         kind: "deployedContract",
-        hash: hashFromHex(r.hash as string),
-        size: Number(r.size),
-        contractType: Number(r.contractType),
+        hash: hashFromHex(requireString(r, "hash", "storage")),
+        size: Number(requireUint(r, "size", "storage")),
+        contractType: Number(requireUint(r, "contractType", "storage")),
       };
     case "unknown":
       return { kind: "unknown", typeId: Number(r.typeId) };

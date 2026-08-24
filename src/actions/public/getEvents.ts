@@ -6,21 +6,8 @@ import type {
 } from "../../types/rpc.js";
 import { parseEmittedEvent } from "../emittedEvent.js";
 import { toHex0x, fromHex0x, hashFromHex } from "../hex.js";
+import { requireObject, requireString, requireUint } from "../parse.js";
 import { toJsonNumber } from "../serialize.js";
-
-interface RawIdentifiedEvent {
-  txHash: string;
-  blockHeight: number | string;
-  sequenceNumber: number;
-  event: unknown;
-}
-
-interface RawEventPage {
-  events: unknown[];
-  cursor: string;
-  latestBlock: number | string;
-  oldestBlock: number | string;
-}
 
 function serializeQuery(query: EventQuery): unknown {
   const anchor =
@@ -56,15 +43,15 @@ function parseIdentifiedEvent(value: unknown): IdentifiedEvent {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Invalid events response: expected event entry");
   }
-  const entry = value as RawIdentifiedEvent;
+  const entry = value as Record<string, unknown>;
 
   if (typeof entry.sequenceNumber !== "number") {
     throw new Error("Invalid events response: expected sequenceNumber");
   }
 
   return {
-    txHash: hashFromHex(entry.txHash),
-    blockHeight: BigInt(entry.blockHeight),
+    txHash: hashFromHex(requireString(entry, "txHash", "events")),
+    blockHeight: requireUint(entry, "blockHeight", "events"),
     sequenceNumber: entry.sequenceNumber,
     event: parseEmittedEvent(entry.event),
   };
@@ -92,10 +79,7 @@ export async function getEvents(
   const raw = await transport.request<unknown>("groundhog_getEvents", [
     serializeQuery(query),
   ]);
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    throw new Error("Invalid events response");
-  }
-  const result = raw as RawEventPage;
+  const result = requireObject(raw, "events");
 
   if (!Array.isArray(result.events)) {
     throw new Error("Invalid events response: expected events");
@@ -103,8 +87,8 @@ export async function getEvents(
 
   return {
     events: result.events.map(parseIdentifiedEvent),
-    cursor: fromHex0x(result.cursor),
-    latestBlock: BigInt(result.latestBlock),
-    oldestBlock: BigInt(result.oldestBlock),
+    cursor: fromHex0x(requireString(result, "cursor", "events")),
+    latestBlock: requireUint(result, "latestBlock", "events"),
+    oldestBlock: requireUint(result, "oldestBlock", "events"),
   };
 }

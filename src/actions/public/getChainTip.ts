@@ -1,23 +1,15 @@
 import type { Transport } from "../../transport/types.js";
 import type { ChainTip } from "../../types/rpc.js";
 import { hashFromHex } from "../hex.js";
-
-interface RawChainTip {
-  height: number | string;
-  blockHash: string;
-}
+import { requireObject, requireString, requireUint } from "../parse.js";
 
 /** Return the latest block height and block hash reported by the gateway. */
 export async function getChainTip(transport: Transport): Promise<ChainTip> {
   const result = await transport.request<unknown>("groundhog_chainTip");
-  if (!result || typeof result !== "object" || Array.isArray(result)) {
-    throw new Error("Invalid chain tip response");
-  }
-
-  const tip = result as RawChainTip;
+  const tip = requireObject(result, "chain tip");
 
   return {
-    height: BigInt(tip.height),
-    blockHash: hashFromHex(tip.blockHash),
+    height: requireUint(tip, "height", "chain tip"),
+    blockHash: hashFromHex(requireString(tip, "blockHash", "chain tip")),
   };
 }

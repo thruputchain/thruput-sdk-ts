@@ -2,12 +2,7 @@ import type { ContractAddress } from "@groundhogchain/protocol";
 import type { Transport } from "../../transport/types.js";
 import type { BalanceResponse } from "../../types/rpc.js";
 import { addressFromHex, toHex0x } from "../hex.js";
-
-interface RawBalanceResponse {
-  address: string;
-  rawBalance: string;
-  height: number | string;
-}
+import { requireObject, requireString, requireUint } from "../parse.js";
 
 /**
  * Return the HOG balance for an address.
@@ -23,15 +18,11 @@ export async function getBalance(
     toHex0x(address),
   ]);
 
-  if (!result || typeof result !== "object" || Array.isArray(result)) {
-    throw new Error("Invalid balance response");
-  }
-
-  const balance = result as RawBalanceResponse;
+  const balance = requireObject(result, "balance");
 
   return {
-    address: addressFromHex(balance.address),
-    rawBalance: BigInt(balance.rawBalance),
-    height: BigInt(balance.height),
+    address: addressFromHex(requireString(balance, "address", "balance")),
+    rawBalance: requireUint(balance, "rawBalance", "balance"),
+    height: requireUint(balance, "height", "balance"),
   };
 }

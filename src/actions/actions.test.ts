@@ -87,6 +87,18 @@ describe("getChainTip", () => {
     const tip = await getChainTip(transport);
     expect(tip.height).toBe(1n);
   });
+
+  it("rejects a response without a height", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return { blockHash: "0x" + "00".repeat(32) } as T;
+      },
+    };
+
+    await expect(getChainTip(transport)).rejects.toThrow(
+      /Invalid chain tip response: expected uint height/,
+    );
+  });
 });
 
 describe("getVersion", () => {
@@ -136,6 +148,22 @@ describe("getBalance", () => {
     expect(balance.rawBalance).toBe(0n);
     expect(balance.height).toBe(0n);
   });
+
+  it("rejects a response with a malformed rawBalance", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return {
+          address: "0x" + "ab".repeat(32),
+          rawBalance: "not-a-number",
+          height: 0,
+        } as T;
+      },
+    };
+
+    await expect(
+      getBalance(transport, contractAddress(new Uint8Array(32).fill(0xab))),
+    ).rejects.toThrow(/Invalid balance response: expected uint rawBalance/);
+  });
 });
 
 describe("getBlockByNumber", () => {
@@ -167,6 +195,25 @@ describe("getBlockByNumber", () => {
     expect(calls).toEqual([
       { method: "groundhog_getBlockByNumber", params: [42] },
     ]);
+  });
+
+  it("rejects a block response missing networkId", async () => {
+    const hash = "0x" + "00".repeat(32);
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return {
+          blockHeight: 1,
+          txsetHash: hash,
+          dbHash: "0x" + "00".repeat(2048),
+          eventsHash: hash,
+          prevBlockHash: hash,
+        } as T;
+      },
+    };
+
+    await expect(getBlockByNumber(transport, 1n)).rejects.toThrow(
+      /Invalid block response: expected uint networkId/,
+    );
   });
 
   it("rejects heights that cannot be serialized as JSON numbers", async () => {
@@ -766,6 +813,18 @@ describe("getEvents", () => {
     expect(query.limit).toBe(0);
   });
 
+  it("rejects a page with a non-string cursor", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return { events: [], cursor: 42, latestBlock: 0, oldestBlock: 0 } as T;
+      },
+    };
+
+    await expect(getEvents(transport, { filters: [] })).rejects.toThrow(
+      /Invalid events response: expected string cursor/,
+    );
+  });
+
   it("parses a non-empty event page", async () => {
     const transport: Transport = {
       async request<T>(): Promise<T> {
@@ -863,6 +922,25 @@ describe("getEvents", () => {
 });
 
 describe("getStorageAt", () => {
+  it("rejects a nonnegativeInt item with a malformed value", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return {
+          blockHeight: 1,
+          item: { kind: "nonnegativeInt", value: { nested: true } },
+        } as T;
+      },
+    };
+
+    await expect(
+      getStorageAt(
+        transport,
+        contractAddress(new Uint8Array(32)),
+        new Uint8Array(32),
+      ),
+    ).rejects.toThrow(/Invalid storage response: expected uint value/);
+  });
+
   it("rejects a non-32-byte key before issuing a request", async () => {
     const transport = new MockTransport();
     await expect(

@@ -2,16 +2,8 @@ import type { Transport } from "../../transport/types.js";
 import { storageLongHash } from "@groundhogchain/protocol";
 import type { BlockInfo } from "../../types/rpc.js";
 import { fromHex0x, hashFromHex } from "../hex.js";
+import { requireObject, requireString, requireUint } from "../parse.js";
 import { toJsonNumber } from "../serialize.js";
-
-interface RawBlockInfo {
-  networkId: number | string;
-  blockHeight: number | string;
-  txsetHash: string;
-  dbHash: string;
-  eventsHash: string;
-  prevBlockHash: string;
-}
 
 /** Return block metadata for a height, or `null` when the block is unknown. */
 export async function getBlockByNumber(
@@ -24,17 +16,14 @@ export async function getBlockByNumber(
   );
   if (result === null) return null;
 
-  if (!result || typeof result !== "object" || Array.isArray(result)) {
-    throw new Error("Invalid block response");
-  }
-  const block = result as RawBlockInfo;
+  const block = requireObject(result, "block");
 
   return {
-    networkId: BigInt(block.networkId),
-    blockHeight: BigInt(block.blockHeight),
-    txsetHash: hashFromHex(block.txsetHash),
-    dbHash: storageLongHash(fromHex0x(block.dbHash)),
-    eventsHash: hashFromHex(block.eventsHash),
-    prevBlockHash: hashFromHex(block.prevBlockHash),
+    networkId: requireUint(block, "networkId", "block"),
+    blockHeight: requireUint(block, "blockHeight", "block"),
+    txsetHash: hashFromHex(requireString(block, "txsetHash", "block")),
+    dbHash: storageLongHash(fromHex0x(requireString(block, "dbHash", "block"))),
+    eventsHash: hashFromHex(requireString(block, "eventsHash", "block")),
+    prevBlockHash: hashFromHex(requireString(block, "prevBlockHash", "block")),
   };
 }
