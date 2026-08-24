@@ -129,6 +129,59 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Whether this runtime's `JSON.parse` reviver receives the raw source text of
+ * each primitive (the TC39 "JSON.parse source access" proposal; Node >= 21 and
+ * current V8/JavaScriptCore runtimes).
+ */
+const HAS_JSON_PARSE_SOURCE: boolean = (() => {
+  let source: unknown;
+  try {
+    const reviver = (
+      _key: string,
+      value: unknown,
+      context?: { source?: string },
+    ): unknown => {
+      source = context?.source;
+      return value;
+    };
+    JSON.parse("0", reviver as (key: string, value: unknown) => unknown);
+  } catch {
+    // Fall through: treat any reviver failure as "no source access".
+  }
+  return source === "0";
+})();
+
+/**
+ * Parse a JSON document, preserving integer literals outside the IEEE-754
+ * safe-integer range as their original decimal strings.
+ *
+ * Spec uint64 fields (for example `BlockInfo.networkId`) are JSON numbers;
+ * `JSON.parse` alone would silently round them before the action layer
+ * converts to `bigint`. The `Raw*` action interfaces accept `number | string`,
+ * so out-of-range values are handed through as strings. On runtimes without
+ * reviver source access this falls back to plain `JSON.parse`.
+ */
+function parseJsonPreservingLargeIntegers(text: string): unknown {
+  if (!HAS_JSON_PARSE_SOURCE) return JSON.parse(text);
+  const reviver = (
+    _key: string,
+    value: unknown,
+    context?: { source?: string },
+  ): unknown => {
+    if (
+      typeof value === "number" &&
+      !Number.isSafeInteger(value) &&
+      context?.source !== undefined &&
+      /^-?\d+$/.test(context.source)
+    ) {
+      return context.source;
+    }
+    return value;
+  };
+  return JSON.parse(text, reviver as (key: string, value: unknown) => unknown);
+}
+
+/**
  * Decide whether a failed attempt may be retried.
  *
  * Returns `undefined` for non-retriable failures. For retriable failures,
@@ -261,7 +314,7 @@ export class HttpTransport implements Transport {
         parseRetryAfterMs(response.headers.get("Retry-After")),
       );
     }
-    const json = await response.json();
+    const json = parseJsonPreservingLargeIntegers(await response.text());
     if (!json || typeof json !== "object" || Array.isArray(json)) {
       throw new Error("Invalid JSON-RPC response");
     }

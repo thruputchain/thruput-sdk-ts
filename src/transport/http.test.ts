@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import openrpcSpec from "../../specs/openrpc.json";
+import { getBlockByNumber } from "../actions/public/getBlockByNumber.js";
 import { GroundhogRpcErrorCode, HttpTransport, JsonRpcError } from "./http.js";
 
 function documentedErrorCodes() {
@@ -75,6 +76,43 @@ describe("HttpTransport", () => {
         method: "groundhog_version",
       });
     }
+  });
+
+  it("preserves integer literals beyond Number.MAX_SAFE_INTEGER as strings", async () => {
+    const uint64Max = 2n ** 64n - 1n;
+    const fetchMock: typeof fetch = async () =>
+      new Response(
+        `{"jsonrpc":"2.0","id":1,"result":{"networkId":${uint64Max},"small":7,"float":1e21,"negative":-${uint64Max}}}`,
+      );
+
+    const result = await new HttpTransport("http://localhost", {
+      fetch: fetchMock,
+    }).request<Record<string, unknown>>("groundhog_getBlockByNumber", [0]);
+
+    expect(result.networkId).toBe(uint64Max.toString());
+    expect(BigInt(result.networkId as string)).toBe(uint64Max);
+    // In-range integers and non-integer literals stay plain numbers.
+    expect(result.small).toBe(7);
+    expect(result.float).toBe(1e21);
+    expect(result.negative).toBe(`-${uint64Max}`);
+  });
+
+  it("delivers uint64-max networkId to getBlockByNumber unchanged", async () => {
+    const uint64Max = 2n ** 64n - 1n;
+    const hash = "0x" + "00".repeat(32);
+    const dbHash = "0x" + "00".repeat(2048);
+    const fetchMock: typeof fetch = async () =>
+      new Response(
+        `{"jsonrpc":"2.0","id":1,"result":{"networkId":${uint64Max},"blockHeight":1,` +
+          `"txsetHash":"${hash}","dbHash":"${dbHash}","eventsHash":"${hash}","prevBlockHash":"${hash}"}}`,
+      );
+
+    const block = await getBlockByNumber(
+      new HttpTransport("http://localhost", { fetch: fetchMock }),
+      1n,
+    );
+
+    expect(block?.networkId).toBe(uint64Max);
   });
 
   it("aborts requests after timeoutMs", async () => {
