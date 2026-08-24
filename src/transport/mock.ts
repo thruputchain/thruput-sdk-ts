@@ -1,5 +1,6 @@
 import type { Transport } from "./types.js";
 import { sha256Hash, toHex } from "@groundhogchain/protocol";
+import { SUPPORTED_WIRE_FORMAT } from "../version.js";
 
 /**
  * In-memory transport for tests and examples.
@@ -99,7 +100,7 @@ export class MockTransport implements Transport {
     commitHash: null;
   } {
     return {
-      wireFormat: "2.1.0",
+      wireFormat: SUPPORTED_WIRE_FORMAT,
       implementation: "mock",
       commitHash: null,
     };

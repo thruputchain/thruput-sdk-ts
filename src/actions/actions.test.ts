@@ -27,6 +27,7 @@ import { getStorageAt } from "./public/getStorageAt.js";
 import { getVersion } from "./public/getVersion.js";
 import { view } from "./public/view.js";
 import { UnsafeIntegerError } from "./serialize.js";
+import { SUPPORTED_WIRE_FORMAT } from "../version.js";
 import type { Transport } from "../transport/types.js";
 import { hashFromHex } from "./hex.js";
 
@@ -106,7 +107,7 @@ describe("getVersion", () => {
     const transport = new MockTransport();
     const version = await getVersion(transport);
     expect(version).toEqual({
-      wireFormat: "2.1.0",
+      wireFormat: SUPPORTED_WIRE_FORMAT,
       implementation: "mock",
       commitHash: null,
     });
