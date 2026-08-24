@@ -1,10 +1,15 @@
-import type { ContractAddress, Invocation } from "@groundhogchain/protocol";
+import type {
+  ContractAddress,
+  Invocation,
+  Transaction,
+} from "@groundhogchain/protocol";
 import {
   connectGroundhogClient,
   customCluster,
   createWalletClient,
   defineWalletInvocationAdapter,
   devWalletAdapter,
+  localnet,
   type ConnectedGroundhogClient,
   type PubkeyAccount,
   type SourceAddressAccount,
@@ -68,6 +73,10 @@ function assertWalletTypes(
   mainnetWallet.requestAirdrop();
 
   connectGroundhogClient({
+    cluster: localnet(),
+    transport,
+  }).then((client) => createWalletClient({ client, account }).requestAirdrop());
+  connectGroundhogClient({
     cluster: customCluster({
       networkId: "capable",
       rpcUrl: "https://rpc.example.com",
@@ -95,16 +104,25 @@ function assertCollidingClientMethods(
   client: ConnectedGroundhogClient<ReturnType<typeof devnet>> & {
     execute(value: string): string;
     prepareExecution(value: string): string;
+    signTransaction(value: string): string;
+    sendInvocation(value: string): string;
   },
   pubkeyAccount: PubkeyAccount,
   invocation: Invocation,
+  transaction: Transaction,
 ): void {
   const wallet = createWalletClient({ client, account: pubkeyAccount });
   wallet.execute({ invocation, gasLimit: invocation.gas_limit });
+  wallet.signTransaction(transaction);
+  wallet.sendInvocation({ invocation });
   // @ts-expect-error Original execute signatures are replaced by wallet actions.
   wallet.execute("invalid");
   // @ts-expect-error Original prepareExecution signatures are replaced.
   wallet.prepareExecution("invalid");
+  // @ts-expect-error Original signTransaction signatures are replaced.
+  wallet.signTransaction("invalid");
+  // @ts-expect-error Original sendInvocation signatures are replaced.
+  wallet.sendInvocation("invalid");
 }
 
 function assertSourceCollisionTypes(

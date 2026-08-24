@@ -25,7 +25,11 @@ export async function sendInvocation(
   account: WalletAccount,
   request: PrepareTransactionRequest,
 ): Promise<SHA256Hash> {
+  const signers = account.signers.map(({ signer, publicKeyId }) => ({
+    signer,
+    publicKeyId,
+  }));
   const transaction = await prepareTransaction(client, account, request);
-  const signed = await signWalletTransaction(account, transaction);
+  const signed = await sign(transaction, signers);
   return client.sendTransaction(signed);
 }

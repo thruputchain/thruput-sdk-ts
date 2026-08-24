@@ -27,6 +27,14 @@ import type {
 } from "@groundhogchain/protocol";
 
 const walletClientMarker = Symbol("GroundhogWalletClient");
+const reservedWalletClientProperties = [
+  "account",
+  "prepareTransaction",
+  "signTransaction",
+  "sendInvocation",
+  "prepareExecution",
+  "execute",
+] as const;
 
 /** Wallet airdrop options with the bound account as the default recipient. */
 export type WalletRequestAirdropOptions = Omit<
@@ -73,7 +81,14 @@ export type WalletClient<
   TAccount extends WalletAccount = WalletAccount,
 > = Omit<
   TClient,
-  "getBalance" | "requestAirdrop" | "prepareExecution" | "execute"
+  | "getBalance"
+  | "requestAirdrop"
+  | "account"
+  | "prepareTransaction"
+  | "signTransaction"
+  | "sendInvocation"
+  | "prepareExecution"
+  | "execute"
 > &
   WalletActions<TAccount> &
   (TClient extends AirdropActions ? WalletAirdropActions : object);
@@ -133,9 +148,12 @@ export function createWalletClient<
   if (walletClientMarker in client) {
     throw new Error("A client can only be bound to one wallet account");
   }
-  if ("execute" in client || "prepareExecution" in client) {
+  const collision = reservedWalletClientProperties.find(
+    (property) => property in client,
+  );
+  if (collision) {
     throw new Error(
-      "Client methods cannot use the reserved names execute or prepareExecution",
+      `Client property ${collision} conflicts with a wallet client property`,
     );
   }
   const getBalance = client.getBalance.bind(client);

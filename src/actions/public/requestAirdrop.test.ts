@@ -1,7 +1,11 @@
 import { contractAddress } from "@groundhogchain/protocol";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Transport } from "../../transport/types.js";
-import { GroundhogRpcErrorCode, JsonRpcError } from "../../transport/http.js";
+import {
+  GroundhogRpcErrorCode,
+  HttpResponseError,
+  JsonRpcError,
+} from "../../transport/http.js";
 import { hashFromHex } from "../hex.js";
 import {
   InvalidAirdropResponseError,
@@ -91,7 +95,12 @@ describe("requestAirdropAttempt", () => {
     { ...pending, recipient: "0x" + "AA".repeat(32) },
     { ...pending, rawAmount: "-1" },
     { ...pending, retryAfterSeconds: -1 },
+    { ...pending, retryAfterSeconds: Number.MAX_SAFE_INTEGER + 1 },
     { ...succeeded, txHash: null },
+    { ...succeeded, height: -1 },
+    { ...succeeded, height: "0x10" },
+    { ...succeeded, height: " " },
+    { ...succeeded, height: Number.MAX_SAFE_INTEGER + 1 },
     { ...succeeded, status: {} },
   ])("rejects a malformed response: %j", async (result) => {
     const transport: Transport = {
@@ -252,6 +261,48 @@ describe("requestAirdrop", () => {
     ).rejects.toBe(failure);
     expect(request).toHaveBeenCalledOnce();
   });
+
+  it.each([401, 501, 505, 511])(
+    "does not retry permanent HTTP status %i",
+    async (status) => {
+      const failure = new HttpResponseError(status, "permanent");
+      const request = vi.fn(async () => {
+        throw failure;
+      });
+
+      await expect(
+        requestAirdrop({ request }, { recipient, clientNonce }),
+      ).rejects.toBe(failure);
+      expect(request).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each([408, 500, 502, 503, 504])(
+    "retries ambiguous HTTP status %i",
+    async (status) => {
+      vi.useFakeTimers();
+      let calls = 0;
+      const transport: Transport = {
+        async request<T>(): Promise<T> {
+          calls += 1;
+          if (calls === 1) throw new HttpResponseError(status, "retry");
+          return succeeded as T;
+        },
+      };
+
+      const result = requestAirdrop(transport, {
+        recipient,
+        clientNonce,
+        timeoutMs: 1_000,
+      });
+      await vi.advanceTimersByTimeAsync(250);
+
+      await expect(result).resolves.toMatchObject({
+        attemptStatus: "succeeded",
+      });
+      expect(calls).toBe(2);
+    },
+  );
 
   it("times out while a request remains pending", async () => {
     let transportAborted = false;

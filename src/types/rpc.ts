@@ -13,10 +13,10 @@ export type { ExecResult } from "@groundhogchain/protocol";
 /** Immutable identity configured for a Groundhog RPC endpoint. */
 export interface NetworkInfo {
   /** Stable logical identifier for the network deployment. */
-  networkId: string;
+  readonly networkId: string;
 
   /** Hash of the materialized genesis state. */
-  genesisHash: SHA256Hash;
+  readonly genesisHash: SHA256Hash;
 }
 
 /** One idempotent airdrop attempt. */

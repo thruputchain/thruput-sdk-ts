@@ -34,6 +34,8 @@ describe("createPubkeyAccount", () => {
     expect(account.signers).toEqual([
       { signer: accountSigner, publicKeyId: 0n },
     ]);
+    expect(Object.isFrozen(account.signers)).toBe(true);
+    expect(Object.isFrozen(account.signers[0])).toBe(true);
   });
 
   it.each([-1n, 0x1_0000_0000_0000_0000n])(
@@ -71,6 +73,8 @@ describe("createSourceAddressAccount", () => {
       },
     });
     expect(account.signers[0]!.publicKeyId).toBe(0n);
+    expect(Object.isFrozen(account.signers)).toBe(true);
+    expect(Object.isFrozen(account.signers[0])).toBe(true);
   });
 
   it("supports multiple distinct selected key IDs", () => {

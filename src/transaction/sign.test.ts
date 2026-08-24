@@ -169,6 +169,86 @@ describe("signTransaction", () => {
     );
   });
 
+  it.each([
+    {
+      label: "duplicate key IDs",
+      signers: [
+        {
+          signer: new PrivateKeySigner(new Uint8Array(32).fill(1)),
+          publicKeyId: 0n,
+        },
+        {
+          signer: new PrivateKeySigner(new Uint8Array(32).fill(2)),
+          publicKeyId: 0n,
+        },
+      ],
+    },
+    {
+      label: "unordered key IDs",
+      signers: [
+        {
+          signer: new PrivateKeySigner(new Uint8Array(32).fill(1)),
+          publicKeyId: 1n,
+        },
+        {
+          signer: new PrivateKeySigner(new Uint8Array(32).fill(2)),
+          publicKeyId: 0n,
+        },
+      ],
+    },
+    {
+      label: "out-of-range key ID",
+      signers: [
+        {
+          signer: new PrivateKeySigner(new Uint8Array(32).fill(1)),
+          publicKeyId: 21n,
+        },
+      ],
+    },
+  ])("rejects $label", async ({ signers }) => {
+    await expect(
+      signTransaction(makeDummyTransaction(), signers),
+    ).rejects.toThrow();
+  });
+
+  it("allows an empty source-address signature list", async () => {
+    await expect(signTransaction(makeDummyTransaction(), [])).resolves.toEqual(
+      expect.objectContaining({ signatures: [] }),
+    );
+  });
+
+  it("rejects keys outside the source-address auth bitmap", async () => {
+    const transaction = makeDummyTransaction();
+    if (
+      transaction.auth_claim.claim_type !== AuthClaimType.kSourceAddressAuthData
+    ) {
+      throw new Error("expected source-address auth");
+    }
+    transaction.auth_claim.source_address_claim.allowed_keys = bitMap(1n);
+
+    await expect(
+      signTransaction(transaction, [
+        {
+          signer: new PrivateKeySigner(new Uint8Array(32).fill(1)),
+          publicKeyId: 1n,
+        },
+      ]),
+    ).rejects.toThrow("is not selected by authClaim");
+  });
+
+  it("requires exactly key ID zero for pubkey authorization", async () => {
+    const signer = new PrivateKeySigner(new Uint8Array(32).fill(1));
+    const transaction = makeDummyTransaction();
+    transaction.auth_claim = {
+      claim_type: AuthClaimType.kPubkeySignature,
+      pubkey_preimage: { pubkey: signer.publicKey, nonce: 0n },
+    };
+
+    await expect(
+      signTransaction(transaction, [{ signer, publicKeyId: 1n }]),
+    ).rejects.toThrow("requires only publicKeyId 0");
+  });
+
   it("snapshots the transaction and key IDs before asynchronous signing", async () => {
     const baseSigner = new PrivateKeySigner(new Uint8Array(32).fill(3));
     let release!: () => void;

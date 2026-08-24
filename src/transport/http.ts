@@ -16,8 +16,7 @@ export const GroundhogRpcErrorCode = {
 /**
  * Error thrown when a JSON-RPC response contains an `error` object.
  *
- * Transport-level HTTP failures and malformed envelopes throw regular `Error`
- * instances instead.
+ * Malformed envelopes throw regular `Error` instances instead.
  */
 export class JsonRpcError extends Error {
   /** JSON-RPC numeric error code. */
@@ -35,6 +34,19 @@ export class JsonRpcError extends Error {
     this.code = code;
     this.data = data;
     this.method = method;
+  }
+}
+
+/** Error thrown when an HTTP response has a non-successful status. */
+export class HttpResponseError extends Error {
+  readonly status: number;
+  readonly statusText: string;
+
+  constructor(status: number, statusText: string) {
+    super(`HTTP ${status}: ${statusText}`);
+    this.name = "HttpResponseError";
+    this.status = status;
+    this.statusText = statusText;
   }
 }
 
@@ -118,7 +130,7 @@ export class HttpTransport implements Transport {
     }
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      throw new HttpResponseError(response.status, response.statusText);
     }
     const json = await response.json();
     if (!json || typeof json !== "object" || Array.isArray(json)) {

@@ -1,4 +1,4 @@
-import type { SHA256Hash } from "@groundhogchain/protocol";
+import { sha256Hash, type SHA256Hash } from "@groundhogchain/protocol";
 import type { NetworkInfo } from "./types/rpc.js";
 import { toHex0x } from "./actions/hex.js";
 
@@ -36,17 +36,19 @@ export interface Cluster<
   readonly capabilities: TCapabilities;
 }
 
-/** Whether a cluster declares a particular optional feature. */
+/** Whether every possible cluster descriptor declares an optional feature. */
 export type ClusterHasCapability<
   TCluster extends Cluster,
   TCapability extends ClusterCapability,
 > = false extends (
   TCluster extends Cluster<ClusterName, infer TCapabilities>
-    ? number extends TCapabilities["length"]
-      ? false
-      : TCapability extends TCapabilities[number]
-        ? true
-        : false
+    ? TCapabilities extends readonly ClusterCapability[]
+      ? number extends TCapabilities["length"]
+        ? false
+        : TCapability extends TCapabilities[number]
+          ? true
+          : false
+      : false
     : false
 )
   ? false
@@ -70,7 +72,15 @@ export function defineCluster<
     throw new Error("Cluster networkId must not be empty");
   }
   if (cluster.rpcUrl !== undefined) validateRpcUrl(cluster.rpcUrl);
-  return cluster;
+  return Object.freeze({
+    ...cluster,
+    ...(cluster.genesisHash === undefined
+      ? {}
+      : { genesisHash: sha256Hash(new Uint8Array(cluster.genesisHash)) }),
+    capabilities: Object.freeze([
+      ...cluster.capabilities,
+    ]) as unknown as TCapabilities,
+  });
 }
 
 /** Define the canonical Groundhog mainnet cluster. */

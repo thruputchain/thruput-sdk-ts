@@ -8,6 +8,8 @@ import {
   type ClusterHasCapability,
   type Cluster,
   type ConnectedGroundhogClient,
+  type AirdropExecutionStatus,
+  type AirdropResponse,
 } from "../../index.js";
 import type { Transport } from "../../transport/types.js";
 import type { ContractAddress } from "@groundhogchain/protocol";
@@ -38,6 +40,10 @@ function assertClusterTypes(
     false;
   const mixedSupportsAirdrop: ClusterHasCapability<
     typeof devnetCluster | typeof mainnetCluster,
+    "airdrop"
+  > = false;
+  const nestedMixedSupportsAirdrop: ClusterHasCapability<
+    Cluster<"custom", readonly [] | readonly ["airdrop"]>,
     "airdrop"
   > = false;
   const customCapability: "airdrop" = privateCluster.capabilities[0];
@@ -79,9 +85,44 @@ function assertClusterTypes(
   void mainnetSupportsAirdrop;
   void widenedSupportsAirdrop;
   void mixedSupportsAirdrop;
+  void nestedMixedSupportsAirdrop;
   void customCapability;
   void connected;
   void defaultConnected;
 }
 
 void assertClusterTypes;
+
+function assertAirdropResponseNarrowing(response: AirdropResponse): bigint {
+  switch (response.attemptStatus) {
+    case "pending":
+      return BigInt(response.retryAfterSeconds);
+    case "succeeded":
+      return response.height;
+    default: {
+      const exhaustive: never = response;
+      return exhaustive;
+    }
+  }
+}
+
+function assertAirdropStatusExhaustive(status: AirdropExecutionStatus): string {
+  switch (status.result) {
+    case "ok":
+    case "nonDeterministicError":
+    case "failedGasSponsorship":
+    case "other":
+      return status.result;
+    case "reverted":
+      return status.message ?? status.result;
+    case "deterministicError":
+      return status.kind;
+    default: {
+      const exhaustive: never = status;
+      return exhaustive;
+    }
+  }
+}
+
+void assertAirdropResponseNarrowing;
+void assertAirdropStatusExhaustive;

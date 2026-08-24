@@ -22,7 +22,7 @@ import type {
   NetworkInfo,
 } from "./types/rpc.js";
 import type { Cluster, ClusterHasCapability } from "./cluster.js";
-import { assertNetworkMatchesCluster } from "./cluster.js";
+import { assertNetworkMatchesCluster, defineCluster } from "./cluster.js";
 import { getChainTip } from "./actions/public/getChainTip.js";
 import { getNetworkInfo } from "./actions/public/getNetworkInfo.js";
 import {
@@ -213,16 +213,17 @@ export interface ConnectGroundhogClientOptions<
 export async function connectGroundhogClient<TCluster extends Cluster>(
   options: ConnectGroundhogClientOptions<TCluster>,
 ): Promise<ConnectedGroundhogClient<TCluster>> {
-  const transport = resolveClusterTransport(options);
+  const cluster = defineCluster(options.cluster);
+  const transport = resolveClusterTransport({ ...options, cluster });
   const client = createCoreGroundhogClient(transport);
   const network = await client.getNetworkInfo();
-  assertNetworkMatchesCluster(options.cluster, network);
+  assertNetworkMatchesCluster(cluster, network);
   return Object.assign(
     client,
-    options.cluster.capabilities.includes("airdrop")
+    cluster.capabilities.includes("airdrop")
       ? createAirdropActions(transport)
       : {},
-    { cluster: options.cluster, network },
+    { cluster, network },
   ) as ConnectedGroundhogClient<TCluster>;
 }
 

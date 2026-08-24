@@ -73,6 +73,29 @@ describe("cluster descriptors", () => {
     });
   });
 
+  it("snapshots and freezes declared capabilities", () => {
+    const capabilities: ["airdrop"] = ["airdrop"];
+    const cluster = customCluster({
+      networkId: "immutable",
+      capabilities,
+    });
+
+    capabilities.pop();
+
+    expect(cluster.capabilities).toEqual(["airdrop"]);
+    expect(Object.isFrozen(cluster)).toBe(true);
+    expect(Object.isFrozen(cluster.capabilities)).toBe(true);
+  });
+
+  it("snapshots a pinned genesis hash", () => {
+    const genesisHash = hashFromHex("0x" + "11".repeat(32));
+    const cluster = localnet({ genesisHash });
+
+    genesisHash.fill(0x22);
+
+    expect(cluster.genesisHash).toEqual(new Uint8Array(32).fill(0x11));
+  });
+
   it("allows transport-only custom clusters without a default URL", () => {
     expect(
       customCluster({
@@ -114,7 +137,8 @@ describe("connectGroundhogClient", () => {
       transport: networkTransport("localnet", "22"),
     });
 
-    expect(client.cluster).toBe(cluster);
+    expect(client.cluster).toEqual(cluster);
+    expect(client.cluster).not.toBe(cluster);
     expect(client.network.networkId).toBe("localnet");
     expect(client.requestAirdrop).toBeTypeOf("function");
     await expect(client.getChainTip()).resolves.toMatchObject({ height: 0n });
@@ -128,6 +152,26 @@ describe("connectGroundhogClient", () => {
 
     expect(client).not.toHaveProperty("requestAirdrop");
     expect(client).not.toHaveProperty("requestAirdropAttempt");
+  });
+
+  it("uses explicitly declared custom capabilities at runtime", async () => {
+    const capable = await connectGroundhogClient({
+      cluster: customCluster({
+        networkId: "capable",
+        capabilities: ["airdrop"],
+      }),
+      transport: networkTransport("capable", "22"),
+    });
+    const incapable = await connectGroundhogClient({
+      cluster: customCluster({
+        networkId: "incapable",
+        capabilities: [],
+      }),
+      transport: networkTransport("incapable", "22"),
+    });
+
+    expect(capable.requestAirdrop).toBeTypeOf("function");
+    expect(incapable).not.toHaveProperty("requestAirdrop");
   });
 
   it("uses the cluster's default HTTP endpoint", async () => {
@@ -173,13 +217,46 @@ describe("connectGroundhogClient", () => {
     expect(client.network.genesisHash).toEqual(new Uint8Array(32).fill(0x33));
   });
 
+  it("uses the identity snapshot captured before the handshake", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const cluster = localnet({
+      genesisHash: hashFromHex("0x" + "11".repeat(32)),
+    });
+    const connection = connectGroundhogClient({
+      cluster,
+      transport: {
+        async request<T>(): Promise<T> {
+          await gate;
+          return {
+            networkId: "localnet",
+            genesisHash: "0x" + "11".repeat(32),
+          } as T;
+        },
+      },
+    });
+
+    cluster.genesisHash!.fill(0x22);
+    release();
+
+    await expect(connection).resolves.toMatchObject({
+      cluster: { genesisHash: new Uint8Array(32).fill(0x11) },
+    });
+  });
+
   it("rejects a different logical network", async () => {
-    await expect(
-      connectGroundhogClient({
-        cluster: mainnet(),
-        transport: networkTransport("devnet-preview", "44"),
-      }),
-    ).rejects.toBeInstanceOf(NetworkMismatchError);
+    const connection = connectGroundhogClient({
+      cluster: mainnet(),
+      transport: networkTransport("devnet-preview", "44"),
+    });
+
+    await expect(connection).rejects.toBeInstanceOf(NetworkMismatchError);
+    await expect(connection).rejects.toThrow(
+      "Network mismatch: expected mainnet, received devnet-preview at 0x" +
+        "44".repeat(32),
+    );
   });
 
   it("rejects a different pinned genesis", async () => {
@@ -187,11 +264,17 @@ describe("connectGroundhogClient", () => {
       genesisHash: hashFromHex("0x" + "55".repeat(32)),
     });
 
-    await expect(
-      connectGroundhogClient({
-        cluster,
-        transport: networkTransport("localnet", "66"),
-      }),
-    ).rejects.toThrow(/Network mismatch/);
+    const connection = connectGroundhogClient({
+      cluster,
+      transport: networkTransport("localnet", "66"),
+    });
+
+    await expect(connection).rejects.toBeInstanceOf(NetworkMismatchError);
+    await expect(connection).rejects.toThrow(
+      "Network mismatch: expected localnet at 0x" +
+        "55".repeat(32) +
+        ", received localnet at 0x" +
+        "66".repeat(32),
+    );
   });
 });

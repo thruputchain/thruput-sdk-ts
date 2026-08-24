@@ -10,7 +10,7 @@ import {
   weight,
   type Invocation,
 } from "@groundhogchain/protocol";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createGroundhogClient, connectGroundhogClient } from "../client.js";
 import { localnet, mainnet } from "../cluster.js";
 import { MockTransport } from "../transport/mock.js";
@@ -63,13 +63,20 @@ describe("wallet account defaults", () => {
     ).toThrow("only be bound to one wallet account");
   });
 
-  it("rejects clients with wallet execution method collisions", () => {
+  it.each([
+    "account",
+    "prepareTransaction",
+    "signTransaction",
+    "sendInvocation",
+    "prepareExecution",
+    "execute",
+  ] as const)("rejects clients with a reserved %s property", (property) => {
     const client = Object.assign(createGroundhogClient(new MockTransport()), {
-      execute: () => "unrelated",
+      [property]: () => "unrelated",
     });
 
     expect(() => createWalletClient({ client, account: account() })).toThrow(
-      "reserved names execute or prepareExecution",
+      `Client property ${property} conflicts with a wallet client property`,
     );
   });
 
@@ -143,6 +150,29 @@ describe("wallet account defaults", () => {
         clientNonce: "0x010203",
       },
     ]);
+  });
+
+  it("forwards funding cancellation and timeout options", async () => {
+    const request = vi.fn();
+    const abort = new AbortController();
+    abort.abort(new Error("cancelled"));
+
+    const cancelledWallet = createWalletClient({
+      client: createGroundhogClient({ request }),
+      account: account(),
+    });
+    await expect(
+      cancelledWallet.requestAirdrop({ signal: abort.signal }),
+    ).rejects.toThrow("cancelled");
+
+    const timedOutWallet = createWalletClient({
+      client: createGroundhogClient({ request }),
+      account: account(),
+    });
+    await expect(
+      timedOutWallet.requestAirdrop({ timeoutMs: 0 }),
+    ).rejects.toThrow("Timed out waiting for airdrop");
+    expect(request).not.toHaveBeenCalled();
   });
 
   it("accepts explicit balance and airdrop recipients", async () => {
@@ -313,6 +343,40 @@ describe("wallet transactions", () => {
     });
 
     expect(txHash).toHaveLength(32);
+  });
+
+  it("snapshots signer entries before awaiting transaction preparation", async () => {
+    let releaseTip!: () => void;
+    const tipGate = new Promise<void>((resolve) => {
+      releaseTip = resolve;
+    });
+    let submitted: { signatures: Array<{ public_key_id: bigint }> } | undefined;
+    const mutableAccount = account();
+    const mutableSigners = mutableAccount.signers.map((entry) => ({
+      ...entry,
+    }));
+    const client = {
+      ...createGroundhogClient(new MockTransport()),
+      async getChainTip() {
+        await tipGate;
+        return { height: 10n, blockHash: new Uint8Array(32) as never };
+      },
+      async sendTransaction(signed: typeof submitted) {
+        submitted = signed;
+        return new Uint8Array(32) as never;
+      },
+    };
+    const wallet = createWalletClient({
+      client,
+      account: { ...mutableAccount, signers: mutableSigners },
+    });
+    const pending = wallet.sendInvocation({ invocation: invocation() });
+
+    mutableSigners[0]!.publicKeyId = 1n;
+    releaseTip();
+    await pending;
+
+    expect(submitted?.signatures[0]?.public_key_id).toBe(0n);
   });
 
   it("rejects mismatched roots and conflicting expiry options", async () => {

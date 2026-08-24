@@ -87,7 +87,9 @@ export function createPubkeyAccount(
       claim_type: AuthClaimType.kPubkeySignature,
       pubkey_preimage: preimage,
     },
-    signers: [{ signer: options.signer, publicKeyId: 0n }],
+    signers: Object.freeze([
+      Object.freeze({ signer: options.signer, publicKeyId: 0n }),
+    ]),
   };
 }
 
@@ -137,7 +139,7 @@ export function createSourceAddressAccount(
         required_weight: weight(options.requiredWeight),
       },
     },
-    signers,
+    signers: Object.freeze(signers.map((entry) => Object.freeze(entry))),
   };
 }
 

@@ -3,7 +3,11 @@ import type {
   Transport,
   TransportRequestOptions,
 } from "../../transport/types.js";
-import { GroundhogRpcErrorCode, JsonRpcError } from "../../transport/http.js";
+import {
+  GroundhogRpcErrorCode,
+  HttpResponseError,
+  JsonRpcError,
+} from "../../transport/http.js";
 import type {
   AirdropAttemptRequest,
   AirdropPending,
@@ -201,18 +205,20 @@ function parseUnsignedDecimal(value: unknown, field: string): bigint {
 }
 
 function parseInteger(value: unknown, field: string): bigint {
-  if (
-    (typeof value !== "number" && typeof value !== "string") ||
-    value === ""
-  ) {
-    throw new Error(`expected ${field}`);
+  if (typeof value === "number") {
+    if (!Number.isSafeInteger(value) || value < 0) {
+      throw new Error(`expected non-negative integer ${field}`);
+    }
+    return BigInt(value);
   }
-  const parsed = BigInt(value);
-  return parsed;
+  if (typeof value === "string" && /^(0|[1-9][0-9]*)$/.test(value)) {
+    return BigInt(value);
+  }
+  throw new Error(`expected non-negative integer ${field}`);
 }
 
 function parseRetryAfter(value: unknown): number {
-  if (!Number.isInteger(value) || (value as number) < 0) {
+  if (!Number.isSafeInteger(value) || (value as number) < 0) {
     throw new Error("expected retryAfterSeconds");
   }
   return value as number;
@@ -252,6 +258,9 @@ function parseExecutionStatus(value: unknown): AirdropExecutionStatus {
 
 function isRetryableFailure(cause: unknown): boolean {
   if (cause instanceof InvalidAirdropResponseError) return false;
+  if (cause instanceof HttpResponseError) {
+    return [408, 500, 502, 503, 504].includes(cause.status);
+  }
   if (cause instanceof JsonRpcError) {
     return (
       cause.code === GroundhogRpcErrorCode.BackendUnavailable ||
