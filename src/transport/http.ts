@@ -72,7 +72,8 @@ export interface HttpTransportRetryOptions {
    * Base delay for exponential backoff between attempts, in milliseconds.
    *
    * Attempt `n` waits roughly `baseDelayMs * 2 ** n` with jitter, unless the
-   * server supplies a `Retry-After` header. Defaults to 250.
+   * server supplies a `Retry-After` header. Defaults to 250. Must be a
+   * non-negative finite number no larger than `2**31 - 1`.
    */
   baseDelayMs?: number;
 }
@@ -91,7 +92,8 @@ export interface HttpTransportOptions {
    * Covers the whole attempt, including response-body consumption — a
    * server that returns headers but stalls the body still times out.
    * Defaults to 30_000. Pass `0` to disable the timeout. Must be a
-   * non-negative finite number.
+   * non-negative finite number no larger than `2**31 - 1` (the maximum
+   * delay JavaScript timers honor without clamping).
    */
   timeoutMs?: number;
 
@@ -126,6 +128,16 @@ const DEFAULT_RETRY_ATTEMPTS = 3;
 const DEFAULT_RETRY_BASE_DELAY_MS = 250;
 /** Upper bound applied to server-supplied `Retry-After` delays. */
 const MAX_RETRY_AFTER_MS = 60_000;
+
+/**
+ * Largest delay JavaScript timers honor without clamping (`2**31 - 1` ms).
+ *
+ * Node and browsers store timer delays as signed 32-bit integers; a larger
+ * `setTimeout` delay is clamped to 1 ms, which would turn an oversized
+ * timeout into a near-immediate abort. Durations beyond this bound are
+ * rejected at construction instead.
+ */
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
 
 /**
  * JSON-RPC methods known to be idempotent and therefore safe to retry.
@@ -435,6 +447,13 @@ export class HttpTransport implements Transport {
         `HttpTransport: timeoutMs must be a non-negative finite number, got ${this.#timeoutMs}`,
       );
     }
+    if (this.#timeoutMs > MAX_TIMER_DELAY_MS) {
+      throw new RangeError(
+        `HttpTransport: timeoutMs must be at most ${MAX_TIMER_DELAY_MS} (2**31 - 1); ` +
+          `larger delays are clamped to 1 ms by JavaScript timers. ` +
+          `Pass 0 to disable the timeout, got ${this.#timeoutMs}`,
+      );
+    }
     this.#signal = options.signal;
     if (options.retry === false) {
       this.#retryAttempts = 1;
@@ -447,6 +466,16 @@ export class HttpTransport implements Transport {
     if (!Number.isInteger(this.#retryAttempts) || this.#retryAttempts < 1) {
       throw new RangeError(
         `HttpTransport: retry.attempts must be a positive integer, got ${this.#retryAttempts}`,
+      );
+    }
+    if (
+      !Number.isFinite(this.#retryBaseDelayMs) ||
+      this.#retryBaseDelayMs < 0 ||
+      this.#retryBaseDelayMs > MAX_TIMER_DELAY_MS
+    ) {
+      throw new RangeError(
+        `HttpTransport: retry.baseDelayMs must be a non-negative finite number ` +
+          `at most ${MAX_TIMER_DELAY_MS} (2**31 - 1), got ${this.#retryBaseDelayMs}`,
       );
     }
   }
@@ -478,7 +507,12 @@ export class HttpTransport implements Transport {
         ) {
           throw error;
         }
-        const backoff = this.#retryBaseDelayMs * 2 ** attempt;
+        // Cap the exponential backoff at the timer maximum so a late
+        // attempt cannot overflow into a clamped 1 ms delay.
+        const backoff = Math.min(
+          this.#retryBaseDelayMs * 2 ** attempt,
+          MAX_TIMER_DELAY_MS,
+        );
         // Equal jitter unless the server asked for a specific delay.
         const delay =
           retryAfterMs > 0

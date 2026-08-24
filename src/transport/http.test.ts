@@ -228,6 +228,37 @@ describe("HttpTransport", () => {
     }
   });
 
+  it("rejects timeoutMs beyond the 2**31 - 1 timer maximum", () => {
+    // Node clamps setTimeout delays above 2**31 - 1 to 1 ms, which would
+    // abort requests almost immediately instead of later.
+    expect(
+      () => new HttpTransport("http://localhost", { timeoutMs: 2 ** 31 }),
+    ).toThrow(RangeError);
+    expect(
+      () => new HttpTransport("http://localhost", { timeoutMs: 2 ** 31 - 1 }),
+    ).not.toThrow();
+  });
+
+  it("rejects negative, non-finite, or oversized retry.baseDelayMs", () => {
+    for (const baseDelayMs of [
+      -1,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      2 ** 31,
+    ]) {
+      expect(
+        () =>
+          new HttpTransport("http://localhost", { retry: { baseDelayMs } }),
+      ).toThrow(RangeError);
+    }
+    expect(
+      () =>
+        new HttpTransport("http://localhost", {
+          retry: { baseDelayMs: 2 ** 31 - 1 },
+        }),
+    ).not.toThrow();
+  });
+
   it("disables the timeout when timeoutMs is 0", async () => {
     vi.useFakeTimers();
     try {
