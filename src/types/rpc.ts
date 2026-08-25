@@ -1,11 +1,14 @@
 import type {
   NetworkHash,
   SHA256Hash,
-  StorageLongHash,
+  BlockHeight,
   ContractAddress,
   ContractEntrypointID,
   Calldata,
   ExecResult,
+  Protocol,
+  TimePoint,
+  ValidatorID,
 } from "@groundhogchain/protocol";
 
 /** Execution result enum returned in transaction receipts. */
@@ -83,23 +86,41 @@ export interface BalanceResponse {
 
 /** Block metadata returned by height lookups. */
 export interface BlockInfo {
-  /** Network identifier for the block. */
-  networkId: bigint;
+  /** Canonical hash of the complete consensus value. */
+  blockHash: SHA256Hash;
+
+  /** Protocol version selected for the block. */
+  protocol: Protocol;
+
+  /** Signing network the block belongs to. */
+  networkHash: NetworkHash;
+
+  /** Validator that proposed the block. */
+  proposer: ValidatorID;
+
+  /** Unix timestamp in nanoseconds. */
+  blockTimepoint: TimePoint;
 
   /** Height of the returned block. */
-  blockHeight: bigint;
+  blockHeight: BlockHeight;
 
-  /** Transaction-set hash for the block. */
-  txsetHash: SHA256Hash;
+  /** Hash of the block's transactions. */
+  txsHash: SHA256Hash;
 
-  /** Database state hash for the block. */
-  dbHash: StorageLongHash;
+  /** Hash of committed storage after the block. */
+  storageHash: SHA256Hash;
 
   /** Event accumulator hash for the block. */
   eventsHash: SHA256Hash;
 
   /** Previous block hash. */
   prevBlockHash: SHA256Hash;
+
+  /** Hash of the transactions selected by the proposal. */
+  proposalTxsHash: SHA256Hash;
+
+  /** Opaque protocol upgrades selected by consensus. */
+  upgrades: Uint8Array[];
 }
 
 /** Gateway implementation and wire-format version information. */
@@ -112,6 +133,9 @@ export interface VersionInfo {
 
   /** Gateway commit hash when the implementation reports one. */
   commitHash: string | null;
+
+  /** Platform release this implementation was packaged for, when reported. */
+  platformVersion: string | null;
 }
 
 /** Request for a read-only contract invocation. */

@@ -33,6 +33,8 @@ import { getBalance } from "./public/getBalance.js";
 import { getBlockByNumber } from "./public/getBlockByNumber.js";
 import { getEvents } from "./public/getEvents.js";
 import { getPendingTransactionCount } from "./public/getPendingTransactionCount.js";
+import { getNetworkInfo } from "./public/getNetworkInfo.js";
+import { requestAirdropAttempt } from "./public/requestAirdrop.js";
 import { getStorageAt } from "./public/getStorageAt.js";
 import { getTransactionReceipt } from "./public/getTransactionReceipt.js";
 import { getTransactionStatus } from "./public/getTransactionStatus.js";
@@ -206,6 +208,32 @@ describe("contract tests against specs/openrpc.json", () => {
     await getVersion(transport);
     expect(calls).toHaveLength(1);
     assertCapturedParamsMatchSpec("groundhog_version", calls[0]!.params);
+  });
+
+  it("groundhog_networkInfo — sends an empty params array", async () => {
+    const { transport, calls } = spyTransport({
+      networkHash: "0x" + "11".repeat(32),
+      genesisHash: "0x" + "22".repeat(32),
+    });
+    await getNetworkInfo(transport);
+    expect(calls).toHaveLength(1);
+    assertCapturedParamsMatchSpec("groundhog_networkInfo", calls[0]!.params);
+  });
+
+  it("groundhog_requestAirdrop — sends an AirdropRequest", async () => {
+    const recipient = contractAddress(new Uint8Array(32).fill(0xab));
+    const { transport, calls } = spyTransport({
+      attemptStatus: "pending",
+      recipient: "0x" + "ab".repeat(32),
+      rawAmount: "100000000",
+      retryAfterSeconds: 1,
+    });
+    await requestAirdropAttempt(transport, {
+      recipient,
+      clientNonce: new Uint8Array([0x01, 0x02]),
+    });
+    expect(calls).toHaveLength(1);
+    assertCapturedParamsMatchSpec("groundhog_requestAirdrop", calls[0]!.params);
   });
 
   it("groundhog_getBalance — sends a Hex0x_ContractAddress", async () => {

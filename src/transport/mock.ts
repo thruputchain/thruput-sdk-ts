@@ -92,30 +92,35 @@ export class MockTransport implements Transport {
     return "0x" + toHex(sha256Hash(heightBytes));
   }
 
-  #dbHash(height: bigint): string {
-    const bytes = new Uint8Array(2048);
-    const view = new DataView(bytes.buffer);
-    view.setBigUint64(2040, height > 0n ? height : 0n);
-    return "0x" + toHex(bytes);
-  }
-
   #getBlockByNumber(params?: unknown[]): {
-    networkId: number;
+    blockHash: string;
+    protocol: number;
+    networkHash: string;
+    proposer: string;
+    blockTimepoint: number;
     blockHeight: number;
-    txsetHash: string;
-    dbHash: string;
+    txsHash: string;
+    storageHash: string;
     eventsHash: string;
     prevBlockHash: string;
+    proposalTxsHash: string;
+    upgrades: string[];
   } | null {
     const height = BigInt(params && params.length > 0 ? String(params[0]) : 0);
     if (height < 0n || height > this.#height) return null;
     return {
-      networkId: 0,
+      blockHash: this.#blockHash(height),
+      protocol: 0,
+      networkHash: "0x" + "00".repeat(32),
+      proposer: "0x" + "00".repeat(32),
+      blockTimepoint: 0,
       blockHeight: Number(height),
-      txsetHash: this.#blockHash(height),
-      dbHash: this.#dbHash(height),
+      txsHash: this.#blockHash(height),
+      storageHash: this.#blockHash(height),
       eventsHash: this.#blockHash(height),
       prevBlockHash: this.#blockHash(height > 0n ? height - 1n : 0n),
+      proposalTxsHash: this.#blockHash(height),
+      upgrades: [],
     };
   }
 
@@ -127,11 +132,13 @@ export class MockTransport implements Transport {
     wireFormat: string;
     implementation: string;
     commitHash: null;
+    platformVersion: null;
   } {
     return {
-      wireFormat: "2.1.0",
+      wireFormat: "4.0.0",
       implementation: "mock",
       commitHash: null,
+      platformVersion: null,
     };
   }
 

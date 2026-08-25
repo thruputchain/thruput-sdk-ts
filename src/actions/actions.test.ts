@@ -151,9 +151,10 @@ describe("getVersion", () => {
     const transport = new MockTransport();
     const version = await getVersion(transport);
     expect(version).toEqual({
-      wireFormat: "2.1.0",
+      wireFormat: "4.0.0",
       implementation: "mock",
       commitHash: null,
+      platformVersion: null,
     });
   });
 });
@@ -201,12 +202,18 @@ describe("getBlockByNumber", () => {
     const block = await getBlockByNumber(transport, 0n);
 
     expect(block).not.toBeNull();
-    expect(block!.networkId).toBe(0n);
+    expect(block!.blockHash.length).toBe(32);
+    expect(block!.protocol).toBe(0n);
+    expect(block!.networkHash).toEqual(new Uint8Array(32));
+    expect(block!.proposer).toEqual(new Uint8Array(32));
+    expect(block!.blockTimepoint).toBe(0n);
     expect(block!.blockHeight).toBe(0n);
-    expect(block!.txsetHash.length).toBe(32);
-    expect(block!.dbHash.length).toBe(2048);
+    expect(block!.txsHash.length).toBe(32);
+    expect(block!.storageHash.length).toBe(32);
     expect(block!.eventsHash.length).toBe(32);
     expect(block!.prevBlockHash.length).toBe(32);
+    expect(block!.proposalTxsHash.length).toBe(32);
+    expect(block!.upgrades).toEqual([]);
   });
 
   it("serializes the requested height and parses nullable responses", async () => {
@@ -225,6 +232,15 @@ describe("getBlockByNumber", () => {
       { method: "groundhog_getBlockByNumber", params: [42] },
     ]);
   });
+
+  it.each([-1n, BigInt(Number.MAX_SAFE_INTEGER) + 1n])(
+    "rejects a height that JSON cannot serialize safely: %s",
+    async (height) => {
+      await expect(
+        getBlockByNumber(new MockTransport(), height),
+      ).rejects.toThrow("height must be a non-negative safe integer");
+    },
+  );
 });
 
 describe("getPendingTransactionCount", () => {

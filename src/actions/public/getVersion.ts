@@ -20,10 +20,19 @@ export async function getVersion(transport: Transport): Promise<VersionInfo> {
       throw new Error("Invalid version response: expected commitHash");
     }
   }
+  if (
+    version.platformVersion !== undefined &&
+    version.platformVersion !== null
+  ) {
+    if (typeof version.platformVersion !== "string") {
+      throw new Error("Invalid version response: expected platformVersion");
+    }
+  }
 
   return {
     wireFormat: version.wireFormat,
     implementation: version.implementation,
     commitHash: version.commitHash ?? null,
+    platformVersion: version.platformVersion ?? null,
   };
 }

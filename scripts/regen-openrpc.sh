@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cargo install groundhog-open-rpc-spec@0.5.17 --registry groundhog 2>/dev/null
+GENERATOR="${GROUNDHOG_OPENRPC_GENERATOR:-}"
+if [[ -z "$GENERATOR" ]]; then
+  cargo install groundhog-open-rpc-spec@0.10.0 --registry groundhog 2>/dev/null
+  GENERATOR="groundhog-open-rpc-spec"
+fi
 SPEC="$(git rev-parse --show-toplevel)/specs/openrpc.json"
-groundhog-open-rpc-spec > "$SPEC"
+"$GENERATOR" > "$SPEC"
 # Run prettier so the committed snapshot matches the rest of the repo's
 # formatting and `npm run format:check` stays clean across regens.
 npx --no-install prettier --write "$SPEC" >/dev/null
