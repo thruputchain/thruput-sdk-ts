@@ -83,6 +83,105 @@
         "required": ["address", "order", "anchor", "cursor", "limit"],
         "type": "object"
       },
+      "AirdropAttemptResponse": {
+        "description": "Stable lifecycle response for hosted and local airdrop attempts.",
+        "oneOf": [
+          {
+            "description": "The logical attempt is in progress and may not have been submitted yet.",
+            "properties": {
+              "attemptStatus": {
+                "const": "pending",
+                "type": "string"
+              },
+              "rawAmount": {
+                "description": "Native amount in indivisible units.",
+                "type": "string"
+              },
+              "recipient": {
+                "$ref": "#/components/schemas/Hex0x_ContractAddress",
+                "description": "Address receiving the native HOG transfer."
+              },
+              "retryAfterSeconds": {
+                "description": "Suggested delay before retrying the same logical attempt.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "txHash": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/TxHash"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Canonical transaction hash, once the transaction is accepted."
+              }
+            },
+            "required": [
+              "attemptStatus",
+              "recipient",
+              "rawAmount",
+              "retryAfterSeconds"
+            ],
+            "type": "object"
+          },
+          {
+            "description": "The transaction committed successfully.",
+            "properties": {
+              "attemptStatus": {
+                "const": "succeeded",
+                "type": "string"
+              },
+              "height": {
+                "$ref": "#/components/schemas/BlockHeight",
+                "description": "Committed block height."
+              },
+              "rawAmount": {
+                "description": "Native amount in indivisible units.",
+                "type": "string"
+              },
+              "recipient": {
+                "$ref": "#/components/schemas/Hex0x_ContractAddress",
+                "description": "Address receiving the native HOG transfer."
+              },
+              "status": {
+                "$ref": "#/components/schemas/ExecStatus",
+                "description": "Committed execution result."
+              },
+              "txHash": {
+                "$ref": "#/components/schemas/TxHash",
+                "description": "Canonical transaction hash."
+              }
+            },
+            "required": [
+              "attemptStatus",
+              "recipient",
+              "txHash",
+              "rawAmount",
+              "height",
+              "status"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "AirdropRequest": {
+        "description": "Public parameters for `groundhog_requestAirdrop`.",
+        "properties": {
+          "clientNonce": {
+            "$ref": "#/components/schemas/ClientNonce",
+            "description": "Caller-selected idempotency key for this recipient and network."
+          },
+          "recipient": {
+            "$ref": "#/components/schemas/Hex0x_ContractAddress",
+            "description": "Address receiving the native HOG transfer."
+          }
+        },
+        "required": ["recipient", "clientNonce"],
+        "type": "object"
+      },
       "BalanceResponse": {
         "description": "Native HOG balance read from committed chain state.",
         "properties": {
@@ -146,36 +245,63 @@
         "type": "integer"
       },
       "BlockInfo": {
-        "description": "Block data returned by getBlockByNumber.\n\nMaps the XDR `BlockHeader` to RPC-friendly serialization\n(camelCase fields, `0x`-prefixed hex). Add RPC-specific fields\nhere without modifying the wire type.\n\nThe `From<BlockHeader>` impl uses exhaustive destructuring so\nadding a field to `BlockHeader` causes a compile error here.",
+        "description": "Block data returned by getBlockByNumber.\n\nMaps the XDR `ConsensusValue` to RPC-friendly serialization\n(camelCase fields, `0x`-prefixed hex). Add RPC-specific fields\nhere without modifying the wire type.",
         "properties": {
+          "blockHash": {
+            "$ref": "#/components/schemas/Hex0x_SHA256Hash",
+            "description": "Canonical SHA-256 hash of the complete XDR-encoded consensus value."
+          },
           "blockHeight": {
             "$ref": "#/components/schemas/BlockHeight"
           },
-          "dbHash": {
-            "$ref": "#/components/schemas/Hex0x_DbHash"
+          "blockTimepoint": {
+            "$ref": "#/components/schemas/TimePoint"
           },
           "eventsHash": {
             "$ref": "#/components/schemas/Hex0x_SHA256Hash"
           },
-          "networkId": {
-            "format": "uint64",
-            "minimum": 0,
-            "type": "integer"
+          "networkHash": {
+            "$ref": "#/components/schemas/Hex0x_SHA256Hash"
           },
           "prevBlockHash": {
             "$ref": "#/components/schemas/Hex0x_SHA256Hash"
           },
-          "txsetHash": {
+          "proposalTxsHash": {
             "$ref": "#/components/schemas/Hex0x_SHA256Hash"
+          },
+          "proposer": {
+            "$ref": "#/components/schemas/Hex0x_ValidatorID"
+          },
+          "protocol": {
+            "$ref": "#/components/schemas/Protocol"
+          },
+          "storageHash": {
+            "$ref": "#/components/schemas/Hex0x_SHA256Hash"
+          },
+          "txsHash": {
+            "$ref": "#/components/schemas/Hex0x_SHA256Hash"
+          },
+          "upgrades": {
+            "description": "Opaque protocol upgrades selected by consensus for this block.",
+            "items": {
+              "$ref": "#/components/schemas/HexBytes"
+            },
+            "type": "array"
           }
         },
         "required": [
-          "networkId",
+          "blockHash",
+          "protocol",
+          "networkHash",
+          "proposer",
+          "blockTimepoint",
           "blockHeight",
-          "txsetHash",
-          "dbHash",
+          "txsHash",
+          "storageHash",
           "eventsHash",
-          "prevBlockHash"
+          "prevBlockHash",
+          "proposalTxsHash",
+          "upgrades"
         ],
         "type": "object"
       },
@@ -191,6 +317,10 @@
         },
         "required": ["height", "blockHash"],
         "type": "object"
+      },
+      "ClientNonce": {
+        "pattern": "^0x(?:[0-9a-f]{2}){1,32}$",
+        "type": "string"
       },
       "ConflictCode": {
         "description": "Reason a storage delta could not be applied during two-phase commit.\nProjects hogd's `DbConflictCode`.\n\nNew codes may be added as hogd evolves; unrecognized codes surface\nas `Other` on both serialize and deserialize so mixed-version\ndeployments degrade instead of failing.",
@@ -410,10 +540,10 @@
             "type": "object"
           },
           {
-            "description": "Deterministic execution error (out of gas, stack overflow, etc.).",
+            "description": "Deterministic execution error: the transaction faulted during\nexecution (out-of-bounds access, out of gas, stack overflow, etc.).",
             "properties": {
               "kind": {
-                "description": "Error kind from the execution engine.",
+                "description": "Error kind from the execution engine. `\"fault\"` when the\nnode does not report a finer-grained category (currently\nalways — see `DETERMINISTIC_ERROR_KIND_FAULT`).",
                 "type": "string"
               },
               "result": {
@@ -460,15 +590,15 @@
         ]
       },
       "Hex0x_ContractAddress": {
-        "pattern": "^0x[0-9a-f]*$",
-        "type": "string"
-      },
-      "Hex0x_DbHash": {
-        "pattern": "^0x[0-9a-f]*$",
+        "pattern": "^0x[0-9a-f]{64}$",
         "type": "string"
       },
       "Hex0x_SHA256Hash": {
-        "pattern": "^0x[0-9a-f]*$",
+        "pattern": "^0x[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "Hex0x_ValidatorID": {
+        "pattern": "^0x[0-9a-f]{64}$",
         "type": "string"
       },
       "HexBytes": {
@@ -505,9 +635,26 @@
         "enum": ["ascending", "descending"],
         "type": "string"
       },
+      "NetworkInfo": {
+        "description": "Immutable protocol identity reported by a JSON-RPC server.",
+        "properties": {
+          "networkHash": {
+            "$ref": "#/components/schemas/Hex0x_SHA256Hash",
+            "description": "Hash of the network name, bound into every transaction signature."
+          }
+        },
+        "required": ["networkHash"],
+        "type": "object"
+      },
       "PaginationCursor": {
         "pattern": "^0x[0-9a-f]*$",
         "type": "string"
+      },
+      "Protocol": {
+        "description": "Network protocol version.",
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
       },
       "RootInvocationOutput": {
         "description": "Root invocation output with raw buffers preserved as hex.",
@@ -684,6 +831,12 @@
         },
         "required": ["blockHeight"],
         "type": "object"
+      },
+      "TimePoint": {
+        "description": "uint64_t, Unix time as nanoseconds elapsed since\nJanuary 1, 1970 UTC",
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
       },
       "Topic": {
         "pattern": "^0x[0-9a-f]{64}$",
@@ -884,6 +1037,10 @@
             "description": "Diagnostic-only implementation version of the binary serving this RPC endpoint.\nConsumers must not branch on this field.",
             "type": "string"
           },
+          "platformVersion": {
+            "description": "Platform release this binary was packaged for, when available.\nConsumers must not branch on this field.",
+            "type": ["string", "null"]
+          },
           "wireFormat": {
             "description": "Wire-format `SemVer` of the `OpenRPC` spec this node implements.",
             "type": "string"
@@ -948,7 +1105,7 @@
   },
   "info": {
     "title": "Groundhog JSON-RPC",
-    "version": "2.3.1"
+    "version": "3.3.0"
   },
   "methods": [
     {
@@ -1116,7 +1273,24 @@
           "$ref": "#/components/schemas/ChainTip"
         }
       },
-      "summary": "Current chain tip: height + block hash.",
+      "summary": "Current chain tip: height, block hash, and the protocol it executed under.",
+      "tags": [
+        {
+          "name": "Core API"
+        }
+      ]
+    },
+    {
+      "errors": [],
+      "name": "groundhog_networkInfo",
+      "params": [],
+      "result": {
+        "name": "NetworkInfo",
+        "schema": {
+          "$ref": "#/components/schemas/NetworkInfo"
+        }
+      },
+      "summary": "Immutable protocol and genesis identity of the network this endpoint serves.",
       "tags": [
         {
           "name": "Core API"
@@ -1432,6 +1606,47 @@
       "tags": [
         {
           "name": "Core API"
+        }
+      ]
+    },
+    {
+      "errors": [
+        {
+          "$ref": "#/components/errors/InvalidParams"
+        },
+        {
+          "$ref": "#/components/errors/TxRejected"
+        },
+        {
+          "$ref": "#/components/errors/BackendUnavailable"
+        },
+        {
+          "$ref": "#/components/errors/BackendTimeout"
+        },
+        {
+          "$ref": "#/components/errors/Overloaded"
+        }
+      ],
+      "name": "groundhog_requestAirdrop",
+      "params": [
+        {
+          "name": "request",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/AirdropRequest"
+          }
+        }
+      ],
+      "result": {
+        "name": "AirdropAttemptResponse",
+        "schema": {
+          "$ref": "#/components/schemas/AirdropAttemptResponse"
+        }
+      },
+      "summary": "Request an idempotent native HOG airdrop.  Servers register this method only when an airdrop backend is configured; other deployments return standard JSON-RPC `Method not found`.",
+      "tags": [
+        {
+          "name": "Airdrop API"
         }
       ]
     }

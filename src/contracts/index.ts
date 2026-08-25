@@ -1,6 +1,6 @@
 /**
- * Generated method and event descriptors for the standard ERC-20 contract
- * interfaces shipped with the SDK.
+ * Generated method and event descriptors for standard contracts shipped with
+ * the SDK.
  *
  * Method descriptors build typed invocations, decode views and root receipts,
  * and expose declared exceptions. Event descriptors decode events, build named
@@ -64,3 +64,30 @@ export type {
   ERC20TransferResult,
   TransferEventFilter as ERC20TransferEventFilter,
 } from "./erc20.js";
+export {
+  DefaultWallet,
+  WalletError,
+  spec as DefaultWalletSpec,
+} from "./default_wallet.js";
+export type {
+  DefaultWalletDeclaredException,
+  DefaultWalletDeployArgs,
+  DefaultWalletDeployResult,
+  DefaultWalletException,
+  DefaultWalletExecuteArgs,
+  DefaultWalletExecuteResult,
+  WalletCall,
+} from "./default_wallet.js";
+export { DevWallet, spec as DevWalletSpec } from "./dev_wallet.js";
+export type {
+  DevWalletCreateWalletArgs,
+  DevWalletCreateWalletResult,
+  DevWalletDeclaredException,
+  DevWalletDeployArgs,
+  DevWalletDeployResult,
+  DevWalletDoActionArgs,
+  DevWalletDoActionResult,
+  DevWalletException,
+  DevWalletInitializeArgs,
+  DevWalletInitializeResult,
+} from "./dev_wallet.js";

@@ -172,7 +172,7 @@ describe("end-to-end: build, sign, serialize an ERC20 transfer", () => {
 describe("end-to-end: full pipeline via MockTransport client", () => {
   it("builds ERC20 transfer, sends, and retrieves receipt via client", async () => {
     const transport = new MockTransport();
-    const client = createGroundhogClient(transport);
+    const client = await createGroundhogClient({ transport });
 
     // Initial chain tip should be at height 0
     const initialTip = await client.getChainTip();

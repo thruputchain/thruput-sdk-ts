@@ -52,15 +52,32 @@ function makeDummySignedTx() {
 }
 
 describe("createGroundhogClient", () => {
+  it("requests an airdrop through the bound client", async () => {
+    const client = await createGroundhogClient({
+      transport: new MockTransport(),
+    });
+    const recipient = contractAddress(new Uint8Array(32).fill(0x22));
+
+    const result = await client.requestAirdrop({ recipient });
+
+    expect(result.attemptStatus).toBe("succeeded");
+    expect(result.recipient).toEqual(recipient);
+    expect(result.rawAmount).toBe(100000000n);
+  });
+
   it("getChainTip returns height 0n on fresh mock", async () => {
-    const client = createGroundhogClient(new MockTransport());
+    const client = await createGroundhogClient({
+      transport: new MockTransport(),
+    });
     const tip = await client.getChainTip();
     expect(tip.height).toBe(0n);
     expect(tip.blockHash.length).toBe(32);
   });
 
   it("sends a transaction and waits for its receipt", async () => {
-    const client = createGroundhogClient(new MockTransport());
+    const client = await createGroundhogClient({
+      transport: new MockTransport(),
+    });
     const signedTx = await makeDummySignedTx();
     const txHash = await client.sendTransaction(signedTx);
     expect(txHash).toBeInstanceOf(Uint8Array);

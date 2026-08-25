@@ -18,6 +18,7 @@ import { signTransaction } from "../transaction/sign.js";
 import { MockTransport } from "../transport/mock.js";
 import { sendTransaction } from "./wallet/sendTransaction.js";
 import { getChainTip } from "./public/getChainTip.js";
+import { getNetworkInfo } from "./public/getNetworkInfo.js";
 import { getBalance } from "./public/getBalance.js";
 import { getBlockByNumber } from "./public/getBlockByNumber.js";
 import { getPendingTransactionCount } from "./public/getPendingTransactionCount.js";
@@ -92,14 +93,62 @@ describe("getChainTip", () => {
   });
 });
 
+describe("getNetworkInfo", () => {
+  it("requests immutable network identity without parameters", async () => {
+    const calls: { method: string; params?: unknown[] }[] = [];
+    const transport: Transport = {
+      async request<T>(method: string, params?: unknown[]): Promise<T> {
+        calls.push({ method, params });
+        return {
+          networkHash: "0x" + "cd".repeat(32),
+          futureField: true,
+        } as T;
+      },
+    };
+
+    const network = await getNetworkInfo(transport);
+
+    expect(calls).toEqual([
+      { method: "groundhog_networkInfo", params: undefined },
+    ]);
+    expect(network.networkHash).toEqual(new Uint8Array(32).fill(0xcd));
+  });
+
+  it("returns localnet identity from the mock transport", async () => {
+    const network = await getNetworkInfo(new MockTransport());
+
+    expect(network.networkHash).toEqual(new Uint8Array(32));
+  });
+
+  it.each([
+    null,
+    {},
+    { networkHash: "" },
+    { networkHash: "00".repeat(32) },
+    { networkHash: "0x" + "AA".repeat(32) },
+    { networkHash: "0x00" },
+  ])("rejects malformed network identity: %j", async (result) => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return result as T;
+      },
+    };
+
+    await expect(getNetworkInfo(transport)).rejects.toThrow(
+      /Invalid network info response/,
+    );
+  });
+});
+
 describe("getVersion", () => {
   it("returns version info from mock", async () => {
     const transport = new MockTransport();
     const version = await getVersion(transport);
     expect(version).toEqual({
-      wireFormat: "2.1.0",
+      wireFormat: "3.3.0",
       implementation: "mock",
       commitHash: null,
+      platformVersion: null,
     });
   });
 });
@@ -147,12 +196,18 @@ describe("getBlockByNumber", () => {
     const block = await getBlockByNumber(transport, 0n);
 
     expect(block).not.toBeNull();
-    expect(block!.networkId).toBe(0n);
+    expect(block!.blockHash.length).toBe(32);
+    expect(block!.protocol).toBe(0n);
+    expect(block!.networkHash).toEqual(new Uint8Array(32));
+    expect(block!.proposer).toEqual(new Uint8Array(32));
+    expect(block!.blockTimepoint).toBe(0n);
     expect(block!.blockHeight).toBe(0n);
-    expect(block!.txsetHash.length).toBe(32);
-    expect(block!.dbHash.length).toBe(2048);
+    expect(block!.txsHash.length).toBe(32);
+    expect(block!.storageHash.length).toBe(32);
     expect(block!.eventsHash.length).toBe(32);
     expect(block!.prevBlockHash.length).toBe(32);
+    expect(block!.proposalTxsHash.length).toBe(32);
+    expect(block!.upgrades).toEqual([]);
   });
 
   it("serializes the requested height and parses nullable responses", async () => {
@@ -171,6 +226,15 @@ describe("getBlockByNumber", () => {
       { method: "groundhog_getBlockByNumber", params: [42] },
     ]);
   });
+
+  it.each([-1n, BigInt(Number.MAX_SAFE_INTEGER) + 1n])(
+    "rejects a height that JSON cannot serialize safely: %s",
+    async (height) => {
+      await expect(
+        getBlockByNumber(new MockTransport(), height),
+      ).rejects.toThrow("height must be a non-negative safe integer");
+    },
+  );
 });
 
 describe("getPendingTransactionCount", () => {

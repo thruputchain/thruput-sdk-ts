@@ -1,77 +1,111 @@
-## Local Node Examples
+# Examples
 
 The `../src/...` imports run these examples against this checkout. Applications
 should install the package and import from `@groundhogchain/client`,
-`@groundhogchain/client/contracts`, and `@groundhogchain/client/local-dev`;
-they should not copy files from `src`.
+`@groundhogchain/client/contracts`, and `@groundhogchain/client/local-dev`.
 
-These examples expect a local Groundhog JSON-RPC node. Start one first:
+Run examples from the repository root:
+
+```bash
+npm run example <name>
+```
+
+| Example            | Network  | What it demonstrates                                      |
+| ------------------ | -------- | --------------------------------------------------------- |
+| `chain-tip`        | Devnet   | Validated cluster connection and basic RPC actions        |
+| `transfer-hog`     | Devnet   | Airdrops, pubkey accounts, DefaultWallet, and receipts    |
+| `view-hog-balance` | Localnet | Runtime account discovery and typed contract views        |
+| `deploy-counter`   | Localnet | Deployment, explicit roots, wallet adapters, and readback |
+
+Set `GROUNDHOG_RPC_URL` to override a cluster's default endpoint. A Localnet
+override must also set `GROUNDHOG_RUNTIME_MANIFEST` to the manifest produced by
+that same node; the shared `localnet` network ID cannot distinguish separate
+local runtimes.
+
+## Devnet
+
+`chain-tip` connects through `devnet()`, validates the endpoint's network
+identity, and prints the current chain tip:
+
+```bash
+npm run example chain-tip
+```
+
+`transfer-hog` creates two ephemeral pubkey accounts, materializes both with
+airdrops, transfers HOG through the native-compatible DefaultWallet, waits for
+the receipt, and reads both resulting balances:
+
+```bash
+npm run example transfer-hog
+```
+
+The private keys exist only for that process and are never printed or saved.
+Any HOG left in either account becomes inaccessible when the process exits.
+Each run consumes two Devnet faucet allocations.
+
+These examples require an RPC deployment that supports
+`groundhog_networkInfo`. The transfer also requires
+`groundhog_requestAirdrop`.
+
+## Localnet
+
+Start a local node before running the Localnet examples:
 
 ```bash
 groundhog node
 ```
 
-Run them from the repository root:
+The node records its runtime manifest in the global Groundhog configuration.
+`loadLocalDevAccount()` reads that manifest and loads its first `local_user`,
+normally `dev-1`. These deterministic signers are for local development only.
+Never use them with production networks or funds of value.
+
+Read `dev-1`'s HOG balance through the generated ERC-20 binding:
 
 ```bash
-npm run example chain-tip
 npm run example view-hog-balance
-npm run example transfer-hog
+```
+
+Deploy the included Counter contract through DevWallet, increment it through a
+wallet adapter, and read the committed value:
+
+```bash
 npm run example deploy-counter
 ```
 
-`chain-tip.ts` defaults to the localhost endpoint. Set `GROUNDHOG_RPC_URL` to
-override it:
+Set `GROUNDHOG_RUNTIME_MANIFEST` to override the active manifest path. When
+using `GROUNDHOG_RPC_URL`, both overrides must identify the same local node.
 
-```bash
-GROUNDHOG_RPC_URL=http://127.0.0.1:9545 npm run example chain-tip
-```
+## Contract Deployment
 
-`groundhog node` records its runtime manifest in the global Groundhog config.
-The HOG and deployment examples use `loadLocalDevAccount` from the client's
-Node.js-only `local-dev` entrypoint to derive the well-known local signers. The
-examples use the lowest-index `local_user`; the transfer example uses the next
-one as its recipient. No key setup or environment variables are required.
+`deploy-counter` demonstrates both wallet submission levels:
 
-Scripts can override the default RPC URL with `GROUNDHOG_RPC_URL` and the
-manifest path with `GROUNDHOG_RUNTIME_MANIFEST`.
+- `wallet.sendInvocation()` submits the wallet-specific `DevWallet.deploy`
+  root invocation and includes the artifact in `contractsToDeploy`.
+- `wallet.execute()` wraps the normal `Counter.increment` invocation through
+  `devWalletAdapter`.
 
-The state-changing examples intentionally target `groundhog node`. Hosted
-networks require a user-owned wallet and signer rather than local bootstrap keys.
-
-`deploy-counter.ts` deploys the included Counter fixture, increments it, and
-reads the value back from the derived address. It uses the checked-in DevWallet
-binding for the local node's wallet calls. See
-[`docs/contract-deployment.md`](../docs/contract-deployment.md) for the deployment
+The local DevWallet transfers 100,000,000 base units (10 HOG) to each derived
+contract address before deployment so that address can pay the storage charge.
+This is wallet policy, not part of the protocol deployment mechanism. See
+[`docs/contract-deployment.md`](../docs/contract-deployment.md) for the full
 model and address derivation rules.
 
-The included fixture, Counter binding, and pinned Counter spec come from
+The Counter fixture and pinned spec come from
 [`groundhog-examples/contracts/counter`](https://github.com/groundhogchain/groundhog-examples/tree/56208548187a653af650b6c6b1708bac1b93b5e7/contracts/counter).
-The fixture's raw SHA-256 is
+Its raw SHA-256 is
 `3ce9c1f3257a080679ac95aa9597c00cc39f66f1c89fa1cac27c6a4c9ddb3903`;
 its canonical Groundhog contract hash is
 `4eb0b279d37ff9ff0d73a94ec26102cc5d0b9ea7f726ba63bdf123a876d2c2ef`.
-The DevWallet binding and pinned spec come from
-[`integration_test_contracts/dev_wallet`](https://github.com/groundhogchain/integration_test_contracts/tree/c2036930aee317f5cb0ad0c887237b7ed1db6c42/dev_wallet).
-Both bindings are reproduced from `specs/contracts/` with `groundhog-cli`
-0.9.6 and checked in CI. See [`specs/contracts/README.md`](../specs/contracts/README.md)
-for input hashes and recovery provenance. A network using another wallet
-interface needs its corresponding generated binding.
+Wallet binding provenance and all canonical input hashes are recorded in
+[`specs/contracts/README.md`](../specs/contracts/README.md).
 
-To build and generate a binding for your own RV32 contract:
+To build a contract and generate TypeScript bindings with CLI `0.9.6`:
 
 ```bash
-groundhog build --target rv32
-groundhog codegen ts target/groundhog/counter.spec.xdr --output counter.ts
+groundhog build -p counter --bindings ts
 ```
 
-The build writes `target/groundhog/counter.rv32a` and the corresponding
-`counter.spec.xdr`; replace `counter` with your contract crate name.
-
-The local DevWallet funds each derived contract address with 100,000,000 base
-units (10 HOG) before deployment because that address pays the deployment
-storage charge. The sender wallet must have enough HOG for this wallet-specific
-policy; it is not part of the protocol-level contract deployment mechanism.
-
-The derived accounts are intended for local dev nodes only. They are not testnet
-or mainnet account material.
+In a single-package project, omit `-p counter`. The build writes the RV32
+artifact, canonical spec, and generated TypeScript binding under
+`target/groundhog/`.

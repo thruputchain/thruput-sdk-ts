@@ -1,4 +1,4 @@
-import type { Transport } from "./types.js";
+import type { Transport, TransportRequestOptions } from "./types.js";
 
 /** JSON-RPC error codes currently returned by Groundhog gateways. */
 export const GroundhogRpcErrorCode = {
@@ -16,8 +16,7 @@ export const GroundhogRpcErrorCode = {
 /**
  * Error thrown when a JSON-RPC response contains an `error` object.
  *
- * Transport-level HTTP failures and malformed envelopes throw regular `Error`
- * instances instead.
+ * Malformed envelopes throw regular `Error` instances instead.
  */
 export class JsonRpcError extends Error {
   /** JSON-RPC numeric error code. */
@@ -35,6 +34,19 @@ export class JsonRpcError extends Error {
     this.code = code;
     this.data = data;
     this.method = method;
+  }
+}
+
+/** Error thrown when an HTTP response has a non-successful status. */
+export class HttpResponseError extends Error {
+  readonly status: number;
+  readonly statusText: string;
+
+  constructor(status: number, statusText: string) {
+    super(`HTTP ${status}: ${statusText}`);
+    this.name = "HttpResponseError";
+    this.status = status;
+    this.statusText = statusText;
   }
 }
 
@@ -84,7 +96,11 @@ export class HttpTransport implements Transport {
   }
 
   /** Send one JSON-RPC request and return the decoded `result` value. */
-  async request<T = unknown>(method: string, params?: unknown[]): Promise<T> {
+  async request<T = unknown>(
+    method: string,
+    params?: unknown[],
+    options: TransportRequestOptions = {},
+  ): Promise<T> {
     const id = this.#nextId++;
     const body = JSON.stringify({
       jsonrpc: "2.0",
@@ -94,6 +110,10 @@ export class HttpTransport implements Transport {
     });
 
     const abort = this.#timeoutMs ? new AbortController() : undefined;
+    const signal =
+      abort && options.signal
+        ? AbortSignal.any([abort.signal, options.signal])
+        : (abort?.signal ?? options.signal);
     const timeout = abort
       ? setTimeout(() => abort.abort(), this.#timeoutMs)
       : undefined;
@@ -103,14 +123,14 @@ export class HttpTransport implements Transport {
         method: "POST",
         headers: { "Content-Type": "application/json", ...this.#headers },
         body,
-        signal: abort?.signal,
+        signal,
       });
     } finally {
       if (timeout !== undefined) clearTimeout(timeout);
     }
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      throw new HttpResponseError(response.status, response.statusText);
     }
     const json = await response.json();
     if (!json || typeof json !== "object" || Array.isArray(json)) {

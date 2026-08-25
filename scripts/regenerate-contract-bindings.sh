@@ -56,15 +56,18 @@ update() {
 
 erc20_output="$repo_root/src/contracts/erc20.ts"
 recursive_type_output="$repo_root/src/contracts/recursive_type.ts"
+default_wallet_output="$repo_root/src/contracts/default_wallet.ts"
+dev_wallet_output="$repo_root/src/contracts/dev_wallet.ts"
 counter_output="$repo_root/examples/generated/counter.ts"
-dev_wallet_output="$repo_root/examples/generated/dev_wallet.ts"
 
 generate "$repo_root/specs/contracts/erc20.spec.xdr" "$erc20_output" "../contract/index.js"
 generate "$repo_root/specs/contracts/recursive_type.spec.xdr" "$recursive_type_output" "../contract/index.js"
+generate "$repo_root/specs/contracts/default_wallet.spec.xdr" "$default_wallet_output" "../contract/index.js"
+generate "$repo_root/specs/contracts/dev_wallet.spec.xdr" "$dev_wallet_output" "../contract/index.js"
 generate "$repo_root/specs/contracts/counter.spec.xdr" "$counter_output" "../../src/contract/index.js"
-generate "$repo_root/specs/contracts/dev_wallet.spec.xdr" "$dev_wallet_output" "../../src/contract/index.js"
 
 update "$erc20_output"
 update "$recursive_type_output"
-update "$counter_output"
+update "$default_wallet_output"
 update "$dev_wallet_output"
+update "$counter_output"

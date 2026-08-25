@@ -22,12 +22,56 @@ token with `read:packages`. See [Registry auth](#registry-auth-one-time-setup).
 ```ts
 import { createGroundhogClient, HttpTransport } from "@groundhogchain/client";
 
-const client = createGroundhogClient(
-  new HttpTransport("https://rpc.example.com"),
-);
+const client = await createGroundhogClient({
+  transport: new HttpTransport("https://rpc.example.com"),
+});
 
 const tip = await client.getChainTip();
 const txHash = await client.sendTransaction(signedTransaction);
+```
+
+Pass a cluster when the application must validate the endpoint before making
+requests:
+
+```ts
+import { createGroundhogClient, devnet, toHex0x } from "@groundhogchain/client";
+
+const client = await createGroundhogClient({
+  cluster: devnet(),
+});
+
+console.log(toHex0x(client.network.networkHash));
+```
+
+Development clusters expose a typed airdrop action. It generates an
+idempotency nonce and polls pending attempts until the transfer commits:
+
+```ts
+const airdrop = await client.requestAirdrop({ recipient: accountAddress });
+console.log(airdrop.txHash, airdrop.rawAmount);
+```
+
+Remote airdrops retain the faucet's per-recipient cooldown and share the
+gateway's configured aggregate quota. Localnet airdrops are unlimited. Use
+`requestAirdropAttempt` when an application needs to persist the nonce or
+control polling itself.
+
+The predefined clusters are `mainnet`, `devnet`, and `localnet`. Declare a
+deployment-specific cluster inline, or use `defineCluster` when the descriptor
+will be reused. Devnet and localnet include default RPC URLs; pass `rpcUrl` to
+override them. Mainnet has no default endpoint yet. Supply a `networkHash` when
+the application must pin the protocol identity used for transaction signing.
+Pass an explicit transport for custom headers or request handling. Omit
+`cluster` to use an unknown endpoint without runtime identity validation.
+
+```ts
+const client = await createGroundhogClient({
+  cluster: {
+    name: "private-devnet",
+    rpcUrl: "https://rpc.example.com",
+    capabilities: ["airdrop"],
+  },
+});
 ```
 
 Generated contract bindings are exported separately:
@@ -60,12 +104,119 @@ const faucet = await loadLocalDevAccount({ role: "faucet" });
 The `local-dev` entrypoint is for local development only. Its deterministic
 signers must never be used with production networks or funds of value.
 
+## Wallet clients
+
+A wallet client binds account authorization and signers to an existing client:
+
+```ts
+import {
+  createGroundhogClient,
+  createPubkeyAccount,
+  createWalletClient,
+  devnet,
+  PrivateKeySigner,
+} from "@groundhogchain/client";
+
+const client = await createGroundhogClient({ cluster: devnet() });
+const signer = new PrivateKeySigner(secretKey);
+const account = createPubkeyAccount({ signer, nonce: 0n });
+const wallet = createWalletClient({ client, account });
+
+await wallet.requestAirdrop();
+const balance = await wallet.getBalance();
+```
+
+Use `createSourceAddressAccount` for an existing account contract, including
+the wallets created by `groundhog node`:
+
+```ts
+import { bitMap, weight } from "@groundhogchain/protocol";
+import {
+  createSourceAddressAccount,
+  createWalletClient,
+  devWalletAdapter,
+} from "@groundhogchain/client";
+import { loadLocalDevAccount } from "@groundhogchain/client/local-dev";
+
+const local = await loadLocalDevAccount();
+const account = createSourceAddressAccount({
+  address: local.address,
+  signers: [{ signer: local.signer, publicKeyId: 0n }],
+  allowedKeys: bitMap(0x01n),
+  requiredWeight: weight(1n),
+});
+const wallet = createWalletClient({
+  client,
+  account,
+  invocationAdapter: devWalletAdapter,
+});
+```
+
+Wallet clients prepare fresh transaction expiry and replay nonces, sign with
+the account's configured signers, and submit transactions. Pubkey accounts use
+the native-compatible DefaultWallet adapter automatically. The signing network
+comes from a cluster-validated client's `networkHash`.
+When binding an unqualified client, pass an explicit `networkHash` to
+`createWalletClient`.
+
+Source-address accounts expose `execute` when configured with an adapter:
+
+```ts
+const txHash = await wallet.execute({
+  invocation: innerInvocation,
+  gasLimit: walletGasLimit,
+});
+const receipt = await wallet.waitForTransactionReceipt(txHash);
+```
+
+Use `prepareExecution` to inspect the wrapped transaction before signing. Both
+execution methods accept `nonce`, `blockExpiryHeight`, `expiryBlocks`, and
+`contractsToDeploy` overrides.
+
+The explicit root-invocation APIs remain available for advanced workflows:
+
+```ts
+const transaction = await wallet.prepareTransaction({
+  invocation: rootInvocation,
+  expiryBlocks: 100n,
+});
+const signed = await wallet.signTransaction(transaction);
+const submittedHash = await wallet.sendTransaction(signed);
+
+const txHash = await wallet.sendInvocation({ invocation: rootInvocation });
+const receipt = await wallet.waitForTransactionReceipt(txHash);
+```
+
+`prepareTransaction` accepts explicit `nonce`, `blockExpiryHeight`,
+`expiryBlocks`, and `contractsToDeploy` overrides. Without overrides it uses a
+cryptographically random 64-bit nonce and expires 100 blocks after the current
+chain tip.
+
+The SDK includes `defaultWalletAdapter` and `devWalletAdapter`. Custom account
+contracts can publish their generated binding and a structural adapter without
+changing the SDK:
+
+```ts
+const customWalletAdapter = defineWalletInvocationAdapter({
+  createRootInvocation(accountAddress, request: CustomWalletRequest) {
+    return CustomWallet.execute.invocation(accountAddress, request.gasLimit, {
+      call: request.invocation,
+      policy: request.policy,
+    });
+  },
+});
+```
+
+Because wallet decoration binds account-specific closures to the supplied
+client, each client instance can be bound once. Create another client instance
+when operating multiple accounts against the same endpoint.
+
 ## Examples
 
-- [`chain-tip.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/chain-tip.ts) reads the latest block height and hash.
-- [`view-hog-balance.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/view-hog-balance.ts) reads a HOG balance.
-- [`transfer-hog.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/transfer-hog.ts) submits a HOG transfer.
-- [`deploy-counter.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/deploy-counter.ts) deploys and calls a Counter contract.
+- [`chain-tip.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/chain-tip.ts) validates Devnet and reads its latest block.
+- [`transfer-hog.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/transfer-hog.ts) funds two pubkey accounts and transfers HOG on Devnet.
+- [`view-hog-balance.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/view-hog-balance.ts) reads local `dev-1`'s HOG balance.
+- [`deploy-counter.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/deploy-counter.ts) deploys and calls a Counter contract through DevWallet.
 
 See the [examples guide](https://github.com/groundhogchain/client-ts/blob/main/examples/README.md) for local-node setup and configuration.
 
@@ -75,7 +226,7 @@ helpers, generated standard contracts, signers, and standalone actions.
 
 ## What's in this repo
 
-- `src/client.ts` — `createGroundhogClient` factory that binds a transport to the SDK actions.
+- `src/client.ts` — async `createGroundhogClient` factory for unqualified and cluster-validated clients.
 - `src/actions/` — RPC actions grouped by namespace:
   - `public/` — chain, account, contract-view, event, and transaction queries.
   - `wallet/` — write methods (`sendTransaction`).

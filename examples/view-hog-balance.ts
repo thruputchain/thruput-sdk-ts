@@ -1,26 +1,34 @@
 import { HOG_ADDRESS } from "@groundhogchain/protocol";
 // Repository-local imports; applications use the published client entrypoints.
-import { HttpTransport, createGroundhogClient, toHex0x } from "../src/index.js";
+import { createGroundhogClient, localnet, toHex0x } from "../src/index.js";
 import { ERC20 } from "../src/contracts/index.js";
 import { loadLocalDevAccount } from "../src/local-dev/index.js";
 
-const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";
-const { address: accountAddress } = await loadLocalDevAccount();
+const rpcUrl = process.env.GROUNDHOG_RPC_URL;
+if (rpcUrl && !process.env.GROUNDHOG_RUNTIME_MANIFEST) {
+  throw new Error(
+    "Set GROUNDHOG_RUNTIME_MANIFEST when overriding the Localnet RPC URL",
+  );
+}
+const account = await loadLocalDevAccount();
 
-const client = createGroundhogClient(new HttpTransport(rpcUrl));
+const client = await createGroundhogClient({
+  cluster: localnet(rpcUrl ? { rpcUrl } : {}),
+});
 
 // Simulate the read-only ERC20 call and decode its typed result.
 const response = await ERC20.getBalanceOf.view({
   client,
   contract: HOG_ADDRESS,
-  caller: accountAddress,
-  args: { addr: accountAddress },
+  caller: account.address,
+  args: { addr: account.address },
 });
 
 console.log({
-  rpcUrl,
+  rpcUrl: client.cluster.rpcUrl,
+  accountName: account.keyName,
   hogToken: toHex0x(HOG_ADDRESS),
-  account: toHex0x(accountAddress),
+  account: toHex0x(account.address),
   balance: response.value.toString(),
   height: response.height.toString(),
 });

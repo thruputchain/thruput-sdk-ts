@@ -1,4 +1,11 @@
 export { getChainTip } from "./getChainTip.js";
+export { getNetworkInfo } from "./getNetworkInfo.js";
+export {
+  InvalidAirdropResponseError,
+  requestAirdrop,
+  requestAirdropAttempt,
+  type RequestAirdropOptions,
+} from "./requestAirdrop.js";
 export { getBalance } from "./getBalance.js";
 export { getBlockByNumber } from "./getBlockByNumber.js";
 export { getPendingTransactionCount } from "./getPendingTransactionCount.js";

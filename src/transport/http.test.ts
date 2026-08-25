@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import openrpcSpec from "../../specs/openrpc.json";
-import { GroundhogRpcErrorCode, HttpTransport, JsonRpcError } from "./http.js";
+import {
+  GroundhogRpcErrorCode,
+  HttpResponseError,
+  HttpTransport,
+  JsonRpcError,
+} from "./http.js";
 
 function documentedErrorCodes() {
   const errors = openrpcSpec.components.errors as Record<
@@ -19,6 +24,24 @@ describe("GroundhogRpcErrorCode", () => {
 });
 
 describe("HttpTransport", () => {
+  it("throws a structured error for unsuccessful HTTP responses", async () => {
+    const fetchMock: typeof fetch = async () =>
+      new Response(null, { status: 401, statusText: "Unauthorized" });
+
+    const request = new HttpTransport("http://localhost", {
+      fetch: fetchMock,
+    }).request("groundhog_version");
+
+    await expect(request).rejects.toBeInstanceOf(HttpResponseError);
+    await expect(request).rejects.toEqual(
+      expect.objectContaining({
+        name: "HttpResponseError",
+        status: 401,
+        statusText: "Unauthorized",
+      }),
+    );
+  });
+
   it("sends JSON-RPC requests with custom fetch and headers", async () => {
     let capturedUrl: string | URL | Request | undefined;
     let capturedInit: RequestInit | undefined;
@@ -91,5 +114,22 @@ describe("HttpTransport", () => {
         timeoutMs: 1,
       }).request("groundhog_version"),
     ).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("forwards per-request cancellation to fetch", async () => {
+    const fetchMock: typeof fetch = async (_url, init) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => {
+          reject(init.signal?.reason);
+        });
+      });
+    const abort = new AbortController();
+    const result = new HttpTransport("http://localhost", {
+      fetch: fetchMock,
+    }).request("groundhog_requestAirdrop", [], { signal: abort.signal });
+
+    abort.abort(new Error("cancelled"));
+
+    await expect(result).rejects.toThrow("cancelled");
   });
 });

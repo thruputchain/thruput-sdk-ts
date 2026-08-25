@@ -17,7 +17,7 @@
 ## Architecture
 
 - Public package entrypoints are explicit: root plus `./transaction`, `./transport`, `./contract`, `./contracts`, `./signers`, `./actions`, and the Node-only `./local-dev`. Add public symbols to the matching `src/**/index.ts`; add `package.json` and `tsdown.config.ts` entries only for new subpaths.
-- `src/client.ts` is a thin `createGroundhogClient(transport)` wrapper around standalone actions. Keep action behavior in `src/actions/**`; client methods should just bind the transport.
+- `src/client.ts` provides the async `createGroundhogClient(options)` factory for both unqualified and cluster-validated clients. Keep action behavior in `src/actions/**`; client methods should just bind the transport.
 - Runtime transports implement `Transport.request(method, params)`. `HttpTransport` sends JSON-RPC arrays with `params ?? []`; `MockTransport` is test-only and intentionally implements only known methods.
 - `src/contract/**` owns reusable contract codecs, typed method and event descriptors, fixed-length values, and strict decoding. `src/contracts/**` owns generated standard bindings.
 - Generated methods expose invocation, view, and root-receipt decoding APIs. Generated events own decoding, named topic filters, and receipt extraction. Do not add wrappers that preserve older generated APIs.
@@ -25,7 +25,7 @@
 
 ## Generated And Spec Files
 
-- `src/contracts/erc20.ts`, `src/contracts/recursive_type.ts`, and the example-local bindings under `examples/generated/` are generated; do not hand-edit. Only standard bindings are exported from `src/contracts/index.ts`.
+- `src/contracts/erc20.ts`, `src/contracts/recursive_type.ts`, `src/contracts/default_wallet.ts`, `src/contracts/dev_wallet.ts`, and the example-local bindings under `examples/generated/` are generated; do not hand-edit. Only standard bindings are exported from `src/contracts/index.ts`.
 - TypeScript binding codegen lives in `groundhog-rpc`. Regenerate every checked-in binding with `scripts/regenerate-contract-bindings.sh`, setting `GROUNDHOG_CLI` to a reviewed generator build; use `--check` to verify checked-in output. The script always uses the pinned inputs in `specs/contracts/`.
 - The regeneration script rewrites only the generated self-import to a repository-relative import. Generated output must compile for strict consumers, including `noUncheckedIndexedAccess`.
 - `specs/openrpc.json` is the pinned Groundhog OpenRPC spec. Regenerate with `scripts/regen-openrpc.sh`, which installs a pinned `groundhog-open-rpc-spec@x.y.z` from the Cargo `groundhog` registry and formats the JSON; bump the hardcoded script version when syncing to a newer RPC spec release.

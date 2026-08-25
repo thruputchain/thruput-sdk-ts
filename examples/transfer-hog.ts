@@ -1,86 +1,98 @@
 import { randomBytes } from "node:crypto";
-import {
-  AuthClaimType,
-  HOG_ADDRESS,
-  bitMap,
-  blockHeight,
-  codec,
-  gasAmount,
-  serialize,
-  weight,
-} from "@groundhogchain/protocol";
+import { HOG_ADDRESS, gasAmount } from "@groundhogchain/protocol";
 // Repository-local imports; applications use the published client entrypoints.
 import {
-  HttpTransport,
+  PrivateKeySigner,
   createGroundhogClient,
-  createTransaction,
-  signTransaction,
+  createPubkeyAccount,
+  createWalletClient,
+  devnet,
   toHex0x,
 } from "../src/index.js";
-import { ERC20 } from "../src/contracts/index.js";
-import { loadLocalDevAccount } from "../src/local-dev/index.js";
-import { DevWallet } from "./generated/dev_wallet.js";
+import { DefaultWallet, ERC20 } from "../src/contracts/index.js";
 
-const amount = 1000n;
-const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";
-const {
-  address: senderAddress,
-  signer,
-  networkHash,
-} = await loadLocalDevAccount();
-const { address: recipientAddress } = await loadLocalDevAccount({
-  roleOffset: 1,
-});
-
+const amount = 1_000n;
 const walletGasLimit = gasAmount(10_000_000n);
 const callGasLimit = gasAmount(500_000n);
+const rpcUrl = process.env.GROUNDHOG_RPC_URL;
 
-const client = createGroundhogClient(new HttpTransport(rpcUrl));
-const tip = await client.getChainTip();
+// These accounts exist only for this process. Their keys are not persisted.
+const sender = createPubkeyAccount({
+  signer: new PrivateKeySigner(randomBytes(32)),
+});
+const recipient = createPubkeyAccount({
+  signer: new PrivateKeySigner(randomBytes(32)),
+});
 
-// Build the token call first: HOG.transfer(recipient, amount).
-const tokenInvocation = ERC20.transfer.invocation(HOG_ADDRESS, callGasLimit, {
-  receiver: recipientAddress,
+const client = await createGroundhogClient({
+  cluster: devnet(rpcUrl ? { rpcUrl } : {}),
+});
+const wallet = createWalletClient({
+  client,
+  account: sender,
+});
+
+const [senderAirdrop, recipientAirdrop] = await Promise.all([
+  wallet.requestAirdrop(),
+  client.requestAirdrop({ recipient: recipient.address }),
+]);
+if (senderAirdrop.status.result !== "ok") {
+  throw new Error(
+    `Sender airdrop transaction failed with ${senderAirdrop.status.result}`,
+  );
+}
+if (recipientAirdrop.status.result !== "ok") {
+  throw new Error(
+    `Recipient airdrop transaction failed with ${recipientAirdrop.status.result}`,
+  );
+}
+if (senderAirdrop.rawAmount < amount) {
+  throw new Error(
+    `Airdrop supplied ${senderAirdrop.rawAmount} base units, fewer than the ${amount} requested for transfer`,
+  );
+}
+
+const transfer = ERC20.transfer.invocation(HOG_ADDRESS, callGasLimit, {
+  receiver: recipient.address,
   amount,
 });
-
-// Wallet accounts are contracts. The transaction calls the sender wallet, and
-// the wallet performs the inner HOG transfer as its action.
-const walletInvocation = DevWallet.doAction.invocation(
-  senderAddress,
-  walletGasLimit,
-  { invocationBytes: serialize(tokenInvocation, codec.Invocation) },
-);
-
-const tx = createTransaction({
-  invocation: walletInvocation,
-  uniquifier: {
-    block_expiry_height: blockHeight(tip.height + 100n),
-    nonce: randomBytes(8).readBigUInt64BE(),
-  },
-  contracts_to_deploy: [],
-  auth_claim: {
-    claim_type: AuthClaimType.kSourceAddressAuthData,
-    source_address_claim: {
-      allowed_keys: bitMap(0x01n),
-      required_weight: weight(1n),
-    },
-  },
+const txHash = await wallet.execute({
+  invocation: transfer,
+  gasLimit: walletGasLimit,
 });
-
-const signed = await signTransaction(
-  tx,
-  [{ signer, publicKeyId: 0n }],
-  networkHash,
+const receipt = DefaultWallet.execute.decodeReceipt(
+  await wallet.waitForTransactionReceipt(txHash),
 );
-// Submission returns a hash; wait for its receipt when confirmation is needed.
-const txHash = await client.sendTransaction(signed);
+if (receipt.value.length !== 1 || receipt.value[0]!.length !== 0) {
+  throw new Error("DefaultWallet returned an unexpected transfer result");
+}
+
+const [senderBalance, recipientBalance] = await Promise.all([
+  readHogBalance(sender.address),
+  readHogBalance(recipient.address),
+]);
 
 console.log({
-  rpcUrl,
-  hogToken: toHex0x(HOG_ADDRESS),
-  from: toHex0x(senderAddress),
-  to: toHex0x(recipientAddress),
-  amount: amount.toString(),
-  txHash: toHex0x(txHash),
+  rpcUrl: client.cluster.rpcUrl,
+  networkHash: toHex0x(client.network.networkHash),
+  sender: toHex0x(sender.address),
+  recipient: toHex0x(recipient.address),
+  senderAirdropAmount: senderAirdrop.rawAmount.toString(),
+  senderAirdropTxHash: toHex0x(senderAirdrop.txHash),
+  recipientAirdropAmount: recipientAirdrop.rawAmount.toString(),
+  recipientAirdropTxHash: toHex0x(recipientAirdrop.txHash),
+  transferAmount: amount.toString(),
+  transferTxHash: toHex0x(txHash),
+  senderBalance: senderBalance.toString(),
+  recipientBalance: recipientBalance.toString(),
 });
+
+async function readHogBalance(address: typeof sender.address): Promise<bigint> {
+  const response = await ERC20.getBalanceOf.view({
+    client: wallet,
+    contract: HOG_ADDRESS,
+    caller: sender.address,
+    args: { addr: address },
+  });
+  return response.value;
+}

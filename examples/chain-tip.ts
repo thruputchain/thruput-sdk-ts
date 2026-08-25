@@ -1,12 +1,16 @@
 // Repository-local import; applications use "@groundhogchain/client".
-import { HttpTransport, createGroundhogClient, toHex0x } from "../src/index.js";
+import { createGroundhogClient, devnet, toHex0x } from "../src/index.js";
 
-const rpcUrl = process.env.GROUNDHOG_RPC_URL ?? "http://127.0.0.1:9545";
-const client = createGroundhogClient(new HttpTransport(rpcUrl));
+const rpcUrl = process.env.GROUNDHOG_RPC_URL;
+const client = await createGroundhogClient({
+  cluster: devnet(rpcUrl ? { rpcUrl } : {}),
+});
 
 const tip = await client.getChainTip();
 
 console.log({
+  rpcUrl: client.cluster.rpcUrl,
+  networkHash: toHex0x(client.network.networkHash),
   height: tip.height.toString(),
   blockHash: toHex0x(tip.blockHash),
 });

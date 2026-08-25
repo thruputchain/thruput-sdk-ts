@@ -19,6 +19,10 @@ export class MockTransport implements Transport {
   /** Route a supported JSON-RPC method to the mock implementation. */
   async request<T = unknown>(method: string, params?: unknown[]): Promise<T> {
     switch (method) {
+      case "groundhog_networkInfo":
+        return this.#networkInfo() as T;
+      case "groundhog_requestAirdrop":
+        return this.#requestAirdrop(params) as T;
       case "groundhog_chainTip":
         return this.#chainTip() as T;
       case "groundhog_getBalance":
@@ -48,6 +52,31 @@ export class MockTransport implements Transport {
     }
   }
 
+  #networkInfo(): { networkHash: string } {
+    return {
+      networkHash: "0x" + "00".repeat(32),
+    };
+  }
+
+  #requestAirdrop(params?: unknown[]): {
+    attemptStatus: "succeeded";
+    recipient: string;
+    rawAmount: string;
+    txHash: string;
+    height: number;
+    status: { result: "ok" };
+  } {
+    const request = (params?.[0] ?? {}) as { recipient?: unknown };
+    return {
+      attemptStatus: "succeeded",
+      recipient: String(request.recipient ?? "0x"),
+      rawAmount: "100000000",
+      txHash: this.#blockHash(this.#height),
+      height: Number(this.#height),
+      status: { result: "ok" },
+    };
+  }
+
   #chainTip(): { height: number; blockHash: string } {
     return {
       height: Number(this.#height),
@@ -62,30 +91,35 @@ export class MockTransport implements Transport {
     return "0x" + toHex(sha256Hash(heightBytes));
   }
 
-  #dbHash(height: bigint): string {
-    const bytes = new Uint8Array(2048);
-    const view = new DataView(bytes.buffer);
-    view.setBigUint64(2040, height > 0n ? height : 0n);
-    return "0x" + toHex(bytes);
-  }
-
   #getBlockByNumber(params?: unknown[]): {
-    networkId: number;
+    blockHash: string;
+    protocol: number;
+    networkHash: string;
+    proposer: string;
+    blockTimepoint: number;
     blockHeight: number;
-    txsetHash: string;
-    dbHash: string;
+    txsHash: string;
+    storageHash: string;
     eventsHash: string;
     prevBlockHash: string;
+    proposalTxsHash: string;
+    upgrades: string[];
   } | null {
     const height = BigInt(params && params.length > 0 ? String(params[0]) : 0);
     if (height < 0n || height > this.#height) return null;
     return {
-      networkId: 0,
+      blockHash: this.#blockHash(height),
+      protocol: 0,
+      networkHash: "0x" + "00".repeat(32),
+      proposer: "0x" + "00".repeat(32),
+      blockTimepoint: 0,
       blockHeight: Number(height),
-      txsetHash: this.#blockHash(height),
-      dbHash: this.#dbHash(height),
+      txsHash: this.#blockHash(height),
+      storageHash: this.#blockHash(height),
       eventsHash: this.#blockHash(height),
       prevBlockHash: this.#blockHash(height > 0n ? height - 1n : 0n),
+      proposalTxsHash: this.#blockHash(height),
+      upgrades: [],
     };
   }
 
@@ -97,11 +131,13 @@ export class MockTransport implements Transport {
     wireFormat: string;
     implementation: string;
     commitHash: null;
+    platformVersion: null;
   } {
     return {
-      wireFormat: "2.1.0",
+      wireFormat: "3.3.0",
       implementation: "mock",
       commitHash: null,
+      platformVersion: null,
     };
   }
 
