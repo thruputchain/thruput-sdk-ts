@@ -4,6 +4,7 @@ import type { Transport } from "../../transport/types.js";
 import {
   GroundhogRpcErrorCode,
   HttpResponseError,
+  HttpTransport,
   JsonRpcError,
 } from "../../transport/http.js";
 import { hashFromHex } from "../hex.js";
@@ -84,6 +85,27 @@ describe("requestAirdropAttempt", () => {
       txHash: hashFromHex("0x" + "33".repeat(32)),
       height: 42n,
       status: { result: "ok" },
+    });
+  });
+
+  it("maps future execution statuses to the forward-compatible fallback", async () => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return {
+          ...succeeded,
+          status: { result: "futureResult", futureField: true },
+        } as T;
+      },
+    };
+
+    await expect(
+      requestAirdropAttempt(transport, { recipient, clientNonce }),
+    ).resolves.toMatchObject({
+      attemptStatus: "succeeded",
+      txHash: hashFromHex("0x" + "33".repeat(32)),
+      height: 42n,
+      rawAmount: 100000000n,
+      status: { result: "other" },
     });
   });
 
@@ -260,6 +282,23 @@ describe("requestAirdrop", () => {
       requestAirdrop({ request }, { recipient, clientNonce }),
     ).rejects.toBe(failure);
     expect(request).toHaveBeenCalledOnce();
+  });
+
+  it("does not retry or obscure a malformed JSON-RPC envelope", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ jsonrpc: "2.0", id: 1 }), {
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    const transport = new HttpTransport("http://localhost", {
+      fetch: fetchMock,
+    });
+
+    await expect(
+      requestAirdrop(transport, { recipient, clientNonce, timeoutMs: 1_000 }),
+    ).rejects.toThrow("Invalid JSON-RPC response");
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 
   it.each([401, 501, 505, 511])(

@@ -252,7 +252,10 @@ function parseExecutionStatus(value: unknown): AirdropExecutionStatus {
       }
       return { result: "deterministicError", kind: status.kind };
     default:
-      throw new Error("expected status.result");
+      if (typeof status.result !== "string") {
+        throw new Error("expected status.result");
+      }
+      return { result: "other" };
   }
 }
 
@@ -268,7 +271,10 @@ function isRetryableFailure(cause: unknown): boolean {
       cause.code === GroundhogRpcErrorCode.Overloaded
     );
   }
-  return true;
+  return (
+    cause instanceof TypeError ||
+    (cause instanceof Error && cause.name === "AbortError")
+  );
 }
 
 async function beforeDeadline<T>(
