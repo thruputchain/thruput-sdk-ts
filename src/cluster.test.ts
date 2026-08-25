@@ -17,13 +17,12 @@ function protocolNetworkHash(byte: string) {
   return networkHash(hashFromHex("0x" + byte.repeat(32)));
 }
 
-function networkTransport(networkByte: string, genesisByte: string): Transport {
+function networkTransport(networkByte: string): Transport {
   return {
     async request<T>(method: string): Promise<T> {
       if (method === "groundhog_networkInfo") {
         return {
           networkHash: "0x" + networkByte.repeat(32),
-          genesisHash: "0x" + genesisByte.repeat(32),
         } as T;
       }
       if (method === "groundhog_chainTip") {
@@ -57,20 +56,17 @@ describe("cluster descriptors", () => {
   });
 
   it("preserves custom network identity and capabilities", () => {
-    const genesisHash = hashFromHex("0x" + "11".repeat(32));
     const expectedNetworkHash = protocolNetworkHash("22");
 
     expect(
       defineCluster({
         networkHash: expectedNetworkHash,
         rpcUrl: "https://rpc.company.example",
-        genesisHash,
         capabilities: ["airdrop"],
       }),
     ).toEqual({
       networkHash: expectedNetworkHash,
       rpcUrl: "https://rpc.company.example",
-      genesisHash,
       capabilities: ["airdrop"],
     });
   });
@@ -88,13 +84,13 @@ describe("cluster descriptors", () => {
     expect(Object.isFrozen(cluster.capabilities)).toBe(true);
   });
 
-  it("snapshots a pinned genesis hash", () => {
-    const genesisHash = hashFromHex("0x" + "11".repeat(32));
-    const cluster = localnet({ genesisHash });
+  it("snapshots a pinned network hash", () => {
+    const sourceNetworkHash = protocolNetworkHash("11");
+    const cluster = mainnet({ networkHash: sourceNetworkHash });
 
-    genesisHash.fill(0x22);
+    sourceNetworkHash.fill(0x22);
 
-    expect(cluster.genesisHash).toEqual(new Uint8Array(32).fill(0x11));
+    expect(cluster.networkHash).toEqual(new Uint8Array(32).fill(0x11));
   });
 
   it("allows transport-only custom clusters without a default URL", () => {
@@ -122,7 +118,7 @@ describe("createGroundhogClient", () => {
     const cluster = localnet();
     const client = await createGroundhogClient({
       cluster,
-      transport: networkTransport("00", "22"),
+      transport: networkTransport("00"),
     });
 
     expect(client.cluster).toEqual(cluster);
@@ -135,7 +131,7 @@ describe("createGroundhogClient", () => {
   it("omits unavailable capabilities at runtime", async () => {
     const client = await createGroundhogClient({
       cluster: mainnet(),
-      transport: networkTransport("11", "22"),
+      transport: networkTransport("11"),
     });
 
     expect(client).not.toHaveProperty("requestAirdrop");
@@ -147,13 +143,13 @@ describe("createGroundhogClient", () => {
       cluster: {
         capabilities: ["airdrop"],
       },
-      transport: networkTransport("11", "22"),
+      transport: networkTransport("11"),
     });
     const incapable = await createGroundhogClient({
       cluster: {
         capabilities: [],
       },
-      transport: networkTransport("11", "22"),
+      transport: networkTransport("11"),
     });
 
     expect(capable.requestAirdrop).toBeTypeOf("function");
@@ -167,7 +163,6 @@ describe("createGroundhogClient", () => {
         id: 1,
         result: {
           networkHash: "0x" + "00".repeat(32),
-          genesisHash: "0x" + "00".repeat(32),
         },
       }),
     );
@@ -192,13 +187,13 @@ describe("createGroundhogClient", () => {
     );
   });
 
-  it("accepts an unpinned resettable network genesis", async () => {
+  it("accepts an unpinned resettable network", async () => {
     const client = await createGroundhogClient({
       cluster: devnet(),
-      transport: networkTransport("77", "33"),
+      transport: networkTransport("77"),
     });
 
-    expect(client.network.genesisHash).toEqual(new Uint8Array(32).fill(0x33));
+    expect(client.network.networkHash).toEqual(new Uint8Array(32).fill(0x77));
   });
 
   it("uses the identity snapshot captured before the handshake", async () => {
@@ -206,34 +201,31 @@ describe("createGroundhogClient", () => {
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const cluster = localnet({
-      genesisHash: hashFromHex("0x" + "11".repeat(32)),
-    });
+    const cluster = mainnet({ networkHash: protocolNetworkHash("11") });
     const connection = createGroundhogClient({
       cluster,
       transport: {
         async request<T>(): Promise<T> {
           await gate;
           return {
-            networkHash: "0x" + "00".repeat(32),
-            genesisHash: "0x" + "11".repeat(32),
+            networkHash: "0x" + "11".repeat(32),
           } as T;
         },
       },
     });
 
-    cluster.genesisHash!.fill(0x22);
+    cluster.networkHash!.fill(0x22);
     release();
 
     await expect(connection).resolves.toMatchObject({
-      cluster: { genesisHash: new Uint8Array(32).fill(0x11) },
+      cluster: { networkHash: new Uint8Array(32).fill(0x11) },
     });
   });
 
   it("rejects a different pinned network", async () => {
     const connection = createGroundhogClient({
       cluster: mainnet({ networkHash: protocolNetworkHash("11") }),
-      transport: networkTransport("44", "55"),
+      transport: networkTransport("44"),
     });
 
     await expect(connection).rejects.toBeInstanceOf(NetworkMismatchError);
@@ -241,32 +233,16 @@ describe("createGroundhogClient", () => {
       "Network mismatch: expected network 0x" +
         "11".repeat(32) +
         ", received network 0x" +
-        "44".repeat(32) +
-        ", genesis 0x" +
-        "55".repeat(32),
+        "44".repeat(32),
     );
   });
 
-  it("rejects a different pinned genesis", async () => {
-    const cluster = localnet({
-      genesisHash: hashFromHex("0x" + "55".repeat(32)),
-    });
+  it("constructs a diagnostic safely for an unpinned cluster", () => {
+    const actual = { networkHash: protocolNetworkHash("44") };
 
-    const connection = createGroundhogClient({
-      cluster,
-      transport: networkTransport("00", "66"),
-    });
-
-    await expect(connection).rejects.toBeInstanceOf(NetworkMismatchError);
-    await expect(connection).rejects.toThrow(
-      "Network mismatch: expected network 0x" +
-        "00".repeat(32) +
-        ", genesis 0x" +
-        "55".repeat(32) +
-        ", received network 0x" +
-        "00".repeat(32) +
-        ", genesis 0x" +
-        "66".repeat(32),
+    expect(new NetworkMismatchError(mainnet(), actual).message).toBe(
+      "Network mismatch: expected an unpinned network, received network 0x" +
+        "44".repeat(32),
     );
   });
 });

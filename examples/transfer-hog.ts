@@ -32,13 +32,23 @@ const wallet = createWalletClient({
   account: sender,
 });
 
-const airdrop = await wallet.requestAirdrop();
-if (airdrop.status.result !== "ok") {
-  throw new Error(`Airdrop transaction failed with ${airdrop.status.result}`);
-}
-if (airdrop.rawAmount < amount) {
+const [senderAirdrop, recipientAirdrop] = await Promise.all([
+  wallet.requestAirdrop(),
+  client.requestAirdrop({ recipient: recipient.address }),
+]);
+if (senderAirdrop.status.result !== "ok") {
   throw new Error(
-    `Airdrop supplied ${airdrop.rawAmount} base units, fewer than the ${amount} requested for transfer`,
+    `Sender airdrop transaction failed with ${senderAirdrop.status.result}`,
+  );
+}
+if (recipientAirdrop.status.result !== "ok") {
+  throw new Error(
+    `Recipient airdrop transaction failed with ${recipientAirdrop.status.result}`,
+  );
+}
+if (senderAirdrop.rawAmount < amount) {
+  throw new Error(
+    `Airdrop supplied ${senderAirdrop.rawAmount} base units, fewer than the ${amount} requested for transfer`,
   );
 }
 
@@ -67,8 +77,10 @@ console.log({
   networkHash: toHex0x(client.network.networkHash),
   sender: toHex0x(sender.address),
   recipient: toHex0x(recipient.address),
-  airdropAmount: airdrop.rawAmount.toString(),
-  airdropTxHash: toHex0x(airdrop.txHash),
+  senderAirdropAmount: senderAirdrop.rawAmount.toString(),
+  senderAirdropTxHash: toHex0x(senderAirdrop.txHash),
+  recipientAirdropAmount: recipientAirdrop.rawAmount.toString(),
+  recipientAirdropTxHash: toHex0x(recipientAirdrop.txHash),
   transferAmount: amount.toString(),
   transferTxHash: toHex0x(txHash),
   senderBalance: senderBalance.toString(),

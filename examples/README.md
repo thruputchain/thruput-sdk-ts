@@ -31,9 +31,9 @@ identity, and prints the current chain tip:
 npm run example chain-tip
 ```
 
-`transfer-hog` creates two ephemeral pubkey accounts, requests an airdrop for
-the sender, transfers HOG through the native-compatible DefaultWallet, waits
-for the receipt, and reads both resulting balances:
+`transfer-hog` creates two ephemeral pubkey accounts, materializes both with
+airdrops, transfers HOG through the native-compatible DefaultWallet, waits for
+the receipt, and reads both resulting balances:
 
 ```bash
 npm run example transfer-hog
@@ -41,7 +41,7 @@ npm run example transfer-hog
 
 The private keys exist only for that process and are never printed or saved.
 Any HOG left in either account becomes inaccessible when the process exits.
-Each run consumes one Devnet faucet allocation.
+Each run consumes two Devnet faucet allocations.
 
 These examples require an RPC deployment that supports
 `groundhog_networkInfo`. The transfer also requires

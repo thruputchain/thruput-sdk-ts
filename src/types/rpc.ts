@@ -18,9 +18,6 @@ export type { ExecResult } from "@groundhogchain/protocol";
 export interface NetworkInfo {
   /** Protocol network identity bound into every transaction signature. */
   readonly networkHash: NetworkHash;
-
-  /** Hash of the materialized genesis state. */
-  readonly genesisHash: SHA256Hash;
 }
 
 /** One idempotent airdrop attempt. */

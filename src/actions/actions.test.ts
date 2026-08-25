@@ -101,7 +101,6 @@ describe("getNetworkInfo", () => {
         calls.push({ method, params });
         return {
           networkHash: "0x" + "cd".repeat(32),
-          genesisHash: "0x" + "ab".repeat(32),
           futureField: true,
         } as T;
       },
@@ -113,26 +112,21 @@ describe("getNetworkInfo", () => {
       { method: "groundhog_networkInfo", params: undefined },
     ]);
     expect(network.networkHash).toEqual(new Uint8Array(32).fill(0xcd));
-    expect(network.genesisHash).toEqual(new Uint8Array(32).fill(0xab));
   });
 
   it("returns localnet identity from the mock transport", async () => {
     const network = await getNetworkInfo(new MockTransport());
 
     expect(network.networkHash).toEqual(new Uint8Array(32));
-    expect(network.genesisHash).toEqual(new Uint8Array(32));
   });
 
   it.each([
     null,
     {},
-    { networkHash: "", genesisHash: "0x" + "00".repeat(32) },
-    { networkHash: "0x" + "00".repeat(32), genesisHash: "00".repeat(32) },
-    {
-      networkHash: "0x" + "00".repeat(32),
-      genesisHash: "0x" + "AA".repeat(32),
-    },
-    { networkHash: "0x" + "00".repeat(32), genesisHash: "0x00" },
+    { networkHash: "" },
+    { networkHash: "00".repeat(32) },
+    { networkHash: "0x" + "AA".repeat(32) },
+    { networkHash: "0x00" },
   ])("rejects malformed network identity: %j", async (result) => {
     const transport: Transport = {
       async request<T>(): Promise<T> {
@@ -151,7 +145,7 @@ describe("getVersion", () => {
     const transport = new MockTransport();
     const version = await getVersion(transport);
     expect(version).toEqual({
-      wireFormat: "4.0.0",
+      wireFormat: "3.3.0",
       implementation: "mock",
       commitHash: null,
       platformVersion: null,

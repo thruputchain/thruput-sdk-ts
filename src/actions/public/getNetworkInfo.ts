@@ -23,17 +23,7 @@ export async function getNetworkInfo(
       "Invalid network info response: expected canonical networkHash",
     );
   }
-  if (
-    typeof network.genesisHash !== "string" ||
-    !CANONICAL_SHA256_HASH.test(network.genesisHash)
-  ) {
-    throw new Error(
-      "Invalid network info response: expected canonical genesisHash",
-    );
-  }
-
   return {
     networkHash: networkHash(hashFromHex(network.networkHash)),
-    genesisHash: hashFromHex(network.genesisHash),
   };
 }

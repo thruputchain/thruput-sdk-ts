@@ -181,7 +181,7 @@ export interface GroundhogClientOptions {
 export interface ClusterGroundhogClientOptions<
   TCluster extends Cluster = Cluster,
 > {
-  readonly cluster: TCluster;
+  readonly cluster: TCluster & { readonly genesisHash?: never };
   /** Custom transport. Defaults to an HTTP transport for `cluster.rpcUrl`. */
   readonly transport?: Transport;
 }

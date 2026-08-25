@@ -213,7 +213,6 @@ describe("contract tests against specs/openrpc.json", () => {
   it("groundhog_networkInfo — sends an empty params array", async () => {
     const { transport, calls } = spyTransport({
       networkHash: "0x" + "11".repeat(32),
-      genesisHash: "0x" + "22".repeat(32),
     });
     await getNetworkInfo(transport);
     expect(calls).toHaveLength(1);

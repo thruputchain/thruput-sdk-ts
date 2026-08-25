@@ -241,7 +241,6 @@ describe("wallet account defaults", () => {
           if (method === "groundhog_networkInfo") {
             return {
               networkHash: "0x" + "11".repeat(32),
-              genesisHash: "0x" + "00".repeat(32),
             } as T;
           }
           throw new Error(`Unexpected method: ${method}`);

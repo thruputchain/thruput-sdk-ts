@@ -25,6 +25,12 @@ function assertClusterTypes(
     rpcUrl: "https://rpc.example.com",
     capabilities: ["airdrop"],
   });
+  const legacyCluster = {
+    capabilities: [] as const,
+    genesisHash: new Uint8Array(32),
+  };
+  // @ts-expect-error Genesis identity is not part of the public RPC contract.
+  defineCluster(legacyCluster);
 
   const devnetCapability: "airdrop" = devnetCluster.capabilities[0];
   const localnetSupportsAirdrop: ClusterHasCapability<
@@ -53,6 +59,8 @@ function assertClusterTypes(
     ConnectedGroundhogClient<typeof devnetCluster>
   > = createGroundhogClient({ cluster: devnetCluster });
   const unqualified = createGroundhogClient({ transport });
+  // @ts-expect-error Genesis identity cannot be validated by the client.
+  createGroundhogClient({ cluster: legacyCluster, transport });
 
   // @ts-expect-error Mainnet declares no optional capabilities.
   mainnetCluster.capabilities[0];

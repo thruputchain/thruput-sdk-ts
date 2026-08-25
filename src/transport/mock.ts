@@ -52,10 +52,9 @@ export class MockTransport implements Transport {
     }
   }
 
-  #networkInfo(): { networkHash: string; genesisHash: string } {
+  #networkInfo(): { networkHash: string } {
     return {
       networkHash: "0x" + "00".repeat(32),
-      genesisHash: "0x" + "00".repeat(32),
     };
   }
 
@@ -135,7 +134,7 @@ export class MockTransport implements Transport {
     platformVersion: null;
   } {
     return {
-      wireFormat: "4.0.0",
+      wireFormat: "3.3.0",
       implementation: "mock",
       commitHash: null,
       platformVersion: null,

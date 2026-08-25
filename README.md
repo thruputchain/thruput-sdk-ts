@@ -59,9 +59,9 @@ control polling itself.
 The predefined clusters are `mainnet`, `devnet`, and `localnet`. Declare a
 deployment-specific cluster inline, or use `defineCluster` when the descriptor
 will be reused. Devnet and localnet include default RPC URLs; pass `rpcUrl` to
-override them. Mainnet has no default endpoint yet. Supply a genesis hash to
-any cluster descriptor when the application must pin one materialized genesis
-state. Pass an explicit transport for custom headers or request handling. Omit
+override them. Mainnet has no default endpoint yet. Supply a `networkHash` when
+the application must pin the protocol identity used for transaction signing.
+Pass an explicit transport for custom headers or request handling. Omit
 `cluster` to use an unknown endpoint without runtime identity validation.
 
 ```ts
@@ -214,7 +214,7 @@ when operating multiple accounts against the same endpoint.
 ## Examples
 
 - [`chain-tip.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/chain-tip.ts) validates Devnet and reads its latest block.
-- [`transfer-hog.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/transfer-hog.ts) funds a pubkey account and transfers HOG on Devnet.
+- [`transfer-hog.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/transfer-hog.ts) funds two pubkey accounts and transfers HOG on Devnet.
 - [`view-hog-balance.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/view-hog-balance.ts) reads local `dev-1`'s HOG balance.
 - [`deploy-counter.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/deploy-counter.ts) deploys and calls a Counter contract through DevWallet.
 

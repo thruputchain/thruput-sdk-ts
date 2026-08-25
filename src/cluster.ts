@@ -2,7 +2,6 @@ import {
   networkHash as toNetworkHash,
   sha256Hash,
   type NetworkHash,
-  type SHA256Hash,
 } from "@groundhogchain/protocol";
 import type { NetworkInfo } from "./types/rpc.js";
 import { toHex0x } from "./actions/hex.js";
@@ -29,9 +28,6 @@ export interface Cluster<
 
   /** Default JSON-RPC endpoint, when the cluster has one. */
   readonly rpcUrl?: string;
-
-  /** Optional genesis hash pin for deployments that require exact identity. */
-  readonly genesisHash?: SHA256Hash;
 
   /** Optional RPC features expected to be available on the cluster. */
   readonly capabilities: TCapabilities;
@@ -62,14 +58,11 @@ export interface PredefinedClusterOptions {
 
   /** Pin the endpoint to one protocol signing network. */
   readonly networkHash?: NetworkHash;
-
-  /** Pin the endpoint to one materialized genesis state. */
-  readonly genesisHash?: SHA256Hash;
 }
 
 /** Define a reusable cluster while preserving its literal capability types. */
 export function defineCluster<const TCluster extends Cluster>(
-  cluster: TCluster,
+  cluster: TCluster & { readonly genesisHash?: never },
 ): TCluster {
   if (cluster.rpcUrl !== undefined) validateRpcUrl(cluster.rpcUrl);
   return Object.freeze({
@@ -81,9 +74,6 @@ export function defineCluster<const TCluster extends Cluster>(
             sha256Hash(new Uint8Array(cluster.networkHash)),
           ),
         }),
-    ...(cluster.genesisHash === undefined
-      ? {}
-      : { genesisHash: sha256Hash(new Uint8Array(cluster.genesisHash)) }),
     capabilities: Object.freeze([
       ...cluster.capabilities,
     ]) as unknown as TCluster["capabilities"],
@@ -99,7 +89,6 @@ export function mainnet(
     capabilities: [] as const,
     ...withOptionalRpcUrl(options),
     ...withNetworkHash(options),
-    ...withGenesisHash(options),
   });
 }
 
@@ -112,7 +101,6 @@ export function devnet(
     rpcUrl: options.rpcUrl ?? DEVNET_RPC_URL,
     capabilities: ["airdrop"] as const,
     ...withNetworkHash(options),
-    ...withGenesisHash(options),
   });
 }
 
@@ -126,7 +114,6 @@ export function localnet(
       options.networkHash ?? toNetworkHash(sha256Hash(new Uint8Array(32))),
     rpcUrl: options.rpcUrl ?? LOCALNET_RPC_URL,
     capabilities: ["airdrop"] as const,
-    ...withGenesisHash(options),
   });
 }
 
@@ -136,14 +123,12 @@ export class NetworkMismatchError extends Error {
   readonly actual: NetworkInfo;
 
   constructor(cluster: Cluster, actual: NetworkInfo) {
-    const expectedIdentity = [
-      cluster.networkHash && `network ${toHex0x(cluster.networkHash)}`,
-      cluster.genesisHash && `genesis ${toHex0x(cluster.genesisHash)}`,
-    ]
-      .filter(Boolean)
-      .join(", ");
+    const expected =
+      cluster.networkHash === undefined
+        ? "an unpinned network"
+        : `network ${toHex0x(cluster.networkHash)}`;
     super(
-      `Network mismatch: expected ${expectedIdentity}, received network ${toHex0x(actual.networkHash)}, genesis ${toHex0x(actual.genesisHash)}`,
+      `Network mismatch: expected ${expected}, received network ${toHex0x(actual.networkHash)}`,
     );
     this.name = "NetworkMismatchError";
     this.cluster = cluster;
@@ -157,10 +142,8 @@ export function assertNetworkMatchesCluster(
   actual: NetworkInfo,
 ): void {
   if (
-    (cluster.networkHash !== undefined &&
-      !bytesEqual(actual.networkHash, cluster.networkHash)) ||
-    (cluster.genesisHash !== undefined &&
-      !bytesEqual(actual.genesisHash, cluster.genesisHash))
+    cluster.networkHash !== undefined &&
+    !bytesEqual(actual.networkHash, cluster.networkHash)
   ) {
     throw new NetworkMismatchError(cluster, actual);
   }
@@ -172,14 +155,6 @@ function withNetworkHash(options: PredefinedClusterOptions): {
   return options.networkHash === undefined
     ? {}
     : { networkHash: options.networkHash };
-}
-
-function withGenesisHash(options: PredefinedClusterOptions): {
-  genesisHash?: SHA256Hash;
-} {
-  return options.genesisHash === undefined
-    ? {}
-    : { genesisHash: options.genesisHash };
 }
 
 function withOptionalRpcUrl(options: PredefinedClusterOptions): {
