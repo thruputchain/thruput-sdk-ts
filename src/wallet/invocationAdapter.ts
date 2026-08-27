@@ -6,7 +6,7 @@ import {
   type GasAmount,
   type Invocation,
 } from "@groundhogchain/protocol";
-import { fixedBytes } from "../contract/fixed.js";
+import { fixedBytes } from "@groundhogchain/xdr";
 import { DefaultWallet } from "../contracts/default_wallet.js";
 import { DevWallet } from "../contracts/dev_wallet.js";
 

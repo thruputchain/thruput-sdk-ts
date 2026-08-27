@@ -54,5 +54,5 @@ export {
   fixedBytes,
   type FixedArray,
   type FixedBytes,
-} from "./fixed.js";
+} from "@groundhogchain/xdr";
 export * from "./spec.js";

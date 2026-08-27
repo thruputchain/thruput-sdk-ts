@@ -1,5 +1,6 @@
 import type { Calldata } from "@groundhogchain/protocol";
 import {
+  fixedArray,
   FixedOpaqueCodec,
   Uint8Codec,
   VarOpaqueCodec,
@@ -26,7 +27,6 @@ import {
 import type { ContractType, ContractSpec, ContractSpecMethod } from "./spec.js";
 import { ContractTypeKind } from "./spec.js";
 import { ContractDecodeError } from "./errors.js";
-import { fixedArray } from "./fixed.js";
 
 const AddressCodec = requireByteArrayCodec(
   codec.ContractAddress as XdrCodec<Uint8Array>,

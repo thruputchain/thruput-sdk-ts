@@ -67,7 +67,7 @@ describe("contract event construction and decoding", () => {
   it("validates signature length and the protocol topic maximum", () => {
     expect(() =>
       defineContractEvent(definition({ signature: new Uint8Array(31) })),
-    ).toThrow("FixedBytes expected length 32, got 31");
+    ).toThrow("FixedBytes expected 32 bytes, got 31");
     expect(() =>
       defineContractEvent(
         definition({
@@ -271,7 +271,7 @@ describe("contract event filters", () => {
       descriptor.filter({
         contractAddresses: [new Uint8Array(31) as typeof emitterA],
       }),
-    ).toThrow("FixedBytes expected length 32, got 31");
+    ).toThrow("FixedBytes expected 32 bytes, got 31");
     expect(() =>
       descriptor.filter({
         contractAddresses: Array(6).fill(emitterA),
@@ -309,7 +309,7 @@ describe("contract event filters", () => {
         contractAddresses: [emitterA],
         topics: { id: new Uint8Array(31) },
       }),
-    ).toThrow("FixedBytes expected length 32, got 31");
+    ).toThrow("FixedBytes expected 32 bytes, got 31");
   });
 
   it("rejects hash-represented topics as not directly filterable", () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CxsWriter, Int32Codec } from "@groundhogchain/protocol";
+import type { FixedArray } from "@groundhogchain/xdr";
 import {
   contractSpecString,
   ContractTypeDefKind,
@@ -14,7 +15,6 @@ import {
 } from "./codec.js";
 import { resolveCodec } from "./encode.js";
 import { ContractDecodeError } from "./errors.js";
-import type { FixedArray } from "./fixed.js";
 import type { ContractType, ContractTypeDef } from "./spec.js";
 
 const s = contractSpecString;
