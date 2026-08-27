@@ -4,10 +4,10 @@ import {
   gasAmount,
 } from "@groundhogchain/protocol";
 import { toHex } from "@groundhogchain/protocol/utils";
+import { fixedBytes } from "@groundhogchain/xdr";
 import { describe, expect, it } from "vitest";
 import { buildNamedCodecs } from "../contract/codegen.js";
 import { decodeCalldata } from "../contract/encode.js";
-import { fixedBytes } from "../contract/fixed.js";
 import {
   DefaultWallet,
   WalletError,

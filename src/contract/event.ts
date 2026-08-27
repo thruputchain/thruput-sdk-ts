@@ -3,7 +3,7 @@ import {
   kMaxEventLength,
   type ContractAddress,
 } from "@groundhogchain/protocol";
-import { CxsReader, type XdrCodec } from "@groundhogchain/xdr";
+import { CxsReader, fixedBytes, type XdrCodec } from "@groundhogchain/xdr";
 import type {
   EmittedEvent,
   EventFilter,
@@ -12,7 +12,6 @@ import type {
 import type { ContractCodecContext } from "./codec.js";
 import { resolveContextCodec } from "./codec.js";
 import { ContractDecodeError } from "./errors.js";
-import { fixedBytes } from "./fixed.js";
 import { ContractTypeKind, type ContractType } from "./spec.js";
 
 const maxFilterContractAddresses = 5;

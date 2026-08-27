@@ -75,6 +75,13 @@ This work does not:
 
 ## Fixed Values
 
+> Superseded as of `@groundhogchain/xdr` 0.9.0, which owns these types and
+> constructors now that generated protocol types carry their XDR array bounds.
+> `@groundhogchain/client/contract` re-exports them, so the consumer-facing names
+> below are unchanged; the brand is now the narrowed `length` property rather than
+> a `unique symbol`, and `fixedBytes` returns a copy instead of branding the
+> caller's array in place.
+
 Export:
 
 ```ts
