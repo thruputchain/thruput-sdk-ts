@@ -43,6 +43,11 @@
       "types": "./dist/local-dev.d.ts",
       "import": "./dist/local-dev.js",
       "require": "./dist/local-dev.cjs"
+    },
+    "./operations": {
+      "types": "./dist/operations.d.ts",
+      "import": "./dist/operations.js",
+      "require": "./dist/operations.cjs"
     }
   },
   "files": [

@@ -58,5 +58,7 @@ export { hashSignedTransaction } from "./derivation/transactionHash.js";
 export {
   deriveEntrypointID,
   majorVersionFromSemver,
+  operationTypeId,
 } from "./derivation/entrypointId.js";
+export * from "./operations/index.js";
 export type * from "./types/rpc.js";

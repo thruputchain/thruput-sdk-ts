@@ -49,12 +49,42 @@ export class DomainSeparator {
     return new DomainSeparator(bytes);
   }
 
-  /** `sha256(prefix || objectCxs)` over already-CXS-encoded object bytes. */
-  hash(objectCxs: Uint8Array): SHA256Hash {
+  /**
+   * Builds the separator for an application's own signing domain, folding
+   * `version` into the name as `"<app>::<version>"`.
+   *
+   * The version is the schema version of the messages signed under this
+   * separator, and exists to be bumped: `"MyApp::1"` and `"MyApp::2"` are
+   * different domains, so bumping retires every signature made under the old
+   * schema at once.
+   *
+   * It rides inside the name rather than as its own protocol field because
+   * `DomainSeparator` is shared with the validator — a new field would change
+   * every separator's encoding, moving every pubkey account address and
+   * invalidating every in-flight transaction signature. Mirrors the Rust
+   * `domain_separator!(NAME = "MyApp" version "1")` macro.
+   */
+  static versioned(app: string, version: string): DomainSeparator {
+    return DomainSeparator.make(`${app}::${version}`);
+  }
+
+  /**
+   * `prefix || objectCxs` — the preimage bytes themselves.
+   *
+   * This is what a signature covers when an object is *signed* rather than
+   * hashed into an identifier; Ed25519 hashes its own message, so there is no
+   * pre-hash. See `signedOperationPreimage`.
+   */
+  preimage(objectCxs: Uint8Array): Uint8Array {
     const preimage = new Uint8Array(this.bytes.length + objectCxs.length);
     preimage.set(this.bytes, 0);
     preimage.set(objectCxs, this.bytes.length);
-    return sha256Hash(sha256(preimage));
+    return preimage;
+  }
+
+  /** `sha256(prefix || objectCxs)` over already-CXS-encoded object bytes. */
+  hash(objectCxs: Uint8Array): SHA256Hash {
+    return sha256Hash(sha256(this.preimage(objectCxs)));
   }
 
   /** `sha256(prefix || cxs(value))`, serializing `value` with `objectCodec`. */
@@ -66,6 +96,18 @@ export class DomainSeparator {
 /** Domain separator for pubkey account address derivation. */
 export const PUBKEY_ACCOUNT: DomainSeparator =
   DomainSeparator.make("PubkeyAccount");
+
+/**
+ * Domain separator for signed operations.
+ *
+ * Versioned (`"SignedOp::1"`) because the envelope's own shape may change;
+ * individual operations are told apart *within* this domain by their operation
+ * type ID, not by separate separators. Mirrors the Rust `SIGNED_OP`.
+ */
+export const SIGNED_OP: DomainSeparator = DomainSeparator.versioned(
+  "SignedOp",
+  "1",
+);
 
 /**
  * Domain separator for transaction signature preimages.
