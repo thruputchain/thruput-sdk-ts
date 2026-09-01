@@ -91,7 +91,7 @@ export class HttpTransport implements Transport {
   constructor(url: string, options: HttpTransportOptions = {}) {
     this.#url = url;
     this.#headers = options.headers;
-    this.#fetch = options.fetch ?? fetch;
+    this.#fetch = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.#timeoutMs = options.timeoutMs;
   }
 
