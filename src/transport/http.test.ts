@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import openrpcSpec from "../../specs/openrpc.json";
 import {
   GroundhogRpcErrorCode,
@@ -24,6 +24,24 @@ describe("GroundhogRpcErrorCode", () => {
 });
 
 describe("HttpTransport", () => {
+  it("binds the default fetch to the global object", async () => {
+    const fetchMock = vi.fn(function (this: unknown) {
+      if (this !== globalThis) throw new TypeError("Illegal invocation");
+      return Promise.resolve(
+        Response.json({ jsonrpc: "2.0", id: 1, result: "ok" }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      await expect(
+        new HttpTransport("http://localhost").request("groundhog_version"),
+      ).resolves.toBe("ok");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("throws a structured error for unsuccessful HTTP responses", async () => {
     const fetchMock: typeof fetch = async () =>
       new Response(null, { status: 401, statusText: "Unauthorized" });
