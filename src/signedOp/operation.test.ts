@@ -93,6 +93,32 @@ describe("defineSignedOperation", () => {
     }
   });
 
+  it("rejects mis-sized key or signature bytes from a custom signer", async () => {
+    const shortKey = {
+      publicKey: {
+        scheme: CryptographicScheme.Ed25519,
+        ed25519: new Uint8Array(31),
+      },
+      sign: signer.sign.bind(signer),
+    } as unknown as Signer;
+    await expect(transfer.sign(shortKey, request)).rejects.toThrow(
+      /exactly 32 bytes/,
+    );
+
+    const shortSignature: Signer = {
+      publicKey: signer.publicKey,
+      async sign() {
+        return {
+          scheme: CryptographicScheme.Ed25519,
+          ed25519: new Uint8Array(63),
+        } as Awaited<ReturnType<Signer["sign"]>>;
+      },
+    };
+    await expect(transfer.sign(shortSignature, request)).rejects.toThrow(
+      /exactly 64 bytes/,
+    );
+  });
+
   it("refuses a signer whose key is not Ed25519", async () => {
     const bogus = {
       publicKey: { scheme: 0xff as CryptographicScheme },

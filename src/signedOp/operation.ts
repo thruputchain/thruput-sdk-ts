@@ -1,5 +1,10 @@
 import type { ContractAddress, NetworkHash } from "@groundhogchain/protocol";
-import { CryptographicScheme, blockHeight } from "@groundhogchain/protocol";
+import {
+  CryptographicScheme,
+  blockHeight,
+  ed25519PublicKey,
+  ed25519Signature,
+} from "@groundhogchain/protocol";
 import {
   ContractTypeDefKind,
   ContractTypeKind,
@@ -152,6 +157,9 @@ export function defineSignedOperation<TBody>(
       if (publicKey.scheme !== CryptographicScheme.Ed25519) {
         throw new Error("Signed operations require an Ed25519 signer");
       }
+      // A custom signer's bytes are untrusted: the constructors reject any
+      // length but the 32 and 64 the wire struct's fixed arrays encode.
+      const signerKey = ed25519PublicKey(publicKey.ed25519);
       const body = bodyCodec.encode(request.body);
       const signature = await signer.sign(preimageOf(request, body));
       if (signature.scheme !== CryptographicScheme.Ed25519) {
@@ -159,12 +167,12 @@ export function defineSignedOperation<TBody>(
       }
       return {
         op: {
-          signer: publicKey.ed25519,
+          signer: signerKey,
           nonce: request.nonce,
           valid_until: request.validUntil,
           body,
         },
-        signature: signature.ed25519,
+        signature: ed25519Signature(signature.ed25519),
       };
     },
   };
