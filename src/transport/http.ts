@@ -50,6 +50,9 @@ export class HttpResponseError extends Error {
   }
 }
 
+/** Request timeout used when `timeoutMs` is omitted. */
+const DEFAULT_TIMEOUT_MS = 30_000;
+
 /** Options for {@link HttpTransport}. */
 export interface HttpTransportOptions {
   /** Additional HTTP headers to include with each JSON-RPC request. */
@@ -58,7 +61,12 @@ export interface HttpTransportOptions {
   /** Custom `fetch` implementation, useful for tests or non-standard runtimes. */
   fetch?: typeof fetch;
 
-  /** Abort each request after this many milliseconds. */
+  /**
+   * Abort each request after this many milliseconds.
+   *
+   * Defaults to 30 000 ms so a stalled endpoint cannot hang a request forever.
+   * Pass `0` to disable the timeout.
+   */
   timeoutMs?: number;
 }
 
@@ -66,8 +74,8 @@ export interface HttpTransportOptions {
  * JSON-RPC 2.0 transport over HTTP POST.
  *
  * `HttpTransport` handles request IDs, JSON-RPC envelopes, optional custom
- * headers, optional timeout cancellation, and conversion of JSON-RPC error
- * responses into {@link JsonRpcError}.
+ * headers, timeout cancellation (30 s by default), and conversion of JSON-RPC
+ * error responses into {@link JsonRpcError}.
  *
  * @example
  * ```ts
@@ -84,7 +92,7 @@ export class HttpTransport implements Transport {
   #url: string;
   #headers?: Record<string, string>;
   #fetch: typeof fetch;
-  #timeoutMs?: number;
+  #timeoutMs: number;
   #nextId = 1;
 
   /** Create an HTTP transport for a Groundhog JSON-RPC endpoint URL. */
@@ -92,7 +100,7 @@ export class HttpTransport implements Transport {
     this.#url = url;
     this.#headers = options.headers;
     this.#fetch = options.fetch ?? globalThis.fetch.bind(globalThis);
-    this.#timeoutMs = options.timeoutMs;
+    this.#timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   }
 
   /** Send one JSON-RPC request and return the decoded `result` value. */

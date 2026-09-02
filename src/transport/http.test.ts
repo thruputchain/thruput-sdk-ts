@@ -134,6 +134,48 @@ describe("HttpTransport", () => {
     ).rejects.toMatchObject({ name: "AbortError" });
   });
 
+  it("applies a 30 second timeout by default", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchMock: typeof fetch = async (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(new DOMException("Aborted", "AbortError"));
+          });
+        });
+
+      const request = new HttpTransport("http://localhost", {
+        fetch: fetchMock,
+      }).request("groundhog_version");
+      const outcome = expect(request).rejects.toMatchObject({
+        name: "AbortError",
+      });
+
+      await vi.advanceTimersByTimeAsync(29_999);
+      await vi.advanceTimersByTimeAsync(1);
+      await outcome;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("disables the timeout when timeoutMs is 0", async () => {
+    let capturedSignal: AbortSignal | null | undefined;
+    const fetchMock: typeof fetch = async (_url, init) => {
+      capturedSignal = init?.signal;
+      return new Response(
+        JSON.stringify({ jsonrpc: "2.0", id: 1, result: "ok" }),
+      );
+    };
+
+    await new HttpTransport("http://localhost", {
+      fetch: fetchMock,
+      timeoutMs: 0,
+    }).request("groundhog_version");
+
+    expect(capturedSignal).toBeUndefined();
+  });
+
   it("forwards per-request cancellation to fetch", async () => {
     const fetchMock: typeof fetch = async (_url, init) =>
       new Promise((_resolve, reject) => {
