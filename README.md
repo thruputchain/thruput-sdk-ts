@@ -211,6 +211,16 @@ Because wallet decoration binds account-specific closures to the supplied
 client, each client instance can be bound once. Create another client instance
 when operating multiple accounts against the same endpoint.
 
+## Documentation
+
+- [TypeScript SDK guide](https://docs.groundhog.dev/tools/typescript-sdk/) and the
+  [end-to-end tutorial](https://docs.groundhog.dev/tutorials/work-with-groundhog-from-typescript/)
+  on the Groundhog developer site.
+- [JSON-RPC API reference](https://docs.groundhog.dev/reference/json-rpc-api/) for the
+  methods behind each action.
+- The TypeDoc API reference is generated from this package's entry points with
+  `npm run docs` (see [API docs](#api-docs)).
+
 ## Examples
 
 - [`chain-tip.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/chain-tip.ts) validates Devnet and reads its latest block.

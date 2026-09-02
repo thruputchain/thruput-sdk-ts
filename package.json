@@ -2,7 +2,24 @@
   "name": "@groundhogchain/client",
   "version": "0.5.1",
   "description": "TypeScript client for the Groundhog blockchain",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/groundhogchain/client-ts.git"
+  },
+  "homepage": "https://docs.groundhog.dev/tools/typescript-sdk/",
+  "bugs": {
+    "url": "https://github.com/groundhogchain/client-ts/issues"
+  },
+  "keywords": [
+    "groundhog",
+    "blockchain",
+    "json-rpc",
+    "ed25519",
+    "sdk",
+    "client"
+  ],
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
