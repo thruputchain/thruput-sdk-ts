@@ -22,6 +22,7 @@ const requiredExports = {
     "ContractViewError",
     "HttpResponseError",
     "HttpTransport",
+    "InvalidTransactionReceiptError",
     "PrivateKeySigner",
     "createGroundhogClient",
     "createPubkeyAccount",
