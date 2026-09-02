@@ -26,6 +26,7 @@ const execStatusToResult: Record<string, ExecResult> = {
   failedGasSponsorship: ExecResult.ExecResultFailedGasSponsorship,
 };
 
+/** Error thrown when a transaction receipt does not match the RPC contract. */
 export class InvalidTransactionReceiptError extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options);

@@ -20,6 +20,7 @@ let checked = 0;
 const requiredExports = {
   ".": [
     "ContractViewError",
+    "HttpResponseError",
     "HttpTransport",
     "PrivateKeySigner",
     "createGroundhogClient",
@@ -41,6 +42,7 @@ const requiredExports = {
   ],
   "./transport": [
     "GroundhogRpcErrorCode",
+    "HttpResponseError",
     "HttpTransport",
     "JsonRpcError",
     "MockTransport",
@@ -66,6 +68,7 @@ const requiredExports = {
   ],
   "./signers": ["PrivateKeySigner"],
   "./actions": [
+    "InvalidTransactionReceiptError",
     "getChainTip",
     "getEvents",
     "getNetworkInfo",
