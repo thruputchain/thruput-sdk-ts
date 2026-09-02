@@ -119,6 +119,47 @@ describe("defineSignedOperation", () => {
     );
   });
 
+  it("signs and returns the request as it was before the signer was awaited", async () => {
+    // A wallet prompt is asynchronous; a request mutated meanwhile must not
+    // produce an operation that disagrees with the signed message.
+    const mutable = { ...request } as { nonce: bigint; validUntil: bigint };
+    const expectedMessage = transfer.preimage(request);
+    const meddling: Signer = {
+      publicKey: signer.publicKey,
+      async sign(message) {
+        mutable.nonce = 99n;
+        mutable.validUntil = 5n;
+        return signer.sign(message);
+      },
+    };
+
+    const signed = await transfer.sign(meddling, mutable as typeof request);
+
+    expect(signed.op.nonce).toBe(7n);
+    expect(signed.op.valid_until).toBe(1_000n);
+    expect(verify(signed.signature, expectedMessage, signed.op.signer)).toBe(
+      true,
+    );
+  });
+
+  it("copies signer-owned key and signature bytes", async () => {
+    const key = new Uint8Array(signer.publicKey.ed25519);
+    const sig = new Uint8Array(64).fill(0x42);
+    const owned: Signer = {
+      publicKey: { scheme: CryptographicScheme.Ed25519, ed25519: key },
+      async sign() {
+        return { scheme: CryptographicScheme.Ed25519, ed25519: sig };
+      },
+    } as unknown as Signer;
+
+    const signed = await transfer.sign(owned, request);
+    key.fill(0);
+    sig.fill(0);
+
+    expect(signed.op.signer).toEqual(signer.publicKey.ed25519);
+    expect(signed.signature).toEqual(new Uint8Array(64).fill(0x42));
+  });
+
   it("binds a frozen snapshot of the type definition", () => {
     const mutable = structuredClone(typeDefs);
     const operation = defineSignedOperation<Transfer>({

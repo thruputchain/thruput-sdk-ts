@@ -140,14 +140,16 @@ export function defineSignedOperation<TBody>(
 
   const preimageOf = (
     request: SignedOperationRequest<TBody>,
+    nonce: bigint,
+    validUntil: bigint,
     body: Uint8Array,
   ): Uint8Array =>
     signedOperationPreimage({
       network: request.network,
       verifyingContract: request.verifyingContract,
       typeDef,
-      nonce: request.nonce,
-      validUntil: blockHeight(request.validUntil),
+      nonce,
+      validUntil: blockHeight(validUntil),
       body,
     });
 
@@ -155,28 +157,36 @@ export function defineSignedOperation<TBody>(
     typeName: options.typeName,
     typeDef,
     encodeBody: (body) => bodyCodec.encode(body),
-    preimage: (request) => preimageOf(request, bodyCodec.encode(request.body)),
+    preimage: (request) =>
+      preimageOf(
+        request,
+        request.nonce,
+        request.validUntil,
+        bodyCodec.encode(request.body),
+      ),
     async sign(signer, request) {
       const publicKey = signer.publicKey;
       if (publicKey.scheme !== CryptographicScheme.Ed25519) {
         throw new Error("Signed operations require an Ed25519 signer");
       }
-      // A custom signer's bytes are untrusted: the constructors reject any
-      // length but the 32 and 64 the wire struct's fixed arrays encode.
-      const signerKey = ed25519PublicKey(publicKey.ed25519);
+      // Everything the returned operation carries is taken before the signer
+      // is awaited, so a request mutated while a wallet prompt is pending
+      // cannot make the operation disagree with the message that was signed.
+      // Signer-owned byte arrays are copied for the same reason, and the
+      // constructors reject any length but the 32 and 64 the wire struct's
+      // fixed arrays encode.
+      const nonce = request.nonce;
+      const validUntil = request.validUntil;
+      const signerKey = ed25519PublicKey(new Uint8Array(publicKey.ed25519));
       const body = bodyCodec.encode(request.body);
-      const signature = await signer.sign(preimageOf(request, body));
+      const message = preimageOf(request, nonce, validUntil, body);
+      const signature = await signer.sign(message);
       if (signature.scheme !== CryptographicScheme.Ed25519) {
         throw new Error("Signer did not return an Ed25519 signature");
       }
       return {
-        op: {
-          signer: signerKey,
-          nonce: request.nonce,
-          valid_until: request.validUntil,
-          body,
-        },
-        signature: ed25519Signature(signature.ed25519),
+        op: { signer: signerKey, nonce, valid_until: validUntil, body },
+        signature: ed25519Signature(new Uint8Array(signature.ed25519)),
       };
     },
   };

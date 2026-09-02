@@ -18,4 +18,4 @@ fi
 # formatting and `npm run format:check` stays clean across regens.
 npx --no-install prettier --write "$VECTORS_DIR"/*.json >/dev/null
 echo "Regenerated specs/test-vectors/"
-echo "Next: run \`npm test\` — the derivation tests replay every vector, so a mismatch names the vector and the stage (prefix, preimage CXS, or address) that drifted."
+echo "Next: run \`npm test\` — the derivation and signed-op tests replay every vector, so a mismatch names the vector and the stage (prefix, preimage CXS, address, or signed message) that drifted."
