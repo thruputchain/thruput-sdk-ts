@@ -100,7 +100,8 @@ its canonical Groundhog contract hash is
 Wallet binding provenance and all canonical input hashes are recorded in
 [`specs/contracts/README.md`](../specs/contracts/README.md).
 
-To build a contract and generate TypeScript bindings with CLI `0.9.6`:
+To build a contract and generate TypeScript bindings with the `groundhog` CLI
+(0.9.6 or newer):
 
 ```bash
 groundhog build -p counter --bindings ts
