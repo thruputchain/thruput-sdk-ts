@@ -10,12 +10,39 @@ named topic filters, and receipt extraction.
 
 ## Install
 
-```sh
-npm install @groundhogchain/client
+`@groundhogchain/*` packages are distributed through GitHub Packages, which
+requires a token with `read:packages` even to download. In the project that
+will consume the client, add to its `.npmrc`:
+
+```
+@groundhogchain:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GH_NPM_TOKEN}
 ```
 
-The package is currently distributed through GitHub Packages and requires a
-token with `read:packages`. See [Registry auth](#registry-auth-one-time-setup).
+(The line holds no secret: npm expands `${ENV_VARS}` from the environment. It
+cannot run commands, so `$(gh auth token)` there does not work.) Then:
+
+```sh
+gh auth refresh -h github.com -s read:packages   # one-time, opens github.com
+GH_NPM_TOKEN="$(gh auth token)" npm install @groundhogchain/client
+```
+
+Without the token `npm install` fails with `401 Unauthorized` from
+`npm.pkg.github.com`; if you forget the `GH_NPM_TOKEN=` prefix, npm fails with
+`Failed to replace env in config`.
+
+Generated contract bindings import `@groundhogchain/protocol` and
+`@groundhogchain/contract-spec` directly, so install those alongside the
+client, at the versions this package depends on — a mismatched `protocol`
+gives you two copies of the branded `ContractAddress` type and type errors
+that do not explain themselves:
+
+```sh
+GH_NPM_TOKEN="$(gh auth token)" npm install \
+  @groundhogchain/client \
+  @groundhogchain/protocol \
+  @groundhogchain/contract-spec
+```
 
 ## Usage
 
@@ -103,6 +130,72 @@ const faucet = await loadLocalDevAccount({ role: "faucet" });
 
 The `local-dev` entrypoint is for local development only. Its deterministic
 signers must never be used with production networks or funds of value.
+
+## Your own contract
+
+The bindings above are for the standard contracts this package ships. For your
+own contract, generate a binding from its spec with the Groundhog CLI:
+
+```sh
+groundhog build --bindings ts          # writes target/groundhog/<name>.ts
+# or, from a spec you already have:
+groundhog codegen ts target/groundhog/<name>.spec.xdr -o src/generated/<name>.ts
+```
+
+Copy the generated file into your project and import it. It is a normal module
+with no build step, importing from `@groundhogchain/client/contract`,
+`@groundhogchain/protocol`, and `@groundhogchain/contract-spec` — see
+[Install](#install) for getting all three.
+
+```ts
+import { gasAmount } from "@groundhogchain/protocol";
+import { Counter } from "./generated/counter.js";
+
+// Read: no transaction, no signer.
+const value = await Counter.get.view({
+  client,
+  contract: counterAddress,
+  caller: account.address,
+});
+console.log(value.value); // integers arrive as bigint
+
+// Write: build an invocation, send it through a wallet client, then decode
+// the receipt with the *wallet* binding, which is what the root invocation
+// actually targets.
+const increment = Counter.increment.invocation(
+  counterAddress,
+  gasAmount(500_000n),
+  {
+    amount: 5n,
+  },
+);
+const txHash = await wallet.execute({
+  invocation: increment,
+  gasLimit: walletGasLimit,
+});
+const receipt = await wallet.waitForTransactionReceipt(txHash);
+DefaultWallet.execute.decodeReceipt(receipt);
+```
+
+Types follow the contract spec: every integer width is a `bigint`, `Address` is
+a branded `Uint8Array`, `Option<T>` is `T | null`, and `[u8; N]` is
+`FixedBytes<N>` (build one with `fixedBytes(bytes, N)`).
+
+Events decode from a receipt or from `getEvents`:
+
+```ts
+const ping = Counter.PingEvent.singleFromReceipt(receipt, {
+  contractAddress: counterAddress,
+});
+```
+
+Note that a `#[topic]` field which is not already 32 bytes wide is hashed when
+emitted, so it can be filtered on but not read back; a value you need to
+recover belongs in the event payload rather than in a topic.
+
+For a complete deploy-then-call script, see
+[`examples/deploy-counter.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/deploy-counter.ts)
+and [Contract deployment](https://github.com/groundhogchain/client-ts/blob/main/docs/contract-deployment.md).
 
 ## Wallet clients
 
@@ -233,6 +326,9 @@ helpers, generated standard contracts, signers, and standalone actions.
 - `src/transaction/` — transaction build, serialize, and sign helpers.
 - `src/contract/` — reusable codecs, typed method and event descriptors, fixed-length values, and contract spec helpers.
 - `src/contracts/` — generated standard contract bindings exported through `@groundhogchain/client/contracts`.
+- `src/wallet/` — `createWalletClient` and the account/adapter types behind it.
+- `src/cluster.ts` — the `mainnet` / `devnet` / `localnet` descriptors and `defineCluster`.
+- `src/derivation/` — pubkey-account address and transaction-hash derivation.
 - `src/transport/` — `HttpTransport` (JSON-RPC over HTTP) and `MockTransport` for tests.
 - `src/signers/` — `Signer` interface and `PrivateKeySigner` (ed25519 via `@noble/ed25519`).
 - `src/local-dev/` — Node.js-only local runtime discovery and deterministic bootstrap signer loading.

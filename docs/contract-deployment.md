@@ -1,12 +1,16 @@
 # Contract Deployment
 
-Contract addresses are derived before deployment from the deploying contract, a caller-chosen 32-byte deployment nonce, and the contract hash:
+Contract addresses are derived before deployment from the deploying contract's address, a caller-chosen 32-byte deployment nonce, and the contract hash:
 
 ```ts
 import { deriveContractAddress, hashContract } from "@groundhogchain/client";
 
 const contractHash = hashContract(contract);
-const address = deriveContractAddress(wallet, deploymentNonce, contractHash);
+const address = deriveContractAddress(
+  deployerAddress,
+  deploymentNonce,
+  contractHash,
+);
 ```
 
 `hashContract` hashes the canonical encoded protocol `Contract`, including its contract type and payload framing. Hashing only the raw RV32 artifact bytes produces the wrong contract hash and therefore the wrong address.
