@@ -76,3 +76,11 @@ export const PUBKEY_ACCOUNT: DomainSeparator =
  * `transactionSignaturePreimage`.
  */
 export const TRANSACTION: DomainSeparator = DomainSeparator.make("Transaction");
+
+/**
+ * Domain separator for signed operations (`"SignedOp"`).
+ *
+ * Like {@link TRANSACTION} it prefixes a message that is signed directly; see
+ * `signedOperationPreimage`.
+ */
+export const SIGNED_OP: DomainSeparator = DomainSeparator.make("SignedOp");
