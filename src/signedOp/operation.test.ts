@@ -119,6 +119,25 @@ describe("defineSignedOperation", () => {
     );
   });
 
+  it("binds a frozen snapshot of the type definition", () => {
+    const mutable = structuredClone(typeDefs);
+    const operation = defineSignedOperation<Transfer>({
+      typeDefs: mutable,
+      typeName: "Transfer",
+    });
+    const before = toHex(operation.preimage(request));
+
+    // Neither the caller's array nor the returned definition can change what
+    // gets signed after the fact.
+    const def = mutable[0]!;
+    if ("struct_def" in def) def.struct_def.fields[0]!.name = s("recipient");
+    expect(toHex(operation.preimage(request))).toBe(before);
+    expect(Object.isFrozen(operation.typeDef)).toBe(true);
+    expect(() => {
+      (operation.typeDef as { v: number }).v = 99;
+    }).toThrow(TypeError);
+  });
+
   it("refuses a signer whose key is not Ed25519", async () => {
     const bogus = {
       publicKey: { scheme: 0xff as CryptographicScheme },

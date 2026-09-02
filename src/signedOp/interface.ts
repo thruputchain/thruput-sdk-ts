@@ -1,9 +1,9 @@
 // Hand-maintained mirror of the `groundhog-signed-op-if` 0.1.19 interface
 // spec (`specs/contracts/signed_op.spec.xdr`). `execute_signed_op` returns
-// auth tokens, a contract type the binding generator and this package's codecs
-// do not represent yet, so the interface cannot go through
-// `scripts/regenerate-contract-bindings.sh`. `src/signedOp/interface.test.ts`
-// pins every value here to the spec file.
+// auth tokens, which the pinned binding generator release does not emit yet,
+// so the interface cannot go through `scripts/regenerate-contract-bindings.sh`
+// until the pin moves. `src/signedOp/interface.test.ts` pins every value here
+// to the spec file.
 
 import { contractEntrypointID } from "@groundhogchain/protocol";
 import { fromHex } from "@groundhogchain/protocol/utils";
@@ -19,6 +19,8 @@ import {
   defineContractMethod,
   type ContractException,
 } from "../contract/method.js";
+import type { SignedToken } from "../contract/signedToken.js";
+import type { Operation } from "./operation.js";
 
 const s = contractSpecString;
 
@@ -51,6 +53,14 @@ export type SignedOpException = ContractException<SignedOpDeclaredException>;
 export interface SignedOpNextSignedOpNonceArgs {
   /** Ed25519 public key whose next nonce is asked for. */
   signer: FixedBytes<32>;
+}
+
+/** Arguments of {@link SignedOp.executeSignedOp}. */
+export interface SignedOpExecuteSignedOpArgs {
+  /** The operation, as {@link defineSignedOperation} packages it. */
+  op: Operation;
+  /** Ed25519 signature over the operation's preimage. */
+  signature: FixedBytes<64>;
 }
 
 /**
@@ -101,17 +111,61 @@ export const signedOpTypeDefs: readonly ContractTypeDef[] = [
 
 const codecs = createContractCodecContext(signedOpTypeDefs);
 
+const signedOpThrows = [
+  {
+    selector: 0x65f3de61c8178163n,
+    name: "SignedOpError",
+    type: { v: ContractTypeKind.Named, named: s("SignedOpError") },
+  },
+] as const;
+
 /**
  * Method descriptors for contracts implementing the `SignedOp` standard
  * interface.
  *
- * Only the nonce view is here. `execute_signed_op` returns auth tokens, which
- * a client never decodes: a contract calls it and consumes the tokens on
- * chain. Submit an operation through the entrypoint of the contract that does
- * so, passing the {@link SignedOperation} that {@link defineSignedOperation}
- * produces.
+ * `executeSignedOp` verifies an operation and returns the auth tokens it
+ * mints. Tokens never travel in return data, so a client decodes them as
+ * {@link SignedToken} placeholders; it is the calling contract that consumes
+ * them on chain. Most applications submit an operation through the entrypoint
+ * of the contract that does so, passing the {@link SignedOperation} that
+ * {@link defineSignedOperation} produces.
  */
 export const SignedOp = {
+  /** Verify an operation, spend its nonce, and mint its auth tokens. */
+  executeSignedOp: defineContractMethod<
+    SignedOpExecuteSignedOpArgs,
+    SignedToken[],
+    SignedOpDeclaredException
+  >({
+    entrypoint: contractEntrypointID(fromHex("c281dc2ffb5eeb1e")),
+    args: [
+      {
+        abiName: "op",
+        publicName: "op",
+        type: { v: ContractTypeKind.Named, named: s("Operation") },
+      },
+      {
+        abiName: "signature",
+        publicName: "signature",
+        type: {
+          v: ContractTypeKind.Array,
+          array: { element: { v: ContractTypeKind.U8 }, len: 64n },
+        },
+      },
+    ],
+    returnType: {
+      v: ContractTypeKind.Vector,
+      vector: {
+        element: {
+          v: ContractTypeKind.SignedToken,
+          signed_token_preimage: { preimage_type: null },
+        },
+        max_len: 4294967295n,
+      },
+    },
+    throws: signedOpThrows,
+    codecs,
+  }),
   /** The nonce a signer's next operation at this contract must carry. */
   nextSignedOpNonce: defineContractMethod<
     SignedOpNextSignedOpNonceArgs,
@@ -130,13 +184,7 @@ export const SignedOp = {
       },
     ],
     returnType: { v: ContractTypeKind.U64 },
-    throws: [
-      {
-        selector: 0x65f3de61c8178163n,
-        name: "SignedOpError",
-        type: { v: ContractTypeKind.Named, named: s("SignedOpError") },
-      },
-    ],
+    throws: signedOpThrows,
     codecs,
   }),
 } as const;

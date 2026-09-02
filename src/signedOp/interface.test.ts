@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
+  CxsWriter,
+  Uint64Codec,
+  blockHeight,
+  codec,
   contractAddress,
   deserialize,
   gasAmount,
@@ -13,6 +17,7 @@ import {
   type ContractSpec,
 } from "@groundhogchain/contract-spec";
 import { fixedBytes } from "@groundhogchain/xdr";
+import { signedToken } from "../contract/signedToken.js";
 import { deriveEntrypointID } from "../derivation/entrypointId.js";
 import {
   SIGNED_OP_INTERFACE_VERSION,
@@ -79,6 +84,59 @@ describe("SignedOp interface mirror", () => {
     expect(
       toHex(deriveEntrypointID(iface.name, iface.vers, "execute_signed_op")),
     ).toBe("c281dc2ffb5eeb1e");
+  });
+
+  it("mirrors execute_signed_op, including its signed-token return", () => {
+    const m = method("execute_signed_op");
+    expect(m.args.map((a) => a.name)).toEqual(["op", "signature"]);
+    expect(m.args[0]!.ty).toEqual({
+      v: ContractTypeKind.Named,
+      named: "Operation",
+    });
+    expect(m.args[1]!.ty).toEqual({
+      v: ContractTypeKind.Array,
+      array: { element: { v: ContractTypeKind.U8 }, len: 64n },
+    });
+    expect(m.return_type).toEqual({
+      v: ContractTypeKind.Vector,
+      vector: {
+        element: {
+          v: ContractTypeKind.SignedToken,
+          signed_token_preimage: { preimage_type: null },
+        },
+        max_len: 4294967295n,
+      },
+    });
+    expect(toHex(SignedOp.executeSignedOp.entrypoint)).toBe("c281dc2ffb5eeb1e");
+
+    const signature = fixedBytes(new Uint8Array(64).fill(0xcd), 64);
+    const invocation = SignedOp.executeSignedOp.invocation(
+      contractAddress(new Uint8Array(32)),
+      gasAmount(1n),
+      {
+        op: {
+          signer: fixedBytes(new Uint8Array(32).fill(0xab), 32),
+          nonce: 1n,
+          valid_until: 1_000n,
+          body: new Uint8Array([0x2a]),
+        },
+        signature,
+      },
+    );
+    // Operation: 32-byte signer, varint nonce, varint valid_until,
+    // length-prefixed body; then the 64 raw signature bytes.
+    const expected = new CxsWriter();
+    expected.writeFixedOpaque(new Uint8Array(32).fill(0xab), 32);
+    Uint64Codec.encode(expected, 1n);
+    codec.BlockHeight.encode(expected, blockHeight(1_000n));
+    expected.writeVarOpaque(new Uint8Array([0x2a]), 4294967295);
+    expected.writeFixedOpaque(signature, 64);
+    expect(toHex(invocation.calldata)).toBe(toHex(expected.finish()));
+    // Two minted tokens come back as two placeholders and no further bytes.
+    expect(SignedOp.executeSignedOp.decodeReturn(new Uint8Array([2]))).toEqual([
+      signedToken(),
+      signedToken(),
+    ]);
   });
 
   it("encodes the signer as 32 raw bytes of calldata", () => {

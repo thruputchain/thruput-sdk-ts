@@ -27,6 +27,7 @@ import {
 import type { ContractType, ContractSpec, ContractSpecMethod } from "./spec.js";
 import { ContractTypeKind } from "./spec.js";
 import { ContractDecodeError } from "./errors.js";
+import { SignedTokenCodec } from "./signedToken.js";
 
 const AddressCodec = requireByteArrayCodec(
   codec.ContractAddress as XdrCodec<Uint8Array>,
@@ -294,7 +295,7 @@ function resolveUncachedCodec(
       return namedCodecs[ty.named];
     }
     case ContractTypeKind.SignedToken:
-      throw new Error("SignedToken contract types are not supported yet.");
+      return SignedTokenCodec as XdrCodec<unknown>;
     default: {
       const _exhaustive: never = ty;
       throw new Error(

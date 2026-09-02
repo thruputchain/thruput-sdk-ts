@@ -126,8 +126,12 @@ export interface DefineSignedOperationOptions {
 export function defineSignedOperation<TBody>(
   options: DefineSignedOperationOptions,
 ): SignedOperationType<TBody> {
-  const typeDef = findTypeDef(options.typeDefs, options.typeName);
-  const context = createContractCodecContext(options.typeDefs);
+  // Snapshot once: the codec context clones what it is given, so the
+  // definition bound into every preimage must come from the same frozen copy
+  // or a later mutation of the caller's array would split the two.
+  const typeDefs = structuredClone([...options.typeDefs]);
+  const typeDef = deepFreeze(findTypeDef(typeDefs, options.typeName));
+  const context = createContractCodecContext(typeDefs);
   const bodyCodec = createContractCodec<TBody>(
     context,
     { v: ContractTypeKind.Named, named: contractSpecString(options.typeName) },
@@ -176,6 +180,16 @@ export function defineSignedOperation<TBody>(
       };
     },
   };
+}
+
+function deepFreeze<T>(value: T): T {
+  if (typeof value === "object" && value !== null && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const inner of Object.values(value as object)) {
+      deepFreeze(inner);
+    }
+  }
+  return value;
 }
 
 function typeDefName(typeDef: ContractTypeDef): string {

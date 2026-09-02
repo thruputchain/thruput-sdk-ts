@@ -32,5 +32,6 @@ export {
   signedOpTypeDefs,
   type SignedOpDeclaredException,
   type SignedOpException,
+  type SignedOpExecuteSignedOpArgs,
   type SignedOpNextSignedOpNonceArgs,
 } from "./interface.js";
