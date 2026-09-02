@@ -39,6 +39,11 @@
       "import": "./dist/actions.js",
       "require": "./dist/actions.cjs"
     },
+    "./signed-op": {
+      "types": "./dist/signed-op.d.ts",
+      "import": "./dist/signed-op.js",
+      "require": "./dist/signed-op.cjs"
+    },
     "./local-dev": {
       "types": "./dist/local-dev.d.ts",
       "import": "./dist/local-dev.js",

@@ -22,3 +22,11 @@ These contract revisions predate the raw-spec format accepted by CLI 0.9.6,
 so their canonical specs were serialized from the reviewed macro-defined ABI.
 Regeneration preserves their entrypoint IDs, exception selectors, and event
 signatures.
+
+`signed_op.spec.xdr` (SHA-256
+`539be7a614633dedd5c151c63931347a42a7719a5abb6d04c0dc6a17de942947`) is the
+finalized spec of `groundhog-signed-op-if` 0.1.19, built from that crate's
+rv32 spec carrier in `groundhogchain/sdk_rs`. It has no generated binding:
+`execute_signed_op` returns auth tokens, which the generator does not emit yet.
+`src/signedOp/interface.ts` mirrors it by hand and
+`src/signedOp/interface.test.ts` checks the mirror against this file.

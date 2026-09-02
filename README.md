@@ -211,6 +211,54 @@ Because wallet decoration binds account-specific closures to the supplied
 client, each client instance can be bound once. Create another client instance
 when operating multiple accounts against the same endpoint.
 
+## Signed operations
+
+A signed operation authorizes an on-chain action off-chain: the signer signs a
+`#[contract_type]` payload together with the network, the verifying contract,
+a per-signer nonce, and an expiry height, and anyone can submit it. The
+contract verifies it with the `groundhog-signed-op` Rust component. The
+`@groundhogchain/client/signed-op` entrypoint is the client half.
+
+```ts
+import {
+  SignedOp,
+  defineSignedOperation,
+} from "@groundhogchain/client/signed-op";
+import { spec, MyWallet, type Transfer } from "./generated/my_wallet.js";
+
+// Bind the payload type from the contract's generated spec. Its definition is
+// part of the signed bytes, so a payload with the same encoding but a
+// different type never shares a signature.
+const transfer = defineSignedOperation<Transfer>({
+  typeDefs: spec.type_defs,
+  typeName: "Transfer",
+});
+
+const nonce = await SignedOp.nextSignedOpNonce.view({
+  client,
+  contract: walletAddress,
+  args: { signer: signer.publicKey.ed25519 },
+});
+
+const { op, signature } = await transfer.sign(signer, {
+  network: networkHash,
+  verifyingContract: walletAddress,
+  nonce: nonce.value,
+  validUntil: currentHeight + 100n,
+  body: { to: recipient, amount: 42n },
+});
+
+// `op` and `signature` are the arguments of whichever entrypoint hands the
+// operation to the verifying contract; the submitter need not be the signer.
+const invocation = MyWallet.submit.invocation(walletAddress, gasLimit, {
+  op,
+  signature,
+});
+```
+
+`signedOperationPreimage` exposes the exact bytes a signature covers, for
+signers this package does not drive.
+
 ## Examples
 
 - [`chain-tip.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/chain-tip.ts) validates Devnet and reads its latest block.
@@ -235,6 +283,7 @@ helpers, generated standard contracts, signers, and standalone actions.
 - `src/contracts/` — generated standard contract bindings exported through `@groundhogchain/client/contracts`.
 - `src/transport/` — `HttpTransport` (JSON-RPC over HTTP) and `MockTransport` for tests.
 - `src/signers/` — `Signer` interface and `PrivateKeySigner` (ed25519 via `@noble/ed25519`).
+- `src/signedOp/` — off-chain signing of `SignedOp` operations: preimage construction, payload binding, and the interface's nonce view.
 - `src/local-dev/` — Node.js-only local runtime discovery and deterministic bootstrap signer loading.
 - `src/types/rpc.ts` — typed RPC request/response shapes.
 - `specs/openrpc.json` — pinned Groundhog OpenRPC spec; `scripts/regen-openrpc.sh` refreshes it. After a regen, `npm test` (specifically `src/actions/contract.test.ts`) names any TS action whose serialized request no longer matches the new spec.
@@ -243,8 +292,8 @@ helpers, generated standard contracts, signers, and standalone actions.
 ## Subpath exports
 
 The package exposes focused entry points alongside the root: `./transaction`,
-`./transport`, `./contract`, `./contracts`, `./signers`, `./actions`, and the
-Node.js-only `./local-dev` helper.
+`./transport`, `./contract`, `./contracts`, `./signers`, `./actions`,
+`./signed-op`, and the Node.js-only `./local-dev` helper.
 
 ## API docs
 

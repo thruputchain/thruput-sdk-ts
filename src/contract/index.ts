@@ -55,4 +55,5 @@ export {
   type FixedArray,
   type FixedBytes,
 } from "@groundhogchain/xdr";
+export { isSignedToken, signedToken, type SignedToken } from "./signedToken.js";
 export * from "./spec.js";

@@ -12,6 +12,7 @@ export * from "./transaction/index.js";
 export * from "./contract/index.js";
 export * from "./actions/index.js";
 export * from "./wallet/index.js";
+export * from "./signedOp/index.js";
 export {
   toHex0x,
   fromHex0x,

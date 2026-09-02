@@ -16,10 +16,11 @@
 
 ## Architecture
 
-- Public package entrypoints are explicit: root plus `./transaction`, `./transport`, `./contract`, `./contracts`, `./signers`, `./actions`, and the Node-only `./local-dev`. Add public symbols to the matching `src/**/index.ts`; add `package.json` and `tsdown.config.ts` entries only for new subpaths.
+- Public package entrypoints are explicit: root plus `./transaction`, `./transport`, `./contract`, `./contracts`, `./signers`, `./actions`, `./signed-op`, and the Node-only `./local-dev`. Add public symbols to the matching `src/**/index.ts`; add `package.json` and `tsdown.config.ts` entries only for new subpaths.
 - `src/client.ts` provides the async `createGroundhogClient(options)` factory for both unqualified and cluster-validated clients. Keep action behavior in `src/actions/**`; client methods should just bind the transport.
 - Runtime transports implement `Transport.request(method, params)`. `HttpTransport` sends JSON-RPC arrays with `params ?? []`; `MockTransport` is test-only and intentionally implements only known methods.
 - `src/contract/**` owns reusable contract codecs, typed method and event descriptors, fixed-length values, and strict decoding. `src/contracts/**` owns generated standard bindings.
+- `src/signedOp/**` owns off-chain signing of `SignedOp` operations. `src/signedOp/interface.ts` is a hand-maintained mirror of `specs/contracts/signed_op.spec.xdr` until the pinned generator release emits auth-token (`SignedToken`) types; `interface.test.ts` pins it to that file. Replace it with generated output once `GROUNDHOG_CLI_VERSION` moves past that release.
 - Generated methods expose invocation, view, and root-receipt decoding APIs. Generated events own decoding, named topic filters, and receipt extraction. Do not add wrappers that preserve older generated APIs.
 - This is an ESM TypeScript package using `moduleResolution: "bundler"`; source imports use `.js` specifiers for local TS modules.
 
