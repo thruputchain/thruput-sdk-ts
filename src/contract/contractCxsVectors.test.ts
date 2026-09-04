@@ -19,6 +19,8 @@ interface VectorFile {
   version: number;
   category: string;
   scalarU8: { value: string; cxsHex: string }[];
+  scalarU256: { value: string; cxsHex: string }[];
+  scalarI256: { value: string; cxsHex: string }[];
   fixedU8: { valueHex: string; cxsHex: string };
   variableU8: { valueHex: string; cxsHex: string };
   recursiveTree: {
@@ -50,6 +52,19 @@ describe("Rust contract CXS vectors", () => {
     });
 
     expect(toHex(codec.encode(BigInt(value)))).toBe(cxsHex);
+  });
+
+  it.each([
+    ["U256", ContractTypeKind.U256, vectors.scalarU256],
+    ["I256", ContractTypeKind.I256, vectors.scalarI256],
+  ] as const)("replays fixed-width %s vectors", (_name, kind, cases) => {
+    const codec = createContractCodec<bigint>(context, { v: kind });
+
+    for (const { value, cxsHex } of cases) {
+      const encoded = fromHex(cxsHex);
+      expect(codec.encode(BigInt(value))).toEqual(encoded);
+      expect(codec.decode(encoded)).toBe(BigInt(value));
+    }
   });
 
   it("rejects a decoded scalar U8 above 255", () => {

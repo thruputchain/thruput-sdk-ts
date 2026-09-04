@@ -127,3 +127,30 @@ describe("buildNamedCodecs with recursive types", () => {
     expect(decoded).toEqual(empty);
   });
 });
+
+describe("buildNamedCodecs with native 256-bit integers", () => {
+  const typeDefs: ContractTypeDef[] = [
+    {
+      v: ContractTypeDefKind.TypeDefStruct,
+      struct_def: {
+        name: s("WideValues"),
+        fields: [
+          { name: s("unsigned"), ty: { v: ContractTypeKind.U256 } },
+          { name: s("signed"), ty: { v: ContractTypeKind.I256 } },
+        ],
+      },
+    },
+  ];
+
+  it("round-trips native values in named structs", () => {
+    const codec = buildNamedCodecs(typeDefs)["WideValues"];
+    const value = { unsigned: (1n << 256n) - 1n, signed: -(1n << 255n) };
+    const writer = new CxsWriter();
+
+    codec.encode(writer, value);
+    const encoded = writer.finish();
+
+    expect(encoded).toHaveLength(64);
+    expect(codec.decode(new CxsReader(encoded))).toEqual(value);
+  });
+});

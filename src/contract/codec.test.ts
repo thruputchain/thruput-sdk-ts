@@ -54,6 +54,36 @@ const signedTypes: ContractTypeDef[] = [
 ];
 
 describe("contract codecs", () => {
+  it.each([
+    [ContractTypeKind.U256, 0n, (1n << 256n) - 1n],
+    [ContractTypeKind.I256, -(1n << 255n), (1n << 255n) - 1n],
+  ] as const)("round-trips fixed-width %s boundaries", (kind, min, max) => {
+    const codec = createContractCodec<bigint>(createContractCodecContext([]), {
+      v: kind,
+    });
+
+    for (const value of [min, max]) {
+      const encoded = codec.encode(value);
+      expect(encoded).toHaveLength(32);
+      expect(codec.decode(encoded)).toBe(value);
+    }
+  });
+
+  it("rejects U256 and I256 values outside their ranges", () => {
+    const context = createContractCodecContext([]);
+    const u256 = createContractCodec<bigint>(context, {
+      v: ContractTypeKind.U256,
+    });
+    const i256 = createContractCodec<bigint>(context, {
+      v: ContractTypeKind.I256,
+    });
+
+    expect(() => u256.encode(-1n)).toThrow("uint256 overflow: -1");
+    expect(() => u256.encode(1n << 256n)).toThrow("uint256 overflow");
+    expect(() => i256.encode(-(1n << 255n) - 1n)).toThrow("int256 overflow");
+    expect(() => i256.encode(1n << 255n)).toThrow("int256 overflow");
+  });
+
   it("round-trips values through a complete-input codec", () => {
     const context = createContractCodecContext([]);
     const codec = createContractCodec<bigint>(
