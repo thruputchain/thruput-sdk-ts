@@ -241,6 +241,32 @@ describe("contract event filters", () => {
       id?: Uint8Array | { oneOf: readonly Uint8Array[] };
     }
   >(definition());
+  const numericDescriptor = defineContractEvent<
+    "Numeric",
+    { unsigned: bigint; signed: bigint },
+    Record<string, never>,
+    {
+      unsigned?: bigint | { oneOf: readonly [bigint, ...bigint[]] };
+      signed?: bigint | { oneOf: readonly [bigint, ...bigint[]] };
+    }
+  >({
+    name: "Numeric",
+    signature,
+    topics: [
+      {
+        name: "unsigned",
+        type: { v: ContractTypeKind.U256 },
+        representation: "u256",
+      },
+      {
+        name: "signed",
+        type: { v: ContractTypeKind.I256 },
+        representation: "i256",
+      },
+    ],
+    fields: [],
+    codecs: createContractCodecContext([]),
+  });
 
   it("maps named direct topics and oneOf values to their ABI positions", () => {
     const otherAccount = contractAddress(new Uint8Array(32).fill(0x55));
@@ -337,6 +363,54 @@ describe("contract event filters", () => {
         topics: { digest },
       }),
     ).toThrow('topic "digest" is not directly filterable');
+  });
+
+  it("decodes and filters direct U256 and I256 topics", () => {
+    const unsigned = Uint8Array.from({ length: 32 }, (_, index) =>
+      index === 31 ? 42 : 0,
+    );
+    const signed = new Uint8Array(32).fill(0xff);
+    signed[31] = 0xfe;
+
+    expect(
+      numericDescriptor.decode({
+        topics: [signature, unsigned, signed],
+        data: new Uint8Array(),
+      }),
+    ).toEqual({
+      name: "Numeric",
+      topics: { unsigned: 42n, signed: -2n },
+      fields: {},
+    });
+    expect(
+      numericDescriptor.filter({
+        contractAddresses: [emitterA],
+        topics: { unsigned: 42n, signed: { oneOf: [-2n, -1n] } },
+      }).topics,
+    ).toEqual({
+      topic0: [signature],
+      topic1: [unsigned],
+      topic2: [signed, new Uint8Array(32).fill(0xff)],
+    });
+  });
+
+  it("adds topic context to numeric filter failures", () => {
+    try {
+      numericDescriptor.filter({
+        contractAddresses: [emitterA],
+        topics: { unsigned: "42" } as never,
+      });
+      throw new Error("expected filter to fail");
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toBe(
+        'Numeric topic "unsigned" failed to encode: U256 expected bigint',
+      );
+      expect((error as Error).cause).toBeInstanceOf(Error);
+      expect(((error as Error).cause as Error).message).toBe(
+        "U256 expected bigint",
+      );
+    }
   });
 });
 

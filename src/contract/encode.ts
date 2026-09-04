@@ -18,6 +18,8 @@ import {
   Int64Codec,
   Uint128Codec,
   Int128Codec,
+  Uint256Codec,
+  Int256Codec,
   CxsWriter,
   CxsReader,
   OptionCodec,
@@ -54,6 +56,8 @@ const ContractVoidCodec: XdrCodec<void> = {
 };
 const ContractU128Codec = requireBigIntCodec("U128", Uint128Codec);
 const ContractI128Codec = requireBigIntCodec("I128", Int128Codec);
+const ContractU256Codec = requireBigIntCodec("U256", Uint256Codec);
+const ContractI256Codec = requireBigIntCodec("I256", Int256Codec);
 const ContractU64Codec = requireBigIntCodec("U64", Uint64Codec);
 const ContractI64Codec = requireBigIntCodec("I64", Int64Codec);
 const ContractU32Codec = requireBigIntCodec("U32", Uint32Codec);
@@ -215,6 +219,10 @@ function resolveUncachedCodec(
       return ContractU128Codec as XdrCodec<unknown>;
     case ContractTypeKind.I128:
       return ContractI128Codec as XdrCodec<unknown>;
+    case ContractTypeKind.U256:
+      return ContractU256Codec as XdrCodec<unknown>;
+    case ContractTypeKind.I256:
+      return ContractI256Codec as XdrCodec<unknown>;
     case ContractTypeKind.U64:
       return ContractU64Codec as XdrCodec<unknown>;
     case ContractTypeKind.I64:
