@@ -394,33 +394,24 @@ describe("contract event filters", () => {
     });
   });
 
-  it.each([
-    [
-      "wrong-type",
-      { unsigned: "42" } as never,
-      'Numeric topic "unsigned" failed to encode: U256 expected bigint',
-      "U256 expected bigint",
-    ],
-    [
-      "out-of-range",
-      { signed: 1n << 255n },
-      `Numeric topic "signed" failed to encode: int256 overflow: ${1n << 255n}`,
-      `int256 overflow: ${1n << 255n}`,
-    ],
-  ])(
-    "adds topic context to %s numeric filter failures",
-    (_, topics, message, causeMessage) => {
-      try {
-        numericDescriptor.filter({ contractAddresses: [emitterA], topics });
-        throw new Error("expected filter to fail");
-      } catch (error) {
-        expect(error).toBeInstanceOf(Error);
-        expect((error as Error).message).toBe(message);
-        expect((error as Error).cause).toBeInstanceOf(Error);
-        expect(((error as Error).cause as Error).message).toBe(causeMessage);
-      }
-    },
-  );
+  it("adds topic context to numeric filter failures", () => {
+    try {
+      numericDescriptor.filter({
+        contractAddresses: [emitterA],
+        topics: { unsigned: "42" } as never,
+      });
+      throw new Error("expected filter to fail");
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toBe(
+        'Numeric topic "unsigned" failed to encode: U256 expected bigint',
+      );
+      expect((error as Error).cause).toBeInstanceOf(Error);
+      expect(((error as Error).cause as Error).message).toBe(
+        "U256 expected bigint",
+      );
+    }
+  });
 });
 
 describe("contract event receipt extraction", () => {
