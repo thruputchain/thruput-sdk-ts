@@ -67,6 +67,20 @@ describe("Rust contract CXS vectors", () => {
     }
   });
 
+  it("rejects values outside the fixed-width integer ranges", () => {
+    const u256 = createContractCodec<bigint>(context, {
+      v: ContractTypeKind.U256,
+    });
+    const i256 = createContractCodec<bigint>(context, {
+      v: ContractTypeKind.I256,
+    });
+
+    expect(() => u256.encode(-1n)).toThrow("uint256 overflow");
+    expect(() => u256.encode(1n << 256n)).toThrow("uint256 overflow");
+    expect(() => i256.encode(1n << 255n)).toThrow("int256 overflow");
+    expect(() => i256.encode(-(1n << 255n) - 1n)).toThrow("int256 overflow");
+  });
+
   it("rejects a decoded scalar U8 above 255", () => {
     const codec = createContractCodec<bigint>(context, {
       v: ContractTypeKind.U8,
