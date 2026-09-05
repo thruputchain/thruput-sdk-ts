@@ -9,6 +9,7 @@ export default defineConfig({
     signers: "src/signers/index.ts",
     transport: "src/transport/index.ts",
     actions: "src/actions/index.ts",
+    "signed-op": "src/signedOp/index.ts",
     "local-dev": "src/local-dev/index.ts",
   },
   format: ["esm", "cjs"],

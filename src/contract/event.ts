@@ -3,7 +3,12 @@ import {
   kMaxEventLength,
   type ContractAddress,
 } from "@groundhogchain/protocol";
-import { CxsReader, fixedBytes, type XdrCodec } from "@groundhogchain/xdr";
+import {
+  CxsReader,
+  CxsWriter,
+  fixedBytes,
+  type XdrCodec,
+} from "@groundhogchain/xdr";
 import type {
   EmittedEvent,
   EventFilter,
@@ -21,7 +26,7 @@ const maxFilterTopicValues = 16;
 export interface ContractEventTopicMetadata {
   name: string;
   type: ContractType;
-  representation: "address" | "fixedBytes32" | "hash";
+  representation: "address" | "fixedBytes32" | "u256" | "i256" | "hash";
 }
 
 /** Ordered metadata for one event payload field. */
@@ -96,10 +101,16 @@ interface ResolvedField {
   codec: XdrCodec<unknown>;
 }
 
-interface ResolvedTopic {
-  name: string;
-  representation: ContractEventTopicMetadata["representation"];
-}
+type ResolvedTopic =
+  | {
+      name: string;
+      representation: "address" | "fixedBytes32" | "hash";
+    }
+  | {
+      name: string;
+      representation: "u256" | "i256";
+      codec: XdrCodec<unknown>;
+    };
 
 /** Build one generated event descriptor from direct ABI metadata. */
 export function defineContractEvent<
@@ -126,6 +137,16 @@ export function defineContractEvent<
       throw new Error(
         `${eventName} topic "${metadata.name}" representation "${metadata.representation}" does not match its declared type; expected "${expected}"`,
       );
+    }
+    if (
+      metadata.representation === "u256" ||
+      metadata.representation === "i256"
+    ) {
+      return {
+        name: metadata.name,
+        representation: metadata.representation,
+        codec: resolveContextCodec(definition.codecs, metadata.type),
+      };
     }
     return { name: metadata.name, representation: metadata.representation };
   });
@@ -155,12 +176,7 @@ export function defineContractEvent<
         for (let index = 0; index < resolvedTopics.length; index++) {
           const metadata = resolvedTopics[index];
           const topic = fixedBytes(event.topics[index + 1], 32);
-          const value =
-            metadata.representation === "address"
-              ? contractAddress(topic)
-              : metadata.representation === "fixedBytes32"
-                ? topic
-                : event.topics[index + 1];
+          const value = decodeTopic(metadata, topic);
           defineRecordValue(decodedTopics, metadata.name, value);
         }
 
@@ -221,9 +237,12 @@ export function defineContractEvent<
               `${eventName} topic "${name}" is not directly filterable`,
             );
           }
-          const values = filterValues(constraint, eventName, name);
+          const metadata = resolvedTopics[index];
+          const values = filterValues(constraint, eventName, metadata);
           const key = `topic${index + 1}` as "topic1" | "topic2";
-          filterTopics[key] = values.map((value) => fixedBytes(value, 32));
+          filterTopics[key] = values.map((value) =>
+            encodeTopic(metadata, value, eventName),
+          );
         }
       }
       return {
@@ -264,6 +283,8 @@ function topicRepresentation(
   type: ContractType,
 ): ContractEventTopicMetadata["representation"] {
   if (type.v === ContractTypeKind.Address) return "address";
+  if (type.v === ContractTypeKind.U256) return "u256";
+  if (type.v === ContractTypeKind.I256) return "i256";
   if (
     type.v === ContractTypeKind.Array &&
     type.array.len === 32n &&
@@ -289,8 +310,8 @@ export function bytesEqual(
 function filterValues(
   constraint: unknown,
   eventName: string,
-  topicName: string,
-): Uint8Array[] {
+  topic: ResolvedTopic,
+): unknown[] {
   if (
     constraint &&
     typeof constraint === "object" &&
@@ -301,17 +322,60 @@ function filterValues(
     const values = constraint.oneOf;
     if (!Array.isArray(values) || values.length === 0) {
       throw new Error(
-        `${eventName} topic "${topicName}" oneOf must not be empty`,
+        `${eventName} topic "${topic.name}" oneOf must not be empty`,
       );
     }
     if (values.length > maxFilterTopicValues) {
       throw new Error(
-        `${eventName} topic "${topicName}" oneOf supports at most ${maxFilterTopicValues} values`,
+        `${eventName} topic "${topic.name}" oneOf supports at most ${maxFilterTopicValues} values`,
       );
     }
-    return values.map((value) => requireBytes(value, eventName, topicName));
+    return values;
   }
-  return [requireBytes(constraint, eventName, topicName)];
+  return [constraint];
+}
+
+function decodeTopic(topic: ResolvedTopic, bytes: Uint8Array): unknown {
+  switch (topic.representation) {
+    case "address":
+      return contractAddress(bytes);
+    case "fixedBytes32":
+    case "hash":
+      return bytes;
+    case "u256":
+    case "i256":
+      return topic.codec.decode(new CxsReader(bytes));
+  }
+}
+
+function encodeTopic(
+  topic: ResolvedTopic,
+  value: unknown,
+  eventName: string,
+): Uint8Array {
+  switch (topic.representation) {
+    case "address":
+    case "fixedBytes32":
+      return fixedBytes(requireBytes(value, eventName, topic.name), 32);
+    case "hash":
+      throw new Error(
+        `${eventName} topic "${topic.name}" is not directly filterable`,
+      );
+    case "u256":
+    case "i256": {
+      const writer = new CxsWriter();
+      try {
+        topic.codec.encode(writer, value);
+      } catch (cause) {
+        const detail = cause instanceof Error ? `: ${cause.message}` : "";
+        throw new Error(
+          `${eventName} topic "${topic.name}" failed to encode${detail}`,
+          { cause },
+        );
+      }
+      return fixedBytes(writer.finish(), 32);
+    }
+  }
 }
 
 function requireBytes(

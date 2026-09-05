@@ -8,6 +8,7 @@
     "src/contract/index.ts",
     "src/contracts/index.ts",
     "src/signers/index.ts",
+    "src/signedOp/index.ts",
     "src/local-dev/index.ts"
   ],
   "out": "docs/api",

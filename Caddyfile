@@ -1,0 +1,39 @@
+{
+	admin off
+	persist_config off
+	auto_https off
+
+	log {
+		format json
+	}
+
+	servers {
+		trusted_proxies static private_ranges 100.0.0.0/8
+	}
+}
+
+:{$PORT:80} {
+	log {
+		format json
+	}
+
+	respond /health 200
+
+	@protected not path /health
+	basic_auth @protected {
+		{$BASIC_AUTH_USER} {$BASIC_AUTH_HASH}
+	}
+
+	header {
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+
+	root * /app/docs/api
+	encode gzip zstd
+	try_files {path} {path}.html {path}/index.html
+	file_server {
+		hide .git
+		hide .env*
+	}
+}
