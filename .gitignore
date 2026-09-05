@@ -143,6 +143,6 @@ vite.config.ts.timestamp-*
 # groundhog-test-vectors crate; locally run scripts/regen-test-vectors.sh)
 specs/test-vectors/*
 !specs/test-vectors/contract-cxs.json
-# Committed until the pinned groundhog-test-vectors release carries the
-# `signed-op` category; the regen script overwrites it once it does.
+# Committed so the signed-op tests run without the generator installed; the
+# regen script overwrites it from the pinned release.
 !specs/test-vectors/signed-op.json

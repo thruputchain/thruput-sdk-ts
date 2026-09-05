@@ -1,19 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cargo install groundhog-test-vectors@0.17.3 --registry groundhog 2>/dev/null
+cargo install groundhog-test-vectors@0.30.0 --registry groundhog 2>/dev/null
 VECTORS_DIR="$(git rev-parse --show-toplevel)/specs/test-vectors"
 mkdir -p "$VECTORS_DIR"
 groundhog-test-vectors domain-separator > "$VECTORS_DIR/domain-separator.json"
 groundhog-test-vectors entrypoint-id > "$VECTORS_DIR/entrypoint-id.json"
-# The signed-op category arrived after the pinned release; keep the committed
-# snapshot when the installed generator predates it.
-if groundhog-test-vectors signed-op > "$VECTORS_DIR/signed-op.json.tmp" 2>/dev/null; then
-  mv "$VECTORS_DIR/signed-op.json.tmp" "$VECTORS_DIR/signed-op.json"
-else
-  rm -f "$VECTORS_DIR/signed-op.json.tmp"
-  echo "groundhog-test-vectors has no signed-op category; keeping the committed signed-op.json"
-fi
+groundhog-test-vectors signed-op > "$VECTORS_DIR/signed-op.json"
 # Run prettier so the committed snapshot matches the rest of the repo's
 # formatting and `npm run format:check` stays clean across regens.
 npx --no-install prettier --write "$VECTORS_DIR"/*.json >/dev/null

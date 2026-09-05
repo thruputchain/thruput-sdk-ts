@@ -63,27 +63,13 @@ describe("SignedOp interface mirror", () => {
     expect(variants).toEqual(SignedOpError);
   });
 
-  it("mirrors next_signed_op_nonce and derives its entrypoint from the spec", () => {
-    const m = method("next_signed_op_nonce");
-    expect(m.args.map((a) => a.name)).toEqual(["signer"]);
-    expect(m.args[0]!.ty).toEqual({
-      v: ContractTypeKind.Array,
-      array: { element: { v: ContractTypeKind.U8 }, len: 32n },
-    });
-    expect(m.return_type).toEqual({ v: ContractTypeKind.U64 });
+  it("mirrors every method, and only those", () => {
+    // Nonces are unordered, so the nonce view of earlier releases is gone:
+    // nothing on chain needs reading before signing.
+    expect(iface.methods.map((m) => m.name)).toEqual(["execute_signed_op"]);
+    expect(Object.keys(SignedOp)).toEqual(["executeSignedOp"]);
     expect(iface.throws).toHaveLength(1);
     expect(iface.throws[0]!.selector).toBe(0x65f3de61c8178163n);
-
-    expect(toHex(SignedOp.nextSignedOpNonce.entrypoint)).toBe(
-      toHex(deriveEntrypointID(iface.name, iface.vers, "next_signed_op_nonce")),
-    );
-    // Pinned against the Rust `contract_entrypoint_id` for the same triple.
-    expect(toHex(SignedOp.nextSignedOpNonce.entrypoint)).toBe(
-      "15796a0d138d2bd5",
-    );
-    expect(
-      toHex(deriveEntrypointID(iface.name, iface.vers, "execute_signed_op")),
-    ).toBe("c281dc2ffb5eeb1e");
   });
 
   it("mirrors execute_signed_op, including its signed-token return", () => {
@@ -97,16 +83,18 @@ describe("SignedOp interface mirror", () => {
       v: ContractTypeKind.Array,
       array: { element: { v: ContractTypeKind.U8 }, len: 64n },
     });
+    // One token, not a vector of them: the root of whatever the operation
+    // authorizes.
     expect(m.return_type).toEqual({
-      v: ContractTypeKind.Vector,
-      vector: {
-        element: {
-          v: ContractTypeKind.SignedToken,
-          signed_token_preimage: { preimage_type: null },
-        },
-        max_len: 4294967295n,
-      },
+      v: ContractTypeKind.SignedToken,
+      signed_token_preimage: { preimage_type: null },
     });
+    expect(toHex(SignedOp.executeSignedOp.entrypoint)).toBe(
+      toHex(deriveEntrypointID(iface.name, iface.vers, "execute_signed_op")),
+    );
+    // Pinned against the Rust `contract_entrypoint_id` for the same triple;
+    // unchanged from earlier 0.1.x releases, since only the major version
+    // domain enters the derivation.
     expect(toHex(SignedOp.executeSignedOp.entrypoint)).toBe("c281dc2ffb5eeb1e");
 
     const signature = fixedBytes(new Uint8Array(64).fill(0xcd), 64);
@@ -115,40 +103,25 @@ describe("SignedOp interface mirror", () => {
       gasAmount(1n),
       {
         op: {
-          signer: fixedBytes(new Uint8Array(32).fill(0xab), 32),
+          block_expiry_height: 1_000n,
           nonce: 1n,
-          valid_until: 1_000n,
           body: new Uint8Array([0x2a]),
         },
         signature,
       },
     );
-    // Operation: 32-byte signer, varint nonce, varint valid_until,
-    // length-prefixed body; then the 64 raw signature bytes.
+    // Operation: varint block_expiry_height, varint nonce (the chain's
+    // Uniquifier order), length-prefixed body; then the 64 raw signature
+    // bytes. No signer travels on the wire.
     const expected = new CxsWriter();
-    expected.writeFixedOpaque(new Uint8Array(32).fill(0xab), 32);
-    Uint64Codec.encode(expected, 1n);
     codec.BlockHeight.encode(expected, blockHeight(1_000n));
+    Uint64Codec.encode(expected, 1n);
     expected.writeVarOpaque(new Uint8Array([0x2a]), 4294967295);
     expected.writeFixedOpaque(signature, 64);
     expect(toHex(invocation.calldata)).toBe(toHex(expected.finish()));
-    // Two minted tokens come back as two placeholders and no further bytes.
-    expect(SignedOp.executeSignedOp.decodeReturn(new Uint8Array([2]))).toEqual([
+    // The minted token comes back as a placeholder and no bytes at all.
+    expect(SignedOp.executeSignedOp.decodeReturn(new Uint8Array())).toEqual(
       signedToken(),
-      signedToken(),
-    ]);
-  });
-
-  it("encodes the signer as 32 raw bytes of calldata", () => {
-    const signer = fixedBytes(new Uint8Array(32).fill(0xab), 32);
-    const invocation = SignedOp.nextSignedOpNonce.invocation(
-      contractAddress(new Uint8Array(32)),
-      gasAmount(1n),
-      { signer },
-    );
-    expect(toHex(invocation.calldata)).toBe("ab".repeat(32));
-    expect(SignedOp.nextSignedOpNonce.decodeReturn(new Uint8Array([3]))).toBe(
-      3n,
     );
   });
 });

@@ -1,6 +1,6 @@
-// Hand-maintained mirror of the `groundhog-signed-op-if` 0.1.19 interface
-// spec (`specs/contracts/signed_op.spec.xdr`). `execute_signed_op` returns
-// auth tokens, which the pinned binding generator release does not emit yet,
+// Hand-maintained mirror of the `groundhog-signed-op-if` 0.1.22 interface
+// spec (`specs/contracts/signed_op.spec.xdr`). `execute_signed_op` returns an
+// auth token, which the pinned binding generator release does not emit yet,
 // so the interface cannot go through `scripts/regenerate-contract-bindings.sh`
 // until the pin moves. `src/signedOp/interface.test.ts` pins every value here
 // to the spec file.
@@ -25,14 +25,21 @@ import type { Operation } from "./operation.js";
 const s = contractSpecString;
 
 /** Interface version the entrypoint IDs below are derived from. */
-export const SIGNED_OP_INTERFACE_VERSION = "0.1.19";
+export const SIGNED_OP_INTERFACE_VERSION = "0.1.22";
 
-/** Why a verifying contract refused a signed operation. */
+/**
+ * Why a verifying contract refused a signed operation. A refusal is a throw,
+ * so it consumes nothing: a refused operation stays submittable until it
+ * expires.
+ */
 export const SignedOpError = {
   InvalidSignature: 1n,
   Expired: 2n,
-  UnexpectedNonce: 3n,
+  /** The `(nonce, block_expiry_height)` pair was already consumed here. */
+  AlreadyConsumed: 3n,
   MalformedBody: 4n,
+  /** A consumed pair was pruned before its expiry height had passed. */
+  NotYetExpired: 5n,
 } as const;
 
 /** One {@link SignedOpError} discriminant. */
@@ -48,12 +55,6 @@ export type SignedOpDeclaredException = {
 
 /** Declared or unknown exception raised by a `SignedOp` method. */
 export type SignedOpException = ContractException<SignedOpDeclaredException>;
-
-/** Arguments of {@link SignedOp.nextSignedOpNonce}. */
-export interface SignedOpNextSignedOpNonceArgs {
-  /** Ed25519 public key whose next nonce is asked for. */
-  signer: FixedBytes<32>;
-}
 
 /** Arguments of {@link SignedOp.executeSignedOp}. */
 export interface SignedOpExecuteSignedOpArgs {
@@ -73,15 +74,8 @@ export const signedOpTypeDefs: readonly ContractTypeDef[] = [
     struct_def: {
       name: s("Operation"),
       fields: [
-        {
-          name: s("signer"),
-          ty: {
-            v: ContractTypeKind.Array,
-            array: { element: { v: ContractTypeKind.U8 }, len: 32n },
-          },
-        },
+        { name: s("block_expiry_height"), ty: { v: ContractTypeKind.I64 } },
         { name: s("nonce"), ty: { v: ContractTypeKind.U64 } },
-        { name: s("valid_until"), ty: { v: ContractTypeKind.I64 } },
         {
           name: s("body"),
           ty: {
@@ -102,8 +96,9 @@ export const signedOpTypeDefs: readonly ContractTypeDef[] = [
       variants: [
         { name: s("InvalidSignature"), value: 1n },
         { name: s("Expired"), value: 2n },
-        { name: s("UnexpectedNonce"), value: 3n },
+        { name: s("AlreadyConsumed"), value: 3n },
         { name: s("MalformedBody"), value: 4n },
+        { name: s("NotYetExpired"), value: 5n },
       ],
     },
   },
@@ -123,18 +118,20 @@ const signedOpThrows = [
  * Method descriptors for contracts implementing the `SignedOp` standard
  * interface.
  *
- * `executeSignedOp` verifies an operation and returns the auth tokens it
- * mints. Tokens never travel in return data, so a client decodes them as
- * {@link SignedToken} placeholders; it is the calling contract that consumes
- * them on chain. Most applications submit an operation through the entrypoint
- * of the contract that does so, passing the {@link SignedOperation} that
+ * `executeSignedOp` verifies an operation, consumes its
+ * `(nonce, block_expiry_height)` pair, and returns the one auth token it
+ * mints: the root of whatever the operation authorizes. Tokens never travel
+ * in return data, so a client decodes it as a {@link SignedToken}
+ * placeholder; it is the calling contract that consumes it on chain. Most
+ * applications submit an operation through the entrypoint of the contract
+ * that does so, passing the {@link SignedOperation} that
  * {@link defineSignedOperation} produces.
  */
 export const SignedOp = {
-  /** Verify an operation, spend its nonce, and mint its auth tokens. */
+  /** Verify an operation, consume its replay pair, and mint its auth token. */
   executeSignedOp: defineContractMethod<
     SignedOpExecuteSignedOpArgs,
-    SignedToken[],
+    SignedToken,
     SignedOpDeclaredException
   >({
     entrypoint: contractEntrypointID(fromHex("c281dc2ffb5eeb1e")),
@@ -154,36 +151,9 @@ export const SignedOp = {
       },
     ],
     returnType: {
-      v: ContractTypeKind.Vector,
-      vector: {
-        element: {
-          v: ContractTypeKind.SignedToken,
-          signed_token_preimage: { preimage_type: null },
-        },
-        max_len: 4294967295n,
-      },
+      v: ContractTypeKind.SignedToken,
+      signed_token_preimage: { preimage_type: null },
     },
-    throws: signedOpThrows,
-    codecs,
-  }),
-  /** The nonce a signer's next operation at this contract must carry. */
-  nextSignedOpNonce: defineContractMethod<
-    SignedOpNextSignedOpNonceArgs,
-    bigint,
-    SignedOpDeclaredException
-  >({
-    entrypoint: contractEntrypointID(fromHex("15796a0d138d2bd5")),
-    args: [
-      {
-        abiName: "signer",
-        publicName: "signer",
-        type: {
-          v: ContractTypeKind.Array,
-          array: { element: { v: ContractTypeKind.U8 }, len: 32n },
-        },
-      },
-    ],
-    returnType: { v: ContractTypeKind.U64 },
     throws: signedOpThrows,
     codecs,
   }),

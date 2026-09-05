@@ -31,6 +31,7 @@ import {
   defineContractMethod,
   fixedBytes,
 } from "@groundhogchain/client/contract";
+import type { SignedToken } from "@groundhogchain/client/contract";
 import {
   ERC20,
   ERC20ApprovalEvent,
@@ -59,10 +60,12 @@ import type { Signer } from "@groundhogchain/client/signers";
 import {
   SignedOp,
   defineSignedOperation,
+  randomNonce,
   signedOperationPreimage,
 } from "@groundhogchain/client/signed-op";
 import type {
   Operation,
+  SignedOpExecuteSignedOpArgs,
   SignedOperation,
   SignedOperationType,
 } from "@groundhogchain/client/signed-op";
@@ -121,8 +124,11 @@ async function packageBoundaryTypecheck(
   });
   decodeERC20Event(event);
 
-  const nextNonce: ContractMethod<{ signer: Uint8Array }, bigint, unknown> =
-    SignedOp.nextSignedOpNonce;
+  const executeSignedOp: ContractMethod<
+    SignedOpExecuteSignedOpArgs,
+    SignedToken,
+    unknown
+  > = SignedOp.executeSignedOp;
   const transferOperation: SignedOperationType<{ amount: bigint }> =
     defineSignedOperation<{ amount: bigint }>({
       typeDefs: [],
@@ -133,13 +139,13 @@ async function packageBoundaryTypecheck(
     {
       network: {} as NetworkHash,
       verifyingContract: contract,
-      nonce: 0n,
-      validUntil: 0n,
+      blockExpiryHeight: 0n,
+      nonce: randomNonce(),
       body: { amount: 1n },
     },
   );
   const operation: Operation = (await signedOperation).op;
-  void nextNonce;
+  void executeSignedOp;
   void operation;
   void signedOperationPreimage;
 

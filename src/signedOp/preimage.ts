@@ -3,7 +3,7 @@ import type {
   ContractAddress,
   NetworkHash,
 } from "@groundhogchain/protocol";
-import { CxsWriter, Uint64Codec, codec } from "@groundhogchain/protocol";
+import { CxsWriter, codec } from "@groundhogchain/protocol";
 import {
   codec as contractSpecCodec,
   type ContractTypeDef,
@@ -22,10 +22,13 @@ export interface SignedOperationPreimage {
    * payload type is never a signature over another with the same encoding.
    */
   readonly typeDef: ContractTypeDef;
-  /** The signer's sequence number at the verifying contract. */
-  readonly nonce: bigint;
   /** Last block height (inclusive) at which the operation may execute. */
-  readonly validUntil: BlockHeight;
+  readonly blockExpiryHeight: BlockHeight;
+  /**
+   * Signer-chosen value that, with `blockExpiryHeight`, the verifying
+   * contract consumes exactly once.
+   */
+  readonly nonce: bigint;
   /** CXS encoding of the payload value. */
   readonly body: Uint8Array;
 }
@@ -35,14 +38,16 @@ export interface SignedOperationPreimage {
  *
  * ```text
  * cxs(DomainSeparator("SignedOp")) || network || verifyingContract
- *     || cxs(typeDef) || cxs(nonce) || cxs(validUntil) || body
+ *     || cxs(typeDef) || cxs(uniquifier) || body
  * ```
  *
- * The result is signed directly, like {@link transactionSignaturePreimage};
- * Ed25519 does its own hashing. It must match the Rust
- * `groundhog_domain_separator::SignedOp::preimage` byte for byte, or the
- * verifying contract rejects the signature. Only the first 74 bytes are
- * fixed-width: `nonce` and `validUntil` are CXS varints.
+ * where `cxs(uniquifier)` is `cxs(blockExpiryHeight) || cxs(nonce)`: the
+ * chain's own `Uniquifier` encoding, so the replay pair is spelled the way a
+ * transaction spells its own. The result is signed directly, like
+ * {@link transactionSignaturePreimage}; Ed25519 does its own hashing. It must
+ * match the Rust `groundhog_domain_separator::SignedOp::preimage` byte for
+ * byte, or the verifying contract rejects the signature. Only the first 74
+ * bytes are fixed-width: the uniquifier's two fields are CXS varints.
  *
  * {@link defineSignedOperation} calls this after encoding the payload; reach
  * for it directly only when the payload is already CXS bytes.
@@ -54,8 +59,10 @@ export function signedOperationPreimage(
   writer.writeFixedOpaque(preimage.network, 32);
   writer.writeFixedOpaque(preimage.verifyingContract, 32);
   contractSpecCodec.ContractTypeDef.encode(writer, preimage.typeDef);
-  Uint64Codec.encode(writer, preimage.nonce);
-  codec.BlockHeight.encode(writer, preimage.validUntil);
+  codec.Uniquifier.encode(writer, {
+    block_expiry_height: preimage.blockExpiryHeight,
+    nonce: preimage.nonce,
+  });
   writer.writeFixedOpaque(preimage.body, preimage.body.length);
   const payload = writer.finish();
 

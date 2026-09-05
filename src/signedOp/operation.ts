@@ -2,7 +2,6 @@ import type { ContractAddress, NetworkHash } from "@groundhogchain/protocol";
 import {
   CryptographicScheme,
   blockHeight,
-  ed25519PublicKey,
   ed25519Signature,
 } from "@groundhogchain/protocol";
 import {
@@ -12,6 +11,7 @@ import {
   type ContractTypeDef,
 } from "@groundhogchain/contract-spec";
 import type { FixedBytes } from "@groundhogchain/xdr";
+import { randomBytes } from "@noble/hashes/utils.js";
 import {
   createContractCodec,
   createContractCodecContext,
@@ -23,18 +23,27 @@ import { signedOperationPreimage } from "./preimage.js";
  * Wire form of a signed operation: the `Operation` struct of the
  * `groundhog-signed-op-if` interface, in the shape generated bindings give it.
  *
- * The network hash and verifying contract are covered by the signature but
- * deliberately absent here: the verifying contract supplies them from its own
- * syscalls, so a submitter cannot name the network or contract a signature was
- * meant for.
+ * The network hash, the verifying contract, and the signing key are covered
+ * by the signature but deliberately absent here. The verifying contract
+ * supplies the first two from its own syscalls and checks the signature
+ * against the key it holds, so a submitter can name neither the network or
+ * contract a signature was meant for nor the key it is checked against.
+ *
+ * `block_expiry_height` and `nonce` are the chain's `Uniquifier`, in its
+ * field order, so their encoding is byte for byte a transaction's.
  */
 export interface Operation {
-  /** Ed25519 public key that signed the operation. */
-  signer: FixedBytes<32>;
-  /** The signer's sequence number at the verifying contract. */
-  nonce: bigint;
   /** Last block height (inclusive) at which the operation may execute. */
-  valid_until: bigint;
+  block_expiry_height: bigint;
+  /**
+   * Chosen by the signer: any value, as long as the pair
+   * `(nonce, block_expiry_height)` has not been consumed at the verifying
+   * contract. There is no ordering. Consumed pairs are the contract's, not
+   * the key's, so where several keys sign for one contract, draw nonces at
+   * random ({@link randomNonce}) rather than counting; a lone key may do
+   * either.
+   */
+  nonce: bigint;
   /** CXS encoding of the payload value. */
   body: Uint8Array;
 }
@@ -51,13 +60,13 @@ export interface SignedOperationRequest<TBody> {
   readonly network: NetworkHash;
   /** Address of the contract that will verify and act on the operation. */
   readonly verifyingContract: ContractAddress;
+  /** Last block height (inclusive) at which the operation may execute. */
+  readonly blockExpiryHeight: bigint;
   /**
-   * The signer's next sequence number at the verifying contract, as returned
-   * by the contract's `next_signed_op_nonce` view.
+   * Signer-chosen replay guard; see {@link Operation.nonce}. Nothing on
+   * chain needs reading to pick one: {@link randomNonce} is always safe.
    */
   readonly nonce: bigint;
-  /** Last block height (inclusive) at which the operation may execute. */
-  readonly validUntil: bigint;
   /** The payload value, in the field shape generated bindings use. */
   readonly body: TBody;
 }
@@ -92,18 +101,37 @@ export interface DefineSignedOperationOptions {
 }
 
 /**
+ * A uniformly random `u64` for {@link Operation.nonce}.
+ *
+ * Consumed `(nonce, block_expiry_height)` pairs are scoped to the verifying
+ * contract, not to the signing key, so a random nonce is the choice that
+ * stays safe when several keys sign for one contract; a lone key may count
+ * instead. Draws from the platform's `crypto.getRandomValues`.
+ */
+export function randomNonce(): bigint {
+  let nonce = 0n;
+  for (const byte of randomBytes(8)) {
+    nonce = (nonce << 8n) | BigInt(byte);
+  }
+  return nonce;
+}
+
+/**
  * Bind signing helpers to a `#[contract_type]` payload.
  *
  * A signed operation authorizes an on-chain action off-chain, so the signer
  * need not submit the transaction: the pattern behind permits, session keys,
  * and delegated wallet actions. The verifying contract embeds
- * `groundhog_signed_op::SignedOpNonces` and checks the operation with
- * `verify_and_spend::<Payload>`; this is the client half, producing the
- * `Operation` and signature that contract expects.
+ * `groundhog_signed_op::SignedOpReplayCache` and checks the operation with
+ * `consume::<Payload>` against the key it holds; this is the client half,
+ * producing the `Operation` and signature that contract expects.
  *
  * @example
  * ```ts
- * import { defineSignedOperation } from "@groundhogchain/client/signed-op";
+ * import {
+ *   defineSignedOperation,
+ *   randomNonce,
+ * } from "@groundhogchain/client/signed-op";
  * import { spec, MyWallet, type Transfer } from "./generated/my_wallet.js";
  *
  * const transfer = defineSignedOperation<Transfer>({
@@ -113,8 +141,8 @@ export interface DefineSignedOperationOptions {
  * const { op, signature } = await transfer.sign(signer, {
  *   network: networkHash,
  *   verifyingContract: walletAddress,
- *   nonce: await SignedOp.nextSignedOpNonce.view({ client, contract: walletAddress, args: { signer: publicKey } }).then((v) => v.value),
- *   validUntil: currentHeight + 100n,
+ *   blockExpiryHeight: currentHeight + 100n,
+ *   nonce: randomNonce(),
  *   body: { to: recipient, amount: 42n },
  * });
  * // `op` and `signature` are the arguments of the contract's execute entrypoint.
@@ -140,16 +168,16 @@ export function defineSignedOperation<TBody>(
 
   const preimageOf = (
     request: SignedOperationRequest<TBody>,
+    blockExpiryHeight: bigint,
     nonce: bigint,
-    validUntil: bigint,
     body: Uint8Array,
   ): Uint8Array =>
     signedOperationPreimage({
       network: request.network,
       verifyingContract: request.verifyingContract,
       typeDef,
+      blockExpiryHeight: blockHeight(blockExpiryHeight),
       nonce,
-      validUntil: blockHeight(validUntil),
       body,
     });
 
@@ -160,32 +188,30 @@ export function defineSignedOperation<TBody>(
     preimage: (request) =>
       preimageOf(
         request,
+        request.blockExpiryHeight,
         request.nonce,
-        request.validUntil,
         bodyCodec.encode(request.body),
       ),
     async sign(signer, request) {
-      const publicKey = signer.publicKey;
-      if (publicKey.scheme !== CryptographicScheme.Ed25519) {
+      if (signer.publicKey.scheme !== CryptographicScheme.Ed25519) {
         throw new Error("Signed operations require an Ed25519 signer");
       }
       // Everything the returned operation carries is taken before the signer
       // is awaited, so a request mutated while a wallet prompt is pending
       // cannot make the operation disagree with the message that was signed.
-      // Signer-owned byte arrays are copied for the same reason, and the
-      // constructors reject any length but the 32 and 64 the wire struct's
-      // fixed arrays encode.
+      // The signature bytes are copied for the same reason, and the
+      // constructor rejects any length but the 64 the wire struct's fixed
+      // array encodes.
+      const blockExpiryHeight = request.blockExpiryHeight;
       const nonce = request.nonce;
-      const validUntil = request.validUntil;
-      const signerKey = ed25519PublicKey(new Uint8Array(publicKey.ed25519));
       const body = bodyCodec.encode(request.body);
-      const message = preimageOf(request, nonce, validUntil, body);
+      const message = preimageOf(request, blockExpiryHeight, nonce, body);
       const signature = await signer.sign(message);
       if (signature.scheme !== CryptographicScheme.Ed25519) {
         throw new Error("Signer did not return an Ed25519 signature");
       }
       return {
-        op: { signer: signerKey, nonce, valid_until: validUntil, body },
+        op: { block_expiry_height: blockExpiryHeight, nonce, body },
         signature: ed25519Signature(new Uint8Array(signature.ed25519)),
       };
     },

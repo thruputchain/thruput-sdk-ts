@@ -24,9 +24,9 @@ Regeneration preserves their entrypoint IDs, exception selectors, and event
 signatures.
 
 `signed_op.spec.xdr` (SHA-256
-`539be7a614633dedd5c151c63931347a42a7719a5abb6d04c0dc6a17de942947`) is the
-finalized spec of `groundhog-signed-op-if` 0.1.19, built from that crate's
+`9926dfd941fc2f107d9c33c82182b97d6402a0dd56e13755b5fa67ef908fabee`) is the
+finalized spec of `groundhog-signed-op-if` 0.1.22, built from that crate's
 rv32 spec carrier in `groundhogchain/sdk_rs`. It has no generated binding:
-`execute_signed_op` returns auth tokens, which the generator does not emit yet.
-`src/signedOp/interface.ts` mirrors it by hand and
+`execute_signed_op` returns an auth token, which the generator does not emit
+yet. `src/signedOp/interface.ts` mirrors it by hand and
 `src/signedOp/interface.test.ts` checks the mirror against this file.
