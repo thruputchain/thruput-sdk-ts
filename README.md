@@ -215,14 +215,15 @@ when operating multiple accounts against the same endpoint.
 
 A signed operation authorizes an on-chain action off-chain: the signer signs a
 `#[contract_type]` payload together with the network, the verifying contract,
-a per-signer nonce, and an expiry height, and anyone can submit it. The
-contract verifies it with the `groundhog-signed-op` Rust component. The
+and a replay guard (a signer-chosen nonce plus an expiry height), and anyone
+can submit it. The contract verifies it with the `groundhog-signed-op` Rust
+component against the key it holds; nothing on the wire names the signer. The
 `@groundhogchain/client/signed-op` entrypoint is the client half.
 
 ```ts
 import {
-  SignedOp,
   defineSignedOperation,
+  randomNonce,
 } from "@groundhogchain/client/signed-op";
 import { spec, MyWallet, type Transfer } from "./generated/my_wallet.js";
 
@@ -234,17 +235,13 @@ const transfer = defineSignedOperation<Transfer>({
   typeName: "Transfer",
 });
 
-const nonce = await SignedOp.nextSignedOpNonce.view({
-  client,
-  contract: walletAddress,
-  args: { signer: signer.publicKey.ed25519 },
-});
-
+// Nothing on chain needs reading before signing: the contract consumes each
+// (nonce, expiry) pair once, in any order, and forgets it after the expiry.
 const { op, signature } = await transfer.sign(signer, {
   network: networkHash,
   verifyingContract: walletAddress,
-  nonce: nonce.value,
-  validUntil: currentHeight + 100n,
+  blockExpiryHeight: currentHeight + 100n,
+  nonce: randomNonce(),
   body: { to: recipient, amount: 42n },
 });
 
@@ -283,7 +280,7 @@ helpers, generated standard contracts, signers, and standalone actions.
 - `src/contracts/` — generated standard contract bindings exported through `@groundhogchain/client/contracts`.
 - `src/transport/` — `HttpTransport` (JSON-RPC over HTTP) and `MockTransport` for tests.
 - `src/signers/` — `Signer` interface and `PrivateKeySigner` (ed25519 via `@noble/ed25519`).
-- `src/signedOp/` — off-chain signing of `SignedOp` operations: preimage construction, payload binding, and the interface's nonce view.
+- `src/signedOp/` — off-chain signing of `SignedOp` operations: preimage construction, payload binding, and the interface's method descriptors.
 - `src/local-dev/` — Node.js-only local runtime discovery and deterministic bootstrap signer loading.
 - `src/types/rpc.ts` — typed RPC request/response shapes.
 - `specs/openrpc.json` — pinned Groundhog OpenRPC spec; `scripts/regen-openrpc.sh` refreshes it. After a regen, `npm test` (specifically `src/actions/contract.test.ts`) names any TS action whose serialized request no longer matches the new spec.

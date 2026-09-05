@@ -15,7 +15,7 @@ import {
 } from "@groundhogchain/contract-spec";
 import { PrivateKeySigner } from "../signers/privateKey.js";
 import type { Signer } from "../signers/types.js";
-import { defineSignedOperation } from "./operation.js";
+import { defineSignedOperation, randomNonce } from "./operation.js";
 
 const s = contractSpecString;
 
@@ -40,8 +40,8 @@ interface Transfer {
 const request = {
   network: networkHash(sha256Hash(new Uint8Array(32).fill(0x5a))),
   verifyingContract: contractAddress(new Uint8Array(32).fill(0x03)),
+  blockExpiryHeight: 1_000n,
   nonce: 7n,
-  validUntil: 1_000n,
   body: { to: contractAddress(new Uint8Array(32).fill(0x07)), amount: 42n },
 };
 
@@ -61,15 +61,25 @@ describe("defineSignedOperation", () => {
   it("produces the wire operation and an Ed25519 signature over the preimage", async () => {
     const signed = await transfer.sign(signer, request);
 
-    expect(signed.op.signer).toEqual(signer.publicKey.ed25519);
+    // The wire struct names no signer: the verifying contract checks against
+    // the key it holds.
+    expect(Object.keys(signed.op)).toEqual([
+      "block_expiry_height",
+      "nonce",
+      "body",
+    ]);
+    expect(signed.op.block_expiry_height).toBe(1_000n);
     expect(signed.op.nonce).toBe(7n);
-    expect(signed.op.valid_until).toBe(1_000n);
     expect(toHex(signed.op.body)).toBe(
       toHex(transfer.encodeBody(request.body)),
     );
     expect(signed.signature).toHaveLength(64);
     expect(
-      verify(signed.signature, transfer.preimage(request), signed.op.signer),
+      verify(
+        signed.signature,
+        transfer.preimage(request),
+        signer.publicKey.ed25519,
+      ),
     ).toBe(true);
   });
 
@@ -77,7 +87,7 @@ describe("defineSignedOperation", () => {
     const base = transfer.preimage(request);
     const variants = [
       { ...request, nonce: 8n },
-      { ...request, validUntil: 1_001n },
+      { ...request, blockExpiryHeight: 1_001n },
       {
         ...request,
         verifyingContract: contractAddress(new Uint8Array(32).fill(0x04)),
@@ -93,18 +103,7 @@ describe("defineSignedOperation", () => {
     }
   });
 
-  it("rejects mis-sized key or signature bytes from a custom signer", async () => {
-    const shortKey = {
-      publicKey: {
-        scheme: CryptographicScheme.Ed25519,
-        ed25519: new Uint8Array(31),
-      },
-      sign: signer.sign.bind(signer),
-    } as unknown as Signer;
-    await expect(transfer.sign(shortKey, request)).rejects.toThrow(
-      /exactly 32 bytes/,
-    );
-
+  it("rejects a mis-sized signature from a custom signer", async () => {
     const shortSignature: Signer = {
       publicKey: signer.publicKey,
       async sign() {
@@ -122,41 +121,41 @@ describe("defineSignedOperation", () => {
   it("signs and returns the request as it was before the signer was awaited", async () => {
     // A wallet prompt is asynchronous; a request mutated meanwhile must not
     // produce an operation that disagrees with the signed message.
-    const mutable = { ...request } as { nonce: bigint; validUntil: bigint };
+    const mutable = { ...request } as {
+      blockExpiryHeight: bigint;
+      nonce: bigint;
+    };
     const expectedMessage = transfer.preimage(request);
     const meddling: Signer = {
       publicKey: signer.publicKey,
       async sign(message) {
         mutable.nonce = 99n;
-        mutable.validUntil = 5n;
+        mutable.blockExpiryHeight = 5n;
         return signer.sign(message);
       },
     };
 
     const signed = await transfer.sign(meddling, mutable as typeof request);
 
+    expect(signed.op.block_expiry_height).toBe(1_000n);
     expect(signed.op.nonce).toBe(7n);
-    expect(signed.op.valid_until).toBe(1_000n);
-    expect(verify(signed.signature, expectedMessage, signed.op.signer)).toBe(
-      true,
-    );
+    expect(
+      verify(signed.signature, expectedMessage, signer.publicKey.ed25519),
+    ).toBe(true);
   });
 
-  it("copies signer-owned key and signature bytes", async () => {
-    const key = new Uint8Array(signer.publicKey.ed25519);
+  it("copies signer-owned signature bytes", async () => {
     const sig = new Uint8Array(64).fill(0x42);
     const owned: Signer = {
-      publicKey: { scheme: CryptographicScheme.Ed25519, ed25519: key },
+      publicKey: signer.publicKey,
       async sign() {
         return { scheme: CryptographicScheme.Ed25519, ed25519: sig };
       },
     } as unknown as Signer;
 
     const signed = await transfer.sign(owned, request);
-    key.fill(0);
     sig.fill(0);
 
-    expect(signed.op.signer).toEqual(signer.publicKey.ed25519);
     expect(signed.signature).toEqual(new Uint8Array(64).fill(0x42));
   });
 
@@ -187,5 +186,21 @@ describe("defineSignedOperation", () => {
     await expect(transfer.sign(bogus, request)).rejects.toThrow(
       /Ed25519 signer/,
     );
+  });
+});
+
+describe("randomNonce", () => {
+  it("draws a u64", () => {
+    for (let i = 0; i < 64; i++) {
+      const nonce = randomNonce();
+      expect(nonce).toBeGreaterThanOrEqual(0n);
+      expect(nonce).toBeLessThanOrEqual(0xffff_ffff_ffff_ffffn);
+    }
+  });
+
+  it("does not repeat", () => {
+    const drawn = new Set<bigint>();
+    for (let i = 0; i < 64; i++) drawn.add(randomNonce());
+    expect(drawn.size).toBe(64);
   });
 });

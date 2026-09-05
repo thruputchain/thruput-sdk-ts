@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
   blockHeight,
+  codec,
   contractAddress,
   networkHash,
   serializeCxs,
@@ -26,8 +27,9 @@ interface Vector {
   type_def_cxs_hex: string;
   network_hex: string;
   verifying_contract_hex: string;
+  block_expiry_height: string;
   nonce: string;
-  valid_until: string;
+  uniquifier_cxs_hex: string;
   body_cxs_hex: string;
   signed_message_hex: string;
 }
@@ -39,9 +41,9 @@ interface VectorFile {
   vectors: Vector[];
 }
 
-// Committed rather than regenerated: the pinned groundhog-test-vectors release
-// predates the `signed-op` category. scripts/regen-test-vectors.sh refreshes
-// it once the pin moves to a release that carries it.
+// Committed, unlike the other categories, so these tests run without the
+// generator installed; scripts/regen-test-vectors.sh refreshes it from the
+// pinned groundhog-test-vectors release.
 const vectorsPath = fileURLToPath(
   new URL("../../specs/test-vectors/signed-op.json", import.meta.url),
 );
@@ -95,8 +97,8 @@ function requestOf(v: Vector) {
   return {
     network: networkHash(sha256Hash(fromHex(v.network_hex))),
     verifyingContract: contractAddress(fromHex(v.verifying_contract_hex)),
+    blockExpiryHeight: BigInt(v.block_expiry_height),
     nonce: BigInt(v.nonce),
-    validUntil: BigInt(v.valid_until),
     body: bodies[v.label],
   };
 }
@@ -104,7 +106,8 @@ function requestOf(v: Vector) {
 describe("golden vectors (signed_op)", () => {
   it("loads the expected vector category", () => {
     expect(vectorFile.category).toBe("signed_op");
-    expect(vectorFile.version).toBe(1);
+    // 2: the nonce/expiry pair became a Uniquifier, encoded expiry-first.
+    expect(vectorFile.version).toBe(2);
     expect(vectorFile.vectors.length).toBeGreaterThan(0);
     for (const v of vectorFile.vectors) {
       expect(bodies, `no payload value for vector ${v.label}`).toHaveProperty(
@@ -129,6 +132,23 @@ describe("golden vectors (signed_op)", () => {
           serializeCxs(operation.typeDef, contractSpecCodec.ContractTypeDef),
         ),
       ).toBe(v.type_def_cxs_hex);
+    },
+  );
+
+  it.each(vectorFile.vectors.map((v) => [v.label, v] as const))(
+    "%s: the chain's Uniquifier encodes the pair to uniquifier_cxs_hex",
+    (_label, v) => {
+      const uniquifier = {
+        block_expiry_height: blockHeight(BigInt(v.block_expiry_height)),
+        nonce: BigInt(v.nonce),
+      };
+      expect(toHex(serializeCxs(uniquifier, codec.Uniquifier))).toBe(
+        v.uniquifier_cxs_hex,
+      );
+      // The pair sits immediately before the body, expiry first.
+      expect(
+        v.signed_message_hex.endsWith(v.uniquifier_cxs_hex + v.body_cxs_hex),
+      ).toBe(true);
     },
   );
 
@@ -168,8 +188,8 @@ describe("golden vectors (signed_op)", () => {
         network: request.network,
         verifyingContract: request.verifyingContract,
         typeDef: operation.typeDef,
+        blockExpiryHeight: blockHeight(request.blockExpiryHeight),
         nonce: request.nonce,
-        validUntil: blockHeight(request.validUntil),
         body: fromHex(v.body_cxs_hex),
       });
       expect(toHex(message)).toBe(v.signed_message_hex);
