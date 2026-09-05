@@ -14,7 +14,6 @@
     "groundhog",
     "blockchain",
     "json-rpc",
-    "ed25519",
     "sdk",
     "client"
   ],
