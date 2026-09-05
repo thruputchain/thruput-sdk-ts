@@ -91,3 +91,11 @@ export type {
   DevWalletInitializeArgs,
   DevWalletInitializeResult,
 } from "./dev_wallet.js";
+export { SignedOp, SignedOpError, spec as SignedOpSpec } from "./signed_op.js";
+export type {
+  Operation as SignedOpOperation,
+  SignedOpDeclaredException,
+  SignedOpException,
+  SignedOpExecuteSignedOpArgs,
+  SignedOpExecuteSignedOpResult,
+} from "./signed_op.js";

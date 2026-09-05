@@ -12,91 +12,59 @@ import {
 } from "@groundhogchain/protocol";
 import { toHex } from "@groundhogchain/protocol/utils";
 import {
-  ContractTypeKind,
   codec as contractSpecCodec,
   type ContractSpec,
 } from "@groundhogchain/contract-spec";
 import { fixedBytes } from "@groundhogchain/xdr";
 import { signedToken } from "../contract/signedToken.js";
 import { deriveEntrypointID } from "../derivation/entrypointId.js";
-import {
-  SIGNED_OP_INTERFACE_VERSION,
-  SignedOp,
-  SignedOpError,
-  signedOpTypeDefs,
-} from "./interface.js";
+import { SignedOp, SignedOpError, spec } from "./signed_op.js";
 
 // The finalized spec of `groundhog-signed-op-if`, built from its rv32 spec
-// carrier. The hand-maintained descriptors in interface.ts must agree with it.
+// carrier: the input the binding was generated from.
 const specPath = fileURLToPath(
   new URL("../../specs/contracts/signed_op.spec.xdr", import.meta.url),
 );
-const spec: ContractSpec = deserialize(
+const pinned: ContractSpec = deserialize(
   new Uint8Array(readFileSync(specPath)),
   contractSpecCodec.ContractSpec,
 );
-const iface = spec.interfaces[0]!;
-const method = (name: string) => iface.methods.find((m) => m.name === name)!;
 
-describe("SignedOp interface mirror", () => {
-  it("mirrors the pinned interface version", () => {
+describe("SignedOp binding", () => {
+  it("embeds the pinned interface spec", () => {
+    expect(spec).toEqual(pinned);
     expect(spec.interfaces).toHaveLength(1);
-    expect(iface.name).toBe("SignedOp");
-    expect(iface.vers).toBe(SIGNED_OP_INTERFACE_VERSION);
-  });
-
-  it("mirrors the spec's type definitions", () => {
-    expect(spec.type_defs).toEqual(signedOpTypeDefs);
-  });
-
-  it("mirrors the SignedOpError variants", () => {
-    const enumDef = spec.type_defs.find(
-      (def) => "enum_def" in def && def.enum_def.name === "SignedOpError",
-    );
-    expect(enumDef).toBeDefined();
-    const variants = Object.fromEntries(
-      ("enum_def" in enumDef! ? enumDef.enum_def.variants : []).map((v) => [
-        v.name,
-        v.value,
-      ]),
-    );
-    expect(variants).toEqual(SignedOpError);
-  });
-
-  it("mirrors every method, and only those", () => {
+    expect(spec.interfaces[0]!.name).toBe("SignedOp");
+    expect(spec.interfaces[0]!.vers).toBe("0.1.22");
     // Nonces are unordered, so the nonce view of earlier releases is gone:
     // nothing on chain needs reading before signing.
-    expect(iface.methods.map((m) => m.name)).toEqual(["execute_signed_op"]);
-    expect(Object.keys(SignedOp)).toEqual(["executeSignedOp"]);
-    expect(iface.throws).toHaveLength(1);
-    expect(iface.throws[0]!.selector).toBe(0x65f3de61c8178163n);
+    expect(spec.interfaces[0]!.methods.map((m) => m.name)).toEqual([
+      "execute_signed_op",
+    ]);
   });
 
-  it("mirrors execute_signed_op, including its signed-token return", () => {
-    const m = method("execute_signed_op");
-    expect(m.args.map((a) => a.name)).toEqual(["op", "signature"]);
-    expect(m.args[0]!.ty).toEqual({
-      v: ContractTypeKind.Named,
-      named: "Operation",
+  it("names every refusal", () => {
+    expect(SignedOpError).toEqual({
+      InvalidSignature: 1n,
+      Expired: 2n,
+      AlreadyConsumed: 3n,
+      MalformedBody: 4n,
+      NotYetExpired: 5n,
     });
-    expect(m.args[1]!.ty).toEqual({
-      v: ContractTypeKind.Array,
-      array: { element: { v: ContractTypeKind.U8 }, len: 64n },
-    });
-    // One token, not a vector of them: the root of whatever the operation
-    // authorizes.
-    expect(m.return_type).toEqual({
-      v: ContractTypeKind.SignedToken,
-      signed_token_preimage: { preimage_type: null },
-    });
+  });
+
+  it("derives execute_signed_op's entrypoint from the interface", () => {
+    const iface = spec.interfaces[0]!;
     expect(toHex(SignedOp.executeSignedOp.entrypoint)).toBe(
       toHex(deriveEntrypointID(iface.name, iface.vers, "execute_signed_op")),
     );
     // Pinned against the Rust `contract_entrypoint_id` for the same triple;
-    // unchanged from earlier 0.1.x releases, since only the major version
-    // domain enters the derivation.
+    // unchanged across 0.1.x releases, since only the major-version domain
+    // enters the derivation.
     expect(toHex(SignedOp.executeSignedOp.entrypoint)).toBe("c281dc2ffb5eeb1e");
+  });
 
+  it("encodes the operation as the chain's Uniquifier then the body, and returns one token", () => {
     const signature = fixedBytes(new Uint8Array(64).fill(0xcd), 64);
     const invocation = SignedOp.executeSignedOp.invocation(
       contractAddress(new Uint8Array(32)),

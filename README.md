@@ -280,7 +280,7 @@ helpers, generated standard contracts, signers, and standalone actions.
 - `src/contracts/` — generated standard contract bindings exported through `@groundhogchain/client/contracts`.
 - `src/transport/` — `HttpTransport` (JSON-RPC over HTTP) and `MockTransport` for tests.
 - `src/signers/` — `Signer` interface and `PrivateKeySigner` (ed25519 via `@noble/ed25519`).
-- `src/signedOp/` — off-chain signing of `SignedOp` operations: preimage construction, payload binding, and the interface's method descriptors.
+- `src/signedOp/` — off-chain signing of `SignedOp` operations: preimage construction and payload binding, plus the generated `SignedOp` binding re-exported from `src/contracts/signed_op.ts`.
 - `src/local-dev/` — Node.js-only local runtime discovery and deterministic bootstrap signer loading.
 - `src/types/rpc.ts` — typed RPC request/response shapes.
 - `specs/openrpc.json` — pinned Groundhog OpenRPC spec; `scripts/regen-openrpc.sh` refreshes it. After a regen, `npm test` (specifically `src/actions/contract.test.ts`) names any TS action whose serialized request no longer matches the new spec.
