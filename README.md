@@ -295,6 +295,16 @@ The package exposes focused entry points alongside the root: `./transaction`,
 `./transport`, `./contract`, `./contracts`, `./signers`, `./actions`,
 `./signed-op`, and the Node.js-only `./local-dev` helper.
 
+## Documentation
+
+- [TypeScript SDK guide](https://docs.groundhog.dev/tools/typescript-sdk/) and the
+  [end-to-end tutorial](https://docs.groundhog.dev/tutorials/work-with-groundhog-from-typescript/)
+  on the Groundhog developer site.
+- [JSON-RPC API reference](https://docs.groundhog.dev/reference/json-rpc-api/) for the
+  methods behind each action.
+- The TypeDoc API reference is generated from this package's entry points with
+  `npm run docs` (see [API docs](#api-docs)).
+
 ## API docs
 
 Generate local API reference docs with TypeDoc:

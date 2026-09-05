@@ -41,6 +41,7 @@ const requiredExports = {
   ],
   "./transport": [
     "GroundhogRpcErrorCode",
+    "HttpResponseError",
     "HttpTransport",
     "JsonRpcError",
     "MockTransport",
