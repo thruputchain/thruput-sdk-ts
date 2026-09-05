@@ -9,6 +9,14 @@
  * `execute_signed_op` expects; {@link randomNonce} picks a nonce without
  * reading anything on chain.
  *
+ * {@link SignedOp} is the generated binding of the `SignedOp` standard
+ * interface. `executeSignedOp` verifies an operation, consumes its pair, and
+ * mints the one auth token the operation authorizes. Tokens never travel in
+ * return data, so a client decodes it as a `SignedToken` placeholder; it is
+ * the calling contract that consumes it on chain. Most applications submit an
+ * operation through the entrypoint of the contract that does so, passing the
+ * {@link SignedOperation} that {@link defineSignedOperation} produces.
+ *
  * The bytes signed are defined by the Rust `groundhog-domain-separator`
  * crate's `SignedOp` and verified by the `groundhog-signed-op` component.
  *
@@ -28,11 +36,11 @@ export {
   type SignedOperationPreimage,
 } from "./preimage.js";
 export {
-  SIGNED_OP_INTERFACE_VERSION,
   SignedOp,
   SignedOpError,
-  signedOpTypeDefs,
+  spec as SignedOpSpec,
   type SignedOpDeclaredException,
   type SignedOpException,
   type SignedOpExecuteSignedOpArgs,
-} from "./interface.js";
+  type SignedOpExecuteSignedOpResult,
+} from "../contracts/signed_op.js";
