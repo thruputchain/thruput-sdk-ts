@@ -1,0 +1,190 @@
+import { describe, expect, it } from "vitest";
+import { toHex0x } from "../actions/hex.js";
+import { PrivateKeySigner } from "../signers/privateKey.js";
+import { createPubkeyAccount } from "../wallet/account.js";
+import {
+  MAX_TRANSACTION_BYTES,
+  WalletProviderError,
+  parseProviderRequest,
+  parseSignedTransactionHex,
+  parseTransactionHex,
+  parseWalletAccount,
+  parseWalletHex32,
+  parseWalletNetworkHash,
+  parseWalletProviderError,
+  parseWalletProviderInfo,
+  parseWalletSession,
+} from "./index.js";
+
+const signer = new PrivateKeySigner(new Uint8Array(32).fill(1));
+const localAccount = createPubkeyAccount({ signer, nonce: 7n });
+const account = {
+  address: toHex0x(localAccount.address),
+  publicKey: toHex0x(signer.publicKey.ed25519),
+  nonce: "7",
+};
+const networkHash = "ab".repeat(32);
+
+describe("provider boundary validation", () => {
+  it("snapshots and freezes valid sessions, including disconnected sessions", () => {
+    const input = { networkHash, accounts: [{ ...account }] };
+    const session = parseWalletSession(input);
+    input.accounts[0]!.nonce = "8";
+    expect(session.accounts).toEqual([account]);
+    expect(Object.isFrozen(session)).toBe(true);
+    expect(Object.isFrozen(session.accounts)).toBe(true);
+    expect(Object.isFrozen(session.accounts[0])).toBe(true);
+    expect(parseWalletSession({ networkHash, accounts: [] }).accounts).toEqual(
+      [],
+    );
+  });
+
+  it.each([
+    null,
+    [],
+    {},
+    { networkHash, accounts: null },
+    { networkHash, accounts: [account, account] },
+    { networkHash, accounts: Array(33).fill(account) },
+    { networkHash, accounts: Array(1) },
+    { networkHash, accounts: [], extra: true },
+  ])("rejects malformed sessions: %j", (value) => {
+    expect(() => parseWalletSession(value)).toThrow(WalletProviderError);
+  });
+
+  it.each([
+    "0x" + networkHash,
+    networkHash.toUpperCase(),
+    "a".repeat(63),
+    "g".repeat(64),
+    networkHash + "\n",
+    1,
+  ])("rejects noncanonical network hashes: %s", (value) => {
+    expect(() => parseWalletNetworkHash(value)).toThrow();
+  });
+
+  it.each([
+    networkHash,
+    "0x" + networkHash.toUpperCase(),
+    "0x1",
+    "0x" + "aa".repeat(33),
+    "0x" + networkHash + "\n",
+  ])("rejects noncanonical 32-byte hex: %s", (value) => {
+    expect(() => parseWalletHex32(value)).toThrow();
+  });
+
+  it.each([
+    "",
+    "01",
+    "+1",
+    "-1",
+    "1.0",
+    "1e1",
+    "18446744073709551616",
+    "1".repeat(100),
+    "7\n",
+    "7\r",
+    7,
+  ])("rejects noncanonical account nonces: %s", (nonce) => {
+    expect(() => parseWalletAccount({ ...account, nonce })).toThrow();
+  });
+
+  it("accepts the full u64 derivation range", () => {
+    for (const nonce of [0n, 0xffff_ffff_ffff_ffffn]) {
+      const derived = createPubkeyAccount({ signer, nonce });
+      expect(
+        parseWalletAccount({
+          ...account,
+          address: toHex0x(derived.address),
+          nonce: String(nonce),
+        }).nonce,
+      ).toBe(String(nonce));
+    }
+  });
+
+  it.each([
+    "0x" + "00".repeat(32),
+    "0x01" + "00".repeat(31),
+    "0x" + "ff".repeat(32),
+  ])("rejects invalid or small-order public keys", (publicKey) => {
+    expect(() => parseWalletAccount({ ...account, publicKey })).toThrow(
+      "Invalid Ed25519 public key",
+    );
+  });
+
+  it("rejects a mismatched address or derivation nonce", () => {
+    expect(() =>
+      parseWalletAccount({ ...account, address: "0x" + "00".repeat(32) }),
+    ).toThrow("derivation mismatch");
+    expect(() => parseWalletAccount({ ...account, nonce: "8" })).toThrow(
+      "derivation mismatch",
+    );
+  });
+
+  it.each([
+    { id: "", name: "Wallet", version: "1.0.0" },
+    { id: "a".repeat(65), name: "Wallet", version: "1.0.0" },
+    { id: "a b", name: "Wallet", version: "1.0.0" },
+    { id: "a\n", name: "Wallet", version: "1.0.0" },
+    { id: "a", name: "x".repeat(81), version: "1.0.0" },
+    { id: "a", name: " Wallet", version: "1.0.0" },
+    { id: "a", name: "Wallet\n", version: "1.0.0" },
+    { id: "a", name: "Wallet", version: "2.0.0" },
+  ])("rejects invalid discovery info %j", (info) => {
+    expect(() => parseWalletProviderInfo(info)).toThrow();
+  });
+
+  it.each([4001, 4100, 4200, 4900, 4901, -32602, -32603, -32002] as const)(
+    "preserves error code %s across a wire boundary",
+    (code) => {
+      const error = parseWalletProviderError({ code, message: "Failure" });
+      expect(error).toBeInstanceOf(Error);
+      expect(error).toMatchObject({
+        name: "WalletProviderError",
+        code,
+        message: "Failure",
+      });
+      expect(
+        parseWalletProviderError(new WalletProviderError(code, "Failure")),
+      ).toMatchObject({ code });
+    },
+  );
+
+  it.each([
+    { code: 1, message: "Failure" },
+    { code: "4001", message: "Failure" },
+    { code: 4001, message: "x".repeat(1025) },
+  ])("rejects invalid wire errors", (value) =>
+    expect(() => parseWalletProviderError(value)).toThrow(),
+  );
+
+  it("rejects unknown methods and extra request fields", () => {
+    expect(() => parseProviderRequest({ method: "signMessage" })).toThrow(
+      expect.objectContaining({ code: 4200 }),
+    );
+    expect(() =>
+      parseProviderRequest({ method: "connect", params: {} }),
+    ).toThrow(expect.objectContaining({ code: -32602 }));
+    for (const method of ["connect", "getSession", "disconnect"] as const) {
+      expect(parseProviderRequest({ method })).toEqual({ method });
+    }
+  });
+
+  it.each([parseTransactionHex, parseSignedTransactionHex])(
+    "bounds hex before decoding XDR",
+    (parse) => {
+      for (const value of [
+        "0x",
+        "0x0",
+        "0xGG",
+        "0X0000",
+        "0x00",
+        "0x" + "00".repeat(MAX_TRANSACTION_BYTES + 1),
+      ]) {
+        expect(() => parse(value)).toThrow(
+          expect.objectContaining({ code: -32602 }),
+        );
+      }
+    },
+  );
+});

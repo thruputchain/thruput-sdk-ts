@@ -75,6 +75,64 @@ import {
   type LocalDevAccount,
   type LocalDevAccountRole,
 } from "@groundhogchain/client/local-dev";
+import {
+  discoverWalletProviders,
+  registerWalletProvider,
+  parseWalletSession,
+  type WalletAccount as ProviderAccount,
+  type WalletProvider,
+  type SignTransactionResult,
+  type SubmitTransactionResult,
+} from "@groundhogchain/client/provider";
+import {
+  createProviderWalletClient,
+  type ProviderWalletClient,
+  type WalletAccount as LocalWalletAccount,
+} from "@groundhogchain/client/wallet";
+
+async function providerBoundaryTypecheck(
+  client: GroundhogClient,
+  provider: WalletProvider,
+  invocation: Invocation,
+  persist: (signed: SignTransactionResult) => Promise<void>,
+): Promise<void> {
+  const stop = discoverWalletProviders((discovered) => {
+    const version: "1.0.0" = discovered.info.version;
+    void version;
+  }, new EventTarget());
+  const unregister = registerWalletProvider(provider, new EventTarget());
+  const session = parseWalletSession(
+    await provider.request({ method: "connect" }),
+  );
+  const account: ProviderAccount | undefined = session.accounts[0];
+  if (!account) return;
+  const wallet: ProviderWalletClient = createProviderWalletClient({
+    client,
+    provider,
+    account,
+    networkHash: session.networkHash,
+  });
+  const tx: Transaction = await wallet.prepareExecution({
+    invocation,
+    gasLimit: invocation.gas_limit,
+  });
+  const signed: SignTransactionResult = await wallet.signTransaction(tx);
+  await persist(signed);
+  const result: SubmitTransactionResult =
+    await wallet.submitTransaction(signed);
+  const hash: string = result.hash;
+  // @ts-expect-error Provider accounts are not raw-signer accounts.
+  const local: LocalWalletAccount = account;
+  // @ts-expect-error The provider does not expose arbitrary-byte signing.
+  provider.request({ method: "signMessage", params: { message: "0x00" } });
+  // @ts-expect-error The adapter deliberately has no implicit sign-and-submit action.
+  wallet.execute({ invocation, gasLimit: invocation.gas_limit });
+  wallet.dispose();
+  stop();
+  unregister();
+  void hash;
+  void local;
+}
 
 async function packageBoundaryTypecheck(
   client: GroundhogClient,
@@ -316,3 +374,4 @@ function walletBoundaryTypecheck(
 void packageBoundaryTypecheck;
 void clusterBoundaryTypecheck;
 void walletBoundaryTypecheck;
+void providerBoundaryTypecheck;

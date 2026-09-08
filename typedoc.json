@@ -9,7 +9,9 @@
     "src/contracts/index.ts",
     "src/signers/index.ts",
     "src/signedOp/index.ts",
-    "src/local-dev/index.ts"
+    "src/local-dev/index.ts",
+    "src/provider/index.ts",
+    "src/wallet/index.ts"
   ],
   "out": "docs/api",
   "readme": "README.md",

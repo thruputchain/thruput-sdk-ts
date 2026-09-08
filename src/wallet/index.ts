@@ -25,3 +25,8 @@ export {
   type WalletExecutionRequest,
   type WalletInvocationAdapter,
 } from "./invocationAdapter.js";
+export {
+  createProviderWalletClient,
+  type CreateProviderWalletClientOptions,
+  type ProviderWalletClient,
+} from "./providerClient.js";

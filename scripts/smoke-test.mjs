@@ -76,6 +76,20 @@ const requiredExports = {
     "view",
   ],
   "./local-dev": ["loadLocalDevAccount"],
+  "./provider": [
+    "WalletProviderError",
+    "parseWalletSession",
+    "parseProviderRequest",
+    "registerWalletProvider",
+    "discoverWalletProviders",
+    "verifySignTransactionResult",
+  ],
+  "./wallet": [
+    "createWalletClient",
+    "createPubkeyAccount",
+    "defaultWalletAdapter",
+    "createProviderWalletClient",
+  ],
 };
 
 for (const [subpath, entry] of Object.entries(pkg.exports)) {

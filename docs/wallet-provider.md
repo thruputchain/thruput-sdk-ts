@@ -81,6 +81,8 @@ session. The transaction root address and pubkey auth claim MUST match the selec
 account. The result MUST preserve the entire unsigned transaction byte-for-byte
 and contain exactly one Ed25519 signature with public-key ID zero. Verify strictly
 (not ZIP-215) over the SDK's `transactionSignaturePreimage(networkHash, tx)`.
+Both the public key and signature point R MUST be non-small-order, prime-order
+points; a cofactored verification equation alone is insufficient.
 `hash` MUST be `0x` plus lowercase SHA-256 of the unsigned transaction XDR, matching
 the RPC transaction/receipt identifier; signatures and network are not hashed.
 
@@ -135,6 +137,29 @@ load order work; there is no polling or `window.groundhog` assignment. Importing
 either subpath is safe without a browser; pass an `EventTarget` outside a browser.
 Discovery is not identity attestation: IDs/names can be spoofed by page scripts.
 
+## Validation Helpers
+
+The `/provider` entrypoint exports these helpers for wallets and bridges:
+
+- `parseWalletAccount`, `parseWalletSession`, `parseWalletProviderInfo`, and
+  `parseWalletProvider` validate their named boundaries.
+- `parseWalletHex32` and `parseWalletNetworkHash` validate the two hex formats.
+- `parseProviderRequest` validates the exact request union and canonical XDR.
+- `parseTransactionHex` and `parseSignedTransactionHex` return protocol objects
+  after bounded, canonical XDR decoding; they do not verify signatures.
+- `parseSignTransactionResult` and `parseSubmitTransactionResult` validate result
+  structure and encoding, not prior approval or hash correctness.
+- `assertWalletTransaction(tx, account)` checks root address and pubkey claim.
+- `verifySignTransactionResult(value, transaction, account, networkHash)` returns
+  `Promise<SignTransactionResult>` after verifying exact unsigned hex, signature,
+  and canonical hash. Signature verification requires Web Crypto (HTTPS or
+  localhost in browsers). It does not establish origin authorization.
+- `parseWalletProviderError` reconstructs a bounded, recognized error.
+
+The exported bounds are `MAX_TRANSACTION_BYTES = 1_048_576`,
+`MAX_WALLET_ACCOUNTS = 32`, and `MAX_DISCOVERED_PROVIDERS = 32`.
+Event names are exported as `REQUEST_PROVIDER_EVENT` and `ANNOUNCE_PROVIDER_EVENT`.
+
 ## SDK Adapter
 
 ```ts
@@ -187,6 +212,9 @@ operations are pending. It verifies exact transaction bytes, authorization claim
 strict signature, and both returned hashes. Submission only accepts the latest
 successfully verified result from this adapter. Inputs are snapshotted before any
 asynchronous work. Invalid provider results fail closed.
+The adapter does not impose a UI timeout or cancel provider requests on disposal;
+providers and bridges own request deadlines. A late result cannot reactivate a
+disposed adapter or cause it to submit.
 
 ## Submission Ambiguity
 
