@@ -23,6 +23,8 @@ import { signTransaction } from "../transaction/sign.js";
 import { transactionSignaturePreimage } from "../transaction/preimage.js";
 import { MockTransport } from "../transport/mock.js";
 import {
+  MAX_TRANSACTION_BYTES,
+  MAX_UNSIGNED_TRANSACTION_BYTES,
   WalletProviderError,
   parseProviderRequest,
   parseSignedTransactionHex,
@@ -147,6 +149,122 @@ function methodCalls(
 }
 
 describe("external provider wallet", () => {
+  it("reserves the single signature envelope before approval and accepts exact size limits", async () => {
+    const { wallet, request } = await setup();
+    const input = {
+      ...execution,
+      invocation: {
+        ...execution.invocation,
+        calldata: calldata(new Uint8Array(1_000_000)),
+      },
+    };
+    const baseline = await wallet.prepareExecution(input);
+    input.invocation.calldata = calldata(
+      new Uint8Array(
+        input.invocation.calldata.length +
+          MAX_UNSIGNED_TRANSACTION_BYTES -
+          serialize(baseline, codec.Transaction).length,
+      ),
+    );
+    const tx = await wallet.prepareExecution(input);
+    const unsigned = toHex0x(serialize(tx, codec.Transaction));
+    expect((unsigned.length - 2) / 2).toBe(MAX_UNSIGNED_TRANSACTION_BYTES);
+    expect(MAX_UNSIGNED_TRANSACTION_BYTES).toBe(1_048_500);
+    expect(
+      serialize(parseTransactionHex(unsigned), codec.Transaction).length,
+    ).toBe(MAX_UNSIGNED_TRANSACTION_BYTES);
+    expect(() =>
+      parseProviderRequest({
+        method: "signTransaction",
+        params: {
+          account: account.address,
+          networkHash,
+          transaction: unsigned,
+        },
+      }),
+    ).not.toThrow();
+
+    const signed = await wallet.signTransaction(tx);
+    expect((signed.signedTransaction.length - 2) / 2).toBe(
+      MAX_TRANSACTION_BYTES,
+    );
+    expect(
+      parseSignedTransactionHex(signed.signedTransaction).signatures,
+    ).toHaveLength(1);
+    expect(await wallet.submitTransaction(signed)).toEqual({
+      hash: signed.hash,
+    });
+
+    // One extra raw byte must fail the size check, not merely XDR decoding.
+    for (const [parse, hex, limit] of [
+      [parseTransactionHex, unsigned, MAX_UNSIGNED_TRANSACTION_BYTES],
+      [
+        parseSignedTransactionHex,
+        signed.signedTransaction,
+        MAX_TRANSACTION_BYTES,
+      ],
+    ] as const) {
+      expect(() => parse(hex + "00")).toThrow(
+        expect.objectContaining({
+          code: -32602,
+          message: `Expected canonical transaction hex of at most ${limit} bytes`,
+        }),
+      );
+    }
+    expect(() =>
+      parseProviderRequest({
+        method: "signTransaction",
+        params: {
+          account: account.address,
+          networkHash,
+          transaction: unsigned + "00",
+        },
+      }),
+    ).toThrow(expect.objectContaining({ code: -32602 }));
+    expect(() =>
+      parseProviderRequest({
+        method: "submitTransaction",
+        params: {
+          account: account.address,
+          networkHash,
+          signedTransaction: signed.signedTransaction + "00",
+        },
+      }),
+    ).toThrow(expect.objectContaining({ code: -32602 }));
+
+    // Canonical XDR grows in four-byte increments. Reject before prompting.
+    request.mockClear();
+    input.invocation.calldata = calldata(
+      new Uint8Array(input.invocation.calldata.length + 4),
+    );
+    await expect(wallet.prepareExecution(input)).rejects.toMatchObject({
+      code: -32602,
+    });
+    tx.invocation.calldata = calldata(
+      new Uint8Array(tx.invocation.calldata.length + 4),
+    );
+    expect(serialize(tx, codec.Transaction).length).toBe(
+      MAX_UNSIGNED_TRANSACTION_BYTES + 4,
+    );
+    await expect(wallet.signTransaction(tx)).rejects.toMatchObject({
+      code: -32602,
+    });
+    expect(methodCalls(request, "signTransaction")).toHaveLength(0);
+    expect(methodCalls(request, "submitTransaction")).toHaveLength(0);
+    const oversizedSigned = await signTransaction(
+      tx,
+      localAccount.signers,
+      signingNetwork,
+    );
+    expect(serialize(oversizedSigned, codec.SignedTransaction).length).toBe(
+      MAX_TRANSACTION_BYTES + 4,
+    );
+    expect(() =>
+      parseSignedTransactionHex(wireResult(oversizedSigned).signedTransaction),
+    ).toThrow(expect.objectContaining({ code: -32602 }));
+    wallet.dispose();
+  });
+
   it("reuses default-wallet preparation and constructs the claim without a raw signer", async () => {
     const { client, wallet } = await setup();
     const tx = await wallet.prepareExecution(execution);

@@ -77,6 +77,7 @@ const requiredExports = {
   ],
   "./local-dev": ["loadLocalDevAccount"],
   "./provider": [
+    "MAX_UNSIGNED_TRANSACTION_BYTES",
     "WalletProviderError",
     "parseWalletSession",
     "parseProviderRequest",

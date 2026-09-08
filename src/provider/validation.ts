@@ -28,8 +28,10 @@ import {
   type SubmitTransactionResult,
 } from "./types.js";
 
-/** Maximum decoded unsigned or signed XDR size. */
+/** Maximum decoded signed XDR size. */
 export const MAX_TRANSACTION_BYTES = 1_048_576;
+/** Reserve the signature vector count, key ID, scheme, and 64-byte Ed25519 signature. */
+export const MAX_UNSIGNED_TRANSACTION_BYTES = MAX_TRANSACTION_BYTES - 76;
 /** Maximum accounts in one session. */
 export const MAX_WALLET_ACCOUNTS = 32;
 
@@ -187,23 +189,23 @@ export function parseWalletProviderError(value: unknown): WalletProviderError {
   return new WalletProviderError(code as WalletProviderErrorCode, message);
 }
 
-function transactionBytes(value: unknown): Uint8Array {
+function transactionBytes(value: unknown, maxBytes: number): Uint8Array {
   if (
     typeof value !== "string" ||
-    value.length > 2 + MAX_TRANSACTION_BYTES * 2 ||
+    value.length > 2 + maxBytes * 2 ||
     value.length <= 2 ||
     value.length % 2 !== 0 ||
     value.trim() !== value ||
     !/^0x[0-9a-f]+$/.test(value)
   ) {
-    invalid("Expected canonical transaction hex of at most 1 MiB");
+    invalid(`Expected canonical transaction hex of at most ${maxBytes} bytes`);
   }
   return fromHex(value.slice(2));
 }
 
 /** Decode bounded canonical unsigned XDR, rejecting trailing or altered encodings. */
 export function parseTransactionHex(value: unknown): Transaction {
-  const bytes = transactionBytes(value);
+  const bytes = transactionBytes(value, MAX_UNSIGNED_TRANSACTION_BYTES);
   try {
     const tx = deserialize(bytes, codec.Transaction);
     if (toHex0x(serialize(tx, codec.Transaction)) !== value)
@@ -216,7 +218,7 @@ export function parseTransactionHex(value: unknown): Transaction {
 
 /** Decode bounded canonical signed XDR; signature verification is separate. */
 export function parseSignedTransactionHex(value: unknown): SignedTransaction {
-  const bytes = transactionBytes(value);
+  const bytes = transactionBytes(value, MAX_TRANSACTION_BYTES);
   try {
     const signed = deserialize(bytes, codec.SignedTransaction);
     if (toHex0x(serialize(signed, codec.SignedTransaction)) !== value)

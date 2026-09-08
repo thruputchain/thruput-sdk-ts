@@ -54,8 +54,12 @@ key and nonce. Sessions contain at most 32 accounts, with unique addresses.
 Parsers reject malformed values rather than normalizing them and return snapshots.
 
 Unsigned `transaction` and `signedTransaction` encode canonical classic XDR
-`Transaction` and `SignedTransaction`, respectively. Each is at most 1,048,576
-decoded bytes. Decoding MUST consume the entire input and re-encoding MUST match
+`Transaction` and `SignedTransaction`, respectively. Unsigned XDR is at most
+1,048,500 decoded bytes; signed XDR is at most 1,048,576 decoded bytes (1 MiB).
+The unsigned limit reserves 76 bytes for the required single Ed25519 signature:
+4-byte vector count, 4-byte public-key ID, 4-byte scheme, and 64-byte signature.
+Providers MUST enforce the unsigned limit before requesting user approval.
+Decoding MUST consume the entire input and re-encoding MUST match
 the supplied bytes. Requests MUST have exactly the fields shown above. There is
 no arbitrary-byte/message signing, network-addition, or implicit network switch.
 
@@ -118,7 +122,8 @@ names contain 1-80 characters, no control characters or surrounding whitespace.
 Version MUST be `1.0.0`. Error messages are bounded to 1,024 characters. Treat names
 as text, never HTML. Unknown methods return 4200; malformed known requests return
 -32602. Bridges MUST bound raw messages before JSON parsing (transaction hex is at
-most 2,097,154 characters) and bound pending UI requests. The SDK adapter permits
+most 2,097,002 unsigned or 2,097,154 signed characters, including `0x`) and bound
+pending UI requests. The SDK adapter permits
 one in-flight operation and retains one signed approval, without automatic retries.
 
 ## Discovery
@@ -157,6 +162,7 @@ The `/provider` entrypoint exports these helpers for wallets and bridges:
 - `parseWalletProviderError` reconstructs a bounded, recognized error.
 
 The exported bounds are `MAX_TRANSACTION_BYTES = 1_048_576`,
+`MAX_UNSIGNED_TRANSACTION_BYTES = MAX_TRANSACTION_BYTES - 76` (1,048,500),
 `MAX_WALLET_ACCOUNTS = 32`, and `MAX_DISCOVERED_PROVIDERS = 32`.
 Event names are exported as `REQUEST_PROVIDER_EVENT` and `ANNOUNCE_PROVIDER_EVENT`.
 
