@@ -50,6 +50,7 @@ export interface SubmitTransactionResult {
 /** Framework- and transport-neutral, origin-scoped wallet interface. */
 export interface WalletProvider {
   info: WalletProviderInfo;
+  /** Changes caused by connect/disconnect reach listeners before this resolves. */
   request(request: ProviderRequest): Promise<unknown>;
   on(event: "change", listener: (session: WalletSession) => void): () => void;
 }

@@ -11,6 +11,7 @@ import {
   parseWalletAccount,
   parseWalletHex32,
   parseWalletNetworkHash,
+  parseWalletProvider,
   parseWalletProviderError,
   parseWalletProviderInfo,
   parseWalletSession,
@@ -26,6 +27,24 @@ const account = {
 const networkHash = "ab".repeat(32);
 
 describe("provider boundary validation", () => {
+  it("preserves the live provider identity, metadata, and method receiver", async () => {
+    const provider = {
+      info: { id: "wallet", name: "Wallet", version: "1.0.0" as const },
+      session: { networkHash, accounts: [account] },
+      async request() {
+        return this.session;
+      },
+      on: () => () => {},
+    };
+    const parsed = parseWalletProvider(provider);
+    expect(parsed).toBe(provider);
+    provider.info.name = "Renamed Wallet";
+    expect(parsed.info.name).toBe("Renamed Wallet");
+    expect(await parsed.request({ method: "getSession" })).toBe(
+      provider.session,
+    );
+  });
+
   it("snapshots and freezes valid sessions, including disconnected sessions", () => {
     const input = { networkHash, accounts: [{ ...account }] };
     const session = parseWalletSession(input);

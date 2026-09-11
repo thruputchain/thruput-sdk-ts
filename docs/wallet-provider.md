@@ -51,7 +51,9 @@ followed by digits, at most 18446744073709551615).
 Only protocol pubkey accounts with a valid, non-small-order, prime-order Ed25519
 public key are supported. The address MUST equal the protocol derivation of that
 key and nonce. Sessions contain at most 32 accounts, with unique addresses.
-Parsers reject malformed values rather than normalizing them and return snapshots.
+Data parsers reject malformed values rather than normalizing them and return
+snapshots. `parseWalletProvider` instead returns the original live provider object,
+preserving its identity and method receivers; it does not snapshot its metadata.
 
 Unsigned `transaction` and `signedTransaction` encode canonical classic XDR
 `Transaction` and `SignedTransaction`, respectively. Unsigned XDR is at most
@@ -78,6 +80,11 @@ current network hash. `connect` success includes at least one authorized account
 Providers MUST emit `change` with a full session snapshot when accounts,
 authorization, account metadata, or network changes, including disconnect. `on`
 returns an idempotent unsubscribe function; it does not itself emit a snapshot.
+Any `change` caused by `connect` or `disconnect` MUST reach registered listeners
+before the corresponding request promise resolves. Bridges MUST preserve this
+ordering through the page-facing provider, including when responses and events
+use separate delivery paths. Sending the event first from the background process
+is insufficient if the page resolves the request before delivering the event.
 Pending operations MUST check authorization again before signing or broadcasting.
 
 Signing MUST verify the requested account and network against the origin's current
@@ -221,6 +228,11 @@ asynchronous work. Invalid provider results fail closed.
 The adapter does not impose a UI timeout or cancel provider requests on disposal;
 providers and bridges own request deadlines. A late result cannot reactivate a
 disposed adapter or cause it to submit.
+
+The connect/event ordering above lets an app create an adapter immediately after
+awaiting `connect`. A provider that delivers the connection's `change` afterward
+violates the contract and invalidates that new adapter, even if the snapshot
+matches. The adapter intentionally invalidates on every `change`.
 
 ## Submission Ambiguity
 

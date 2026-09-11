@@ -163,7 +163,10 @@ export function parseWalletProviderInfo(value: unknown): WalletProviderInfo {
   return Object.freeze({ id, name, version });
 }
 
-/** Validate a provider's structural boundary, preserving its method receiver. */
+/**
+ * Validate a provider's structural boundary and return the original live object.
+ * Preserves identity and method receivers; metadata is validated, not snapshotted.
+ */
 export function parseWalletProvider(value: unknown): WalletProvider {
   const data = record(value);
   parseWalletProviderInfo(data.info);

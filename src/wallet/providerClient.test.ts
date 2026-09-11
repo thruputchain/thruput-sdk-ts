@@ -29,6 +29,7 @@ import {
   parseProviderRequest,
   parseSignedTransactionHex,
   parseTransactionHex,
+  parseWalletSession,
   type ProviderRequest,
   type SignTransactionResult,
   type WalletProvider,
@@ -67,16 +68,21 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-async function setup() {
+async function setup(
+  initialSession: WalletSession = { networkHash, accounts: [account] },
+) {
   const transport = new MockTransport();
   const client = await createGroundhogClient({ transport });
   const listeners = new Set<(session: WalletSession) => void>();
-  let session: WalletSession = { networkHash, accounts: [account] };
+  let session = initialSession;
   let signedResult: SignTransactionResult | undefined;
   const request = vi.fn(async (input: ProviderRequest): Promise<unknown> => {
     const request = parseProviderRequest(input);
     switch (request.method) {
       case "connect":
+        if (session.accounts.length === 0)
+          change({ networkHash, accounts: [account] });
+        return session;
       case "getSession":
         return session;
       case "disconnect":
@@ -149,6 +155,94 @@ function methodCalls(
 }
 
 describe("external provider wallet", () => {
+  it("delivers connect/disconnect changes before responses and prepares immediately after connect", async () => {
+    const {
+      client,
+      provider,
+      wallet: initial,
+    } = await setup({
+      networkHash,
+      accounts: [],
+    });
+    initial.dispose();
+    expect(
+      parseWalletSession(await provider.request({ method: "getSession" }))
+        .accounts,
+    ).toEqual([]);
+    const order: string[] = [];
+    const stop = provider.on("change", (session) => {
+      order.push(session.accounts.length ? "authorized" : "disconnected");
+    });
+    const session = parseWalletSession(
+      await provider.request({ method: "connect" }).then((result) => {
+        order.push("connect response");
+        return result;
+      }),
+    );
+    const wallet = createProviderWalletClient({
+      client,
+      provider,
+      account: session.accounts[0]!,
+      networkHash: session.networkHash,
+    });
+    try {
+      expect((await wallet.prepareExecution(execution)).auth_claim).toEqual(
+        localAccount.authClaim,
+      );
+      expect(await provider.request({ method: "disconnect" })).toBeNull();
+      order.push("disconnect response");
+      expect(order).toEqual([
+        "authorized",
+        "connect response",
+        "disconnected",
+        "disconnect response",
+      ]);
+      await expect(wallet.prepareExecution(execution)).rejects.toMatchObject({
+        code: 4100,
+      });
+    } finally {
+      wallet.dispose();
+      stop();
+    }
+  });
+
+  it("fails closed when a nonconforming provider delivers the connect change after its response", async () => {
+    const {
+      client,
+      provider,
+      request,
+      change,
+      wallet: initial,
+    } = await setup({
+      networkHash,
+      accounts: [],
+    });
+    initial.dispose();
+    request.mockImplementationOnce(async () => {
+      const session = { networkHash, accounts: [account] };
+      change(session, false);
+      return session;
+    });
+    const session = parseWalletSession(
+      await provider.request({ method: "connect" }),
+    );
+    const wallet = createProviderWalletClient({
+      client,
+      provider,
+      account: session.accounts[0]!,
+      networkHash: session.networkHash,
+    });
+    try {
+      // Delayed delivery violates the ordering contract, even for matching data.
+      change(session);
+      await expect(wallet.prepareExecution(execution)).rejects.toMatchObject({
+        code: 4100,
+      });
+    } finally {
+      wallet.dispose();
+    }
+  });
+
   it("reserves the single signature envelope before approval and accepts exact size limits", async () => {
     const { wallet, request } = await setup();
     const input = {
