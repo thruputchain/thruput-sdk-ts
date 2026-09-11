@@ -20,7 +20,9 @@ let checked = 0;
 const requiredExports = {
   ".": [
     "ContractViewError",
+    "HttpResponseError",
     "HttpTransport",
+    "InvalidTransactionReceiptError",
     "PrivateKeySigner",
     "createGroundhogClient",
     "createPubkeyAccount",
@@ -67,6 +69,7 @@ const requiredExports = {
   ],
   "./signers": ["PrivateKeySigner"],
   "./actions": [
+    "InvalidTransactionReceiptError",
     "getChainTip",
     "getEvents",
     "getNetworkInfo",
