@@ -59,6 +59,16 @@
       "import": "./dist/signed-op.js",
       "require": "./dist/signed-op.cjs"
     },
+    "./provider": {
+      "types": "./dist/provider.d.ts",
+      "import": "./dist/provider.js",
+      "require": "./dist/provider.cjs"
+    },
+    "./wallet": {
+      "types": "./dist/wallet.d.ts",
+      "import": "./dist/wallet.js",
+      "require": "./dist/wallet.cjs"
+    },
     "./local-dev": {
       "types": "./dist/local-dev.d.ts",
       "import": "./dist/local-dev.js",

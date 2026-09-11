@@ -29,7 +29,7 @@ export interface PrepareTransactionRequest {
 /** Prepare an unsigned transaction for a wallet account. */
 export async function prepareTransaction(
   client: Pick<CoreGroundhogClient, "getChainTip">,
-  account: WalletAccount,
+  account: Pick<WalletAccount, "address" | "authClaim">,
   request: PrepareTransactionRequest,
 ): Promise<Transaction> {
   const invocation = deserialize(

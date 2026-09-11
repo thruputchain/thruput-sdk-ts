@@ -11,6 +11,8 @@ export default defineConfig({
     actions: "src/actions/index.ts",
     "signed-op": "src/signedOp/index.ts",
     "local-dev": "src/local-dev/index.ts",
+    provider: "src/provider/index.ts",
+    wallet: "src/wallet/index.ts",
   },
   format: ["esm", "cjs"],
   // Match the extensions tsup produced (.js/.d.ts for ESM, .cjs/.d.cts for CJS)

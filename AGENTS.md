@@ -16,7 +16,8 @@
 
 ## Architecture
 
-- Public package entrypoints are explicit: root plus `./transaction`, `./transport`, `./contract`, `./contracts`, `./signers`, `./actions`, `./signed-op`, and the Node-only `./local-dev`. Add public symbols to the matching `src/**/index.ts`; add `package.json` and `tsdown.config.ts` entries only for new subpaths.
+- Public package entrypoints are explicit: root plus `./transaction`, `./transport`, `./contract`, `./contracts`, `./signers`, `./actions`, `./signed-op`, `./provider`, `./wallet`, and the Node-only `./local-dev`. Add public symbols to the matching `src/**/index.ts`; add `package.json` and `tsdown.config.ts` entries only for new subpaths.
+- `src/provider/**` owns the framework-neutral wallet wire contract, strict boundary validation, and discovery. The normative contract lives in the developers-site repository at `src/content/docs/tools/wallet-provider.md`, published at https://docs.groundhog.dev/tools/wallet-provider/. Keep public TSDoc aligned with that contract. `src/wallet/providerClient.ts` adapts external pubkey wallets without a raw signer; signing never broadcasts and submission consumes an exact prior approval.
 - `src/client.ts` provides the async `createGroundhogClient(options)` factory for both unqualified and cluster-validated clients. Keep action behavior in `src/actions/**`; client methods should just bind the transport.
 - Runtime transports implement `Transport.request(method, params)`. `HttpTransport` sends JSON-RPC arrays with `params ?? []`; `MockTransport` is test-only and intentionally implements only known methods.
 - `src/contract/**` owns reusable contract codecs, typed method and event descriptors, fixed-length values, and strict decoding. `src/contracts/**` owns generated standard bindings.
