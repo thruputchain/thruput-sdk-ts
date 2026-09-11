@@ -18,7 +18,17 @@ function browserTarget(): EventTarget {
   return target;
 }
 
-/** Announce now and on discovery requests; cleanup stops future announcements. */
+/**
+ * Validate and announce a live provider now and on each discovery request.
+ * Announcement detail is the provider itself. Defaults to `window`; pass an
+ * `EventTarget` outside a browser. Importing this module needs no browser globals.
+ *
+ * @returns Idempotent cleanup that removes the request listener. It stops future
+ * announcements from this registration, but does not retract a provider already
+ * discovered, disconnect sessions, or revoke permissions. There is no unregister event.
+ *
+ * @see https://docs.groundhog.dev/tools/wallet-provider/
+ */
 export function registerWalletProvider(
   provider: WalletProvider,
   target: EventTarget = browserTarget(),
@@ -34,7 +44,22 @@ export function registerWalletProvider(
   return () => target.removeEventListener(REQUEST_PROVIDER_EVENT, announce);
 }
 
-/** Discover multiple providers in either load order, reporting each valid ID once. */
+/**
+ * Discover multiple providers in either load order, reporting each valid ID once.
+ * Installs the announcement listener before requesting providers. Malformed
+ * announcements are ignored; the first valid announcement for an ID wins, up to
+ * {@link MAX_DISCOVERED_PROVIDERS} IDs per subscription. IDs remain reserved until
+ * cleanup, even if a provider stops announcing. Discovery does not track removals.
+ *
+ * Defaults to `window`; pass an `EventTarget` outside a browser. IDs and names can
+ * be spoofed by page scripts: discovery validates shape, not wallet identity or trust.
+ * Render names as text, never HTML.
+ *
+ * @returns Idempotent cleanup that removes the listener and releases retained IDs.
+ * It does not disconnect discovered providers or revoke their permissions.
+ *
+ * @see https://docs.groundhog.dev/tools/wallet-integration/
+ */
 export function discoverWalletProviders(
   listener: (provider: WalletProvider) => void,
   target: EventTarget = browserTarget(),

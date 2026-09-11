@@ -35,23 +35,140 @@ import { defaultWalletAdapter } from "./invocationAdapter.js";
 
 /** External wallet binding. Network hash uses the provider wire format, without 0x. */
 export interface CreateProviderWalletClientOptions {
+  /**
+   * RPC client connected to and verified against the application's expected network.
+   * A validated client identity must match `networkHash`; an unqualified
+   * CoreGroundhogClient requires the caller to verify its RPC network separately.
+   */
   client: CoreGroundhogClient;
+  /** Live external provider with an already authorized session. */
   provider: WalletProvider;
+  /** Wire pubkey account from the provider subpath, snapshotted at construction. */
   account: WalletAccount;
+  /** Trusted application network identity: 64 lowercase hex characters without 0x; must match the session. */
   networkHash: string;
 }
 
-/** Explicit prepare/sign/persist/submit flow without access to a raw signer. */
+/**
+ * Explicit prepare/sign/persist/submit flow without access to a raw signer.
+ * Allows one in-flight operation; concurrent calls fail with code -32002. Checks
+ * `getSession` before each operation and permanently invalidates on every `change`,
+ * a failed session read, or a mismatched session. Dispose and recreate after a
+ * change or reconnect; there is no automatic reconnect or retry.
+ *
+ * @see https://docs.groundhog.dev/tools/wallet-integration/
+ */
 export interface ProviderWalletClient {
+  /**
+   * Prepare a transaction using the default-wallet wrapper and existing nonce and
+   * expiry handling. Generates a random transaction nonce when none is supplied;
+   * this is separate from the account-derivation nonce. Snapshots input before
+   * asynchronous work and enforces the unsigned size bound. Does not sign or submit.
+   */
   prepareExecution(request: PrepareExecutionRequest): Promise<Transaction>;
+  /**
+   * Request approval and sign without broadcasting. Snapshots the unsigned bytes,
+   * checks the account claim, and verifies exact bytes, strict network-bound
+   * signature, and canonical hash with {@link verifySignTransactionResult}.
+   * Once a new request passes local transaction and account-claim validation, it
+   * clears the previous approval before awaiting the session or provider. Failure
+   * or user rejection does not restore that approval. Only the latest successfully
+   * verified result can be submitted; invalid provider results invalidate the adapter.
+   * Await durable persistence of the result,
+   * account, and network before calling {@link submitTransaction}.
+   */
   signTransaction(transaction: Transaction): Promise<SignTransactionResult>;
+  /**
+   * Submit the exact signed bytes and hash of this adapter's latest approval.
+   * Consumes approval before requesting broadcast, including when that request
+   * fails; the adapter never retries. Returns a broadcast acknowledgement, not an
+   * execution receipt, and verifies its hash against the approved result.
+   *
+   * Treat a submit failure as potentially broadcast. Keep the previously persisted
+   * hash and query status/receipt on the original network; do not automatically
+   * prepare, sign, or execute a replacement transaction. A timeout, session change,
+   * or invalid response can occur after broadcast. See the factory's persistence example.
+   */
   submitTransaction(
     signed: SignTransactionResult,
   ): Promise<SubmitTransactionResult>;
+  /**
+   * Idempotently unsubscribe and permanently invalidate this adapter, clearing its
+   * approval. Does not revoke provider permission or cancel pending requests.
+   * A late response cannot reactivate the adapter. Use provider `disconnect` to
+   * revoke permission; create a new adapter for a later authorized session.
+   */
   dispose(): void;
 }
 
-/** Bind a pubkey provider account without modifying the public RPC client. */
+/**
+ * Synchronously bind a pubkey provider account without modifying the RPC client.
+ * Does not connect or request permission: first await provider `connect` and
+ * validate its session. Snapshots account/network configuration, validates account
+ * derivation and any validated client network identity, and subscribes to changes.
+ * Supply the application's trusted expected network hash, not a value adopted from
+ * the wallet. The RPC client must be connected to and verified against that same
+ * network. An unqualified CoreGroundhogClient carries no validated network identity;
+ * the caller must verify its RPC network separately before creating this adapter.
+ * See {@link ProviderWalletClient} for invalidation and concurrency rules.
+ * Providers own request deadlines; this adapter adds no UI timeout or cancellation.
+ *
+ * @example
+ * Await an application-owned `onSigned` callback to durably save the signed result
+ * and its original account/network before broadcasting. If saving fails, submission
+ * is never requested. `onSigned` is an application callback, not an SDK option.
+ * `expectedNetworkHash` comes from trusted application configuration, and `client`
+ * must already be connected to and verified against that network.
+ *
+ * ```ts
+ * import type { CoreGroundhogClient } from "@groundhogchain/client";
+ * import {
+ *   parseWalletSession,
+ *   parseWalletNetworkHash,
+ *   type SignTransactionResult,
+ *   type WalletAccount,
+ *   type WalletProvider,
+ * } from "@groundhogchain/client/provider";
+ * import {
+ *   createProviderWalletClient,
+ *   type PrepareExecutionRequest,
+ * } from "@groundhogchain/client/wallet";
+ *
+ * async function sendWithWallet(
+ *   client: CoreGroundhogClient,
+ *   provider: WalletProvider,
+ *   expectedNetworkHash: string,
+ *   request: PrepareExecutionRequest,
+ *   onSigned: (pending: SignTransactionResult & {
+ *     account: WalletAccount;
+ *     networkHash: string;
+ *   }) => Promise<void>,
+ * ) {
+ *   const networkHash = parseWalletNetworkHash(expectedNetworkHash);
+ *   const session = parseWalletSession(await provider.request({ method: "connect" }));
+ *   if (session.networkHash !== networkHash) {
+ *     throw new Error("Wallet network does not match the application network");
+ *   }
+ *   const account = session.accounts[0];
+ *   if (!account) throw new Error("No authorized account");
+ *   const wallet = createProviderWalletClient({
+ *     client, provider, account, networkHash,
+ *   });
+ *   try {
+ *     const transaction = await wallet.prepareExecution(request);
+ *     const signed = await wallet.signTransaction(transaction);
+ *     await onSigned({ ...signed, account, networkHash });
+ *     // On submit failure, recover using the saved hash and original network.
+ *     return await wallet.submitTransaction(signed);
+ *   } finally {
+ *     wallet.dispose();
+ *   }
+ * }
+ * ```
+ *
+ * @see https://docs.groundhog.dev/tools/wallet-integration/
+ * @see https://docs.groundhog.dev/tools/wallet-provider/
+ */
 export function createProviderWalletClient(
   options: CreateProviderWalletClientOptions,
 ): ProviderWalletClient {

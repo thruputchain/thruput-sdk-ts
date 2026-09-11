@@ -292,7 +292,7 @@ The package exposes focused entry points alongside the root: `./transaction`,
 `./transport`, `./contract`, `./contracts`, `./signers`, `./actions`,
 `./signed-op`, `./wallet`, `./provider`, and the Node.js-only `./local-dev` helper.
 
-Browser wallets use the framework-neutral [wallet provider standard](docs/wallet-provider.md).
+Browser wallets use the framework-neutral [wallet provider contract](https://docs.groundhog.dev/tools/wallet-provider/). See [Wallet Integration](https://docs.groundhog.dev/tools/wallet-integration/) for discovery, connection, and the prepare/sign/persist/submit flow.
 `./provider` exports wire types, strict validation, and multi-wallet discovery.
 `./wallet` exports the existing local-signer wallet API and
 `createProviderWalletClient`, with separate prepare, sign, and submit steps so apps

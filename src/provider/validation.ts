@@ -28,9 +28,13 @@ import {
   type SubmitTransactionResult,
 } from "./types.js";
 
-/** Maximum decoded signed XDR size. */
+/** Maximum decoded signed XDR size: 1,048,576 bytes (1 MiB). */
 export const MAX_TRANSACTION_BYTES = 1_048_576;
-/** Reserve the signature vector count, key ID, scheme, and 64-byte Ed25519 signature. */
+/**
+ * Maximum unsigned XDR size: 1,048,500 bytes. Providers must enforce this before
+ * requesting user approval. Reserves 76 bytes for the signature vector count,
+ * key ID, scheme, and 64-byte Ed25519 signature within {@link MAX_TRANSACTION_BYTES}.
+ */
 export const MAX_UNSIGNED_TRANSACTION_BYTES = MAX_TRANSACTION_BYTES - 76;
 /** Maximum accounts in one session. */
 export const MAX_WALLET_ACCOUNTS = 32;
@@ -83,7 +87,12 @@ export function parseWalletNetworkHash(value: unknown): string {
   return value;
 }
 
-/** Validate and snapshot an account, including Ed25519 key and address derivation. */
+/**
+ * Validate and freeze an account snapshot, including a non-small-order, prime-order
+ * Ed25519 key and its derived address. The nonce is canonical decimal u64 account
+ * derivation data, not a transaction nonce. Rejects extra fields and noncanonical
+ * values rather than normalizing them; malformed input throws code -32602.
+ */
 export function parseWalletAccount(value: unknown): WalletAccount {
   const data = record(value);
   fields(data, ["address", "publicKey", "nonce"]);
@@ -117,7 +126,12 @@ export function parseWalletAccount(value: unknown): WalletAccount {
   return Object.freeze({ address, publicKey, nonce });
 }
 
-/** Strictly validate an origin session and return an immutable snapshot. */
+/**
+ * Strictly validate a session and return a frozen snapshot with frozen accounts.
+ * Requires a canonical network hash and at most {@link MAX_WALLET_ACCOUNTS} unique
+ * account addresses. Empty accounts are valid for an unauthorized origin; this
+ * parser does not enforce the nonempty result required by a successful `connect`.
+ */
 export function parseWalletSession(value: unknown): WalletSession {
   const data = record(value);
   fields(data, ["networkHash", "accounts"]);
@@ -166,6 +180,9 @@ export function parseWalletProviderInfo(value: unknown): WalletProviderInfo {
 /**
  * Validate a provider's structural boundary and return the original live object.
  * Preserves identity and method receivers; metadata is validated, not snapshotted.
+ * Unlike {@link parseWalletAccount} and {@link parseWalletSession}, this does not
+ * freeze the input. Checks versioned metadata and callable `request`/`on` members,
+ * not their behavior, permissions, returned values, or the provider's trustworthiness.
  */
 export function parseWalletProvider(value: unknown): WalletProvider {
   const data = record(value);
@@ -176,7 +193,11 @@ export function parseWalletProvider(value: unknown): WalletProvider {
   return value as WalletProvider;
 }
 
-/** Validate a serialized provider error, without relying on instanceof. */
+/**
+ * Reconstruct a serialized provider error, without relying on `instanceof`.
+ * Requires a recognized {@link WalletProviderErrorCode} and a message of at most
+ * 1,024 characters. Invalid errors throw a new error with code -32602.
+ */
 export function parseWalletProviderError(value: unknown): WalletProviderError {
   const { code, message } = record(value);
   const codes: readonly unknown[] = [
@@ -206,7 +227,13 @@ function transactionBytes(value: unknown, maxBytes: number): Uint8Array {
   return fromHex(value.slice(2));
 }
 
-/** Decode bounded canonical unsigned XDR, rejecting trailing or altered encodings. */
+/**
+ * Decode bounded canonical unsigned XDR, rejecting trailing or altered encodings.
+ * Accepts lowercase, even-length, 0x-prefixed hex within
+ * {@link MAX_UNSIGNED_TRANSACTION_BYTES}; providers must check this before approval.
+ * Does not establish account authorization; use {@link assertWalletTransaction}
+ * to check the transaction's account claim and enforce origin permission separately.
+ */
 export function parseTransactionHex(value: unknown): Transaction {
   const bytes = transactionBytes(value, MAX_UNSIGNED_TRANSACTION_BYTES);
   try {
@@ -232,7 +259,13 @@ export function parseSignedTransactionHex(value: unknown): SignedTransaction {
   }
 }
 
-/** Parse the exact request union; unknown methods fail with 4200. */
+/**
+ * Parse the exact request union into a new request object, including bounded,
+ * canonical XDR. Unknown methods fail with 4200; malformed known requests fail
+ * with -32602. This validates input, not origin permission or prior approval.
+ * Bridges must bound raw messages before JSON parsing: at most 2,097,002 unsigned
+ * or 2,097,154 signed transaction-hex characters, including 0x.
+ */
 export function parseProviderRequest(value: unknown): ProviderRequest {
   const data = record(value);
   const method = data.method;
@@ -280,7 +313,11 @@ export function parseProviderRequest(value: unknown): ProviderRequest {
   }
 }
 
-/** Validate a signing response's wire structure, not its signature or approval. */
+/**
+ * Validate a signing response's wire structure and return a new result object.
+ * Checks canonical signed XDR and hash encoding, not signature, hash correctness,
+ * or approval. Use {@link verifySignTransactionResult} for cryptographic validation.
+ */
 export function parseSignTransactionResult(
   value: unknown,
 ): SignTransactionResult {
@@ -294,7 +331,10 @@ export function parseSignTransactionResult(
   };
 }
 
-/** Validate a submission response's canonical receipt hash. */
+/**
+ * Validate a submission response's hash encoding and return a new result object.
+ * Does not compare the hash to approved bytes or confirm broadcast or execution.
+ */
 export function parseSubmitTransactionResult(
   value: unknown,
 ): SubmitTransactionResult {
@@ -324,7 +364,24 @@ export function assertWalletTransaction(
   }
 }
 
-/** Verify unchanged XDR, a single strict network-bound signature, and receipt hash. */
+/**
+ * Verify unchanged XDR, a single strict network-bound signature, and receipt hash.
+ * Requires the exact unsigned transaction bytes and matching root address/pubkey
+ * claim. The signature must be Ed25519 with public-key ID zero, verified over
+ * `transactionSignaturePreimage(networkHash, tx)` with ZIP-215 disabled and both
+ * key and signature point R non-small-order and prime-order. The hash is SHA-256
+ * of unsigned XDR, excluding signatures and network.
+ *
+ * @param networkHash - 64 lowercase hex characters without 0x, from the authorized session.
+ * @returns A frozen verified result. This does not establish origin permission
+ * or a retained approval to submit; the provider must enforce both separately.
+ *
+ * @remarks
+ * Requires Web Crypto (HTTPS or localhost in browsers). Invalid signing results
+ * throw code -32603; invalid expected inputs fail their boundary validation first.
+ *
+ * @see https://docs.groundhog.dev/tools/wallet-provider/
+ */
 export async function verifySignTransactionResult(
   value: unknown,
   transaction: string,
