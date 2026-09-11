@@ -18,6 +18,10 @@ jobs:
     env:
       CARGO_REGISTRIES_GROUNDHOG_INDEX: "sparse+https://crates.thruput.network/api/v1/crates/"
       CARGO_REGISTRIES_GROUNDHOG_TOKEN: ${{ secrets.GROUNDHOG_REGISTRY_TOKEN }}
+      # Published crates and pinned submodules retain the legacy registry identity.
+      CARGO_REGISTRIES_GROUNDHOG_LEGACY_INDEX: sparse+https://groundhog.dev/crates/api/v1/crates/
+      CARGO_REGISTRIES_GROUNDHOG_LEGACY_TOKEN: ${{ secrets.GROUNDHOG_REGISTRY_TOKEN }}
+      CARGO_REGISTRIES_GROUNDHOG_LEGACY_CREDENTIAL_PROVIDER: cargo:token
       CARGO_REGISTRY_GLOBAL_CREDENTIAL_PROVIDERS: cargo:token
       GROUNDHOG_CLI_VERSION: "0.14.0"
     steps:
@@ -162,6 +166,10 @@ jobs:
     env:
       CARGO_REGISTRIES_GROUNDHOG_INDEX: "sparse+https://crates.thruput.network/api/v1/crates/"
       CARGO_REGISTRIES_GROUNDHOG_TOKEN: ${{ secrets.GROUNDHOG_REGISTRY_TOKEN }}
+      # Published crates and pinned submodules retain the legacy registry identity.
+      CARGO_REGISTRIES_GROUNDHOG_LEGACY_INDEX: sparse+https://groundhog.dev/crates/api/v1/crates/
+      CARGO_REGISTRIES_GROUNDHOG_LEGACY_TOKEN: ${{ secrets.GROUNDHOG_REGISTRY_TOKEN }}
+      CARGO_REGISTRIES_GROUNDHOG_LEGACY_CREDENTIAL_PROVIDER: cargo:token
       CARGO_REGISTRY_GLOBAL_CREDENTIAL_PROVIDERS: cargo:token
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
