@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cargo install groundhog-test-vectors@0.30.0 --registry groundhog 2>/dev/null
+cargo install groundhog-test-vectors@0.30.0 --registry groundhog
 VECTORS_DIR="$(git rev-parse --show-toplevel)/specs/test-vectors"
 mkdir -p "$VECTORS_DIR"
 groundhog-test-vectors domain-separator > "$VECTORS_DIR/domain-separator.json"
