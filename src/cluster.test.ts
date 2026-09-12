@@ -7,7 +7,6 @@ import {
   devnet,
   localnet,
   mainnet,
-  DEVNET_RPC_URL,
   LOCALNET_RPC_URL,
 } from "./cluster.js";
 import { createGroundhogClient } from "./client.js";
@@ -44,7 +43,7 @@ describe("cluster descriptors", () => {
     });
     expect(devnet()).toEqual({
       name: "devnet",
-      rpcUrl: DEVNET_RPC_URL,
+      rpcUrl: "https://rpc.thruput.network",
       capabilities: ["airdrop"],
     });
     expect(localnet()).toEqual({
