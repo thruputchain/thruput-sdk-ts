@@ -43,6 +43,10 @@ const client = await createGroundhogClient({
 console.log(toHex0x(client.network.networkHash));
 ```
 
+`devnet()` uses `https://rpc.thruput.network`. Applications with an explicit
+`rpcUrl`, `HttpTransport` URL, or environment configuration should update that
+value to use the stable endpoint; upgrading the package preserves overrides.
+
 Development clusters expose a typed airdrop action. It generates an
 idempotency nonce and polls pending attempts until the transfer commits:
 

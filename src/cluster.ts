@@ -7,7 +7,7 @@ import type { NetworkInfo } from "./types/rpc.js";
 import { toHex0x } from "./actions/hex.js";
 
 /** Public Groundhog Devnet JSON-RPC endpoint. */
-export const DEVNET_RPC_URL = "http://44.236.180.135:8545";
+export const DEVNET_RPC_URL = "https://rpc.thruput.network";
 
 /** Default JSON-RPC endpoint for `groundhog node`. */
 export const LOCALNET_RPC_URL = "http://127.0.0.1:9545";
