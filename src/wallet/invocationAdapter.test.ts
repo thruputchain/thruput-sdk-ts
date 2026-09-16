@@ -12,7 +12,11 @@ import { buildNamedCodecs } from "../contract/codegen.js";
 import { decodeCalldata } from "../contract/encode.js";
 import { spec as defaultWalletSpec } from "../contracts/default_wallet.js";
 import { spec as devWalletSpec } from "../contracts/dev_wallet.js";
-import { defaultWalletAdapter, devWalletAdapter } from "./invocationAdapter.js";
+import {
+  defaultWalletAdapter,
+  devWalletAdapter,
+  createDefaultWalletBatchInvocation,
+} from "./invocationAdapter.js";
 
 const accountAddress = contractAddress(new Uint8Array(32).fill(0x11));
 
@@ -26,6 +30,40 @@ function innerInvocation(): Invocation {
 }
 
 describe("wallet invocation adapters", () => {
+  it("encodes ordered batch calls and snapshots their bytes", () => {
+    const first = innerInvocation();
+    const second = {
+      ...innerInvocation(),
+      calldata: calldata(new Uint8Array([9])),
+    };
+    const root = createDefaultWalletBatchInvocation(accountAddress, {
+      invocations: [first, second],
+      gasLimit: gasAmount(5_000n),
+    });
+    first.calldata.fill(8);
+    second.calldata.fill(8);
+    const decoded = decodeCalldata(
+      defaultWalletSpec,
+      "DefaultWallet",
+      "execute",
+      root.calldata,
+      buildNamedCodecs(defaultWalletSpec.type_defs),
+    );
+    expect(decoded.calls).toMatchObject([
+      { calldata: new Uint8Array([1, 2, 3]) },
+      { calldata: new Uint8Array([9]) },
+    ]);
+    expect(root.gas_limit).toBe(5_000n);
+  });
+
+  it.each([0, 17])("rejects invalid batch size %s", (size) => {
+    expect(() =>
+      createDefaultWalletBatchInvocation(accountAddress, {
+        invocations: Array.from({ length: size }, innerInvocation),
+        gasLimit: gasAmount(5_000n),
+      }),
+    ).toThrow(RangeError);
+  });
   it("maps one invocation to one DefaultWallet call", () => {
     const inner = innerInvocation();
     const root = defaultWalletAdapter.createRootInvocation(accountAddress, {

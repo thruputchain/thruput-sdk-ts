@@ -85,6 +85,12 @@ async function setup(
         return session;
       case "getSession":
         return session;
+      case "getCapabilities":
+        return {
+          account: account.address,
+          networkHash,
+          atomicBatch: { maxCalls: 16 },
+        };
       case "disconnect":
         change({ networkHash, accounts: [] });
         return null;
@@ -108,6 +114,7 @@ async function setup(
   const unsubscribe = vi.fn();
   const provider: WalletProvider = {
     info: { id: "test", name: "Test Wallet", version: "1.0.0" },
+    supportedMethods: ["getCapabilities"],
     request,
     on(event, listener) {
       expect(event).toBe("change");
@@ -146,6 +153,134 @@ function wireResult(signed: SignedTransaction): SignTransactionResult {
     hash: toHex0x(hashSignedTransaction(signed)),
   };
 }
+
+describe("provider atomic batches", () => {
+  it("does not probe legacy bridges that do not advertise the capability method", async () => {
+    const { client, provider, request } = await setup();
+    const legacy = createProviderWalletClient({
+      client,
+      account,
+      networkHash,
+      provider: {
+        info: provider.info,
+        request: provider.request,
+        on: provider.on,
+      },
+    });
+    await expect(legacy.getCapabilities()).resolves.toEqual({
+      account: account.address,
+      networkHash,
+      atomicBatch: null,
+    });
+    expect(methodCalls(request, "getCapabilities")).toHaveLength(0);
+    await expect(legacy.prepareExecution(execution)).resolves.toBeDefined();
+    legacy.dispose();
+  });
+  it("prepares, signs, and submits one root for several calls", async () => {
+    const { wallet, request } = await setup();
+    expect((await wallet.getCapabilities()).atomicBatch?.maxCalls).toBe(16);
+    const tx = await wallet.prepareBatchExecution({
+      ...execution,
+      invocations: [execution.invocation, execution.invocation],
+    });
+    const signed = await wallet.signTransaction(tx);
+    await expect(wallet.submitTransaction(signed)).resolves.toEqual({
+      hash: signed.hash,
+    });
+    expect(methodCalls(request, "signTransaction")).toHaveLength(1);
+    expect(methodCalls(request, "submitTransaction")).toHaveLength(1);
+  });
+
+  it.each([4200, 4900, -32603] as const)(
+    "only treats unsupported capability methods as legacy (%s)",
+    async (code) => {
+      const { wallet, request } = await setup();
+      const original = request.getMockImplementation()!;
+      request.mockImplementation((input) =>
+        input.method === "getCapabilities"
+          ? Promise.reject(
+              new WalletProviderError(code, "Capability request failed"),
+            )
+          : original(input),
+      );
+      if (code === 4200) {
+        await expect(wallet.getCapabilities()).resolves.toEqual({
+          account: account.address,
+          networkHash,
+          atomicBatch: null,
+        });
+        await expect(wallet.prepareExecution(execution)).resolves.toBeDefined();
+        await expect(
+          wallet.prepareBatchExecution({
+            ...execution,
+            invocations: [execution.invocation],
+          }),
+        ).rejects.toMatchObject({ code: 4200 });
+      } else
+        await expect(wallet.getCapabilities()).rejects.toMatchObject({ code });
+      expect(methodCalls(request, "signTransaction")).toHaveLength(0);
+    },
+  );
+
+  it.each([
+    { account: account.address, networkHash, atomicBatch: { maxCalls: 17 } },
+    { account: account.address, networkHash, atomicBatch: { maxCalls: 0 } },
+    {
+      account: account.address,
+      networkHash: "cd".repeat(32),
+      atomicBatch: null,
+    },
+    { account: "0x" + "cd".repeat(32), networkHash, atomicBatch: null },
+    { account: account.address, networkHash, atomicBatch: true },
+  ])("rejects malformed or stale capability scope", async (response) => {
+    const { wallet, request } = await setup();
+    const original = request.getMockImplementation()!;
+    request.mockImplementation((input) =>
+      input.method === "getCapabilities"
+        ? Promise.resolve(response)
+        : original(input),
+    );
+    await expect(wallet.getCapabilities()).rejects.toMatchObject({
+      code: -32603,
+    });
+    await expect(wallet.prepareExecution(execution)).rejects.toMatchObject({
+      code: 4100,
+    });
+  });
+
+  it("rejects batches over the negotiated call limit", async () => {
+    const { wallet, request } = await setup();
+    const original = request.getMockImplementation()!;
+    request.mockImplementation((input) =>
+      input.method === "getCapabilities"
+        ? Promise.resolve({
+            account: account.address,
+            networkHash,
+            atomicBatch: { maxCalls: 1 },
+          })
+        : original(input),
+    );
+    await expect(
+      wallet.prepareBatchExecution({
+        ...execution,
+        invocations: [execution.invocation, execution.invocation],
+      }),
+    ).rejects.toMatchObject({ code: 4200 });
+  });
+
+  it("invalidates capabilities on a concurrent session change", async () => {
+    const { wallet, request, change } = await setup();
+    const original = request.getMockImplementation()!;
+    request.mockImplementation((input) => {
+      if (input.method === "getCapabilities")
+        change({ networkHash, accounts: [] });
+      return original(input);
+    });
+    await expect(wallet.getCapabilities()).rejects.toMatchObject({
+      code: 4100,
+    });
+  });
+});
 
 function methodCalls(
   request: Awaited<ReturnType<typeof setup>>["request"],
@@ -373,6 +508,8 @@ describe("external provider wallet", () => {
     expect(client).not.toHaveProperty("account");
     expect(client).not.toHaveProperty("prepareExecution");
     expect(Object.keys(wallet)).toEqual([
+      "getCapabilities",
+      "prepareBatchExecution",
       "prepareExecution",
       "signTransaction",
       "submitTransaction",

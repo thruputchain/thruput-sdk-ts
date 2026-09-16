@@ -20,6 +20,8 @@ export {
 } from "./client.js";
 export {
   defaultWalletAdapter,
+  createDefaultWalletBatchInvocation,
+  type WalletBatchExecutionRequest,
   defineWalletInvocationAdapter,
   devWalletAdapter,
   type WalletExecutionRequest,
@@ -29,4 +31,5 @@ export {
   createProviderWalletClient,
   type CreateProviderWalletClientOptions,
   type ProviderWalletClient,
+  type PrepareBatchExecutionRequest,
 } from "./providerClient.js";

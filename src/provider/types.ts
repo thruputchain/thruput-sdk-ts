@@ -26,6 +26,16 @@ export interface WalletSession {
   accounts: readonly WalletAccount[];
 }
 
+/** Non-interactive execution capabilities for one authorized account and network. */
+export interface WalletCapabilities {
+  /** Canonical account address used in the capability request. */
+  account: string;
+  /** Network identity: 64 lowercase hex characters, without 0x. */
+  networkHash: string;
+  /** Ordered, all-or-nothing DefaultWallet calls; null means unsupported. */
+  atomicBatch: { maxCalls: number } | null;
+}
+
 /**
  * The complete provider request surface. Requests accept exactly the fields shown.
  * See {@link WalletProvider.request} for each method's result and permission rules.
@@ -47,6 +57,10 @@ export type ProviderRequest =
   | { method: "connect" }
   | { method: "getSession" }
   | { method: "disconnect" }
+  | {
+      method: "getCapabilities";
+      params: { account: string; networkHash: string };
+    }
   | {
       method: "signTransaction";
       params: { account: string; networkHash: string; transaction: string };
@@ -83,6 +97,8 @@ export interface SubmitTransactionResult {
  */
 export interface WalletProvider {
   info: WalletProviderInfo;
+  /** Optional request extensions. Absence means legacy single-call behavior. */
+  supportedMethods?: readonly string[];
   /**
    * Send a request across the wallet boundary. The result is unknown until validated.
    *
@@ -91,6 +107,7 @@ export interface WalletProvider {
    * | `connect` | {@link WalletSession} | Request origin-scoped permission through wallet UI; reject on refusal. Success has at least one authorized account. |
    * | `getSession` | {@link WalletSession} | Non-interactive snapshot; never prompt or grant access. Unauthorized origins see empty accounts and the current network hash. |
    * | `disconnect` | `null` | Idempotently revoke this origin's permission and pending approvals. |
+   * | `getCapabilities` | {@link WalletCapabilities} | Non-interactive; requires an authorized account on the requested network. Older providers return 4200. |
    * | `signTransaction` | {@link SignTransactionResult} | Approve and sign the exact unsigned transaction; never broadcast. |
    * | `submitTransaction` | {@link SubmitTransactionResult} | Broadcast only exact previously approved signed bytes; acknowledgement is not an execution receipt. |
    *
