@@ -155,6 +155,35 @@ function wireResult(signed: SignedTransaction): SignTransactionResult {
 }
 
 describe("provider atomic batches", () => {
+  it("ignores unrelated method names and recognizes only the exact capability method", async () => {
+    const { client, provider, request } = await setup();
+    const names = [
+      "vendor_getCapabilities",
+      "vendor.getCapabilities",
+      "vendor-getCapabilities",
+    ];
+    const unrelated = createProviderWalletClient({
+      client,
+      account,
+      networkHash,
+      provider: { ...provider, supportedMethods: names },
+    });
+    expect((await unrelated.getCapabilities()).atomicBatch).toBeNull();
+    expect(methodCalls(request, "getCapabilities")).toHaveLength(0);
+    unrelated.dispose();
+    const capable = createProviderWalletClient({
+      client,
+      account,
+      networkHash,
+      provider: {
+        ...provider,
+        supportedMethods: [...names, "getCapabilities"],
+      },
+    });
+    expect((await capable.getCapabilities()).atomicBatch?.maxCalls).toBe(16);
+    expect(methodCalls(request, "getCapabilities")).toHaveLength(1);
+    capable.dispose();
+  });
   it("does not probe legacy bridges that do not advertise the capability method", async () => {
     const { client, provider, request } = await setup();
     const legacy = createProviderWalletClient({

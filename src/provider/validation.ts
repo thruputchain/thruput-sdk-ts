@@ -215,10 +215,8 @@ export function parseWalletProvider(value: unknown): WalletProvider {
     data.supportedMethods !== undefined &&
     (!Array.isArray(data.supportedMethods) ||
       data.supportedMethods.length > 32 ||
-      data.supportedMethods.some(
-        (method) =>
-          typeof method !== "string" ||
-          !/^[a-zA-Z][a-zA-Z0-9]{0,63}$/.test(method),
+      Array.from(data.supportedMethods).some(
+        (method) => typeof method !== "string",
       ))
   )
     invalid("Invalid optional provider methods");
