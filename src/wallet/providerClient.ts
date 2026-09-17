@@ -23,6 +23,8 @@ import {
   parseWalletProvider,
   parseWalletProviderError,
   parseWalletSession,
+  parseWalletCapabilities,
+  type WalletCapabilities,
   verifySignTransactionResult,
   type ProviderRequest,
   type SignTransactionResult,
@@ -31,7 +33,15 @@ import {
   type WalletProvider,
 } from "../provider/index.js";
 import type { PrepareExecutionRequest } from "./client.js";
-import { defaultWalletAdapter } from "./invocationAdapter.js";
+import {
+  defaultWalletAdapter,
+  createDefaultWalletBatchInvocation,
+  type WalletBatchExecutionRequest,
+} from "./invocationAdapter.js";
+
+/** Root options and ordered calls for atomic provider-wallet execution. */
+export type PrepareBatchExecutionRequest = WalletBatchExecutionRequest &
+  Omit<PrepareExecutionRequest, "invocation">;
 
 /** External wallet binding. Network hash uses the provider wire format, without 0x. */
 export interface CreateProviderWalletClientOptions {
@@ -59,6 +69,12 @@ export interface CreateProviderWalletClientOptions {
  * @see https://docs.groundhog.dev/tools/wallet-integration/
  */
 export interface ProviderWalletClient {
+  /** Read fresh account/network capabilities; only 4200 falls back to unsupported. */
+  getCapabilities(): Promise<WalletCapabilities>;
+  /** Prepare one atomic batch after checking support. Does not sign or submit. */
+  prepareBatchExecution(
+    request: PrepareBatchExecutionRequest,
+  ): Promise<Transaction>;
   /**
    * Prepare a transaction using the default-wallet wrapper and existing nonce and
    * expiry handling. Generates a random transaction nonce when none is supplied;
@@ -205,6 +221,8 @@ export function createProviderWalletClient(
     },
   } as const;
   const providerRequest = provider.request.bind(provider);
+  const supportsCapabilities =
+    provider.supportedMethods?.includes("getCapabilities") ?? false;
   let invalidated = false;
   let busy = false;
   let sessionSnapshot: string | undefined;
@@ -300,7 +318,77 @@ export function createProviderWalletClient(
     }
   }
 
+  async function readCapabilities(): Promise<WalletCapabilities> {
+    await checkSession();
+    if (!supportsCapabilities) {
+      return Object.freeze({
+        account: account.address,
+        networkHash,
+        atomicBatch: null,
+      });
+    }
+    let value: unknown;
+    try {
+      value = await request({
+        method: "getCapabilities",
+        params: { account: account.address, networkHash },
+      });
+    } catch (error) {
+      if (!(error instanceof WalletProviderError) || error.code !== 4200)
+        throw error;
+      value = { account: account.address, networkHash, atomicBatch: null };
+    }
+    assertActive();
+    let capabilities: WalletCapabilities;
+    try {
+      capabilities = parseWalletCapabilities(value);
+      if (
+        capabilities.account !== account.address ||
+        capabilities.networkHash !== networkHash
+      )
+        throw new Error("Capability scope mismatch");
+    } catch {
+      invalidate();
+      throw new WalletProviderError(-32603, "Invalid provider capabilities");
+    }
+    await checkSession();
+    assertActive();
+    if (capabilities.atomicBatch) Object.freeze(capabilities.atomicBatch);
+    return Object.freeze(capabilities);
+  }
+
   return {
+    getCapabilities: () => run(readCapabilities),
+    prepareBatchExecution: (input) =>
+      run(async () => {
+        const count = input.invocations.length;
+        const preparation = {
+          ...input,
+          invocation: createDefaultWalletBatchInvocation(
+            preparationAccount.address,
+            input,
+          ),
+          contractsToDeploy: input.contractsToDeploy?.map((contract) =>
+            deserialize(serialize(contract, codec.Contract), codec.Contract),
+          ),
+        };
+        const capabilities = await readCapabilities();
+        if (
+          !capabilities.atomicBatch ||
+          count > capabilities.atomicBatch.maxCalls
+        )
+          throw new WalletProviderError(
+            4200,
+            "Atomic batch execution is not supported for these calls",
+          );
+        const tx = await prepareTransaction(
+          client,
+          preparationAccount,
+          preparation,
+        );
+        assertActive();
+        return parseTransactionHex(toHex0x(serialize(tx, codec.Transaction)));
+      }),
     prepareExecution: (input) =>
       run(async () => {
         const preparation = {

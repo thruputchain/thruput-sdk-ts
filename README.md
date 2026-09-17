@@ -302,6 +302,37 @@ Browser wallets use the framework-neutral [wallet provider contract](https://doc
 `createProviderWalletClient`, with separate prepare, sign, and submit steps so apps
 can persist the canonical transaction hash before requesting broadcast.
 
+### Atomic batches with an external wallet
+
+Providers can advertise `supportedMethods: ["getCapabilities"]` alongside
+`info`, `request`, and `on`. This leaves existing session and identity objects
+unchanged. Older SDKs ignore the optional discovery field. Without it, new SDKs
+use legacy single-call behavior without sending an unknown request to the bridge.
+
+`getCapabilities` takes `{ account, networkHash }` and returns the same scope
+plus `atomicBatch: { maxCalls }`, or `atomicBatch: null` when unsupported.
+The current DefaultWallet limit is 16 calls. The provider must verify origin,
+account, and network authorization without prompting. Error 4200 also means
+unsupported; other failures and malformed responses remain errors.
+
+An external `ProviderWalletClient` exposes `getCapabilities()` and
+`prepareBatchExecution({ invocations, gasLimit, ...transactionOptions })`.
+The adapter rechecks the session and capability limit when preparing a batch.
+It creates one root DefaultWallet execution and copies the ordered call inputs
+before asynchronous work. Each call has its own gas limit; the root budget must
+cover the calls and wallet overhead.
+
+Use the existing sign, persist, and submit sequence for the resulting transaction.
+Decode the root receipt with `DefaultWallet.execute.decodeReceipt(receipt)`;
+its `value` contains one return payload per call, in order. Decode each payload
+with that call's generated `decodeReturn` method. A failed inner call rolls back
+the batch. A successfully enqueued request can still fail during later queue
+processing, which is a separate transaction and outcome.
+
+Choose legacy execution before signing when batching is unsupported. Never turn
+a rejection or uncertain batch submission into automatic individual retries.
+Recover an uncertain submission through its original saved transaction hash.
+
 ## Documentation
 
 - [TypeScript SDK guide](https://docs.groundhog.dev/tools/typescript-sdk/) and the

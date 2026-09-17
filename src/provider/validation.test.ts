@@ -27,6 +27,42 @@ const account = {
 const networkHash = "ab".repeat(32);
 
 describe("provider boundary validation", () => {
+  it("accepts opaque extension names alongside the recognized capability method", () => {
+    const provider = {
+      info: { id: "wallet", name: "Wallet", version: "1.0.0" as const },
+      supportedMethods: [
+        "vendor_method",
+        "vendor.method",
+        "vendor-method",
+        "vendor:" + "x".repeat(100),
+        "",
+        "getCapabilities",
+      ],
+      request: async () => null,
+      on: () => () => {},
+    };
+    expect(parseWalletProvider(provider)).toBe(provider);
+  });
+
+  it.each(
+    [
+      null,
+      "getCapabilities",
+      [123],
+      [null],
+      Array(1),
+      Array(33).fill("extension"),
+    ].map((supportedMethods) => ({ supportedMethods })),
+  )("rejects malformed optional method lists: %j", ({ supportedMethods }) => {
+    expect(() =>
+      parseWalletProvider({
+        info: { id: "wallet", name: "Wallet", version: "1.0.0" },
+        supportedMethods,
+        request: async () => null,
+        on: () => () => {},
+      }),
+    ).toThrow(WalletProviderError);
+  });
   it("preserves the live provider identity, metadata, and method receiver", async () => {
     const provider = {
       info: { id: "wallet", name: "Wallet", version: "1.0.0" as const },

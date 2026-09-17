@@ -21,6 +21,7 @@ import {
   type WalletProviderErrorCode,
   type WalletAccount,
   type WalletSession,
+  type WalletCapabilities,
   type WalletProvider,
   type WalletProviderInfo,
   type ProviderRequest,
@@ -38,6 +39,29 @@ export const MAX_TRANSACTION_BYTES = 1_048_576;
 export const MAX_UNSIGNED_TRANSACTION_BYTES = MAX_TRANSACTION_BYTES - 76;
 /** Maximum accounts in one session. */
 export const MAX_WALLET_ACCOUNTS = 32;
+/** Current native DefaultWallet execute call limit. */
+export const MAX_DEFAULT_WALLET_CALLS = 16;
+
+/** Validate scoped DefaultWallet capabilities. Does not establish authorization. */
+export function parseWalletCapabilities(value: unknown): WalletCapabilities {
+  const data = record(value);
+  fields(data, ["account", "networkHash", "atomicBatch"]);
+  const account = parseWalletHex32(data.account);
+  const networkHash = parseWalletNetworkHash(data.networkHash);
+  if (data.atomicBatch === null)
+    return { account, networkHash, atomicBatch: null };
+  const batch = record(data.atomicBatch);
+  fields(batch, ["maxCalls"]);
+  const maxCalls = batch.maxCalls;
+  if (
+    typeof maxCalls !== "number" ||
+    !Number.isSafeInteger(maxCalls) ||
+    maxCalls < 1 ||
+    maxCalls > MAX_DEFAULT_WALLET_CALLS
+  )
+    invalid("Invalid DefaultWallet batch call limit");
+  return { account, networkHash, atomicBatch: { maxCalls } };
+}
 
 function invalid(message: string): never {
   throw new WalletProviderError(-32602, message);
@@ -187,6 +211,15 @@ export function parseWalletProviderInfo(value: unknown): WalletProviderInfo {
 export function parseWalletProvider(value: unknown): WalletProvider {
   const data = record(value);
   parseWalletProviderInfo(data.info);
+  if (
+    data.supportedMethods !== undefined &&
+    (!Array.isArray(data.supportedMethods) ||
+      data.supportedMethods.length > 32 ||
+      Array.from(data.supportedMethods).some(
+        (method) => typeof method !== "string",
+      ))
+  )
+    invalid("Invalid optional provider methods");
   if (typeof data.request !== "function" || typeof data.on !== "function") {
     invalid("Invalid wallet provider methods");
   }
@@ -276,6 +309,18 @@ export function parseProviderRequest(value: unknown): ProviderRequest {
     case "disconnect":
       fields(data, ["method"]);
       return { method };
+    case "getCapabilities": {
+      fields(data, ["method", "params"]);
+      const params = record(data.params);
+      fields(params, ["account", "networkHash"]);
+      return {
+        method,
+        params: {
+          account: parseWalletHex32(params.account),
+          networkHash: parseWalletNetworkHash(params.networkHash),
+        },
+      };
+    }
     case "signTransaction":
     case "submitTransaction": {
       fields(data, ["method", "params"]);

@@ -9,12 +9,45 @@ import {
 import { fixedBytes } from "@groundhogchain/xdr";
 import { DefaultWallet } from "../contracts/default_wallet.js";
 import { DevWallet } from "../contracts/dev_wallet.js";
+import { MAX_DEFAULT_WALLET_CALLS } from "../provider/validation.js";
 
 /** Common inputs for wrapping one inner invocation through a wallet contract. */
 export interface WalletExecutionRequest {
   readonly invocation: Invocation;
   /** Gas available to the wallet's root invocation. */
   readonly gasLimit: GasAmount;
+}
+
+/** Ordered inner calls for one atomic DefaultWallet execution. */
+export interface WalletBatchExecutionRequest {
+  readonly invocations: readonly Invocation[];
+  /** Gas available to the complete wallet root, including all calls. */
+  readonly gasLimit: GasAmount;
+}
+
+/** Build a root batch directly, copying call bytes before asynchronous work. */
+export function createDefaultWalletBatchInvocation(
+  accountAddress: ContractAddress,
+  request: WalletBatchExecutionRequest,
+): Invocation {
+  if (
+    !Array.isArray(request.invocations) ||
+    request.invocations.length < 1 ||
+    request.invocations.length > MAX_DEFAULT_WALLET_CALLS
+  )
+    throw new RangeError("DefaultWallet requires 1 to 16 calls");
+  return DefaultWallet.execute.invocation(
+    contractAddress(new Uint8Array(accountAddress)),
+    request.gasLimit,
+    {
+      calls: request.invocations.map((inner) => ({
+        target: contractAddress(new Uint8Array(inner.invoked_address)),
+        entrypoint: fixedBytes(new Uint8Array(inner.entrypoint), 8),
+        gas_limit: inner.gas_limit,
+        calldata: new Uint8Array(inner.calldata),
+      })),
+    },
+  );
 }
 
 /** Converts a wallet-specific execution request into a root invocation. */
@@ -42,21 +75,10 @@ export const defaultWalletAdapter = defineWalletInvocationAdapter({
     accountAddress: ContractAddress,
     request: WalletExecutionRequest,
   ): Invocation {
-    const inner = request.invocation;
-    return DefaultWallet.execute.invocation(
-      contractAddress(new Uint8Array(accountAddress)),
-      request.gasLimit,
-      {
-        calls: [
-          {
-            target: contractAddress(new Uint8Array(inner.invoked_address)),
-            entrypoint: fixedBytes(new Uint8Array(inner.entrypoint), 8),
-            gas_limit: inner.gas_limit,
-            calldata: new Uint8Array(inner.calldata),
-          },
-        ],
-      },
-    );
+    return createDefaultWalletBatchInvocation(accountAddress, {
+      invocations: [request.invocation],
+      gasLimit: request.gasLimit,
+    });
   },
 });
 
