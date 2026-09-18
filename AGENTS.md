@@ -10,6 +10,7 @@
 
 - Before a PR, run `npm run format:check`, `npm run docs:check`, `npm run typecheck`, `npm test`, `npm run build`, `npm run test:package-boundary`, and `npm run test:smoke`.
 - `test:package-boundary` and `test:smoke` inspect `dist/`; run `npm run build` first.
+- `npm run test:integration` builds and tests the package against a real local node on Linux / Node 24. CLI/devnode pins are in `scripts/integration-versions.json`; set `GROUNDHOG_CLI` to select the CLI executable. CI runs this separately from Vitest.
 - Focused tests: `npm test -- src/actions/actions.test.ts` or `npm test -- src/actions/actions.test.ts -t "getEvents"`.
 - `tsdown.config.ts` builds ESM, CJS, source maps, and declarations for every package entrypoint.
 - There is no lint script; formatting is Prettier via `npm run format` / `npm run format:check`.

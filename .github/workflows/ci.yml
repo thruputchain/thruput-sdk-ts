@@ -157,6 +157,63 @@ jobs:
       - run: npm run build
       - run: npm run test:smoke
 
+  integration:
+    name: Live node integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CARGO_REGISTRIES_GROUNDHOG_INDEX: "sparse+https://crates.thruput.network/api/v1/crates/"
+      CARGO_REGISTRIES_GROUNDHOG_TOKEN: ${{ secrets.GROUNDHOG_REGISTRY_TOKEN }}
+      CARGO_REGISTRY_GLOBAL_CREDENTIAL_PROVIDERS: cargo:token
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          registry-url: https://npm.pkg.github.com
+          scope: "@groundhogchain"
+
+      - name: Read integration toolchain pin
+        run: |
+          node --input-type=module -e '
+            import { appendFileSync } from "node:fs";
+            import versions from "./scripts/integration-versions.json" with { type: "json" };
+            appendFileSync(process.env.GITHUB_ENV, `GROUNDHOG_CLI_VERSION=${versions.cli}\n`);
+          '
+
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # master as of 2026-06
+        with:
+          toolchain: stable
+
+      - name: Cache CLI
+        id: groundhog-cli-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cargo/bin/groundhog
+          key: groundhog-cli-${{ runner.os }}-${{ runner.arch }}-ubuntu-24.04-${{ env.GROUNDHOG_CLI_VERSION }}
+
+      - name: Install CLI
+        if: steps.groundhog-cli-cache.outputs.cache-hit != 'true'
+        run: cargo install "groundhog-cli@${GROUNDHOG_CLI_VERSION}" --registry groundhog --locked
+
+      - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: npm run test:integration
+        env:
+          GROUNDHOG_INTEGRATION_LOG_DIR: ${{ runner.temp }}/integration-logs
+
+      - name: Upload node diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: live-node-logs
+          path: ${{ runner.temp }}/integration-logs
+          if-no-files-found: ignore
+          retention-days: 7
+
   cross-sdk:
     runs-on: ubuntu-latest
     env:
