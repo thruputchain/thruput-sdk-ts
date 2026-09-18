@@ -213,6 +213,28 @@ async function main() {
     install,
     await bounded(install.done, 300_000, "Devnode installation"),
   );
+  const installed = JSON.parse(
+    await readFile(join(logs, "install.stdout.log"), "utf8"),
+  );
+  if (
+    !installed.ok ||
+    typeof installed.data?.path !== "string" ||
+    !isAbsolute(installed.data.path)
+  ) {
+    throw new Error("Devnode installation did not report an executable path");
+  }
+  // Run directly so dynamic-loader failures reach our logs rather than being
+  // reduced to an exit code by the node supervisor.
+  const preflight = launch(
+    installed.data.path,
+    ["--version"],
+    env,
+    "devnode-version",
+  );
+  requireSuccess(
+    preflight,
+    await bounded(preflight.done, 10_000, "Devnode version preflight"),
+  );
   const node = launch(
     cli,
     [
@@ -287,7 +309,7 @@ try {
   failed ||= abort.signal.aborted;
   if (failed) {
     if (logs) {
-      for (const label of ["install", "node"]) {
+      for (const label of ["install", "devnode-version", "node"]) {
         const stderr = await readFile(
           join(logs, `${label}.stderr.log`),
           "utf8",

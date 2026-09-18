@@ -421,8 +421,10 @@ GROUNDHOG_CLI=/path/to/groundhog npm run test:integration
 ```
 
 The harness downloads the checksum-verified devnode version from the same pin
-file and starts a fresh node on an OS-assigned loopback port. Tests import the
-built package and check connection, local funding, a HOG transfer, receipts,
+file, checks that its executable runs, and starts a fresh node on an OS-assigned
+loopback port. The host must provide the devnode's native runtime libraries;
+CI uses the same Ubuntu 26.04 Namespace profile as the RPC repository. Tests
+import the built package and check connection, local funding, a HOG transfer, receipts,
 events, contract views, and RPC errors. `npm test` remains node-independent.
 
 The harness isolates configuration and state, stops its child processes, and

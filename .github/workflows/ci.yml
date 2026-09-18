@@ -159,7 +159,7 @@ jobs:
 
   integration:
     name: Live node integration
-    runs-on: ubuntu-24.04
+    runs-on: namespace-profile-hogd-linux-2604
     timeout-minutes: 15
     env:
       CARGO_REGISTRIES_GROUNDHOG_INDEX: "sparse+https://crates.thruput.network/api/v1/crates/"
@@ -191,7 +191,7 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.cargo/bin/groundhog
-          key: groundhog-cli-${{ runner.os }}-${{ runner.arch }}-ubuntu-24.04-${{ env.GROUNDHOG_CLI_VERSION }}
+          key: groundhog-cli-${{ runner.os }}-${{ runner.arch }}-namespace-hogd-linux-2604-${{ env.GROUNDHOG_CLI_VERSION }}
 
       - name: Install CLI
         if: steps.groundhog-cli-cache.outputs.cache-hit != 'true'
