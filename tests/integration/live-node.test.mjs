@@ -22,12 +22,18 @@ import {
 import { loadLocalDevAccount } from "@groundhogchain/client/local-dev";
 import { ExecResult, HOG_ADDRESS, gasAmount } from "@groundhogchain/protocol";
 import versions from "../../scripts/integration-versions.json" with { type: "json" };
+import {
+  airdropTimeoutMs,
+  receiptTimeoutMs,
+  rpcTimeoutMs,
+  suiteTimeoutMs as timeout,
+} from "../../scripts/integration-timeouts.mjs";
 
-test("built SDK against a real local node", { timeout: 110_000 }, async (t) => {
+test("built SDK against a real local node", { timeout }, async (t) => {
   const rpcUrl = process.env.GROUNDHOG_RPC_URL;
   assert.ok(rpcUrl, "Run through npm run test:integration");
   assert.ok(process.env.GROUNDHOG_RUNTIME_MANIFEST);
-  const transport = new HttpTransport(rpcUrl, { timeoutMs: 5_000 });
+  const transport = new HttpTransport(rpcUrl, { timeoutMs: rpcTimeoutMs });
   const client = await createGroundhogClient({
     cluster: localnet({ rpcUrl }),
     transport,
@@ -61,7 +67,7 @@ test("built SDK against a real local node", { timeout: 110_000 }, async (t) => {
       for (const account of [sender, recipient]) {
         const airdrop = await wallet.requestAirdrop({
           recipient: account.address,
-          timeoutMs: 30_000,
+          timeoutMs: airdropTimeoutMs,
         });
         assert.equal(airdrop.status.result, "ok");
         assert.ok(airdrop.rawAmount > 0n);
@@ -89,7 +95,7 @@ test("built SDK against a real local node", { timeout: 110_000 }, async (t) => {
       });
       assert.equal(hash.length, 32);
       const receipt = await wallet.waitForTransactionReceipt(hash, {
-        timeoutMs: 30_000,
+        timeoutMs: receiptTimeoutMs,
       });
       assert.deepEqual(receipt.txHash, hash);
       assert.equal(receipt.execResult, ExecResult.ExecResultOK);

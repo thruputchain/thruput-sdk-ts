@@ -7,6 +7,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import versions from "./integration-versions.json" with { type: "json" };
+import { harnessTimeoutMs, runnerTimeoutMs } from "./integration-timeouts.mjs";
 
 const exec = promisify(execFile);
 const repo = fileURLToPath(new URL("../", import.meta.url));
@@ -241,7 +242,7 @@ async function main() {
     [
       "--test",
       "--test-concurrency=1",
-      "--test-timeout=120000",
+      `--test-timeout=${runnerTimeoutMs}`,
       join(repo, "tests/integration/live-node.test.mjs"),
     ],
     {
@@ -259,7 +260,7 @@ async function main() {
         throw new Error("Node exited while integration tests were running");
       }),
     ]),
-    150_000,
+    harnessTimeoutMs,
     "Integration tests",
   );
   requireSuccess(tests, result);
