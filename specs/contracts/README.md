@@ -1,7 +1,7 @@
 # Contract Binding Inputs
 
 These canonical `.spec.xdr` files are the complete inputs to
-`scripts/regenerate-contract-bindings.sh`. CI pins `groundhog-cli` 0.14.0 and
+`scripts/regenerate-contract-bindings.sh`. CI pins `groundhog-cli` 0.17.7 and
 checks every generated output against them.
 
 | Input                     | Generated binding                 | SHA-256                                                            |
