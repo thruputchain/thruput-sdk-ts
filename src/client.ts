@@ -158,13 +158,13 @@ function createAirdropActions(transport: Transport): AirdropActions {
   };
 }
 
-/** A client whose RPC endpoint has been validated against a cluster. */
+/** A client with a fetched network identity, verified against any cluster identity pin. */
 export type ConnectedGroundhogClient<TCluster extends Cluster = Cluster> =
   CoreGroundhogClient &
     (ClusterHasCapability<TCluster, "airdrop"> extends true
       ? AirdropActions
       : object) & {
-      /** Cluster descriptor used to validate this client. */
+      /** Cluster descriptor used to connect this client. */
       readonly cluster: TCluster;
 
       /** Identity returned by the endpoint during connection. */
@@ -177,7 +177,7 @@ export interface GroundhogClientOptions {
   readonly cluster?: never;
 }
 
-/** Options for a client validated against a declared cluster. */
+/** Options for fetching network identity and verifying any declared cluster identity pin. */
 export interface ClusterGroundhogClientOptions<
   TCluster extends Cluster = Cluster,
 > {
@@ -187,8 +187,9 @@ export interface ClusterGroundhogClientOptions<
 }
 
 /**
- * Create a client and, when a cluster is supplied, validate the endpoint's
- * runtime network identity before returning it.
+ * Create a client and, when a cluster is supplied, fetch the endpoint's network
+ * identity and verify any supplied `networkHash` pin. Identity is checked only
+ * during connection; cluster capabilities are declared, not probed.
  */
 export function createGroundhogClient<const TCluster extends Cluster>(
   options: ClusterGroundhogClientOptions<TCluster>,

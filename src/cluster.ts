@@ -92,7 +92,7 @@ export function mainnet(
   });
 }
 
-/** Define the resettable public Groundhog development network. */
+/** Define the resettable public Groundhog development network, unpinned unless `networkHash` is supplied. */
 export function devnet(
   options: PredefinedClusterOptions = {},
 ): Cluster<readonly ["airdrop"]> & { readonly name: "devnet" } {
