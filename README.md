@@ -402,8 +402,32 @@ that's your reminder.
 - `npm run typecheck` — `tsc --noEmit`.
 - `npm run test:package-boundary` — compile a consumer fixture against the built package declarations.
 - `npm run test:smoke` — load every built package entrypoint as ESM and CommonJS.
+- `npm run test:integration` — build the package and test it against an isolated real local node (Linux).
 - `npm run contracts:generate` — regenerate all checked-in contract bindings from pinned specs.
 - `npm run contracts:check` — verify generated bindings match their pinned specs and generator.
 - `npm run docs` — generate TypeDoc API reference HTML in `docs/api/`.
 - `npm run docs:check` — validate TypeDoc generation without writing output.
 - `npm run format` / `format:check` — `prettier`.
+
+### Live integration tests
+
+On Linux with Node 24, install the CLI version pinned in
+[`scripts/integration-versions.json`](scripts/integration-versions.json), then run:
+
+```sh
+npm run test:integration
+# Or select an explicit CLI executable:
+GROUNDHOG_CLI=/path/to/groundhog npm run test:integration
+```
+
+The harness downloads the checksum-verified devnode version from the same pin
+file, checks that its executable runs, and starts a fresh node on an OS-assigned
+loopback port. The host must provide the devnode's native runtime libraries;
+CI uses the same Ubuntu 26.04 Namespace profile as the RPC repository. Tests
+import the built package and check connection, local funding, a HOG transfer, receipts,
+events, contract views, and RPC errors. `npm test` remains node-independent.
+
+The harness isolates configuration and state, stops its child processes, and
+retains logs and node state on failure at the printed temporary path. Set
+`GROUNDHOG_INTEGRATION_LOG_DIR` to retain logs at a chosen location; CI uploads
+them as `live-node-logs`.
