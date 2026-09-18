@@ -31,4 +31,4 @@ built from that crate's rv32 spec carrier in `groundhogchain/sdk_rs`.
 `groundhog-erc20-metadata-if` 0.1.24 interfaces. It was extracted with CLI
 0.15.1 from an RV32 spec carrier using SDK 0.31.0 and
 `sdk::export_interface_spec!` for both traits. TypeScript generation uses the
-CLI 0.14.0 pin above.
+CLI 0.17.7 pin above.
