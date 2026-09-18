@@ -312,8 +312,8 @@ describe("view", () => {
     });
 
     expect(calls).toHaveLength(1);
-    expect(calls[0].method).toBe("groundhog_view");
-    expect(calls[0].params).toEqual([
+    expect(calls[0]!.method).toBe("groundhog_view");
+    expect(calls[0]!.params).toEqual([
       {
         contract: "0x" + "ab".repeat(32),
         entrypoint: "0x" + "cd".repeat(8),
@@ -355,7 +355,7 @@ describe("view", () => {
     });
 
     expect(calls).toHaveLength(1);
-    expect(calls[0].params).toEqual([
+    expect(calls[0]!.params).toEqual([
       {
         contract: "0x" + "ab".repeat(32),
         entrypoint: "0x" + "cd".repeat(8),
@@ -755,30 +755,29 @@ describe("getEvents", () => {
       limit: 10,
     });
 
-    expect(calls).toHaveLength(1);
-    expect(calls[0].params).toBeDefined();
-    const query = calls[0].params![0] as Record<string, unknown>;
-    const filters = query.filters as Record<string, unknown>[];
-    const firstFilter = filters[0];
-    const contractAddresses = firstFilter.contractAddresses as string[];
-    const topics = firstFilter.topics as Record<string, string[]>;
-
-    // Addresses: Hex0x_ContractAddress (0x-prefixed lowercase hex)
-    expect(contractAddresses[0]).toBe("0x" + "ab".repeat(32));
-
-    // Topics: Hex0x (0x-prefixed lowercase hex)
-    expect(topics.topic0[0]).toBe("0x" + "cd".repeat(32));
-
-    // Cursor: PaginationCursor pattern `^0x[0-9a-f]*$`.
-    expect(query.cursor).toBe("0x010203");
-
-    // Order: string enum
-    expect(query.order).toBe("descending");
-
-    // Anchor: object-tagged BlockAnchor with `kind` discriminator
-    expect(query.anchor).toEqual({ kind: "atHeight", height: 42 });
-
-    expect(query.limit).toBe(10);
+    expect(calls).toEqual([
+      {
+        method: "groundhog_getEvents",
+        params: [
+          {
+            filters: [
+              {
+                contractAddresses: ["0x" + "ab".repeat(32)],
+                topics: {
+                  topic0: ["0x" + "cd".repeat(32)],
+                  topic1: [],
+                  topic2: [],
+                },
+              },
+            ],
+            cursor: "0x010203",
+            order: "descending",
+            anchor: { kind: "atHeight", height: 42 },
+            limit: 10,
+          },
+        ],
+      },
+    ]);
   });
 
   it("parses a non-empty event page", async () => {

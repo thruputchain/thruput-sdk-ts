@@ -223,6 +223,19 @@ describe("contract codecs", () => {
     ).toThrow('No codec for named type "toString"');
   });
 
+  it("rejects missing and explicitly undefined named codecs", () => {
+    const type: ContractType = {
+      v: ContractTypeKind.Named,
+      named: s("Missing"),
+    };
+    expect(() => resolveCodec(type, {})).toThrow(
+      'No codec for named type "Missing"',
+    );
+    expect(() => resolveCodec(type, { Missing: undefined } as never)).toThrow(
+      'No codec for named type "Missing"',
+    );
+  });
+
   it("returns immutable fixed arrays and rejects incorrect input lengths", () => {
     const codec = createContractCodec<FixedArray<bigint, 2>>(
       createContractCodecContext([]),

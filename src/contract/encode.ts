@@ -287,8 +287,8 @@ function resolveUncachedCodec(
           }
           const arr = val;
           assertOwnArrayElements(arr);
-          for (let i = 0; i < innerCodecs.length; i++) {
-            innerCodecs[i].encode(w, arr[i]);
+          for (const [i, codec] of innerCodecs.entries()) {
+            codec.encode(w, arr[i]);
           }
         },
         decode(r) {
@@ -297,10 +297,14 @@ function resolveUncachedCodec(
       } as XdrCodec<unknown>;
     }
     case ContractTypeKind.Named: {
-      if (!namedCodecs || !Object.hasOwn(namedCodecs, ty.named)) {
+      const codec =
+        namedCodecs && Object.hasOwn(namedCodecs, ty.named)
+          ? namedCodecs[ty.named]
+          : undefined;
+      if (codec === undefined) {
         throw new Error(`No codec for named type "${ty.named}".`);
       }
-      return namedCodecs[ty.named];
+      return codec;
     }
     case ContractTypeKind.SignedToken:
       return SignedTokenCodec as XdrCodec<unknown>;
@@ -366,8 +370,8 @@ export function encodeCalldata(
   assertOwnArrayElements(args);
 
   const w = new CxsWriter();
-  for (let i = 0; i < method.args.length; i++) {
-    const argCodec = resolveCodec(method.args[i].ty, namedCodecs);
+  for (const [i, arg] of method.args.entries()) {
+    const argCodec = resolveCodec(arg.ty, namedCodecs);
     argCodec.encode(w, args[i]);
   }
   return calldata(w.finish());

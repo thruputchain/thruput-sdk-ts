@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import {
   contractAddress,
   CxsReader,
@@ -434,6 +434,7 @@ describe("buildNamedCodecs", () => {
     expect(codecs["ERC20Error"]).toBeDefined();
 
     const enumCodec = codecs["ERC20Error"];
+    assert.isDefined(enumCodec);
     const w = new CxsWriter();
     enumCodec.encode(w, 3n);
     const bytes = w.finish();
@@ -460,6 +461,7 @@ describe("buildNamedCodecs", () => {
 
     const codecs = buildNamedCodecs(typeDefs);
     const structCodec = codecs["TokenInfo"];
+    assert.isDefined(structCodec);
 
     for (const invalid of [undefined, null, 1, "value", []]) {
       expect(() => structCodec.encode(new CxsWriter(), invalid)).toThrow(
@@ -501,10 +503,13 @@ describe("buildNamedCodecs", () => {
     value.__proto__ = 7n;
     const writer = new CxsWriter();
 
-    codecs.__proto__.encode(writer, value);
-    const decoded = codecs.__proto__.decode(
-      new CxsReader(writer.finish()),
-    ) as Record<string, unknown>;
+    const codec = codecs.__proto__;
+    assert.isDefined(codec);
+    codec.encode(writer, value);
+    const decoded = codec.decode(new CxsReader(writer.finish())) as Record<
+      string,
+      unknown
+    >;
 
     expect(Object.getPrototypeOf(decoded)).toBe(Object.prototype);
     expect(Object.hasOwn(decoded, "__proto__")).toBe(true);
@@ -549,6 +554,7 @@ describe("buildNamedCodecs", () => {
 
     const codecs = buildNamedCodecs(typeDefs);
     const unionCodec = codecs["Result"];
+    assert.isDefined(unionCodec);
 
     // Test tuple case
     const okVal = { case: "Ok", value: [42n] };

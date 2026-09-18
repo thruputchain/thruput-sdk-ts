@@ -66,10 +66,10 @@ describe("signTransaction", () => {
 
     expect(signed.tx).toEqual(tx);
     expect(signed.signatures).toHaveLength(1);
-    expect(signed.signatures[0].public_key_id).toBe(0n);
+    expect(signed.signatures[0]!.public_key_id).toBe(0n);
 
     const preimage = transactionSignaturePreimage(testNetworkHash, tx);
-    const sig = signed.signatures[0].signature;
+    const sig = signed.signatures[0]!.signature;
     expect(sig.scheme).toBe(0);
     expect(verify(sig.ed25519, preimage, signer.publicKey.ed25519)).toBe(true);
 
@@ -90,7 +90,8 @@ describe("signTransaction", () => {
       testNetworkHash,
     );
 
-    const sig = signed.signatures[0].signature.ed25519;
+    expect(signed.signatures).toHaveLength(1);
+    const sig = signed.signatures[0]!.signature.ed25519;
     const key = signer.publicKey.ed25519;
     expect(
       verify(sig, transactionSignaturePreimage(testNetworkHash, tx), key),
@@ -122,9 +123,9 @@ describe("signTransaction", () => {
 
     expect(deserialized.tx).toEqual(signed.tx);
     expect(deserialized.signatures).toHaveLength(1);
-    expect(deserialized.signatures[0].public_key_id).toBe(0n);
-    expect(deserialized.signatures[0].signature.ed25519).toEqual(
-      signed.signatures[0].signature.ed25519,
+    expect(deserialized.signatures[0]!.public_key_id).toBe(0n);
+    expect(deserialized.signatures[0]!.signature.ed25519).toEqual(
+      signed.signatures[0]!.signature.ed25519,
     );
   });
 
@@ -147,25 +148,25 @@ describe("signTransaction", () => {
     );
 
     expect(signed.signatures).toHaveLength(2);
-    expect(signed.signatures[0].public_key_id).toBe(0n);
-    expect(signed.signatures[1].public_key_id).toBe(1n);
+    expect(signed.signatures[0]!.public_key_id).toBe(0n);
+    expect(signed.signatures[1]!.public_key_id).toBe(1n);
 
     const preimage = transactionSignaturePreimage(testNetworkHash, tx);
     const valid1 = verify(
-      signed.signatures[0].signature.ed25519,
+      signed.signatures[0]!.signature.ed25519,
       preimage,
       signer1.publicKey.ed25519,
     );
     const valid2 = verify(
-      signed.signatures[1].signature.ed25519,
+      signed.signatures[1]!.signature.ed25519,
       preimage,
       signer2.publicKey.ed25519,
     );
     expect(valid1).toBe(true);
     expect(valid2).toBe(true);
 
-    expect(signed.signatures[0].signature.ed25519).not.toEqual(
-      signed.signatures[1].signature.ed25519,
+    expect(signed.signatures[0]!.signature.ed25519).not.toEqual(
+      signed.signatures[1]!.signature.ed25519,
     );
   });
 

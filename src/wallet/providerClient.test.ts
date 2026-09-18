@@ -914,7 +914,8 @@ describe("external provider wallet", () => {
       await wallet.prepareExecution(execution),
     );
     const changed = parseSignedTransactionHex(signed.signedTransaction);
-    changed.signatures[0]!.signature.ed25519[0] ^= 1;
+    const signature = changed.signatures[0]!.signature.ed25519;
+    signature[0] = signature[0]! ^ 1;
     await expect(
       wallet.submitTransaction(wireResult(changed)),
     ).rejects.toMatchObject({ code: 4100 });

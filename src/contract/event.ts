@@ -173,9 +173,9 @@ export function defineContractEvent<
         assertEventSize(event.topics, event.data);
 
         const decodedTopics: Record<string, unknown> = {};
-        for (let index = 0; index < resolvedTopics.length; index++) {
-          const metadata = resolvedTopics[index];
-          const topic = fixedBytes(event.topics[index + 1], 32);
+        for (const [index, metadata] of resolvedTopics.entries()) {
+          // The exact topic count is checked above.
+          const topic = fixedBytes(event.topics[index + 1]!, 32);
           const value = decodeTopic(metadata, topic);
           defineRecordValue(decodedTopics, metadata.name, value);
         }
@@ -228,16 +228,16 @@ export function defineContractEvent<
           resolvedTopics
             .map((metadata, index) => ({ metadata, index }))
             .filter(({ metadata }) => metadata.representation !== "hash")
-            .map(({ metadata, index }) => [metadata.name, index] as const),
+            .map((topic) => [topic.metadata.name, topic] as const),
         );
         for (const [name, constraint] of Object.entries(constraints)) {
-          const index = directTopics.get(name);
-          if (index === undefined) {
+          const topic = directTopics.get(name);
+          if (topic === undefined) {
             throw new Error(
               `${eventName} topic "${name}" is not directly filterable`,
             );
           }
-          const metadata = resolvedTopics[index];
+          const { metadata, index } = topic;
           const values = filterValues(constraint, eventName, metadata);
           const key = `topic${index + 1}` as "topic1" | "topic2";
           filterTopics[key] = values.map((value) =>
@@ -272,7 +272,7 @@ export function defineContractEvent<
           `Expected exactly one ${eventName} event, got ${matches.length}`,
         );
       }
-      return matches[0];
+      return matches[0]!;
     },
   };
 
