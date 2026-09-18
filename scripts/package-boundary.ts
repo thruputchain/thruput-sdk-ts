@@ -35,6 +35,8 @@ import type { SignedToken } from "@groundhogchain/client/contract";
 import {
   ERC20,
   ERC20ApprovalEvent,
+  ERC20BurnEvent,
+  ERC20MintEvent,
   ERC20Metadata,
   ERC20TransferEvent,
   DefaultWallet,
@@ -45,6 +47,8 @@ import {
 import type {
   ERC20TransferArgs,
   ERC20TransferEventFilter,
+  ERC20BurnEventFilter,
+  ERC20MintEventFilter,
   WalletCall,
 } from "@groundhogchain/client/contracts";
 import type {
@@ -181,6 +185,10 @@ async function packageBoundaryTypecheck(
     topics: transferTopics,
   });
   decodeERC20Event(event);
+  const mintTopics: ERC20MintEventFilter = { to: recipient };
+  const burnTopics: ERC20BurnEventFilter = { from: recipient };
+  ERC20MintEvent.filter({ contractAddresses: [contract], topics: mintTopics });
+  ERC20BurnEvent.filter({ contractAddresses: [contract], topics: burnTopics });
 
   const executeSignedOp: ContractMethod<
     SignedOpExecuteSignedOpArgs,

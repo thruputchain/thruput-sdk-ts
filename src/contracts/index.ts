@@ -23,12 +23,16 @@ export {
   ERC20Metadata,
   ERC20Error,
   ApprovalEvent as ERC20ApprovalEvent,
+  BurnEvent as ERC20BurnEvent,
+  MintEvent as ERC20MintEvent,
   TransferEvent as ERC20TransferEvent,
   decodeEvent as decodeERC20Event,
   spec as ERC20Spec,
 } from "./erc20.js";
 export type {
   ApprovalEventFilter as ERC20ApprovalEventFilter,
+  BurnEventFilter as ERC20BurnEventFilter,
+  MintEventFilter as ERC20MintEventFilter,
   ERC20AdjustAllowanceArgs,
   ERC20AdjustAllowanceResult,
   ERC20AllowanceArgs,
