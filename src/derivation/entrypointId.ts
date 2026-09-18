@@ -15,11 +15,17 @@ import type { ContractEntrypointID } from "@groundhogchain/protocol";
  * @throws If `versionStr` has fewer than three dot-separated components.
  */
 export function majorVersionFromSemver(versionStr: string): string {
-  const parts = versionStr.split(".");
-  if (parts.length < 3) throw new Error(`Invalid semver: ${versionStr}`);
-  const major = parseInt(parts[0], 10);
-  const minor = parseInt(parts[1], 10);
-  const patch = parseInt(parts[2], 10);
+  const [majorPart, minorPart, patchPart] = versionStr.split(".");
+  if (
+    majorPart === undefined ||
+    minorPart === undefined ||
+    patchPart === undefined
+  ) {
+    throw new Error(`Invalid semver: ${versionStr}`);
+  }
+  const major = parseInt(majorPart, 10);
+  const minor = parseInt(minorPart, 10);
+  const patch = parseInt(patchPart, 10);
   if (major > 0) return `${major}`;
   if (minor > 0) return `${major}.${minor}`;
   if (patch > 0) return `${major}.${minor}.${patch}`;

@@ -12,7 +12,7 @@ import {
   toHex,
   type SignedTransaction,
 } from "@groundhogchain/protocol";
-import { describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 import { Point, utils, verifyAsync } from "@noble/ed25519";
 import { sha512 } from "@noble/hashes/sha2.js";
 import { createGroundhogClient } from "../client.js";
@@ -914,7 +914,12 @@ describe("external provider wallet", () => {
       await wallet.prepareExecution(execution),
     );
     const changed = parseSignedTransactionHex(signed.signedTransaction);
-    changed.signatures[0]!.signature.ed25519[0] ^= 1;
+    const signature = changed.signatures[0];
+    assert.isDefined(signature);
+    const bytes = signature.signature.ed25519;
+    const firstByte = bytes[0];
+    assert.isDefined(firstByte);
+    bytes[0] = firstByte ^ 1;
     await expect(
       wallet.submitTransaction(wireResult(changed)),
     ).rejects.toMatchObject({ code: 4100 });

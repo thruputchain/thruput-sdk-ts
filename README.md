@@ -30,8 +30,8 @@ const tip = await client.getChainTip();
 const txHash = await client.sendTransaction(signedTransaction);
 ```
 
-Pass a cluster when the application must validate the endpoint before making
-requests:
+Pass a cluster to fetch the endpoint's network identity during connection and
+verify it against the cluster's `networkHash`, if supplied:
 
 ```ts
 import { createGroundhogClient, devnet, toHex0x } from "@groundhogchain/client";
@@ -65,6 +65,8 @@ deployment-specific cluster inline, or use `defineCluster` when the descriptor
 will be reused. Devnet and localnet include default RPC URLs; pass `rpcUrl` to
 override them. Mainnet has no default endpoint yet. Supply a `networkHash` when
 the application must pin the protocol identity used for transaction signing.
+`devnet()` is unpinned by default; use `devnet({ networkHash })` to pin it.
+Identity is checked at connection, not continuously after network resets.
 Pass an explicit transport for custom headers or request handling. Omit
 `cluster` to use an unknown endpoint without runtime identity validation.
 
@@ -262,7 +264,7 @@ signers this package does not drive.
 
 ## Examples
 
-- [`chain-tip.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/chain-tip.ts) validates Devnet and reads its latest block.
+- [`chain-tip.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/chain-tip.ts) connects to Devnet and reads its latest block.
 - [`transfer-hog.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/transfer-hog.ts) funds two pubkey accounts and transfers HOG on Devnet.
 - [`view-hog-balance.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/view-hog-balance.ts) reads local `dev-1`'s HOG balance.
 - [`deploy-counter.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/deploy-counter.ts) deploys and calls a Counter contract through DevWallet.

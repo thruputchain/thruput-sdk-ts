@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import { verify } from "@noble/ed25519";
 import {
   contractAddress,
@@ -132,7 +132,10 @@ describe("end-to-end: build, sign, serialize an ERC20 transfer", () => {
 
     // Verify signature over the canonical preimage, not the bare transaction
     const preimage = transactionSignaturePreimage(testNetworkHash, tx);
-    const sig = signed.signatures[0].signature;
+    expect(signed.signatures).toHaveLength(1);
+    const signature = signed.signatures[0];
+    assert.isDefined(signature);
+    const sig = signature.signature;
     expect(verify(sig.ed25519, preimage, signer.publicKey.ed25519)).toBe(true);
 
     // Round-trip through serialization
@@ -145,7 +148,9 @@ describe("end-to-end: build, sign, serialize an ERC20 transfer", () => {
     expect(restored.tx.uniquifier.block_expiry_height).toBe(1000n);
     expect(restored.tx.uniquifier.nonce).toBe(12345n);
     expect(restored.signatures).toHaveLength(1);
-    expect(restored.signatures[0].signature.ed25519).toEqual(sig.ed25519);
+    const restoredSignature = restored.signatures[0];
+    assert.isDefined(restoredSignature);
+    expect(restoredSignature.signature.ed25519).toEqual(sig.ed25519);
 
     // Decode calldata from the restored transaction
     const decoded = decodeCalldata(

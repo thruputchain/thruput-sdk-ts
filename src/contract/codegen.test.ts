@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import { CxsWriter, CxsReader } from "@groundhogchain/protocol";
 import {
   contractSpecString,
@@ -59,6 +59,7 @@ describe("buildNamedCodecs with recursive types", () => {
   it("round-trips a Tree with nested children", () => {
     const codecs = buildNamedCodecs(typeDefs);
     const treeCodec = codecs["Tree"];
+    assert.isDefined(treeCodec);
 
     const tree = {
       value: 1n,
@@ -85,6 +86,7 @@ describe("buildNamedCodecs with recursive types", () => {
   it("round-trips a leaf node (both children null)", () => {
     const codecs = buildNamedCodecs(typeDefs);
     const treeCodec = codecs["Tree"];
+    assert.isDefined(treeCodec);
 
     const leaf = { value: 42n, left: null, right: null };
 
@@ -97,6 +99,7 @@ describe("buildNamedCodecs with recursive types", () => {
   it("round-trips a Forest with nested forests", () => {
     const codecs = buildNamedCodecs(typeDefs);
     const forestCodec = codecs["Forest"];
+    assert.isDefined(forestCodec);
 
     const forest = {
       trees: [
@@ -118,6 +121,7 @@ describe("buildNamedCodecs with recursive types", () => {
   it("round-trips an empty Forest", () => {
     const codecs = buildNamedCodecs(typeDefs);
     const forestCodec = codecs["Forest"];
+    assert.isDefined(forestCodec);
 
     const empty = { trees: [], label: 0n };
 

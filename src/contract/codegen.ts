@@ -157,13 +157,13 @@ function encodeUnionCase(
         );
       }
       const arr = value;
-      for (let i = 0; i < caseType.tuple.length; i++) {
+      for (const [i, type] of caseType.tuple.entries()) {
         if (!Object.hasOwn(arr, i)) {
           throw new TypeError(
             `Tuple union case requires own value at index ${i}`,
           );
         }
-        const c = resolveCodec(caseType.tuple[i], codecs);
+        const c = resolveCodec(type, codecs);
         c.encode(w, arr[i]);
       }
       break;
