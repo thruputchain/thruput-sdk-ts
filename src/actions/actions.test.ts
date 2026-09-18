@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import {
   contractAddress,
   gasAmount,
@@ -312,8 +312,10 @@ describe("view", () => {
     });
 
     expect(calls).toHaveLength(1);
-    expect(calls[0]!.method).toBe("groundhog_view");
-    expect(calls[0]!.params).toEqual([
+    const call = calls[0];
+    assert.isDefined(call);
+    expect(call.method).toBe("groundhog_view");
+    expect(call.params).toEqual([
       {
         contract: "0x" + "ab".repeat(32),
         entrypoint: "0x" + "cd".repeat(8),
@@ -355,7 +357,9 @@ describe("view", () => {
     });
 
     expect(calls).toHaveLength(1);
-    expect(calls[0]!.params).toEqual([
+    const call = calls[0];
+    assert.isDefined(call);
+    expect(call.params).toEqual([
       {
         contract: "0x" + "ab".repeat(32),
         entrypoint: "0x" + "cd".repeat(8),

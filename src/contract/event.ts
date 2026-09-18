@@ -174,8 +174,11 @@ export function defineContractEvent<
 
         const decodedTopics: Record<string, unknown> = {};
         for (const [index, metadata] of resolvedTopics.entries()) {
-          // The exact topic count is checked above.
-          const topic = fixedBytes(event.topics[index + 1]!, 32);
+          const rawTopic = event.topics[index + 1];
+          if (rawTopic === undefined) {
+            throw new Error(`missing topic "${metadata.name}"`);
+          }
+          const topic = fixedBytes(rawTopic, 32);
           const value = decodeTopic(metadata, topic);
           defineRecordValue(decodedTopics, metadata.name, value);
         }
@@ -267,12 +270,13 @@ export function defineContractEvent<
 
     singleFromReceipt(receipt, options) {
       const matches = descriptor.allFromReceipt(receipt, options);
-      if (matches.length !== 1) {
+      const match = matches[0];
+      if (matches.length !== 1 || match === undefined) {
         throw new Error(
           `Expected exactly one ${eventName} event, got ${matches.length}`,
         );
       }
-      return matches[0]!;
+      return match;
     },
   };
 

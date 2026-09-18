@@ -197,6 +197,13 @@ describe("contract event construction and decoding", () => {
   it("rejects malformed topic lengths and payloads", () => {
     const descriptor = defineContractEvent(definition());
 
+    const sparseTopics = new Array<Uint8Array>(3);
+    sparseTopics[0] = signature;
+    sparseTopics[2] = id;
+    expect(() => descriptor.decode(emitted({ topics: sparseTopics }))).toThrow(
+      'Failed to decode Changed: missing topic "account"',
+    );
+
     expect(() =>
       descriptor.decode(emitted({ topics: [signature, account, id.slice(1)] })),
     ).toThrowError(ContractDecodeError);
