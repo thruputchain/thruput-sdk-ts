@@ -6,7 +6,7 @@ checks every generated output against them.
 
 | Input                     | Generated binding                 | SHA-256                                                            |
 | ------------------------- | --------------------------------- | ------------------------------------------------------------------ |
-| `erc20.spec.xdr`          | `src/contracts/erc20.ts`          | `8637042643d709ff823975d8e9c58aa70e16a6f4c87d37744615f988dec5c7d0` |
+| `erc20.spec.xdr`          | `src/contracts/erc20.ts`          | `e47c3c3f5a2ced8142bc2c947aa3a5cd60e985bba7661c9407266f8ec0f51501` |
 | `recursive_type.spec.xdr` | `src/contracts/recursive_type.ts` | `dae0d7375953dd3ac2a7f6e1004411208071dd554678024806b883a745cde39a` |
 | `default_wallet.spec.xdr` | `src/contracts/default_wallet.ts` | `87ac6490d7fd455b17ba38796399f21e0abc90c4b7c1f2f1b99cf00197b5aacc` |
 | `dev_wallet.spec.xdr`     | `src/contracts/dev_wallet.ts`     | `4e3d10d51600ad3b7f686766dd9a87795b32010b0b7665d69f33ef7d8ddd6fec` |
@@ -26,3 +26,9 @@ signatures.
 
 `signed_op.spec.xdr` is the finalized spec of `groundhog-signed-op-if` 0.1.22,
 built from that crate's rv32 spec carrier in `groundhogchain/sdk_rs`.
+
+`erc20.spec.xdr` combines the released `groundhog-erc20-if` and
+`groundhog-erc20-metadata-if` 0.1.24 interfaces. It was extracted with CLI
+0.15.1 from an RV32 spec carrier using SDK 0.31.0 and
+`sdk::export_interface_spec!` for both traits. TypeScript generation uses the
+CLI 0.14.0 pin above.

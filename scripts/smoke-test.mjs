@@ -62,6 +62,8 @@ const requiredExports = {
     "DevWallet",
     "ERC20",
     "ERC20ApprovalEvent",
+    "ERC20BurnEvent",
+    "ERC20MintEvent",
     "ERC20Metadata",
     "ERC20TransferEvent",
     "decodeERC20Event",
