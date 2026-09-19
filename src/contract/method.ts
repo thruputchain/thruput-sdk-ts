@@ -21,7 +21,11 @@ import type {
   ViewResponse,
 } from "../types/rpc.js";
 import type { ContractCodecContext } from "./codec.js";
-import { decodeComplete, resolveContextCodec } from "./codec.js";
+import {
+  decodeComplete,
+  resolveContextCodec,
+  contextEnumVariant,
+} from "./codec.js";
 import { ContractDecodeError } from "./errors.js";
 import { toHex0x } from "../actions/hex.js";
 import type { ContractType } from "./spec.js";
@@ -44,7 +48,11 @@ export interface UnknownContractException {
 }
 
 /** Declared exceptions plus a lossless fallback for unknown selectors. */
-export type ContractException<TDeclared> = TDeclared | UnknownContractException;
+export type ContractException<TDeclared> =
+  | (TDeclared & {
+      /** Symbolic enum case when available in the contract spec. */ variant?: string;
+    })
+  | UnknownContractException;
 
 /** Non-successful contract view outcome. */
 export type ContractViewFailure<TException> =
@@ -131,8 +139,8 @@ export class ContractReceiptError<TException> extends Error {
       outcome.kind === "abort"
         ? `Contract transaction ${toHex0x(outcome.txHash)} aborted with ${formatException(outcome.exception, selector)}`
         : outcome.execResult === ExecResult.ExecResultOK
-          ? "Contract transaction did not include return data"
-          : `Contract transaction failed with ${ExecResult[outcome.execResult] ?? outcome.execResult}`,
+          ? `Contract transaction did not include return data (tx ${toHex0x(outcome.txHash)})`
+          : `Contract transaction failed with ${ExecResult[outcome.execResult] ?? outcome.execResult} (tx ${toHex0x(outcome.txHash)})`,
     );
     this.name = "ContractReceiptError";
     this.outcome = outcome;
@@ -147,10 +155,17 @@ function formatException(exception: unknown, selector?: bigint): string {
     typeof exception.name === "string" &&
     "value" in exception
   ) {
-    const value = JSON.stringify(exception.value, (_, v: unknown) =>
-      typeof v === "bigint" ? `${v}n` : v,
-    );
-    return `${exception.name} (${value})`;
+    const value =
+      typeof exception.value === "bigint"
+        ? `${exception.value}n`
+        : JSON.stringify(exception.value, (_, v: unknown) =>
+            typeof v === "bigint" ? `${v}n` : v,
+          );
+    const variant =
+      "variant" in exception && typeof exception.variant === "string"
+        ? `.${exception.variant}`
+        : "";
+    return `${exception.name}${variant} (${value})`;
   }
   return `unknown selector ${selector === undefined ? "unknown" : `0x${selector.toString(16)}`}`;
 }
@@ -265,6 +280,7 @@ interface ResolvedArgument {
 interface ResolvedException {
   name: string | null;
   codec: XdrCodec<unknown>;
+  variant: (value: unknown) => string | undefined;
 }
 
 /** Build one generated method descriptor from direct ABI metadata. */
@@ -305,6 +321,8 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
     exceptionBySelector.set(metadata.selector, {
       name: metadata.name,
       codec: resolveContextCodec(definition.codecs, metadata.type),
+      variant: (value) =>
+        contextEnumVariant(definition.codecs, metadata.type, value),
     });
   }
 
@@ -516,6 +534,7 @@ function decodeException<TDeclaredException>(
       } as ContractException<TDeclaredException>;
     }
     const value = declared.codec.decode(reader);
+    const variant = declared.variant(value);
     if (reader.remaining !== 0) {
       throw new Error(`${reader.remaining} trailing bytes`);
     }
@@ -524,7 +543,8 @@ function decodeException<TDeclaredException>(
       selector,
       name: declared.name,
       value,
-    } as ContractException<TDeclaredException>;
+      ...(variant === undefined ? {} : { variant }),
+    } as unknown as ContractException<TDeclaredException>;
   } catch (cause) {
     const detail = cause instanceof Error ? `: ${cause.message}` : "";
     throw new ContractDecodeError(

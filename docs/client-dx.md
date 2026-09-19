@@ -38,6 +38,11 @@ the signed hash rather than re-signing or resubmitting. Timeout and cancellation
 stop observation, not the transaction. Retain evidence and resume public receipt
 waiting. Direct prepare/sign/submit APIs remain available.
 
+High-level submission helpers wrap observation failures in
+`TransactionObservationError`: `txHash` supports recovery, `cause` contains the
+waiter's timeout/rejection/cancellation, and `submissionCause` retains an ambiguous
+submission error. Result-decoding errors also retain committed receipt evidence.
+
 `client.waitForTransactionReceipt(hash, { signal, expectedNetworkHash })` returns
 committed execution failures as receipts. `executeAndWait` requires execution
 success. Timeout/rejection errors expose the transaction hash and status/reason;

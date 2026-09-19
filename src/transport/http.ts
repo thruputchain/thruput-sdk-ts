@@ -146,6 +146,14 @@ export class HttpTransport implements Transport {
       });
     } catch (cause) {
       if (signal?.aborted) throw signal.reason;
+      // A custom fetch may compose its own lifecycle signal outside this transport.
+      if (
+        typeof cause === "object" &&
+        cause !== null &&
+        "name" in cause &&
+        (cause.name === "AbortError" || cause.name === "TimeoutError")
+      )
+        throw cause;
       throw new HttpRequestError(new URL(this.#url).origin, method, cause);
     } finally {
       if (timeout !== undefined) clearTimeout(timeout);

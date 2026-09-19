@@ -31,10 +31,25 @@ export function assertTransactionSuccess(receipt: TransactionReceipt): void {
     throw new TransactionExecutionError(receipt);
 }
 
-/** A successful transaction and its original root receipt. */
+/** A committed transaction and its original root receipt. */
 export interface ExecutionResult {
   txHash: SHA256Hash;
   receipt: TransactionReceipt;
+}
+
+/** Observation failed after submission was attempted; retain the hash for public recovery. */
+export class TransactionObservationError extends Error {
+  constructor(
+    readonly txHash: SHA256Hash,
+    cause: unknown,
+    readonly submissionCause?: unknown,
+  ) {
+    super(
+      `Could not observe transaction ${toHex0x(txHash)}: ${cause instanceof Error ? cause.message : String(cause)}`,
+      { cause },
+    );
+    this.name = "TransactionObservationError";
+  }
 }
 
 /** Submission may have reached the node; recover by observing its known hash without resubmitting. */
@@ -54,11 +69,7 @@ export async function submitAndObserve(
     const receipt = await client.waitForTransactionReceipt(txHash, options);
     return { txHash: receipt.txHash, receipt };
   } catch (cause) {
-    if (submissionCause !== undefined && cause instanceof Error)
-      Object.defineProperty(cause, "submissionCause", {
-        value: submissionCause,
-      });
-    throw cause;
+    throw new TransactionObservationError(txHash, cause, submissionCause);
   }
 }
 

@@ -1,4 +1,4 @@
-import { ExecResult } from "@groundhogchain/protocol";
+import { ExecResult, networkHash } from "@groundhogchain/protocol";
 import { describe, expect, it, vi } from "vitest";
 import type { Transport } from "../../transport/types.js";
 import { GroundhogRpcErrorCode, JsonRpcError } from "../../transport/http.js";
@@ -16,6 +16,31 @@ const rawReceipt = {
 };
 
 describe("waitForTransactionReceipt", () => {
+  it("retries transient identity checks before reading transaction evidence", async () => {
+    let attempts = 0;
+    const methods: string[] = [];
+    const transport: Transport = {
+      async request<T>(method: string): Promise<T> {
+        methods.push(method);
+        if (method === "groundhog_networkInfo") {
+          if (++attempts === 1) throw new TypeError("fetch failed");
+          return { networkHash: rawReceipt.txHash } as T;
+        }
+        return rawReceipt as T;
+      },
+    };
+    await expect(
+      waitForTransactionReceipt(transport, txHash, {
+        expectedNetworkHash: networkHash(txHash),
+        pollingIntervalMs: 0,
+      }),
+    ).resolves.toMatchObject({ height: 42n });
+    expect(methods).toEqual([
+      "groundhog_networkInfo",
+      "groundhog_networkInfo",
+      "groundhog_getTransactionReceipt",
+    ]);
+  });
   it("cancels an in-flight query without retrying", async () => {
     const controller = new AbortController();
     let received: AbortSignal | undefined;

@@ -14,6 +14,8 @@ import {
   decodeExecution,
   walletGasLimit,
   ExecutionReturnUnavailableError,
+  submitAndObserve,
+  TransactionObservationError,
 } from "./execution.js";
 import { devWalletAdapter, defaultWalletAdapter } from "./invocationAdapter.js";
 import {
@@ -35,6 +37,27 @@ const receipt: TransactionReceipt = {
 };
 
 describe("contract execution DX", () => {
+  it("retains the transaction identity and both causes after ambiguous submission", async () => {
+    const submissionCause = new Error("connection lost");
+    const cause = new DOMException("observation cancelled", "AbortError");
+    const pending = submitAndObserve(
+      {
+        waitForTransactionReceipt: async () => {
+          throw cause;
+        },
+      },
+      receipt.txHash,
+      async () => {
+        throw submissionCause;
+      },
+    );
+    await expect(pending).rejects.toBeInstanceOf(TransactionObservationError);
+    await expect(pending).rejects.toMatchObject({
+      txHash: receipt.txHash,
+      cause,
+      submissionCause,
+    });
+  });
   it("keeps method identity, types, and bound read metadata", async () => {
     const call = Counter.increment.call({
       contract: address,

@@ -4,10 +4,7 @@ import type {
   Transport,
   TransportRequestOptions,
 } from "../../transport/types.js";
-import type {
-  TransactionReceipt,
-  AirdropExecutionStatus,
-} from "../../types/rpc.js";
+import type { TransactionReceipt, ExecutionStatus } from "../../types/rpc.js";
 import { parseEmittedEvent } from "../emittedEvent.js";
 import { toHex0x, hashFromHex, fromHex0x } from "../hex.js";
 
@@ -57,7 +54,7 @@ function parseExecResult(status: unknown): ExecResult {
   return ExecResult.ExecResultUnrecoverable;
 }
 
-function parseExecutionStatus(value: unknown): AirdropExecutionStatus {
+function parseExecutionStatus(value: unknown): ExecutionStatus {
   const raw = value as Record<string, unknown>;
   switch (raw.result) {
     case "ok":
@@ -117,9 +114,10 @@ export async function getTransactionReceipt(
   txHash: SHA256Hash,
   options?: TransportRequestOptions,
 ): Promise<TransactionReceipt | null> {
+  const requestedHash = toHex0x(txHash);
   const result = await transport.request<unknown>(
     "groundhog_getTransactionReceipt",
-    [toHex0x(txHash)],
+    [requestedHash],
     options,
   );
   if (result === null) return null;
@@ -136,7 +134,7 @@ export async function getTransactionReceipt(
     );
   }
   try {
-    if (receipt.txHash !== toHex0x(txHash)) {
+    if (receipt.txHash !== requestedHash) {
       throw new InvalidTransactionReceiptError(
         "Transaction receipt hash does not match the requested transaction",
       );

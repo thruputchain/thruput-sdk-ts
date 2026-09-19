@@ -136,21 +136,23 @@ export async function waitForTransactionReceipt(
   }
 
   while (true) {
-    if (expectedNetworkHash) {
-      const network = await beforeDeadline((signal) =>
-        getNetworkInfo(transport, { signal }),
-      );
-      assertNetworkMatchesCluster(
-        {
-          name: "transaction observation",
-          networkHash: expectedNetworkHash,
-          capabilities: [],
-        },
-        network,
-      );
-    }
     let receipt: TransactionReceipt | null = null;
+    let networkVerified = expectedNetworkHash === undefined;
     try {
+      if (expectedNetworkHash) {
+        const network = await beforeDeadline((signal) =>
+          getNetworkInfo(transport, { signal }),
+        );
+        assertNetworkMatchesCluster(
+          {
+            name: "transaction observation",
+            networkHash: expectedNetworkHash,
+            capabilities: [],
+          },
+          network,
+        );
+        networkVerified = true;
+      }
       receipt = await beforeDeadline((signal) =>
         getTransactionReceipt(transport, txHash, { signal }),
       );
@@ -163,9 +165,11 @@ export async function waitForTransactionReceipt(
     if (receipt) return receipt;
 
     // Receipts remain authoritative when the advisory status endpoint fails.
-    const status = await beforeDeadline((signal) =>
-      getTransactionStatus(transport, txHash, { signal }),
-    ).catch(() => undefined);
+    const status = networkVerified
+      ? await beforeDeadline((signal) =>
+          getTransactionStatus(transport, txHash, { signal }),
+        ).catch(() => undefined)
+      : undefined;
     options.signal?.throwIfAborted();
     if (status) {
       lastStatus = status;

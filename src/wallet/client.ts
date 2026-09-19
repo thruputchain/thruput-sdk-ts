@@ -32,7 +32,6 @@ import type {
   Transaction,
 } from "@groundhogchain/protocol";
 import {
-  waitForExecution,
   submitAndObserve,
   assertTransactionSuccess,
   decodeExecution,
@@ -285,19 +284,13 @@ export function createWalletClient<
       };
     },
     deployContractAndWait: async (deployment, gasLimit, wait) => {
-      const { txHash, address } = await walletActions.deployContract(
-        deployment,
-        gasLimit,
+      const adapter = requireDeploymentAdapter();
+      const address = deployment.address.slice() as ContractAddress;
+      const result = await sendAndObserve(
+        deploymentRequest(deployment, account.address, gasLimit, adapter),
+        wait,
       );
-      const result = await waitForExecution(client, txHash, {
-        ...wait,
-        expectedNetworkHash: signingNetworkHash,
-      });
-      decodeDeployment(
-        result.receipt,
-        { ...deployment, address },
-        invocationAdapter!,
-      );
+      decodeDeployment(result.receipt, { ...deployment, address }, adapter);
       return { ...result, address };
     },
   };
@@ -319,6 +312,25 @@ export function createWalletClient<
     if (!invocationAdapter)
       throw new Error("Wallet requires an adapter for deployment");
     return invocationAdapter as WalletInvocationAdapter;
+  }
+  async function sendAndObserve(
+    request: PrepareTransactionRequest,
+    wait?: WaitForTransactionReceiptOptions,
+  ): Promise<ExecutionResult> {
+    wait?.signal?.throwIfAborted();
+    const transaction = await prepareTransaction(client, account, request);
+    const signed = await signWalletTransaction(
+      account,
+      transaction,
+      signingNetworkHash,
+    );
+    wait?.signal?.throwIfAborted();
+    return submitAndObserve(
+      client,
+      hashSignedTransaction(signed),
+      () => client.sendTransaction(signed),
+      { ...wait, expectedNetworkHash: signingNetworkHash },
+    );
   }
   const execution = invocationAdapter
     ? {
@@ -342,20 +354,12 @@ export function createWalletClient<
                 });
           if (!invocation)
             throw new Error("Wallet adapter does not support atomic batches");
-          const transaction = await prepareTransaction(client, account, {
-            ...request,
-            invocation,
-          });
-          const signed = await signWalletTransaction(
-            account,
-            transaction,
-            signingNetworkHash,
-          );
-          const result = await submitAndObserve(
-            client,
-            hashSignedTransaction(signed),
-            () => client.sendTransaction(signed),
-            { ...wait, expectedNetworkHash: signingNetworkHash },
+          const result = await sendAndObserve(
+            {
+              ...request,
+              invocation,
+            },
+            wait,
           );
           return {
             ...result,
@@ -386,26 +390,15 @@ export function createWalletClient<
           request: PrepareExecutionRequest,
           wait?: WaitForTransactionReceiptOptions,
         ) => {
-          const transaction = await prepareTransaction(client, account, {
-            ...request,
-            invocation: invocationAdapter.createRootInvocation(
-              account.address,
-              request as never,
-            ),
-          });
-          const signed = await signWalletTransaction(
-            account,
-            transaction,
-            signingNetworkHash,
-          );
-          const result = await submitAndObserve(
-            client,
-            hashSignedTransaction(signed),
-            () => client.sendTransaction(signed),
+          const result = await sendAndObserve(
             {
-              ...wait,
-              expectedNetworkHash: signingNetworkHash,
+              ...request,
+              invocation: invocationAdapter.createRootInvocation(
+                account.address,
+                request as never,
+              ),
             },
+            wait,
           );
           assertTransactionSuccess(result.receipt);
           return result;
