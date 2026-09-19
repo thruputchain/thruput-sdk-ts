@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { test } from "node:test";
+import { setTimeout as sleep } from "node:timers/promises";
 import {
   HttpTransport,
   PrivateKeySigner,
@@ -24,6 +25,7 @@ import { ExecResult, HOG_ADDRESS, gasAmount } from "@groundhogchain/protocol";
 import versions from "../../scripts/integration-versions.json" with { type: "json" };
 import {
   airdropTimeoutMs,
+  eventsTimeoutMs,
   receiptTimeoutMs,
   rpcTimeoutMs,
   suiteTimeoutMs as timeout,
@@ -38,6 +40,8 @@ test("built SDK against a real local node", { timeout }, async (t) => {
     cluster: localnet({ rpcUrl }),
     transport,
   });
+  // Shared with the getEvents subtest below.
+  let transfer;
 
   await t.test(
     "connects and decodes network, version, and chain tip",
@@ -102,14 +106,14 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       assert.deepEqual(DefaultWallet.execute.decodeReceipt(receipt).value, [
         new Uint8Array(),
       ]);
-      const transfer = ERC20TransferEvent.singleFromReceipt(receipt, {
+      const receiptEvent = ERC20TransferEvent.singleFromReceipt(receipt, {
         contractAddress: HOG_ADDRESS,
       });
-      assert.deepEqual(transfer.topics, {
+      assert.deepEqual(receiptEvent.topics, {
         from: sender.address,
         to: recipient.address,
       });
-      assert.equal(transfer.fields.amount, amount);
+      assert.equal(receiptEvent.fields.amount, amount);
       assert.ok(
         receipt.events.some(
           (event) => decodeERC20Event(event)?.name === "TransferEvent",
@@ -118,6 +122,63 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       const after = await balance();
       assert.ok(after.height >= receipt.height);
       assert.equal(after.value - before.value, amount);
+      transfer = { sender, recipient, amount, hash, receipt };
+    },
+  );
+
+  await t.test(
+    "queries the transfer back through getEvents with a populated filter",
+    async () => {
+      assert.ok(transfer, "requires the transfer subtest to have passed");
+      const { sender, recipient, amount, hash, receipt } = transfer;
+      // Exercises the request shape the node actually requires (a full
+      // EventTopicFilter with a populated topic0/topic1) and the nested
+      // IdentifiedEvent response envelope, against a real node rather than a
+      // hand-written fixture.  A fresh random sender has exactly one outgoing
+      // transfer, so the filter must match exactly one event.
+      const query = {
+        filters: [
+          ERC20TransferEvent.filter({
+            contractAddresses: [HOG_ADDRESS],
+            topics: { from: sender.address },
+          }),
+        ],
+        order: "ascending",
+        anchor: "beginning",
+        limit: 50,
+      };
+      // The indexer may trail consensus; poll until it has processed the
+      // receipt's block, after which the result set is definitive.  An empty
+      // page with a non-empty cursor is not "no matches", so walk every page.
+      const deadline = Date.now() + eventsTimeoutMs;
+      let events;
+      for (;;) {
+        events = [];
+        let cursor = new Uint8Array();
+        let latestBlock;
+        do {
+          const page = await client.getEvents({ ...query, cursor });
+          events.push(...page.events);
+          ({ cursor, latestBlock } = page);
+        } while (cursor.length > 0);
+        if (latestBlock >= receipt.height) break;
+        assert.ok(
+          Date.now() < deadline,
+          `indexer did not reach block ${receipt.height} within ${eventsTimeoutMs}ms (at ${latestBlock})`,
+        );
+        await sleep(250);
+      }
+      assert.equal(events.length, 1);
+      const [identified] = events;
+      assert.deepEqual(identified.txHash, hash);
+      assert.equal(identified.blockHeight, receipt.height);
+      assert.equal(typeof identified.sequenceNumber, "number");
+      assert.deepEqual(identified.event.contractAddress, HOG_ADDRESS);
+      assert.deepEqual(ERC20TransferEvent.decode(identified.event), {
+        name: "TransferEvent",
+        topics: { from: sender.address, to: recipient.address },
+        fields: { amount },
+      });
     },
   );
 
