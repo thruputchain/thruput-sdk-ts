@@ -29,7 +29,7 @@ export class JsonRpcError extends Error {
   method?: string;
 
   constructor(code: number, message: string, data?: unknown, method?: string) {
-    super(message);
+    super(`${method ? `${method}: ` : ""}${message} (RPC ${code})`);
     this.name = "JsonRpcError";
     this.code = code;
     this.data = data;
@@ -42,11 +42,30 @@ export class HttpResponseError extends Error {
   readonly status: number;
   readonly statusText: string;
 
-  constructor(status: number, statusText: string) {
-    super(`HTTP ${status}: ${statusText}`);
+  constructor(
+    status: number,
+    statusText: string,
+    readonly endpoint?: string,
+    readonly method?: string,
+  ) {
+    super(
+      `HTTP ${status}: ${statusText}${method ? ` (${method} at ${endpoint})` : ""}`,
+    );
     this.name = "HttpResponseError";
     this.status = status;
     this.statusText = statusText;
+  }
+}
+
+/** Network failure with sanitized endpoint and method context. */
+export class HttpRequestError extends TypeError {
+  constructor(
+    readonly endpoint: string,
+    readonly method: string,
+    cause: unknown,
+  ) {
+    super(`${method}: request to ${endpoint} failed`, { cause });
+    this.name = "HttpRequestError";
   }
 }
 
@@ -125,12 +144,20 @@ export class HttpTransport implements Transport {
         body,
         signal,
       });
+    } catch (cause) {
+      if (signal?.aborted) throw signal.reason;
+      throw new HttpRequestError(new URL(this.#url).origin, method, cause);
     } finally {
       if (timeout !== undefined) clearTimeout(timeout);
     }
 
     if (!response.ok) {
-      throw new HttpResponseError(response.status, response.statusText);
+      throw new HttpResponseError(
+        response.status,
+        response.statusText,
+        new URL(this.#url).origin,
+        method,
+      );
     }
     const json = await response.json();
     if (!json || typeof json !== "object" || Array.isArray(json)) {

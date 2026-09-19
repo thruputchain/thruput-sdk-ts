@@ -16,6 +16,36 @@ const rawReceipt = {
 };
 
 describe("waitForTransactionReceipt", () => {
+  it("cancels an in-flight query without retrying", async () => {
+    const controller = new AbortController();
+    let received: AbortSignal | undefined;
+    const request = vi.fn((_method, _params, options) => {
+      received = options.signal;
+      return new Promise<never>(() => {});
+    });
+    const pending = waitForTransactionReceipt({ request }, txHash, {
+      signal: controller.signal,
+    });
+    const failure = new Error("cancel observation");
+    controller.abort(failure);
+    await expect(pending).rejects.toBe(failure);
+    expect(received?.aborted).toBe(true);
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a receipt for a different hash", async () => {
+    const request = vi.fn(async () => ({
+      ...rawReceipt,
+      txHash: "0x" + "22".repeat(32),
+    }));
+    await expect(
+      waitForTransactionReceipt(
+        { request: request as Transport["request"] },
+        txHash,
+      ),
+    ).rejects.toThrow(/does not match/);
+    expect(request).toHaveBeenCalledTimes(1);
+  });
   it("returns a committed receipt", async () => {
     const transport: Transport = {
       async request<T>(method: string): Promise<T> {

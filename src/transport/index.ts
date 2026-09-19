@@ -10,6 +10,7 @@ export type { Transport, TransportRequestOptions } from "./types.js";
 export {
   GroundhogRpcErrorCode,
   HttpResponseError,
+  HttpRequestError,
   HttpTransport,
   JsonRpcError,
 } from "./http.js";

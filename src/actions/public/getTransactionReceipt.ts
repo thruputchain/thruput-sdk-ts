@@ -1,6 +1,9 @@
 import type { SHA256Hash } from "@groundhogchain/protocol";
 import { ExecResult } from "@groundhogchain/protocol";
-import type { Transport } from "../../transport/types.js";
+import type {
+  Transport,
+  TransportRequestOptions,
+} from "../../transport/types.js";
 import type { TransactionReceipt } from "../../types/rpc.js";
 import { parseEmittedEvent } from "../emittedEvent.js";
 import { toHex0x, hashFromHex, fromHex0x } from "../hex.js";
@@ -78,10 +81,12 @@ function parseHeight(value: unknown): bigint {
 export async function getTransactionReceipt(
   transport: Transport,
   txHash: SHA256Hash,
+  options?: TransportRequestOptions,
 ): Promise<TransactionReceipt | null> {
   const result = await transport.request<unknown>(
     "groundhog_getTransactionReceipt",
     [toHex0x(txHash)],
+    options,
   );
   if (result === null) return null;
   if (!result || typeof result !== "object" || Array.isArray(result)) {
@@ -97,6 +102,11 @@ export async function getTransactionReceipt(
     );
   }
   try {
+    if (receipt.txHash !== toHex0x(txHash)) {
+      throw new InvalidTransactionReceiptError(
+        "Transaction receipt hash does not match the requested transaction",
+      );
+    }
     return {
       txHash: hashFromHex(receipt.txHash),
       height: parseHeight(receipt.height),

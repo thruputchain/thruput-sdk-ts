@@ -128,7 +128,7 @@ export class NetworkMismatchError extends Error {
         ? "an unpinned network"
         : `network ${toHex0x(cluster.networkHash)}`;
     super(
-      `Network mismatch: expected ${expected}, received network ${toHex0x(actual.networkHash)}`,
+      `Network mismatch${cluster.name ? ` for ${cluster.name}` : ""}: expected ${expected}, received network ${toHex0x(actual.networkHash)}`,
     );
     this.name = "NetworkMismatchError";
     this.cluster = cluster;

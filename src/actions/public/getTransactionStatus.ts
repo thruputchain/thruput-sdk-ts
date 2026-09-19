@@ -1,5 +1,8 @@
 import type { SHA256Hash } from "@groundhogchain/protocol";
-import type { Transport } from "../../transport/types.js";
+import type {
+  Transport,
+  TransportRequestOptions,
+} from "../../transport/types.js";
 import type {
   ConflictCode,
   ConflictDiagnostic,
@@ -55,10 +58,12 @@ function parseConflictDiagnostic(value: unknown): ConflictDiagnostic {
 export async function getTransactionStatus(
   transport: Transport,
   txHash: SHA256Hash,
+  options?: TransportRequestOptions,
 ): Promise<TransactionStatus> {
   const raw = await transport.request<unknown>(
     "groundhog_getTransactionStatus",
     [toHex0x(txHash)],
+    options,
   );
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     throw new Error("Invalid transaction status response");

@@ -229,7 +229,7 @@ describe("createGroundhogClient", () => {
 
     await expect(connection).rejects.toBeInstanceOf(NetworkMismatchError);
     await expect(connection).rejects.toThrow(
-      "Network mismatch: expected network 0x" +
+      "Network mismatch for mainnet: expected network 0x" +
         "11".repeat(32) +
         ", received network 0x" +
         "44".repeat(32),
@@ -240,7 +240,7 @@ describe("createGroundhogClient", () => {
     const actual = { networkHash: protocolNetworkHash("44") };
 
     expect(new NetworkMismatchError(mainnet(), actual).message).toBe(
-      "Network mismatch: expected an unpinned network, received network 0x" +
+      "Network mismatch for mainnet: expected an unpinned network, received network 0x" +
         "44".repeat(32),
     );
   });
