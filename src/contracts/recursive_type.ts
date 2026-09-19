@@ -145,6 +145,10 @@ export const RecursiveTypeContract = {
     RecursiveTypeContractDepthResult,
     RecursiveTypeContractDeclaredException
   >({
+    interfaceName: "RecursiveTypeContract",
+    interfaceVersion: "0.1.0",
+    abiName: "depth",
+    publicName: "depth",
     entrypoint: entrypoints.RecursiveTypeContract.depth,
     args: [
       {
@@ -162,6 +166,10 @@ export const RecursiveTypeContract = {
     RecursiveTypeContractForestDepthResult,
     RecursiveTypeContractDeclaredException
   >({
+    interfaceName: "RecursiveTypeContract",
+    interfaceVersion: "0.1.0",
+    abiName: "forest_depth",
+    publicName: "forestDepth",
     entrypoint: entrypoints.RecursiveTypeContract.forestDepth,
     args: [
       {
@@ -179,6 +187,10 @@ export const RecursiveTypeContract = {
     RecursiveTypeContractUnboxResult,
     RecursiveTypeContractDeclaredException
   >({
+    interfaceName: "RecursiveTypeContract",
+    interfaceVersion: "0.1.0",
+    abiName: "unbox",
+    publicName: "unbox",
     entrypoint: entrypoints.RecursiveTypeContract.unbox,
     args: [
       {

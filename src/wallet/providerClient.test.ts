@@ -1,5 +1,6 @@
 import {
   AuthClaimType,
+  ExecResult,
   blockHeight,
   calldata,
   codec,
@@ -155,6 +156,80 @@ function wireResult(signed: SignedTransaction): SignTransactionResult {
 }
 
 describe("provider atomic batches", () => {
+  it("awaits durable persistence and blocks approval replacement throughout execution", async () => {
+    const { wallet, client, request } = await setup();
+    const barrier = deferred<void>();
+    const entered = deferred<void>();
+    const wait = vi
+      .spyOn(client, "waitForTransactionReceipt")
+      .mockImplementation(async (txHash) => ({
+        txHash,
+        height: 1n,
+        execResult: ExecResult.ExecResultOK,
+        events: [],
+        returnData: null,
+        abortData: null,
+      }));
+    const pending = wallet.executeAndWait(execution, {
+      onSigned: async (evidence) => {
+        expect(evidence.networkHash).toBe(networkHash);
+        expect(evidence.account).toEqual(account);
+        entered.resolve();
+        await barrier.promise;
+      },
+    });
+    await entered.promise;
+    expect(methodCalls(request, "submitTransaction")).toHaveLength(0);
+    await expect(wallet.prepareExecution(execution)).rejects.toThrow(/pending/);
+    barrier.resolve();
+    const result = await pending;
+    expect(methodCalls(request, "submitTransaction")).toHaveLength(1);
+    expect(wait).toHaveBeenCalledWith(
+      result.txHash,
+      expect.objectContaining({ expectedNetworkHash: signingNetwork }),
+    );
+    wallet.dispose();
+  });
+
+  it("does not submit when the lifecycle persistence callback fails", async () => {
+    const { wallet, request } = await setup();
+    await expect(
+      wallet.executeAndWait(execution, {
+        onSigned: () => {
+          throw new Error("disk full");
+        },
+      }),
+    ).rejects.toThrow("disk full");
+    expect(methodCalls(request, "submitTransaction")).toHaveLength(0);
+    wallet.dispose();
+  });
+
+  it("observes an approved hash even if submission loses the wallet session", async () => {
+    const { wallet, client, request, change } = await setup();
+    vi.spyOn(client, "waitForTransactionReceipt").mockImplementation(
+      async (txHash) => ({
+        txHash,
+        height: 1n,
+        execResult: ExecResult.ExecResultOK,
+        events: [],
+        returnData: null,
+        abortData: null,
+      }),
+    );
+    const original = request.getMockImplementation()!;
+    request.mockImplementation(async (input) => {
+      if (input.method === "submitTransaction") {
+        change({ networkHash, accounts: [] });
+        throw new Error("connection lost after broadcast");
+      }
+      return original(input);
+    });
+    await expect(
+      wallet.executeAndWait(execution, { onSigned: () => {} }),
+    ).resolves.toHaveProperty("receipt.height", 1n);
+    expect(methodCalls(request, "submitTransaction")).toHaveLength(1);
+    wallet.dispose();
+  });
   it("ignores unrelated method names and recognizes only the exact capability method", async () => {
     const { client, provider, request } = await setup();
     const names = [
@@ -537,12 +612,16 @@ describe("external provider wallet", () => {
     expect(client).not.toHaveProperty("account");
     expect(client).not.toHaveProperty("prepareExecution");
     expect(Object.keys(wallet)).toEqual([
+      "prepareDeployment",
       "getCapabilities",
       "prepareBatchExecution",
       "prepareExecution",
       "signTransaction",
       "submitTransaction",
       "dispose",
+      "deployContractAndWait",
+      "executeAndWait",
+      "executeCallsAndWait",
     ]);
     wallet.dispose();
   });
@@ -595,6 +674,7 @@ describe("external provider wallet", () => {
     expect(receiptRequest).toHaveBeenCalledWith(
       "groundhog_getTransactionReceipt",
       [signed.hash],
+      undefined,
     );
     expect(toHex0x(receipt!.txHash)).toBe(signed.hash);
     expect(send).not.toHaveBeenCalled();

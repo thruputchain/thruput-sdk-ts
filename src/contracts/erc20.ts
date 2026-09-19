@@ -351,6 +351,10 @@ export const ERC20 = {
     ERC20AdjustAllowanceResult,
     ERC20DeclaredException
   >({
+    interfaceName: "ERC20",
+    interfaceVersion: "0.1.24",
+    abiName: "adjust_allowance",
+    publicName: "adjustAllowance",
     entrypoint: entrypoints.ERC20.adjustAllowance,
     args: [
       {
@@ -379,6 +383,10 @@ export const ERC20 = {
     ERC20AllowanceResult,
     ERC20DeclaredException
   >({
+    interfaceName: "ERC20",
+    interfaceVersion: "0.1.24",
+    abiName: "allowance",
+    publicName: "allowance",
     entrypoint: entrypoints.ERC20.allowance,
     args: [
       {
@@ -407,6 +415,10 @@ export const ERC20 = {
     ERC20BurnResult,
     ERC20DeclaredException
   >({
+    interfaceName: "ERC20",
+    interfaceVersion: "0.1.24",
+    abiName: "burn",
+    publicName: "burn",
     entrypoint: entrypoints.ERC20.burn,
     args: [
       {
@@ -435,6 +447,10 @@ export const ERC20 = {
     ERC20GetBalanceResult,
     ERC20DeclaredException
   >({
+    interfaceName: "ERC20",
+    interfaceVersion: "0.1.24",
+    abiName: "get_balance",
+    publicName: "getBalance",
     entrypoint: entrypoints.ERC20.getBalance,
     args: [],
     returnType: spec.interfaces[0]!.methods[3]!.return_type,
@@ -452,6 +468,10 @@ export const ERC20 = {
     ERC20GetBalanceOfResult,
     ERC20DeclaredException
   >({
+    interfaceName: "ERC20",
+    interfaceVersion: "0.1.24",
+    abiName: "get_balance_of",
+    publicName: "getBalanceOf",
     entrypoint: entrypoints.ERC20.getBalanceOf,
     args: [
       {
@@ -475,6 +495,10 @@ export const ERC20 = {
     ERC20InitializeResult,
     ERC20DeclaredException
   >({
+    interfaceName: "ERC20",
+    interfaceVersion: "0.1.24",
+    abiName: "initialize",
+    publicName: "initialize",
     entrypoint: entrypoints.ERC20.initialize,
     args: [
       {
@@ -498,6 +522,10 @@ export const ERC20 = {
     ERC20MintResult,
     ERC20DeclaredException
   >({
+    interfaceName: "ERC20",
+    interfaceVersion: "0.1.24",
+    abiName: "mint",
+    publicName: "mint",
     entrypoint: entrypoints.ERC20.mint,
     args: [
       {
@@ -526,6 +554,10 @@ export const ERC20 = {
     ERC20TotalSupplyResult,
     ERC20DeclaredException
   >({
+    interfaceName: "ERC20",
+    interfaceVersion: "0.1.24",
+    abiName: "total_supply",
+    publicName: "totalSupply",
     entrypoint: entrypoints.ERC20.totalSupply,
     args: [],
     returnType: spec.interfaces[0]!.methods[7]!.return_type,
@@ -543,6 +575,10 @@ export const ERC20 = {
     ERC20TransferResult,
     ERC20DeclaredException
   >({
+    interfaceName: "ERC20",
+    interfaceVersion: "0.1.24",
+    abiName: "transfer",
+    publicName: "transfer",
     entrypoint: entrypoints.ERC20.transfer,
     args: [
       {
@@ -571,6 +607,10 @@ export const ERC20 = {
     ERC20TransferFromResult,
     ERC20DeclaredException
   >({
+    interfaceName: "ERC20",
+    interfaceVersion: "0.1.24",
+    abiName: "transfer_from",
+    publicName: "transferFrom",
     entrypoint: entrypoints.ERC20.transferFrom,
     args: [
       {
@@ -607,6 +647,10 @@ export const ERC20Metadata = {
     ERC20MetadataDecimalsResult,
     ERC20MetadataDeclaredException
   >({
+    interfaceName: "ERC20Metadata",
+    interfaceVersion: "0.1.24",
+    abiName: "decimals",
+    publicName: "decimals",
     entrypoint: entrypoints.ERC20Metadata.decimals,
     args: [],
     returnType: spec.interfaces[1]!.methods[0]!.return_type,
@@ -618,6 +662,10 @@ export const ERC20Metadata = {
     ERC20MetadataInitializeResult,
     ERC20MetadataDeclaredException
   >({
+    interfaceName: "ERC20Metadata",
+    interfaceVersion: "0.1.24",
+    abiName: "initialize",
+    publicName: "initialize",
     entrypoint: entrypoints.ERC20Metadata.initialize,
     args: [
       {
@@ -650,6 +698,10 @@ export const ERC20Metadata = {
     ERC20MetadataNameResult,
     ERC20MetadataDeclaredException
   >({
+    interfaceName: "ERC20Metadata",
+    interfaceVersion: "0.1.24",
+    abiName: "name",
+    publicName: "name",
     entrypoint: entrypoints.ERC20Metadata.name,
     args: [],
     returnType: spec.interfaces[1]!.methods[2]!.return_type,
@@ -661,6 +713,10 @@ export const ERC20Metadata = {
     ERC20MetadataSymbolResult,
     ERC20MetadataDeclaredException
   >({
+    interfaceName: "ERC20Metadata",
+    interfaceVersion: "0.1.24",
+    abiName: "symbol",
+    publicName: "symbol",
     entrypoint: entrypoints.ERC20Metadata.symbol,
     args: [],
     returnType: spec.interfaces[1]!.methods[3]!.return_type,

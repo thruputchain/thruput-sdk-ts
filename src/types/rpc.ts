@@ -231,6 +231,8 @@ export interface TransactionRefPage {
 
 /** Committed transaction receipt. */
 export interface TransactionReceipt {
+  /** Structured gateway execution status, including available fault/revert diagnostics. */
+  executionStatus?: AirdropExecutionStatus;
   /** Transaction hash. */
   txHash: SHA256Hash;
 

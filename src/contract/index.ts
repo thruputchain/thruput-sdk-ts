@@ -38,6 +38,8 @@ export {
   type ContractArgumentMetadata,
   type ContractExceptionMetadata,
   type ContractMethod,
+  type ContractCall,
+  type ContractCallOptions,
   type ContractMethodDefinition,
   type ContractReceipt,
   type ContractReceiptFailure,
@@ -57,3 +59,8 @@ export {
 } from "@groundhogchain/xdr";
 export { isSignedToken, signedToken, type SignedToken } from "./signedToken.js";
 export * from "./spec.js";
+export {
+  getContract,
+  type BoundContractMethod,
+  type ContractInstance,
+} from "./instance.js";

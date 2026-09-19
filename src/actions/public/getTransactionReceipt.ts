@@ -4,7 +4,10 @@ import type {
   Transport,
   TransportRequestOptions,
 } from "../../transport/types.js";
-import type { TransactionReceipt } from "../../types/rpc.js";
+import type {
+  TransactionReceipt,
+  AirdropExecutionStatus,
+} from "../../types/rpc.js";
 import { parseEmittedEvent } from "../emittedEvent.js";
 import { toHex0x, hashFromHex, fromHex0x } from "../hex.js";
 
@@ -52,6 +55,37 @@ function parseExecResult(status: unknown): ExecResult {
   const mapped = execStatusToResult[raw.result];
   if (mapped !== undefined) return mapped;
   return ExecResult.ExecResultUnrecoverable;
+}
+
+function parseExecutionStatus(value: unknown): AirdropExecutionStatus {
+  const raw = value as Record<string, unknown>;
+  switch (raw.result) {
+    case "ok":
+    case "nonDeterministicError":
+    case "failedGasSponsorship":
+      return { result: raw.result };
+    case "deterministicError":
+      if (typeof raw.kind !== "string")
+        throw new InvalidTransactionReceiptError(
+          "Invalid transaction receipt status.kind",
+        );
+      return { result: "deterministicError", kind: raw.kind };
+    case "reverted":
+      if (
+        raw.message !== undefined &&
+        raw.message !== null &&
+        typeof raw.message !== "string"
+      )
+        throw new InvalidTransactionReceiptError(
+          "Invalid transaction receipt status.message",
+        );
+      return {
+        result: "reverted",
+        ...(raw.message === undefined ? {} : { message: raw.message }),
+      };
+    default:
+      return { result: "other" };
+  }
 }
 
 function parseOptionalBytes(
@@ -111,6 +145,7 @@ export async function getTransactionReceipt(
       txHash: hashFromHex(receipt.txHash),
       height: parseHeight(receipt.height),
       execResult: parseExecResult(receipt.status),
+      executionStatus: parseExecutionStatus(receipt.status),
       events: receipt.events.map(parseEmittedEvent),
       returnData: parseOptionalBytes(receipt.returnData),
       abortData: parseOptionalBytes(receipt.abortData),

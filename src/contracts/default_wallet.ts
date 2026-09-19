@@ -186,6 +186,10 @@ export const DefaultWallet = {
     DefaultWalletDeployResult,
     DefaultWalletDeclaredException
   >({
+    interfaceName: "DefaultWallet",
+    interfaceVersion: "0.1.0",
+    abiName: "deploy",
+    publicName: "deploy",
     entrypoint: entrypoints.DefaultWallet.deploy,
     args: [
       {
@@ -214,6 +218,10 @@ export const DefaultWallet = {
     DefaultWalletExecuteResult,
     DefaultWalletDeclaredException
   >({
+    interfaceName: "DefaultWallet",
+    interfaceVersion: "0.1.0",
+    abiName: "execute",
+    publicName: "execute",
     entrypoint: entrypoints.DefaultWallet.execute,
     args: [
       {

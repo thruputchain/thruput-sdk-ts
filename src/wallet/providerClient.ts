@@ -8,7 +8,23 @@ import {
   fromHex,
   serialize,
   type Transaction,
+  type GasAmount,
 } from "@groundhogchain/protocol";
+import { hashFromHex } from "../actions/hex.js";
+import {
+  submitAndObserve,
+  assertTransactionSuccess,
+  decodeExecution,
+  type CallResults,
+  type ExecutionResult,
+} from "./execution.js";
+import type { ContractCall } from "../contract/method.js";
+import type { WaitForTransactionReceiptOptions } from "../actions/public/waitForTransactionReceipt.js";
+import {
+  deploymentRequest,
+  decodeDeployment,
+  type ContractDeployment,
+} from "./deployment.js";
 import type { CoreGroundhogClient } from "../client.js";
 import { toHex0x } from "../actions/hex.js";
 import { prepareTransaction } from "../actions/wallet/prepareTransaction.js";
@@ -43,6 +59,28 @@ import {
 export type PrepareBatchExecutionRequest = WalletBatchExecutionRequest &
   Omit<PrepareExecutionRequest, "invocation">;
 
+/** Exact signed evidence available before broadcasting. Persist on the original network. */
+export interface PendingWalletTransaction extends SignTransactionResult {
+  readonly account: WalletAccount;
+  readonly networkHash: string;
+}
+
+/** Lifecycle controls. Cancellation applies to observation, never cancels a broadcast. */
+export interface ProviderExecutionOptions {
+  /** Await durable application persistence before submitting; rejection prevents broadcast. */
+  onSigned: (pending: PendingWalletTransaction) => void | Promise<void>;
+  /** Receipt waiting options; network identity is pinned by the wallet client. */
+  wait?: WaitForTransactionReceiptOptions;
+}
+
+/** Typed calls executed atomically through DefaultWallet. */
+export interface ExecuteCallsRequest<T extends readonly ContractCall[]> {
+  calls: T;
+  gasLimit: GasAmount;
+  contractsToDeploy?: PrepareExecutionRequest["contractsToDeploy"];
+  expiryBlocks?: bigint;
+}
+
 /** External wallet binding. Network hash uses the provider wire format, without 0x. */
 export interface CreateProviderWalletClientOptions {
   /**
@@ -69,6 +107,31 @@ export interface CreateProviderWalletClientOptions {
  * @see https://docs.groundhog.dev/tools/wallet-integration/
  */
 export interface ProviderWalletClient {
+  /** Prepare a root deployment, preserving the explicit signing boundary. */
+  prepareDeployment(
+    deployment: ContractDeployment,
+    gasLimit: GasAmount,
+  ): Promise<Transaction>;
+  /** Persist approved evidence, deploy once, and verify the committed address. */
+  deployContractAndWait(
+    deployment: ContractDeployment,
+    gasLimit: GasAmount,
+    options: ProviderExecutionOptions,
+  ): Promise<
+    ExecutionResult & {
+      address: import("@groundhogchain/protocol").ContractAddress;
+    }
+  >;
+  /** Prepare, sign, persist, submit once, then observe a successful receipt. */
+  executeAndWait(
+    request: PrepareExecutionRequest,
+    options: ProviderExecutionOptions,
+  ): Promise<ExecutionResult>;
+  /** Execute an ordered atomic batch and decode typed child results. */
+  executeCallsAndWait<T extends readonly ContractCall[]>(
+    request: ExecuteCallsRequest<T>,
+    options: ProviderExecutionOptions,
+  ): Promise<ExecutionResult & { values: CallResults<T> }>;
   /** Read fresh account/network capabilities; only 4200 falls back to unsupported. */
   getCapabilities(): Promise<WalletCapabilities>;
   /** Prepare one atomic batch after checking support. Does not sign or submit. */
@@ -357,7 +420,27 @@ export function createProviderWalletClient(
     return Object.freeze(capabilities);
   }
 
-  return {
+  const base: Omit<
+    ProviderWalletClient,
+    "executeAndWait" | "executeCallsAndWait" | "deployContractAndWait"
+  > = {
+    prepareDeployment: (deployment, gasLimit) =>
+      run(async () => {
+        const preparation = deploymentRequest(
+          deployment,
+          preparationAccount.address,
+          gasLimit,
+          defaultWalletAdapter,
+        );
+        await checkSession();
+        const tx = await prepareTransaction(
+          client,
+          preparationAccount,
+          preparation,
+        );
+        assertActive();
+        return parseTransactionHex(toHex0x(serialize(tx, codec.Transaction)));
+      }),
     getCapabilities: () => run(readCapabilities),
     prepareBatchExecution: (input) =>
       run(async () => {
@@ -484,6 +567,122 @@ export function createProviderWalletClient(
         disposed = true;
         unsubscribe();
       }
+    },
+  };
+
+  let executing = false;
+  function assertIdle() {
+    if (executing)
+      throw new WalletProviderError(
+        -32002,
+        "Another wallet execution is pending",
+      );
+  }
+  async function execute(
+    prepare: () => Promise<Transaction>,
+    options: ProviderExecutionOptions,
+    requireSuccess = true,
+  ): Promise<ExecutionResult> {
+    assertIdle();
+    executing = true;
+    try {
+      options.wait?.signal?.throwIfAborted();
+      const signed = await base.signTransaction(await prepare());
+      try {
+        await options.onSigned(
+          Object.freeze({
+            ...signed,
+            account: Object.freeze({ ...account }),
+            networkHash,
+          }),
+        );
+        options.wait?.signal?.throwIfAborted();
+      } catch (cause) {
+        approved = undefined;
+        throw cause;
+      }
+      const result = await submitAndObserve(
+        client,
+        hashFromHex(signed.hash),
+        () => base.submitTransaction(signed),
+        {
+          ...options.wait,
+          expectedNetworkHash: hashFromHex(
+            `0x${networkHash}`,
+          ) as import("@groundhogchain/protocol").NetworkHash,
+        },
+      );
+      if (requireSuccess) assertTransactionSuccess(result.receipt);
+      return result;
+    } finally {
+      executing = false;
+    }
+  }
+  return {
+    ...base,
+    prepareDeployment: async (deployment, gasLimit) => {
+      assertIdle();
+      return base.prepareDeployment(deployment, gasLimit);
+    },
+    async deployContractAndWait(deployment, gasLimit, controls) {
+      const address =
+        deployment.address.slice() as import("@groundhogchain/protocol").ContractAddress;
+      const result = await execute(
+        () => base.prepareDeployment(deployment, gasLimit),
+        controls,
+        false,
+      );
+      decodeDeployment(
+        result.receipt,
+        { ...deployment, address },
+        defaultWalletAdapter,
+      );
+      return { ...result, address };
+    },
+    getCapabilities: async () => {
+      assertIdle();
+      return base.getCapabilities();
+    },
+    prepareExecution: async (input) => {
+      assertIdle();
+      return base.prepareExecution(input);
+    },
+    prepareBatchExecution: async (input) => {
+      assertIdle();
+      return base.prepareBatchExecution(input);
+    },
+    signTransaction: async (input) => {
+      assertIdle();
+      return base.signTransaction(input);
+    },
+    submitTransaction: async (input) => {
+      assertIdle();
+      return base.submitTransaction(input);
+    },
+    executeAndWait: (input, controls) =>
+      execute(() => base.prepareExecution(input), controls),
+    async executeCallsAndWait(input, controls) {
+      const calls = [...input.calls];
+      const result = await execute(
+        () =>
+          calls.length === 1
+            ? base.prepareExecution({
+                ...input,
+                invocation: calls[0]!.invocation,
+              })
+            : base.prepareBatchExecution({
+                ...input,
+                invocations: calls.map((call) => call.invocation),
+              }),
+        controls,
+        false,
+      );
+      return {
+        ...result,
+        values: decodeExecution(result.receipt, calls) as CallResults<
+          typeof input.calls
+        >,
+      };
     },
   };
 }

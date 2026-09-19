@@ -136,6 +136,10 @@ export const SignedOp = {
     SignedOpExecuteSignedOpResult,
     SignedOpDeclaredException
   >({
+    interfaceName: "SignedOp",
+    interfaceVersion: "0.1.22",
+    abiName: "execute_signed_op",
+    publicName: "executeSignedOp",
     entrypoint: entrypoints.SignedOp.executeSignedOp,
     args: [
       {

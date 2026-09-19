@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import {
   HttpTransport,
@@ -8,6 +9,7 @@ import {
   createPubkeyAccount,
   createWalletClient,
   localnet,
+  prepareContractDeployment,
 } from "@groundhogchain/client";
 import {
   GroundhogRpcErrorCode,
@@ -82,21 +84,28 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         });
       const before = await balance();
       const amount = 1_000n;
-      const hash = await wallet.execute({
-        invocation: ERC20.transfer.invocation(
-          HOG_ADDRESS,
-          gasAmount(500_000n),
-          {
-            receiver: recipient.address,
-            amount,
-          },
-        ),
-        gasLimit: gasAmount(10_000_000n),
-      });
+      const {
+        txHash: hash,
+        receipt,
+        values,
+      } = await wallet.executeCallsAndWait(
+        {
+          calls: [
+            ERC20.transfer.call({
+              contract: HOG_ADDRESS,
+              gasLimit: gasAmount(500_000n),
+              args: {
+                receiver: recipient.address,
+                amount,
+              },
+            }),
+          ],
+          gasLimit: gasAmount(10_000_000n),
+        },
+        { timeoutMs: receiptTimeoutMs },
+      );
       assert.equal(hash.length, 32);
-      const receipt = await wallet.waitForTransactionReceipt(hash, {
-        timeoutMs: receiptTimeoutMs,
-      });
+      assert.deepEqual(values, [undefined]);
       assert.deepEqual(receipt.txHash, hash);
       assert.equal(receipt.execResult, ExecResult.ExecResultOK);
       assert.deepEqual(DefaultWallet.execute.decodeReceipt(receipt).value, [
@@ -118,6 +127,41 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       const after = await balance();
       assert.ok(after.height >= receipt.height);
       assert.equal(after.value - before.value, amount);
+    },
+  );
+
+  await t.test(
+    "prefunds a predicted address and deploys through the wallet helper",
+    async () => {
+      const sender = createPubkeyAccount({
+        signer: new PrivateKeySigner(randomBytes(32)),
+      });
+      const wallet = createWalletClient({ client, account: sender });
+      await wallet.requestAirdrop({ timeoutMs: airdropTimeoutMs });
+      const deployment = prepareContractDeployment({
+        deployer: sender.address,
+        contract: await readFile(
+          new URL("../../examples/fixtures/counter.rv32a", import.meta.url),
+        ),
+      });
+      const rootGas = gasAmount(10_000_000n);
+      await wallet.executeAndWait(
+        {
+          invocation: ERC20.transfer.invocation(
+            HOG_ADDRESS,
+            gasAmount(500_000n),
+            { receiver: deployment.address, amount: 10_000_000n },
+          ),
+          gasLimit: rootGas,
+        },
+        { timeoutMs: receiptTimeoutMs },
+      );
+      const result = await wallet.deployContractAndWait(deployment, rootGas, {
+        timeoutMs: receiptTimeoutMs,
+      });
+      assert.deepEqual(result.address, deployment.address);
+      assert.equal(result.receipt.execResult, ExecResult.ExecResultOK);
+      assert.equal("account" in client, false);
     },
   );
 
