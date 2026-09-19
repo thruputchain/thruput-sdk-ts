@@ -91,15 +91,34 @@ export function decodeExecution<T extends readonly ContractCall[]>(
     }
     throw new TransactionExecutionError(receipt);
   }
-  const buffers = adapter.decodeExecutionReturns?.(receipt);
-  if (buffers == null) throw new ExecutionReturnUnavailableError(receipt);
-  if (buffers.length !== calls.length)
-    throw new Error(
-      `Transaction ${toHex0x(receipt.txHash)} returned ${buffers.length} child results; expected ${calls.length}`,
+  try {
+    const buffers = adapter.decodeExecutionReturns?.(receipt);
+    if (buffers == null) throw new ExecutionReturnUnavailableError(receipt);
+    if (buffers.length !== calls.length)
+      throw new Error(
+        `Returned ${buffers.length} child results; expected ${calls.length}`,
+      );
+    return calls.map((call, index) =>
+      call.method.decodeReturn(buffers[index]!),
+    ) as CallResults<T>;
+  } catch (cause) {
+    if (cause instanceof ExecutionReturnUnavailableError) throw cause;
+    throw new ExecutionDecodeError(receipt, cause);
+  }
+}
+
+/** A committed successful execution whose return data could not be decoded. */
+export class ExecutionDecodeError extends Error {
+  constructor(
+    readonly receipt: TransactionReceipt,
+    cause: unknown,
+  ) {
+    super(
+      `Transaction ${toHex0x(receipt.txHash)} committed, but result decoding failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+      { cause },
     );
-  return calls.map((call, index) =>
-    call.method.decodeReturn(buffers[index]!),
-  ) as CallResults<T>;
+    this.name = "ExecutionDecodeError";
+  }
 }
 
 /** Execution succeeded, but this wallet does not preserve child return buffers. */
