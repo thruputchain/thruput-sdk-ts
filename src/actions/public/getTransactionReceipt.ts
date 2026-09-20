@@ -1,7 +1,10 @@
 import type { SHA256Hash } from "@groundhogchain/protocol";
 import { ExecResult } from "@groundhogchain/protocol";
-import type { Transport } from "../../transport/types.js";
-import type { TransactionReceipt } from "../../types/rpc.js";
+import type {
+  Transport,
+  TransportRequestOptions,
+} from "../../transport/types.js";
+import type { TransactionReceipt, ExecutionStatus } from "../../types/rpc.js";
 import { parseEmittedEvent } from "../emittedEvent.js";
 import { toHex0x, hashFromHex, fromHex0x } from "../hex.js";
 
@@ -51,6 +54,37 @@ function parseExecResult(status: unknown): ExecResult {
   return ExecResult.ExecResultUnrecoverable;
 }
 
+function parseExecutionStatus(value: unknown): ExecutionStatus {
+  const raw = value as Record<string, unknown>;
+  switch (raw.result) {
+    case "ok":
+    case "nonDeterministicError":
+    case "failedGasSponsorship":
+      return { result: raw.result };
+    case "deterministicError":
+      if (typeof raw.kind !== "string")
+        throw new InvalidTransactionReceiptError(
+          "Invalid transaction receipt status.kind",
+        );
+      return { result: "deterministicError", kind: raw.kind };
+    case "reverted":
+      if (
+        raw.message !== undefined &&
+        raw.message !== null &&
+        typeof raw.message !== "string"
+      )
+        throw new InvalidTransactionReceiptError(
+          "Invalid transaction receipt status.message",
+        );
+      return {
+        result: "reverted",
+        ...(raw.message === undefined ? {} : { message: raw.message }),
+      };
+    default:
+      return { result: "other" };
+  }
+}
+
 function parseOptionalBytes(
   value: string | null | undefined,
 ): Uint8Array | null {
@@ -78,10 +112,13 @@ function parseHeight(value: unknown): bigint {
 export async function getTransactionReceipt(
   transport: Transport,
   txHash: SHA256Hash,
+  options?: TransportRequestOptions,
 ): Promise<TransactionReceipt | null> {
+  const requestedHash = toHex0x(txHash);
   const result = await transport.request<unknown>(
     "groundhog_getTransactionReceipt",
-    [toHex0x(txHash)],
+    [requestedHash],
+    options,
   );
   if (result === null) return null;
   if (!result || typeof result !== "object" || Array.isArray(result)) {
@@ -97,10 +134,16 @@ export async function getTransactionReceipt(
     );
   }
   try {
+    if (receipt.txHash !== requestedHash) {
+      throw new InvalidTransactionReceiptError(
+        "Transaction receipt hash does not match the requested transaction",
+      );
+    }
     return {
       txHash: hashFromHex(receipt.txHash),
       height: parseHeight(receipt.height),
       execResult: parseExecResult(receipt.status),
+      executionStatus: parseExecutionStatus(receipt.status),
       events: receipt.events.map(parseEmittedEvent),
       returnData: parseOptionalBytes(receipt.returnData),
       abortData: parseOptionalBytes(receipt.abortData),

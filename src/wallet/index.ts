@@ -32,4 +32,14 @@ export {
   type CreateProviderWalletClientOptions,
   type ProviderWalletClient,
   type PrepareBatchExecutionRequest,
+  type PendingWalletTransaction,
+  type ProviderExecutionOptions,
+  type ExecuteCallsRequest,
 } from "./providerClient.js";
+export * from "./execution.js";
+export {
+  prepareContractDeployment,
+  rv32Contract,
+  decodeDeployment,
+  type ContractDeployment,
+} from "./deployment.js";

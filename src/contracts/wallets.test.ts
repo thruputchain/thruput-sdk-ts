@@ -82,6 +82,7 @@ describe("generated wallet contract bindings", () => {
     expect(DefaultWallet.execute.decodeException(writer.finish())).toEqual({
       kind: "declared",
       name: "WalletError",
+      variant: "EmptyCallList",
       selector: 0x931d3297d37d1bdfn,
       value: WalletError.EmptyCallList,
     });

@@ -106,7 +106,7 @@
     "tsx": "4.22.4",
     "typedoc": "0.28.19",
     "typescript": "6.0.3",
-    "vitest": "4.1.8"
+    "vitest": "4.1.11"
   },
   "dependencies": {
     "@groundhogchain/contract-spec": "0.11.0",

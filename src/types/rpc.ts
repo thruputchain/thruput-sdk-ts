@@ -29,14 +29,17 @@ export interface AirdropAttemptRequest {
   clientNonce: Uint8Array;
 }
 
-/** Execution status attached to a committed airdrop transaction. */
-export type AirdropExecutionStatus =
+/** Structured execution status reported by the gateway. */
+export type ExecutionStatus =
   | { result: "ok" }
   | { result: "reverted"; message?: string | null }
   | { result: "deterministicError"; kind: string }
   | { result: "nonDeterministicError" }
   | { result: "failedGasSponsorship" }
   | { result: "other" };
+
+/** Execution status attached to a committed airdrop transaction. */
+export type AirdropExecutionStatus = ExecutionStatus;
 
 /** Airdrop attempt accepted but not yet committed. */
 export interface AirdropPending {
@@ -231,6 +234,8 @@ export interface TransactionRefPage {
 
 /** Committed transaction receipt. */
 export interface TransactionReceipt {
+  /** Structured gateway execution status, including available fault/revert diagnostics. */
+  executionStatus?: ExecutionStatus;
   /** Transaction hash. */
   txHash: SHA256Hash;
 

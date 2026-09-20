@@ -26,6 +26,10 @@ const contextCodecs = new WeakMap<
   ContractCodecContext,
   Record<string, XdrCodec<unknown>>
 >();
+const contextEnums = new WeakMap<
+  ContractCodecContext,
+  Map<string, Map<bigint, string>>
+>();
 
 /** Build the shared codec context for a generated binding module. */
 export function createContractCodecContext(
@@ -36,7 +40,33 @@ export function createContractCodecContext(
   const namedCodecs = buildNamedCodecs(typeDefsSnapshot);
   enableResolvedCodecCache(namedCodecs, collectTypeNodes(typeDefsSnapshot));
   contextCodecs.set(context, namedCodecs);
+  const enums = new Map<string, Map<bigint, string>>();
+  for (const definition of typeDefsSnapshot) {
+    if (definition.v === ContractTypeDefKind.TypeDefEnum) {
+      enums.set(
+        definition.enum_def.name,
+        new Map(
+          definition.enum_def.variants.map((variant) => [
+            variant.value,
+            variant.name,
+          ]),
+        ),
+      );
+    }
+  }
+  contextEnums.set(context, enums);
   return context;
+}
+
+/** @internal */
+export function contextEnumVariant(
+  context: ContractCodecContext,
+  type: ContractType,
+  value: unknown,
+): string | undefined {
+  return type.v === ContractTypeKind.Named && typeof value === "bigint"
+    ? contextEnums.get(context)?.get(type.named)?.get(value)
+    : undefined;
 }
 
 function collectTypeNodes(

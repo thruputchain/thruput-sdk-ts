@@ -78,7 +78,10 @@ export interface CoreGroundhogClient {
   getVersion(): Promise<VersionInfo>;
 
   /** Execute a read-only contract invocation without submitting a transaction. */
-  view(request: ViewRequest): Promise<ViewResponse>;
+  view(
+    request: ViewRequest,
+    options?: TransportRequestOptions,
+  ): Promise<ViewResponse>;
 
   /** Return a committed transaction receipt, or `null` when it is not found. */
   getTransactionReceipt(txHash: SHA256Hash): Promise<TransactionReceipt | null>;
@@ -137,7 +140,7 @@ function createCoreGroundhogClient(transport: Transport): CoreGroundhogClient {
     getBlockByNumber: (height) => getBlockByNumber(transport, height),
     getPendingTransactionCount: () => getPendingTransactionCount(transport),
     getVersion: () => getVersion(transport),
-    view: (request) => view(transport, request),
+    view: (request, options) => view(transport, request, options),
     getTransactionReceipt: (txHash) => getTransactionReceipt(transport, txHash),
     getTransactionStatus: (txHash) => getTransactionStatus(transport, txHash),
     waitForTransactionReceipt: (txHash, options) =>

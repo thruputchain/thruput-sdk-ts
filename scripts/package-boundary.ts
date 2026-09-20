@@ -94,6 +94,40 @@ import {
   type WalletAccount as LocalWalletAccount,
 } from "@groundhogchain/client/wallet";
 
+async function typedExecutionBoundary(
+  wallet: ProviderWalletClient,
+  address: ContractAddress,
+  gas: GasAmount,
+) {
+  const transfer = ERC20.transfer.call({
+    contract: address,
+    gasLimit: gas,
+    args: { receiver: address, amount: 1n },
+  });
+  const balance = ERC20.getBalanceOf.call({
+    contract: address,
+    gasLimit: gas,
+    args: { addr: address },
+  });
+  const result = await wallet.executeCallsAndWait(
+    { calls: [transfer, balance] as const, gasLimit: gas },
+    {
+      onSigned: async (pending) => {
+        const hash: string = pending.hash;
+        void hash;
+      },
+    },
+  );
+  const values: readonly [void, bigint] = result.values;
+  // @ts-expect-error The second call returns a bigint, not a string.
+  const wrong: string = result.values[1];
+  // @ts-expect-error Typed calls require the generated arguments.
+  ERC20.transfer.call({ contract: address, gasLimit: gas });
+  void values;
+  void wrong;
+}
+void typedExecutionBoundary;
+
 async function providerBoundaryTypecheck(
   client: GroundhogClient,
   provider: WalletProvider,

@@ -8,16 +8,26 @@ import type {
 import {
   ExecResult,
   calldata,
+  contractAddress,
   contractEntrypointID,
   kMaxReturnBufferLen,
 } from "@groundhogchain/protocol";
 import { ContractTypeKind } from "@groundhogchain/contract-spec";
 import { CxsReader, CxsWriter, type XdrCodec } from "@groundhogchain/xdr";
 import type { GroundhogClient } from "../client.js";
-import type { EmittedEvent, TransactionReceipt } from "../types/rpc.js";
+import type {
+  EmittedEvent,
+  TransactionReceipt,
+  ViewResponse,
+} from "../types/rpc.js";
 import type { ContractCodecContext } from "./codec.js";
-import { decodeComplete, resolveContextCodec } from "./codec.js";
+import {
+  decodeComplete,
+  resolveContextCodec,
+  contextEnumVariant,
+} from "./codec.js";
 import { ContractDecodeError } from "./errors.js";
+import { toHex0x } from "../actions/hex.js";
 import type { ContractType } from "./spec.js";
 
 /** Omit the argument position entirely for methods without arguments. */
@@ -38,7 +48,11 @@ export interface UnknownContractException {
 }
 
 /** Declared exceptions plus a lossless fallback for unknown selectors. */
-export type ContractException<TDeclared> = TDeclared | UnknownContractException;
+export type ContractException<TDeclared> =
+  | (TDeclared & {
+      /** Symbolic enum case when available in the contract spec. */ variant?: string;
+    })
+  | UnknownContractException;
 
 /** Non-successful contract view outcome. */
 export type ContractViewFailure<TException> =
@@ -104,7 +118,7 @@ export class ContractViewError<TException> extends Error {
         : undefined;
     super(
       outcome.kind === "abort"
-        ? `Contract view aborted with selector ${selector ?? "unknown"}`
+        ? `Contract view aborted with ${formatException(outcome.exception, selector)}`
         : "Contract view faulted",
     );
     this.name = "ContractViewError";
@@ -123,14 +137,37 @@ export class ContractReceiptError<TException> extends Error {
         : undefined;
     super(
       outcome.kind === "abort"
-        ? `Contract transaction aborted with selector ${selector ?? "unknown"}`
+        ? `Contract transaction ${toHex0x(outcome.txHash)} aborted with ${formatException(outcome.exception, selector)}`
         : outcome.execResult === ExecResult.ExecResultOK
-          ? "Contract transaction did not include return data"
-          : `Contract transaction failed with ${ExecResult[outcome.execResult] ?? outcome.execResult}`,
+          ? `Contract transaction did not include return data (tx ${toHex0x(outcome.txHash)})`
+          : `Contract transaction failed with ${ExecResult[outcome.execResult] ?? outcome.execResult} (tx ${toHex0x(outcome.txHash)})`,
     );
     this.name = "ContractReceiptError";
     this.outcome = outcome;
   }
+}
+
+function formatException(exception: unknown, selector?: bigint): string {
+  if (
+    exception &&
+    typeof exception === "object" &&
+    "name" in exception &&
+    typeof exception.name === "string" &&
+    "value" in exception
+  ) {
+    const value =
+      typeof exception.value === "bigint"
+        ? `${exception.value}n`
+        : JSON.stringify(exception.value, (_, v: unknown) =>
+            typeof v === "bigint" ? `${v}n` : v,
+          );
+    const variant =
+      "variant" in exception && typeof exception.variant === "string"
+        ? `.${exception.variant}`
+        : "";
+    return `${exception.name}${variant} (${value})`;
+  }
+  return `unknown selector ${selector === undefined ? "unknown" : `0x${selector.toString(16)}`}`;
 }
 
 function exceptionSelector(exception: unknown): bigint | undefined {
@@ -162,6 +199,14 @@ export interface ContractExceptionMetadata {
 
 /** Runtime definition consumed by a generated method descriptor. */
 export interface ContractMethodDefinition {
+  /** Canonical interface name for diagnostics. */
+  interfaceName?: string;
+  /** Interface ABI version, not a deployed-code verification. */
+  interfaceVersion?: string;
+  /** Method name in the contract ABI. */
+  abiName?: string;
+  /** Method name in the TypeScript binding. */
+  publicName?: string;
   entrypoint: ContractEntrypointID;
   args: readonly ContractArgumentMetadata[];
   returnType: ContractType;
@@ -176,8 +221,29 @@ export type ContractViewOptions<TArgs> = {
   caller?: ContractAddress;
 } & ([TArgs] extends [void] ? { args?: never } : { args: TArgs });
 
+/** Inputs to a typed, unsubmitted contract call. */
+export type ContractCallOptions<TArgs> = Omit<
+  ContractViewOptions<TArgs>,
+  "client" | "caller"
+> & { gasLimit: GasAmount };
+
+/** An invocation retaining its return and exception decoders. */
+export interface ContractCall<TResult = unknown, TException = unknown> {
+  readonly invocation: Invocation;
+  readonly method: Pick<
+    ContractMethod<never, TResult, TException>,
+    "decodeReturn" | "decodeException" | "decodeReceiptOutcome" | "name"
+  >;
+}
+
 /** Complete generated method API. */
 export interface ContractMethod<TArgs, TResult, TDeclaredException> {
+  /** Qualified method name, or entrypoint when generated identity is absent. */
+  readonly name: string;
+  /** Build an unsubmitted call retaining typed decoding context. */
+  call(
+    options: ContractCallOptions<TArgs>,
+  ): ContractCall<TResult, TDeclaredException>;
   readonly entrypoint: ContractEntrypointID;
 
   invocation(
@@ -188,6 +254,8 @@ export interface ContractMethod<TArgs, TResult, TDeclaredException> {
 
   decodeReturn(data: Uint8Array): TResult;
   decodeException(data: Uint8Array): ContractException<TDeclaredException>;
+  /** Decode a view response with the same semantics as view(). */
+  decodeView(response: ViewResponse): ContractView<TResult>;
 
   /** Decode a receipt whose root invocation called this method; nested invocation results are not inspected. */
   decodeReceipt(receipt: TransactionReceipt): ContractReceipt<TResult>;
@@ -212,6 +280,7 @@ interface ResolvedArgument {
 interface ResolvedException {
   name: string | null;
   codec: XdrCodec<unknown>;
+  variant: (value: unknown) => string | undefined;
 }
 
 /** Build one generated method descriptor from direct ABI metadata. */
@@ -219,6 +288,20 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
   definition: ContractMethodDefinition,
 ): ContractMethod<TArgs, TResult, TDeclaredException> {
   const entrypoint = copyEntrypoint(definition.entrypoint);
+  const name =
+    definition.interfaceName && definition.publicName
+      ? `${definition.interfaceName}.${definition.publicName}`
+      : toHex0x(entrypoint);
+  const encode = (args: unknown) => {
+    try {
+      return encodeArguments(argumentCodecs, args);
+    } catch (cause) {
+      throw new TypeError(
+        `${name}: ${cause instanceof Error ? cause.message : String(cause)}`,
+        { cause },
+      );
+    }
+  };
   const argumentCodecs = definition.args.map((argument) => ({
     publicName: argument.publicName,
     codec: resolveContextCodec(definition.codecs, argument.type),
@@ -238,10 +321,24 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
     exceptionBySelector.set(metadata.selector, {
       name: metadata.name,
       codec: resolveContextCodec(definition.codecs, metadata.type),
+      variant: (value) =>
+        contextEnumVariant(definition.codecs, metadata.type, value),
     });
   }
 
   const method: ContractMethod<TArgs, TResult, TDeclaredException> = {
+    name,
+    call(options) {
+      return {
+        invocation: {
+          invoked_address: contractAddress(new Uint8Array(options.contract)),
+          entrypoint: copyEntrypoint(entrypoint),
+          gas_limit: options.gasLimit,
+          calldata: encode("args" in options ? options.args : undefined),
+        },
+        method,
+      };
+    },
     get entrypoint() {
       return copyEntrypoint(entrypoint);
     },
@@ -251,7 +348,7 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
         invoked_address: contract,
         entrypoint: copyEntrypoint(entrypoint),
         gas_limit: gasLimit,
-        calldata: encodeArguments(argumentCodecs, args[0]),
+        calldata: encode(args[0]),
       };
     },
 
@@ -260,7 +357,7 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
       return decodeComplete<TResult>(
         returnCodec,
         data,
-        "contract return value",
+        `${name} contract return value`,
       );
     },
 
@@ -324,14 +421,28 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
       throw new ContractReceiptError(outcome);
     },
 
+    decodeView(response) {
+      const metadata = { height: response.height, events: response.events };
+      if (response.output.result === "return")
+        return {
+          ...metadata,
+          value: method.decodeReturn(response.output.returnData),
+        };
+      if (response.output.result === "abort")
+        throw new ContractViewError({
+          ...metadata,
+          kind: "abort",
+          exception: method.decodeException(response.output.abortData),
+          abortData: response.output.abortData,
+        });
+      throw new ContractViewError({ ...metadata, kind: "fault" });
+    },
+
     async viewOutcome(options) {
       const response = await options.client.view({
         contract: options.contract,
         entrypoint: copyEntrypoint(entrypoint),
-        calldata: encodeArguments(
-          argumentCodecs,
-          "args" in options ? options.args : undefined,
-        ),
+        calldata: encode("args" in options ? options.args : undefined),
         ...(options.caller ? { caller: options.caller } : {}),
       });
 
@@ -395,7 +506,14 @@ function encodeArguments(
         `Contract method arguments require own property "${argument.publicName}"`,
       );
     }
-    argument.codec.encode(writer, values[argument.publicName]);
+    try {
+      argument.codec.encode(writer, values[argument.publicName]);
+    } catch (cause) {
+      throw new TypeError(
+        `argument "${argument.publicName}": ${cause instanceof Error ? cause.message : String(cause)}`,
+        { cause },
+      );
+    }
   }
   return calldata(writer.finish());
 }
@@ -416,6 +534,7 @@ function decodeException<TDeclaredException>(
       } as ContractException<TDeclaredException>;
     }
     const value = declared.codec.decode(reader);
+    const variant = declared.variant(value);
     if (reader.remaining !== 0) {
       throw new Error(`${reader.remaining} trailing bytes`);
     }
@@ -424,7 +543,8 @@ function decodeException<TDeclaredException>(
       selector,
       name: declared.name,
       value,
-    } as ContractException<TDeclaredException>;
+      ...(variant === undefined ? {} : { variant }),
+    } as unknown as ContractException<TDeclaredException>;
   } catch (cause) {
     const detail = cause instanceof Error ? `: ${cause.message}` : "";
     throw new ContractDecodeError(

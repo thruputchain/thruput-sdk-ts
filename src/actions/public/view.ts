@@ -1,4 +1,7 @@
-import type { Transport } from "../../transport/types.js";
+import type {
+  Transport,
+  TransportRequestOptions,
+} from "../../transport/types.js";
 import type { ViewOutput, ViewRequest, ViewResponse } from "../../types/rpc.js";
 import { parseEmittedEvent } from "../emittedEvent.js";
 import { fromHex0x, toHex0x } from "../hex.js";
@@ -68,6 +71,7 @@ function parseOutput(value: unknown): ViewOutput {
 export async function view(
   transport: Transport,
   request: ViewRequest,
+  options?: TransportRequestOptions,
 ): Promise<ViewResponse> {
   if (request.entrypoint.length !== 8) {
     throw new Error(
@@ -75,14 +79,18 @@ export async function view(
     );
   }
 
-  const raw = await transport.request<unknown>("groundhog_view", [
-    {
-      contract: toHex0x(request.contract),
-      entrypoint: toHex0x(request.entrypoint),
-      calldata: toHex0x(request.calldata),
-      ...(request.caller ? { caller: toHex0x(request.caller) } : {}),
-    },
-  ]);
+  const raw = await transport.request<unknown>(
+    "groundhog_view",
+    [
+      {
+        contract: toHex0x(request.contract),
+        entrypoint: toHex0x(request.entrypoint),
+        calldata: toHex0x(request.calldata),
+        ...(request.caller ? { caller: toHex0x(request.caller) } : {}),
+      },
+    ],
+    options,
+  );
 
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     throw new Error("Expected view response to be an object");

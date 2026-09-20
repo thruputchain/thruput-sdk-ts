@@ -1,8 +1,15 @@
 # Contract Binding Inputs
 
 These canonical `.spec.xdr` files are the complete inputs to
-`scripts/regenerate-contract-bindings.sh`. CI pins `groundhog-cli` 0.17.7 and
-checks every generated output against them.
+`scripts/regenerate-contract-bindings.sh`. CI and publishing use
+`groundhog-cli` 0.18.0 to check every generated output against them.
+
+CLI 0.18.0 includes the generator updates from
+[groundhog-rpc #409](https://github.com/groundhogchain/groundhog-rpc/pull/409).
+Its direct scalar topic mappings match SDK 0.36.0
+([sdk_rs #463](https://github.com/groundhogchain/sdk_rs/pull/463)). The bundled
+Counter artifact has also been rebuilt for that encoding; see
+[fixture provenance](../../examples/fixtures/README.md).
 
 | Input                     | Generated binding                 | SHA-256                                                            |
 | ------------------------- | --------------------------------- | ------------------------------------------------------------------ |
@@ -31,4 +38,4 @@ built from that crate's rv32 spec carrier in `groundhogchain/sdk_rs`.
 `groundhog-erc20-metadata-if` 0.1.24 interfaces. It was extracted with CLI
 0.15.1 from an RV32 spec carrier using SDK 0.31.0 and
 `sdk::export_interface_spec!` for both traits. TypeScript generation uses the
-CLI 0.17.7 pin above.
+CLI 0.18.0 pin above.

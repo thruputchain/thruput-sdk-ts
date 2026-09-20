@@ -56,23 +56,25 @@ function invocation(invokedAddress = address): Invocation {
 }
 
 describe("wallet account defaults", () => {
-  it("rejects rebinding a client to another account", async () => {
+  it("binds independent wallets without consuming the public client", async () => {
     const client = await createGroundhogClient({
       transport: new MockTransport(),
     });
-    createWalletClient({
+    const first = createWalletClient({
       client,
       account: account(),
       networkHash: testNetworkHash,
     });
 
-    expect(() =>
-      createWalletClient({
-        client,
-        account: createPubkeyAccount({ signer: signer() }),
-        networkHash: testNetworkHash,
-      }),
-    ).toThrow("only be bound to one wallet account");
+    const second = createWalletClient({
+      client,
+      account: createPubkeyAccount({ signer: signer() }),
+      networkHash: testNetworkHash,
+    });
+    expect(first).not.toBe(second);
+    expect(client).not.toHaveProperty("account");
+    expect(first.account.address).toEqual(address);
+    expect(second.account.kind).toBe("pubkey");
   });
 
   it.each([
@@ -170,7 +172,7 @@ describe("wallet account defaults", () => {
       timeoutMs: 100,
     });
 
-    expect(wallet).toBe(client);
+    expect(wallet).not.toBe(client);
     expect(calls[0]!.params).toEqual([
       {
         recipient: "0x" + "44".repeat(32),

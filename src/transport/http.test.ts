@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { runInNewContext } from "node:vm";
 import openrpcSpec from "../../specs/openrpc.json";
 import {
   GroundhogRpcErrorCode,
@@ -24,6 +25,53 @@ describe("GroundhogRpcErrorCode", () => {
 });
 
 describe("HttpTransport", () => {
+  it("preserves cancellation supplied by a custom fetch lifecycle", async () => {
+    const cause = new DOMException("superseded", "AbortError");
+    const transport = new HttpTransport("https://rpc.example", {
+      fetch: async () => {
+        throw cause;
+      },
+    });
+    await expect(transport.request("groundhog_networkInfo")).rejects.toBe(
+      cause,
+    );
+  });
+
+  it("preserves cancellation from another JavaScript realm", async () => {
+    const cause: unknown = runInNewContext(
+      'Object.assign(new Error("superseded"), { name: "AbortError" })',
+    );
+    expect(cause).not.toBeInstanceOf(Error);
+    const transport = new HttpTransport("https://rpc.example", {
+      fetch: async () => {
+        throw cause;
+      },
+    });
+    await expect(transport.request("groundhog_networkInfo")).rejects.toBe(
+      cause,
+    );
+  });
+
+  it("does not include credentials or URL secrets in request error messages", async () => {
+    const cause = new TypeError("fetch failed");
+    const transport = new HttpTransport(
+      "https://user:secret@rpc.example/private-token?key=secret",
+      {
+        fetch: async () => {
+          throw cause;
+        },
+      },
+    );
+    const request = transport.request("groundhog_networkInfo");
+    await expect(request).rejects.toMatchObject({
+      endpoint: "https://rpc.example",
+      method: "groundhog_networkInfo",
+      cause,
+    });
+    await expect(request).rejects.toThrow(
+      "groundhog_networkInfo: request to https://rpc.example failed",
+    );
+  });
   it("binds the default fetch to the global object", async () => {
     const fetchMock = vi.fn(function (this: unknown) {
       if (this !== globalThis) throw new TypeError("Illegal invocation");

@@ -151,6 +151,10 @@ export const DevWallet = {
     DevWalletCreateWalletResult,
     DevWalletDeclaredException
   >({
+    interfaceName: "DevWallet",
+    interfaceVersion: "0.1.0",
+    abiName: "create_wallet",
+    publicName: "createWallet",
     entrypoint: entrypoints.DevWallet.createWallet,
     args: [
       {
@@ -178,6 +182,10 @@ export const DevWallet = {
     DevWalletDeployResult,
     DevWalletDeclaredException
   >({
+    interfaceName: "DevWallet",
+    interfaceVersion: "0.1.0",
+    abiName: "deploy",
+    publicName: "deploy",
     entrypoint: entrypoints.DevWallet.deploy,
     args: [
       {
@@ -200,6 +208,10 @@ export const DevWallet = {
     DevWalletDoActionResult,
     DevWalletDeclaredException
   >({
+    interfaceName: "DevWallet",
+    interfaceVersion: "0.1.0",
+    abiName: "do_action",
+    publicName: "doAction",
     entrypoint: entrypoints.DevWallet.doAction,
     args: [
       {
@@ -217,6 +229,10 @@ export const DevWallet = {
     DevWalletInitializeResult,
     DevWalletDeclaredException
   >({
+    interfaceName: "DevWallet",
+    interfaceVersion: "0.1.0",
+    abiName: "initialize",
+    publicName: "initialize",
     entrypoint: entrypoints.DevWallet.initialize,
     args: [
       {

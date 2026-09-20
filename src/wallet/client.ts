@@ -3,6 +3,7 @@ import {
   sha256Hash,
   type ContractAddress,
   type NetworkHash,
+  type GasAmount,
 } from "@groundhogchain/protocol";
 import type { AirdropActions, CoreGroundhogClient } from "../client.js";
 import type { AirdropSucceeded, BalanceResponse } from "../types/rpc.js";
@@ -30,6 +31,22 @@ import type {
   SignedTransaction,
   Transaction,
 } from "@groundhogchain/protocol";
+import {
+  submitAndObserve,
+  assertTransactionSuccess,
+  decodeExecution,
+  type CallResults,
+  type ExecutionResult,
+} from "./execution.js";
+import type { ContractCall } from "../contract/method.js";
+import type { ExecuteCallsRequest } from "./providerClient.js";
+import { hashSignedTransaction } from "../derivation/transactionHash.js";
+import type { WaitForTransactionReceiptOptions } from "../actions/public/waitForTransactionReceipt.js";
+import {
+  deploymentRequest,
+  decodeDeployment,
+  type ContractDeployment,
+} from "./deployment.js";
 
 const walletClientMarker = Symbol("GroundhogWalletClient");
 const reservedWalletClientProperties = [
@@ -39,6 +56,11 @@ const reservedWalletClientProperties = [
   "sendInvocation",
   "prepareExecution",
   "execute",
+  "executeAndWait",
+  "executeCallsAndWait",
+  "prepareDeployment",
+  "deployContract",
+  "deployContractAndWait",
 ] as const;
 
 /** Wallet airdrop options with the bound account as the default recipient. */
@@ -56,6 +78,22 @@ export interface WalletActions<TAccount extends WalletAccount = WalletAccount> {
   prepareTransaction(request: PrepareTransactionRequest): Promise<Transaction>;
   signTransaction(transaction: Transaction): Promise<SignedTransaction>;
   sendInvocation(request: PrepareTransactionRequest): Promise<SHA256Hash>;
+  /** Prepare a root deployment after any required address prefunding. */
+  prepareDeployment(
+    deployment: ContractDeployment,
+    gasLimit: GasAmount,
+  ): Promise<Transaction>;
+  /** Submit deployment and return its predicted address before commitment. */
+  deployContract(
+    deployment: ContractDeployment,
+    gasLimit: GasAmount,
+  ): Promise<{ txHash: SHA256Hash; address: ContractAddress }>;
+  /** Deploy, wait for success and verify the returned address. */
+  deployContractAndWait(
+    deployment: ContractDeployment,
+    gasLimit: GasAmount,
+    options?: WaitForTransactionReceiptOptions,
+  ): Promise<ExecutionResult & { address: ContractAddress }>;
 }
 
 /** Transaction options accepted when wrapping an inner wallet invocation. */
@@ -71,6 +109,16 @@ export interface WalletExecutionActions<
     request: PrepareExecutionRequest<TRequest>,
   ): Promise<Transaction>;
   execute(request: PrepareExecutionRequest<TRequest>): Promise<SHA256Hash>;
+  /** Submit and require a successful committed receipt. */
+  executeAndWait(
+    request: PrepareExecutionRequest<TRequest>,
+    options?: WaitForTransactionReceiptOptions,
+  ): Promise<ExecutionResult>;
+  /** Execute typed calls atomically and decode their ordered return values. */
+  executeCallsAndWait<T extends readonly ContractCall[]>(
+    request: ExecuteCallsRequest<T>,
+    options?: WaitForTransactionReceiptOptions,
+  ): Promise<ExecutionResult & { values: CallResults<T> }>;
 }
 
 /** Account-defaulted funding available when the underlying client supports it. */
@@ -206,6 +254,45 @@ export function createWalletClient<
       signWalletTransaction(account, transaction, signingNetworkHash),
     sendInvocation: (request) =>
       sendInvocation(client, account, signingNetworkHash, request),
+    prepareDeployment: (deployment, gasLimit) =>
+      prepareTransaction(
+        client,
+        account,
+        deploymentRequest(
+          deployment,
+          account.address,
+          gasLimit,
+          requireDeploymentAdapter(),
+        ),
+      ),
+    deployContract: async (deployment, gasLimit) => {
+      const request = deploymentRequest(
+        deployment,
+        account.address,
+        gasLimit,
+        requireDeploymentAdapter(),
+      );
+      const address = deployment.address.slice() as ContractAddress;
+      return {
+        txHash: await sendInvocation(
+          client,
+          account,
+          signingNetworkHash,
+          request,
+        ),
+        address,
+      };
+    },
+    deployContractAndWait: async (deployment, gasLimit, wait) => {
+      const adapter = requireDeploymentAdapter();
+      const address = deployment.address.slice() as ContractAddress;
+      const result = await sendAndObserve(
+        deploymentRequest(deployment, account.address, gasLimit, adapter),
+        wait,
+      );
+      decodeDeployment(result.receipt, { ...deployment, address }, adapter);
+      return { ...result, address };
+    },
   };
 
   const airdrop = requestAirdrop
@@ -221,8 +308,68 @@ export function createWalletClient<
   const invocationAdapter =
     options.invocationAdapter ??
     (account.kind === "pubkey" ? defaultWalletAdapter : undefined);
+  function requireDeploymentAdapter(): WalletInvocationAdapter {
+    if (!invocationAdapter)
+      throw new Error("Wallet requires an adapter for deployment");
+    return invocationAdapter as WalletInvocationAdapter;
+  }
+  async function sendAndObserve(
+    request: PrepareTransactionRequest,
+    wait?: WaitForTransactionReceiptOptions,
+  ): Promise<ExecutionResult> {
+    wait?.signal?.throwIfAborted();
+    const transaction = await prepareTransaction(client, account, request);
+    const signed = await signWalletTransaction(
+      account,
+      transaction,
+      signingNetworkHash,
+    );
+    wait?.signal?.throwIfAborted();
+    return submitAndObserve(
+      client,
+      hashSignedTransaction(signed),
+      () => client.sendTransaction(signed),
+      { ...wait, expectedNetworkHash: signingNetworkHash },
+    );
+  }
   const execution = invocationAdapter
     ? {
+        async executeCallsAndWait<T extends readonly ContractCall[]>(
+          request: ExecuteCallsRequest<T>,
+          wait?: WaitForTransactionReceiptOptions,
+        ) {
+          const calls = [...request.calls];
+          if (calls.length === 0)
+            throw new RangeError("Execution requires at least one call");
+          const invocations = calls.map((call) => call.invocation);
+          const invocation =
+            calls.length === 1
+              ? invocationAdapter.createRootInvocation(account.address, {
+                  ...request,
+                  invocation: invocations[0]!,
+                } as never)
+              : invocationAdapter.createBatchRootInvocation?.(account.address, {
+                  ...request,
+                  invocations,
+                });
+          if (!invocation)
+            throw new Error("Wallet adapter does not support atomic batches");
+          const result = await sendAndObserve(
+            {
+              ...request,
+              invocation,
+            },
+            wait,
+          );
+          return {
+            ...result,
+            values: decodeExecution(
+              result.receipt,
+              calls,
+              requireDeploymentAdapter(),
+            ) as CallResults<T>,
+          };
+        },
         prepareExecution: (request: PrepareExecutionRequest) =>
           prepareTransaction(client, account, {
             ...request,
@@ -239,10 +386,28 @@ export function createWalletClient<
               request as never,
             ),
           }),
+        executeAndWait: async (
+          request: PrepareExecutionRequest,
+          wait?: WaitForTransactionReceiptOptions,
+        ) => {
+          const result = await sendAndObserve(
+            {
+              ...request,
+              invocation: invocationAdapter.createRootInvocation(
+                account.address,
+                request as never,
+              ),
+            },
+            wait,
+          );
+          assertTransactionSuccess(result.receipt);
+          return result;
+        },
       }
     : {};
 
   const wallet = Object.assign(
+    {},
     client,
     walletActions,
     airdrop,

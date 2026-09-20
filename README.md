@@ -213,9 +213,10 @@ const customWalletAdapter = defineWalletInvocationAdapter({
 });
 ```
 
-Because wallet decoration binds account-specific closures to the supplied
-client, each client instance can be bound once. Create another client instance
-when operating multiple accounts against the same endpoint.
+Wallet binding returns an independent object without changing the supplied public
+client. Multiple accounts can share one public client. See
+[contract transactions](docs/client-dx.md) for typed calls, receipt observation,
+provider persistence, gas budgeting, and deployment.
 
 ## Signed operations
 
