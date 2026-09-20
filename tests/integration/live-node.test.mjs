@@ -10,7 +10,12 @@ import {
   createWalletClient,
   localnet,
   prepareContractDeployment,
+  createContractCodecContext,
+  defineContractEvent,
+  deriveEntrypointID,
+  encodeCalldata,
 } from "@groundhogchain/client";
+import { codec as specCodec, deserialize } from "@groundhogchain/contract-spec";
 import {
   GroundhogRpcErrorCode,
   JsonRpcError,
@@ -131,7 +136,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
   );
 
   await t.test(
-    "prefunds a predicted address and deploys through the wallet helper",
+    "prefunds and deploys a contract, then decodes and filters its scalar event",
     async () => {
       const sender = createPubkeyAccount({
         signer: new PrivateKeySigner(randomBytes(32)),
@@ -162,6 +167,61 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       assert.deepEqual(result.address, deployment.address);
       assert.equal(result.receipt.execResult, ExecResult.ExecResultOK);
       assert.equal("account" in client, false);
+
+      // Read the pinned ABI rather than importing SDK source into this built-package test.
+      const spec = deserialize(
+        await readFile(
+          new URL("../../specs/contracts/counter.spec.xdr", import.meta.url),
+        ),
+        specCodec.ContractSpec,
+      );
+      const iface = spec.interfaces.find((entry) => entry.name === "Counter");
+      const event = spec.events.find((entry) => entry.name === "PingEvent");
+      assert.ok(iface);
+      assert.ok(event);
+      const ping = defineContractEvent({
+        name: event.name,
+        signature: event.signature,
+        topics: event.topics.map((field) => ({
+          name: field.name,
+          type: field.ty,
+          representation: "u64",
+        })),
+        fields: event.fields.map((field) => ({
+          name: field.name,
+          type: field.ty,
+        })),
+        codecs: createContractCodecContext(spec.type_defs),
+      });
+      const tag = 0x0102_0304n;
+      const { receipt } = await wallet.executeAndWait(
+        {
+          invocation: {
+            invoked_address: result.address,
+            entrypoint: deriveEntrypointID(iface.name, iface.vers, "ping"),
+            gas_limit: gasAmount(500_000n),
+            calldata: encodeCalldata(spec, iface.name, "ping", [tag], {}),
+          },
+          gasLimit: rootGas,
+        },
+        { timeoutMs: receiptTimeoutMs },
+      );
+      assert.equal(
+        ping.singleFromReceipt(receipt, { contractAddress: result.address })
+          .topics.tag,
+        tag,
+      );
+      const filter = ping.filter({
+        contractAddresses: [result.address],
+        topics: { tag },
+      });
+      const raw = receipt.events.find(
+        (entry) =>
+          entry.topics.length > 0 &&
+          Buffer.from(entry.topics[0]).equals(event.signature),
+      );
+      assert.ok(raw);
+      assert.deepEqual(filter.topics.topic1[0], raw.topics[1]);
     },
   );
 

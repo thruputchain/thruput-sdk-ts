@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import { PingEvent } from "../../examples/generated/counter.js";
 import {
   CxsWriter,
   contractAddress,
@@ -76,7 +77,7 @@ describe("contract event construction and decoding", () => {
             {
               name: "extra",
               type: { v: ContractTypeKind.U32 },
-              representation: "hash",
+              representation: "u32",
             },
           ],
         }),
@@ -419,6 +420,182 @@ describe("contract event filters", () => {
       );
     }
   });
+});
+
+describe("direct scalar topics (SDK sdk_rs#463 encoding)", () => {
+  it("exposes bigint topics and filters through the regenerated Counter binding", () => {
+    const bytes = new Uint8Array(32);
+    bytes[31] = 42;
+    const decoded = PingEvent.decode({
+      topics: [PingEvent.signature, bytes],
+      data: new Uint8Array(),
+    });
+    expectTypeOf(decoded!.topics.tag).toEqualTypeOf<bigint>();
+    expect(decoded!.topics.tag).toBe(42n);
+    expect(
+      PingEvent.filter({ contractAddresses: [emitterA], topics: { tag: 42n } })
+        .topics?.topic1,
+    ).toEqual([bytes]);
+  });
+  const scalarTypes = [
+    [ContractTypeKind.U32, "u32", 32, false],
+    [ContractTypeKind.U64, "u64", 64, false],
+    [ContractTypeKind.U128, "u128", 128, false],
+    [ContractTypeKind.I32, "i32", 32, true],
+    [ContractTypeKind.I64, "i64", 64, true],
+    [ContractTypeKind.I128, "i128", 128, true],
+  ] as const;
+
+  // Independent big-endian reference, not the compact calldata/payload encoder.
+  const topicBytes = (value: bigint) =>
+    Uint8Array.from(
+      BigInt.asUintN(256, value).toString(16).padStart(64, "0").match(/../g)!,
+      (byte) => Number.parseInt(byte, 16),
+    );
+
+  it.each(scalarTypes)(
+    "decodes and filters %s/%s within its declared range",
+    (kind, representation, bits, signed) => {
+      const descriptor = defineContractEvent(
+        definition({
+          topics: [{ name: "value", type: { v: kind }, representation }],
+          fields: [],
+        }),
+      );
+      const bound = 1n << BigInt(signed ? bits - 1 : bits);
+      const min = signed ? -bound : 0n;
+      const max = bound - 1n;
+      // The positive and negative vectors also appear in the SDK scalar-topic test.
+      const values = [0n, 0x0102_0304n, min, max, ...(signed ? [-2n] : [])];
+      for (const value of values) {
+        const bytes = topicBytes(value);
+        expect(
+          descriptor.decode({
+            topics: [signature, bytes],
+            data: new Uint8Array(),
+          }),
+        ).toMatchObject({ topics: { value } });
+        expect(
+          descriptor.filter({
+            contractAddresses: [emitterA],
+            topics: { value },
+          }).topics?.topic1,
+        ).toEqual([bytes]);
+      }
+      expect(
+        descriptor.filter({
+          contractAddresses: [emitterA],
+          topics: { value: { oneOf: values } },
+        }).topics?.topic1,
+      ).toEqual(values.map(topicBytes));
+      for (const value of [min - 1n, max + 1n]) {
+        expect(() =>
+          descriptor.filter({
+            contractAddresses: [emitterA],
+            topics: { value },
+          }),
+        ).toThrow();
+        expect(() =>
+          descriptor.decode({
+            topics: [signature, topicBytes(value)],
+            data: new Uint8Array(),
+          }),
+        ).toThrow(ContractDecodeError);
+      }
+      expect(() =>
+        descriptor.filter({
+          contractAddresses: [emitterA],
+          topics: { value: 42 },
+        }),
+      ).toThrow(/expected bigint/);
+    },
+  );
+
+  it("encodes booleans as padded 0/1 and rejects noncanonical values", () => {
+    const descriptor = defineContractEvent(
+      definition({
+        topics: [
+          {
+            name: "enabled",
+            type: { v: ContractTypeKind.Bool },
+            representation: "bool",
+          },
+        ],
+        fields: [],
+      }),
+    );
+    for (const enabled of [false, true]) {
+      const bytes = topicBytes(enabled ? 1n : 0n);
+      expect(
+        descriptor.decode({
+          topics: [signature, bytes],
+          data: new Uint8Array(),
+        }),
+      ).toMatchObject({ topics: { enabled } });
+      expect(
+        descriptor.filter({
+          contractAddresses: [emitterA],
+          topics: { enabled },
+        }).topics?.topic1,
+      ).toEqual([bytes]);
+    }
+    for (const value of [2n, 1n << 248n]) {
+      expect(() =>
+        descriptor.decode({
+          topics: [signature, topicBytes(value)],
+          data: new Uint8Array(),
+        }),
+      ).toThrow(ContractDecodeError);
+    }
+    for (const enabled of [0, 1n, "true"]) {
+      expect(() =>
+        descriptor.filter({
+          contractAddresses: [emitterA],
+          topics: { enabled },
+        }),
+      ).toThrow(/expected boolean/);
+    }
+  });
+
+  it("rejects obsolete hashed scalar metadata rather than guessing an encoding", () => {
+    expect(() =>
+      defineContractEvent(
+        definition({
+          topics: [
+            {
+              name: "tag",
+              type: { v: ContractTypeKind.U64 },
+              representation: "hash",
+            },
+          ],
+        }),
+      ),
+    ).toThrow('expected "u64"');
+  });
+
+  it.each([ContractTypeKind.String, ContractTypeKind.Bytes] as const)(
+    "keeps variable-length topic type %s as an opaque, unfilterable hash",
+    (kind) => {
+      const descriptor = defineContractEvent(
+        definition({
+          topics: [{ name: "tag", type: { v: kind }, representation: "hash" }],
+          fields: [],
+        }),
+      );
+      expect(
+        descriptor.decode({
+          topics: [signature, digest],
+          data: new Uint8Array(),
+        }),
+      ).toMatchObject({ topics: { tag: digest } });
+      expect(() =>
+        descriptor.filter({
+          contractAddresses: [emitterA],
+          topics: { tag: "short" },
+        }),
+      ).toThrow(/not directly filterable/);
+    },
+  );
 });
 
 describe("contract event receipt extraction", () => {

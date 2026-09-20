@@ -22,11 +22,28 @@ import { ContractTypeKind, type ContractType } from "./spec.js";
 const maxFilterContractAddresses = 5;
 const maxFilterTopicValues = 16;
 
+type ScalarTopicRepresentation = Exclude<
+  ContractEventTopicMetadata["representation"],
+  "address" | "fixedBytes32" | "hash"
+>;
+
 /** Ordered metadata for one declared event topic after the signature. */
 export interface ContractEventTopicMetadata {
   name: string;
   type: ContractType;
-  representation: "address" | "fixedBytes32" | "u256" | "i256" | "hash";
+  representation:
+    | "address"
+    | "fixedBytes32"
+    | "u32"
+    | "u64"
+    | "u128"
+    | "u256"
+    | "i32"
+    | "i64"
+    | "i128"
+    | "i256"
+    | "bool"
+    | "hash";
 }
 
 /** Ordered metadata for one event payload field. */
@@ -108,8 +125,10 @@ type ResolvedTopic =
     }
   | {
       name: string;
-      representation: "u256" | "i256";
+      representation: ScalarTopicRepresentation;
       codec: XdrCodec<unknown>;
+      min: bigint;
+      max: bigint;
     };
 
 /** Build one generated event descriptor from direct ABI metadata. */
@@ -139,13 +158,25 @@ export function defineContractEvent<
       );
     }
     if (
-      metadata.representation === "u256" ||
-      metadata.representation === "i256"
+      metadata.representation !== "address" &&
+      metadata.representation !== "fixedBytes32" &&
+      metadata.representation !== "hash"
     ) {
+      const signed = metadata.representation.startsWith("i");
+      const bits =
+        metadata.representation === "bool"
+          ? 1
+          : Number(metadata.representation.slice(1));
+      const bound = 1n << BigInt(signed ? bits - 1 : bits);
       return {
         name: metadata.name,
         representation: metadata.representation,
-        codec: resolveContextCodec(definition.codecs, metadata.type),
+        // Topics use padded big-endian bytes, not the scalar's compact XDR codec.
+        codec: resolveContextCodec(definition.codecs, {
+          v: signed ? ContractTypeKind.I256 : ContractTypeKind.U256,
+        }),
+        min: signed ? -bound : 0n,
+        max: bound - 1n,
       };
     }
     return { name: metadata.name, representation: metadata.representation };
@@ -287,8 +318,15 @@ function topicRepresentation(
   type: ContractType,
 ): ContractEventTopicMetadata["representation"] {
   if (type.v === ContractTypeKind.Address) return "address";
+  if (type.v === ContractTypeKind.U32) return "u32";
+  if (type.v === ContractTypeKind.U64) return "u64";
+  if (type.v === ContractTypeKind.U128) return "u128";
   if (type.v === ContractTypeKind.U256) return "u256";
+  if (type.v === ContractTypeKind.I32) return "i32";
+  if (type.v === ContractTypeKind.I64) return "i64";
+  if (type.v === ContractTypeKind.I128) return "i128";
   if (type.v === ContractTypeKind.I256) return "i256";
+  if (type.v === ContractTypeKind.Bool) return "bool";
   if (
     type.v === ContractTypeKind.Array &&
     type.array.len === 32n &&
@@ -346,9 +384,12 @@ function decodeTopic(topic: ResolvedTopic, bytes: Uint8Array): unknown {
     case "fixedBytes32":
     case "hash":
       return bytes;
-    case "u256":
-    case "i256":
-      return topic.codec.decode(new CxsReader(bytes));
+    default: {
+      const value = topic.codec.decode(new CxsReader(bytes)) as bigint;
+      // Range validation also rejects noncanonical zero/sign extension and bools other than 0/1.
+      assertScalarRange(topic, value);
+      return topic.representation === "bool" ? value === 1n : value;
+    }
   }
 }
 
@@ -365,11 +406,16 @@ function encodeTopic(
       throw new Error(
         `${eventName} topic "${topic.name}" is not directly filterable`,
       );
-    case "u256":
-    case "i256": {
+    default: {
       const writer = new CxsWriter();
       try {
+        if (topic.representation === "bool") {
+          if (typeof value !== "boolean")
+            throw new TypeError("Bool expected boolean");
+          value = value ? 1n : 0n;
+        }
         topic.codec.encode(writer, value);
+        assertScalarRange(topic, value as bigint);
       } catch (cause) {
         const detail = cause instanceof Error ? `: ${cause.message}` : "";
         throw new Error(
@@ -379,6 +425,17 @@ function encodeTopic(
       }
       return fixedBytes(writer.finish(), 32);
     }
+  }
+}
+
+function assertScalarRange(
+  topic: Extract<ResolvedTopic, { representation: ScalarTopicRepresentation }>,
+  value: bigint,
+): void {
+  if (value < topic.min || value > topic.max) {
+    throw new RangeError(
+      `topic "${topic.name}" is outside the ${topic.representation} range`,
+    );
   }
 }
 

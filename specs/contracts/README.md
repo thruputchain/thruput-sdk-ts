@@ -4,6 +4,13 @@ These canonical `.spec.xdr` files are the complete inputs to
 `scripts/regenerate-contract-bindings.sh`. CI pins `groundhog-cli` 0.17.7 and
 checks every generated output against them.
 
+The client DX branch requires the updated generator from
+[groundhog-rpc #409](https://github.com/groundhogchain/groundhog-rpc/pull/409).
+Its direct scalar topic mappings match
+[sdk_rs #463](https://github.com/groundhogchain/sdk_rs/pull/463); update the
+released generator pins before merging. The bundled Counter artifact has also
+been rebuilt for that encoding; see [fixture provenance](../../examples/fixtures/README.md).
+
 | Input                     | Generated binding                 | SHA-256                                                            |
 | ------------------------- | --------------------------------- | ------------------------------------------------------------------ |
 | `erc20.spec.xdr`          | `src/contracts/erc20.ts`          | `e47c3c3f5a2ced8142bc2c947aa3a5cd60e985bba7661c9407266f8ec0f51501` |

@@ -111,6 +111,34 @@ Views preserve their snapshot height and events. Independent reads can observe
 different heights, and views can lag a newly indexed receipt. Keep coherent
 multi-read snapshot checks and minimum-receipt-height checks in your application.
 
+## Typed scalar event topics
+
+For contracts built with the SDK scalar-topic update, `u32`, `u64`, `u128`,
+`i32`, `i64`, `i128`, `U256`, `I256` and `bool` topics are stored directly.
+Generated bindings expose integer topics as `bigint` and boolean topics as
+`boolean`, including their named filters:
+
+```ts
+const filter = PingEvent.filter({
+  contractAddresses: [counterAddress],
+  topics: { tag: { oneOf: [42n, 43n] } },
+});
+const event = PingEvent.singleFromReceipt(receipt, {
+  contractAddress: counterAddress,
+});
+console.log(event.topics.tag); // bigint
+```
+
+Topic codecs use fixed 32-byte big-endian encoding, not compact XDR calldata
+encoding. They check each declared integer's range and reject malformed padding
+or boolean values other than zero/one. Strings and byte slices remain opaque
+hashes, with generated comments explaining why their original values cannot be
+recovered or directly filtered by the binding.
+
+This is a coordinated SDK/codegen/client change. Rebuild contracts and regenerate
+bindings together: old scalar-topic artifacts emit hashes, and the ABI/event
+signature alone cannot distinguish the old and new encodings.
+
 ## Migrating the example apps
 
 Swap's `transactions/transaction-observation.ts` can map SDK waiting errors into

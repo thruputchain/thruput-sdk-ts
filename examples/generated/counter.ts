@@ -15,6 +15,7 @@ import {
   type ContractException,
   defineContractEvent,
   type DecodedContractEvent,
+  type ContractEventFilterValue,
 } from "../../src/contract/index.js";
 
 const s = contractSpecString;
@@ -293,13 +294,13 @@ export const Counter = {
 
 export interface PingEvent extends DecodedContractEvent<
   "PingEvent",
-  {
-    /** Hash of the ABI-encoded topic value; the original value cannot be recovered or directly filtered by this binding. */ tag: Uint8Array;
-  },
+  { tag: bigint },
   {}
 > {}
 
-export type PingEventFilter = Record<string, never>;
+export interface PingEventFilter {
+  tag?: ContractEventFilterValue<bigint>;
+}
 
 export const PingEvent = defineContractEvent<
   "PingEvent",
@@ -313,7 +314,7 @@ export const PingEvent = defineContractEvent<
     {
       name: "tag",
       type: spec.events[0]!.topics[0]!.ty,
-      representation: "hash",
+      representation: "u64",
     },
   ],
   fields: [],
