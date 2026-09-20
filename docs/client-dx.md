@@ -31,10 +31,17 @@ Pass another adapter explicitly for other wallets. DevWallet does not preserve
 child return values: typed decoding reports unavailable data even when execution
 succeeded. Use `executeAndWait` when only commitment/success evidence is needed.
 
+Failed executions throw `TransactionExecutionError` with the original root receipt,
+including its abort bytes. A single child call does not establish where an abort
+originated, so `decodeExecution` does not decode failed wallet receipts with the
+child method's ABI.
+
 Provider helpers await `onSigned` before broadcasting approved bytes once. Save
 the exact signed evidence and original account/network there. A callback failure
-prevents broadcast. Submission errors can occur after broadcast; helpers observe
-the signed hash rather than re-signing or resubmitting. Timeout and cancellation
+prevents broadcast. Local approval/session failures before the submission request
+is dispatched fail immediately without receipt polling. Once dispatched, failures
+can occur after broadcast; helpers observe the signed hash rather than re-signing
+or resubmitting. Timeout and cancellation
 stop observation, not the transaction. Retain evidence and resume public receipt
 waiting. Direct prepare/sign/submit APIs remain available.
 

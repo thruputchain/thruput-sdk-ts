@@ -1,4 +1,4 @@
-import { describe, it, expect, expectTypeOf } from "vitest";
+import { describe, it, expect, expectTypeOf, vi } from "vitest";
 import {
   ContractType,
   ExecResult,
@@ -8,7 +8,7 @@ import {
 } from "@groundhogchain/protocol";
 import { CxsWriter, Uint64Codec } from "@groundhogchain/xdr";
 import { Counter } from "../../examples/generated/counter.js";
-import { DefaultWallet } from "../contracts/default_wallet.js";
+import { DefaultWallet, WalletError } from "../contracts/default_wallet.js";
 import { getContract } from "../contract/instance.js";
 import {
   decodeExecution,
@@ -16,6 +16,7 @@ import {
   ExecutionReturnUnavailableError,
   submitAndObserve,
   TransactionObservationError,
+  TransactionExecutionError,
 } from "./execution.js";
 import { devWalletAdapter, defaultWalletAdapter } from "./invocationAdapter.js";
 import {
@@ -37,6 +38,34 @@ const receipt: TransactionReceipt = {
 };
 
 describe("contract execution DX", () => {
+  it("preserves failed root receipts without invoking a child decoder", () => {
+    const writer = new CxsWriter();
+    writer.writeUint64(0x931d3297d37d1bdfn);
+    writer.writeInt32(WalletError.InvalidAuthClaim);
+    const decodeReceiptOutcome = vi.fn(() => {
+      throw new Error("Child decoder must not run");
+    });
+    const call = Counter.get.call({ contract: address, gasLimit: gas });
+    const child = { ...call, method: { ...call.method, decodeReceiptOutcome } };
+    for (const abortData of [writer.finish(), new Uint8Array([0xff]), null]) {
+      const failed = {
+        ...receipt,
+        execResult: ExecResult.ExecResultTxRootFrameReverted,
+        abortData,
+      };
+      for (const calls of [[child], [child, child]]) {
+        try {
+          decodeExecution(failed, calls);
+          expect.fail("Expected a transaction execution error");
+        } catch (error) {
+          expect(error).toBeInstanceOf(TransactionExecutionError);
+          expect((error as TransactionExecutionError).receipt).toBe(failed);
+        }
+      }
+    }
+    expect(decodeReceiptOutcome).not.toHaveBeenCalled();
+  });
+
   it("retains the transaction identity and both causes after ambiguous submission", async () => {
     const submissionCause = new Error("connection lost");
     const cause = new DOMException("observation cancelled", "AbortError");

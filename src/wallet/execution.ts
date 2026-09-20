@@ -8,7 +8,6 @@ import type { CoreGroundhogClient } from "../client.js";
 import type { TransactionReceipt } from "../types/rpc.js";
 import type { WaitForTransactionReceiptOptions } from "../actions/public/waitForTransactionReceipt.js";
 import type { ContractCall } from "../contract/method.js";
-import { ContractReceiptError } from "../contract/method.js";
 import {
   defaultWalletAdapter,
   type WalletInvocationAdapter,
@@ -52,17 +51,24 @@ export class TransactionObservationError extends Error {
   }
 }
 
-/** Submission may have reached the node; recover by observing its known hash without resubmitting. */
+/**
+ * Submission may have reached the node; recover by observing its known hash without resubmitting.
+ * When supplied, `wasDispatched` must track the actual handoff to the submitter.
+ * A failure before that handoff is propagated immediately. Without this signal,
+ * submission failures are conservatively treated as potentially broadcast.
+ */
 export async function submitAndObserve(
   client: Pick<CoreGroundhogClient, "waitForTransactionReceipt">,
   txHash: SHA256Hash,
   submit: () => Promise<unknown>,
   options?: WaitForTransactionReceiptOptions,
+  wasDispatched?: () => boolean,
 ): Promise<ExecutionResult> {
   let submissionCause: unknown;
   try {
     await submit();
   } catch (cause) {
+    if (wasDispatched?.() === false) throw cause;
     submissionCause = cause;
   }
   try {
@@ -95,13 +101,8 @@ export function decodeExecution<T extends readonly ContractCall[]>(
   calls: T,
   adapter: WalletInvocationAdapter = defaultWalletAdapter,
 ): CallResults<T> {
-  if (receipt.execResult !== ExecResult.ExecResultOK) {
-    if (calls.length === 1) {
-      const outcome = calls[0]!.method.decodeReceiptOutcome(receipt);
-      if (outcome.kind !== "return") throw new ContractReceiptError(outcome);
-    }
-    throw new TransactionExecutionError(receipt);
-  }
+  // Even one child call can fail in the wallet root; its abort bytes are not a child receipt.
+  assertTransactionSuccess(receipt);
   try {
     const buffers = adapter.decodeExecutionReturns?.(receipt);
     if (buffers == null) throw new ExecutionReturnUnavailableError(receipt);

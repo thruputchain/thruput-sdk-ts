@@ -311,9 +311,14 @@ export function createProviderWalletClient(
       );
   }
 
-  async function request(value: ProviderRequest): Promise<unknown> {
+  async function request(
+    value: ProviderRequest,
+    onDispatch?: () => void,
+  ): Promise<unknown> {
     assertActive();
     try {
+      // Mark the handoff only after local guards, with no await before the provider call.
+      onDispatch?.();
       return await providerRequest(value);
     } catch (error) {
       let failure: WalletProviderError;
@@ -420,6 +425,53 @@ export function createProviderWalletClient(
     return Object.freeze(capabilities);
   }
 
+  function submitTransaction(
+    input: SignTransactionResult,
+    onDispatch?: () => void,
+  ): Promise<SubmitTransactionResult> {
+    return run(async () => {
+      const signed = parseSignTransactionResult(input);
+      if (
+        !approved ||
+        approved.signedTransaction !== signed.signedTransaction ||
+        approved.hash !== signed.hash
+      ) {
+        throw new WalletProviderError(
+          4100,
+          "Signed bytes were not approved by this adapter",
+        );
+      }
+      await checkSession();
+      // Consume before crossing the broadcast boundary, including ambiguous failures.
+      approved = undefined;
+      const value = await request(
+        {
+          method: "submitTransaction",
+          params: {
+            account: account.address,
+            networkHash,
+            signedTransaction: signed.signedTransaction,
+          },
+        },
+        onDispatch,
+      );
+      assertActive();
+      let result: SubmitTransactionResult;
+      try {
+        result = parseSubmitTransactionResult(value);
+        if (result.hash !== signed.hash) throw new Error("Hash mismatch");
+      } catch {
+        invalidate();
+        throw new WalletProviderError(
+          -32603,
+          "Provider submission hash mismatch; broadcast may have occurred",
+        );
+      }
+      await checkSession();
+      return Object.freeze(result);
+    });
+  }
+
   const base: Omit<
     ProviderWalletClient,
     "executeAndWait" | "executeCallsAndWait" | "deployContractAndWait"
@@ -522,45 +574,7 @@ export function createProviderWalletClient(
         approved = signed;
         return signed;
       }),
-    submitTransaction: (input) =>
-      run(async () => {
-        const signed = parseSignTransactionResult(input);
-        if (
-          !approved ||
-          approved.signedTransaction !== signed.signedTransaction ||
-          approved.hash !== signed.hash
-        ) {
-          throw new WalletProviderError(
-            4100,
-            "Signed bytes were not approved by this adapter",
-          );
-        }
-        await checkSession();
-        // Consume before crossing the broadcast boundary, including ambiguous failures.
-        approved = undefined;
-        const value = await request({
-          method: "submitTransaction",
-          params: {
-            account: account.address,
-            networkHash,
-            signedTransaction: signed.signedTransaction,
-          },
-        });
-        assertActive();
-        let result: SubmitTransactionResult;
-        try {
-          result = parseSubmitTransactionResult(value);
-          if (result.hash !== signed.hash) throw new Error("Hash mismatch");
-        } catch {
-          invalidate();
-          throw new WalletProviderError(
-            -32603,
-            "Provider submission hash mismatch; broadcast may have occurred",
-          );
-        }
-        await checkSession();
-        return Object.freeze(result);
-      }),
+    submitTransaction: (input) => submitTransaction(input),
     dispose() {
       invalidate();
       if (!disposed) {
@@ -601,16 +615,21 @@ export function createProviderWalletClient(
         approved = undefined;
         throw cause;
       }
+      let submissionDispatched = false;
       const result = await submitAndObserve(
         client,
         hashFromHex(signed.hash),
-        () => base.submitTransaction(signed),
+        () =>
+          submitTransaction(signed, () => {
+            submissionDispatched = true;
+          }),
         {
           ...options.wait,
           expectedNetworkHash: hashFromHex(
             `0x${networkHash}`,
           ) as import("@groundhogchain/protocol").NetworkHash,
         },
+        () => submissionDispatched,
       );
       if (requireSuccess) assertTransactionSuccess(result.receipt);
       return result;
