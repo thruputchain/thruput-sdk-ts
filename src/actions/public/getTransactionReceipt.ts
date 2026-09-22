@@ -19,7 +19,7 @@ interface RawTransactionReceipt {
   events: unknown[];
   returnData?: string | null;
   abortData?: string | null;
-  gasUsed?: number | string | null;
+  gasUsed: number | string;
 }
 
 const execStatusToResult: Record<string, ExecResult> = {
@@ -93,8 +93,7 @@ function parseOptionalBytes(
   return fromHex0x(value);
 }
 
-function parseGasUsed(value: unknown): bigint | null {
-  if (value === undefined || value === null) return null;
+function parseGasUsed(value: unknown): bigint {
   if (typeof value === "number") {
     if (!Number.isInteger(value) || value < 0) {
       throw new InvalidTransactionReceiptError(

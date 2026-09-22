@@ -262,9 +262,8 @@ export interface TransactionReceipt {
    *  invoked, and the pre-execution validation of attached contracts.
    *  Equals the transaction's gas limit on an out-of-gas fault. The
    *  figure is committed by consensus in the transaction's event log,
-   *  so every node reports the same value. `null` when the gateway
-   *  pre-dates gas reporting in receipts. */
-  gasUsed: bigint | null;
+   *  so every node reports the same value. */
+  gasUsed: bigint;
 }
 
 /** Event emitted by a contract invocation. */

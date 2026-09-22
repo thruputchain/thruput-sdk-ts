@@ -738,6 +738,7 @@ describe("external provider wallet", () => {
         height: 1,
         status: { result: "ok" },
         events: [],
+        gasUsed: 0,
       });
     const receipt = await client.getTransactionReceipt(
       hashFromHex(signed.hash),

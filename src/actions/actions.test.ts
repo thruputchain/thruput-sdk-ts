@@ -477,6 +477,7 @@ describe("getTransactionReceipt", () => {
           txHash: "0x" + "aa".repeat(32),
           height: "42",
           status: { result: "ok" },
+          gasUsed: 7,
           events: [
             {
               contractAddress: "0x" + "11".repeat(32),
@@ -523,28 +524,9 @@ describe("getTransactionReceipt", () => {
     );
   });
 
-  it("reports null gasUsed for receipts from gateways that pre-date gas reporting", async () => {
+  it("rejects a missing or malformed gasUsed", async () => {
     const txHash = hashFromHex("0x" + "aa".repeat(32));
-    for (const gasUsed of [undefined, null]) {
-      const transport: Transport = {
-        async request<T>(): Promise<T> {
-          return {
-            txHash: "0x" + "aa".repeat(32),
-            height: 42,
-            status: { result: "ok" },
-            events: [],
-            ...(gasUsed === undefined ? {} : { gasUsed }),
-          } as T;
-        },
-      };
-      const receipt = await getTransactionReceipt(transport, txHash);
-      expect(receipt?.gasUsed).toBeNull();
-    }
-  });
-
-  it("rejects a malformed gasUsed", async () => {
-    const txHash = hashFromHex("0x" + "aa".repeat(32));
-    for (const gasUsed of [-1, 1.5, "abc", "-1", true, {}]) {
+    for (const gasUsed of [undefined, null, -1, 1.5, "abc", "-1", true, {}]) {
       const transport: Transport = {
         async request<T>(): Promise<T> {
           return {
@@ -570,6 +552,7 @@ describe("getTransactionReceipt", () => {
           txHash: "0x" + "aa".repeat(32),
           height: 42,
           status: { result: "ok" },
+          gasUsed: 7,
           events: [
             {
               contractAddress: "0x" + "11".repeat(32),
