@@ -62,6 +62,16 @@ Groundhog gas limits bound computation; gas has no token price and is not burned
 The inner call's limit covers its frame and nested work. The wallet root budget
 covers the enclosing execution. HOG locked for storage is a separate requirement.
 
+Declared root gas also reserves scheduling capacity against the sender's free HOG.
+An oversized budget can keep a small account pending even though gas has no token
+price. Funding a target contract's storage does not fund the sender's scheduling
+capacity. Keep enough free HOG for the transaction and its storage changes;
+concurrent transactions also compete for available capacity.
+
+The native transfer example uses a 500,000 child budget and a 1,000,000 wallet-root
+budget, exercised by the live funding test. These are tested budgets for that
+workload, not gas estimates or defaults for other contracts.
+
 ```ts
 import { walletGasLimit } from "@groundhogchain/client/wallet";
 
@@ -77,6 +87,56 @@ There is no universally safe SDK overhead constant. A queue-processing contract
 may intentionally use its gas budget to choose how much work to perform. Keep
 that workload policy explicit. The current RPC cannot simulate full transactions
 with measured gas consumption; a view is not a substitute.
+
+### First credits and storage deposits
+
+A new native HOG balance item needs a storage deposit at the recipient address.
+A first credit can fund that deposit if the amount is sufficient; the recipient's
+free balance will be less than the transferred amount. A small credit can instead
+be excluded with `recentFailure` / `boundsExceeded` at the recipient's balance key.
+For the small transfer in `examples/transfer-hog.ts`, the recipient is funded first
+through the development faucet. Check the airdrop execution result before sending.
+
+The live funding test reproduces an excluded 1,000-unit first credit, a successful
+100,000-unit first credit with a deposit deduction, and a later 1,000-unit credit
+without another balance-item deposit. This was verified with CLI 0.18.0 and
+hog-devnode 0.1.28-rc.1, protocol `hogp/63c9284d8d5727e`. Deposit sizes depend on
+runtime configuration; do not copy a fixed deposit constant into a general SDK.
+
+Contracts also need free HOG at their own address to create storage. Fund predicted
+deployment addresses before deploying, and leave capacity at the sending account.
+
+### Allowances use deltas
+
+The standard ERC20 binding exposes `adjustAllowance`, not `approve`. Its `diff`
+argument is a signed change: positive to increase an allowance, negative to reduce
+it. Relative updates can combine under parallel execution.
+
+```ts
+const increase = ERC20.adjustAllowance.call({
+  contract: tokenAddress,
+  gasLimit: callGas,
+  args: { spender, diff: amount },
+});
+await wallet.executeCallsAndWait({ calls: [increase], gasLimit: rootGas });
+```
+
+Reading an allowance and submitting `target - current` does not guarantee an exact
+target while other transactions change it. Keep pending allowance exposure and
+cleanup policy explicit in the application.
+
+### Interpreting transaction outcomes
+
+| Evidence                 | Meaning                                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| Successful receipt       | The transaction committed and execution succeeded. A queued operation may still need later processing.       |
+| Failed-execution receipt | The transaction committed with an execution failure. Inspect the receipt and available diagnostics.          |
+| `invalid` status         | The node reports rejection before commitment.                                                                |
+| `recentFailure` status   | An advisory scheduling conflict. Retain the hash and conflict details; it is not a failed-execution receipt. |
+| Timeout or cancellation  | Observation stopped without proving the final result. Resume observing the original hash.                    |
+
+Do not automatically re-sign or resubmit because observation timed out. Preserve
+the original signed evidence and inspect its outcome first.
 
 ## Deployment
 

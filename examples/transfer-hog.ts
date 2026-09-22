@@ -9,10 +9,12 @@ import {
   devnet,
   toHex0x,
 } from "../src/index.js";
-import { DefaultWallet, ERC20 } from "../src/contracts/index.js";
+import { ERC20 } from "../src/contracts/index.js";
 
 const amount = 1_000n;
-const walletGasLimit = gasAmount(10_000_000n);
+// These budgets pass the live native-transfer test. Calibrate other workloads:
+// declared root gas reserves scheduling capacity against the sender's free HOG.
+const walletGasLimit = gasAmount(1_000_000n);
 const callGasLimit = gasAmount(500_000n);
 const rpcUrl = process.env.GROUNDHOG_RPC_URL;
 
@@ -32,6 +34,9 @@ const wallet = createWalletClient({
   account: sender,
 });
 
+// This small transfer cannot cover a fresh recipient's balance-item deposit.
+// Fund that item first. A sufficiently large first HOG transfer can also fund it;
+// the required deposit depends on the runtime's storage-cost configuration.
 const [senderAirdrop, recipientAirdrop] = await Promise.all([
   wallet.requestAirdrop(),
   client.requestAirdrop({ recipient: recipient.address }),
@@ -56,16 +61,10 @@ const transfer = ERC20.transfer.invocation(HOG_ADDRESS, callGasLimit, {
   receiver: recipient.address,
   amount,
 });
-const txHash = await wallet.execute({
+const { txHash } = await wallet.executeAndWait({
   invocation: transfer,
   gasLimit: walletGasLimit,
 });
-const receipt = DefaultWallet.execute.decodeReceipt(
-  await wallet.waitForTransactionReceipt(txHash),
-);
-if (receipt.value.length !== 1 || receipt.value[0]!.length !== 0) {
-  throw new Error("DefaultWallet returned an unexpected transfer result");
-}
 
 const [senderBalance, recipientBalance] = await Promise.all([
   readHogBalance(sender.address),

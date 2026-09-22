@@ -173,6 +173,12 @@ comes from a cluster-validated client's `networkHash`.
 When binding an unqualified client, pass an explicit `networkHash` to
 `createWalletClient`.
 
+Choose a workload-specific root gas budget: it reserves scheduling capacity
+against the sender's free HOG even though gas is not burned. New storage also
+needs HOG deposits at the address that owns it. See
+[gas and storage funding](docs/client-dx.md#gas-and-storage-funding) before copying
+budgets or sending a small first credit to a fresh address.
+
 Source-address accounts expose `execute` when configured with an adapter:
 
 ```ts
