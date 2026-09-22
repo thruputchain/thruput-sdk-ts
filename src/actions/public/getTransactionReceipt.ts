@@ -93,21 +93,27 @@ function parseOptionalBytes(
   return fromHex0x(value);
 }
 
+const MAX_GAS_USED = 0xffff_ffff_ffff_ffffn;
+
+/**
+ * Parse the receipt's `gasUsed`, a u64 on the wire. A JSON number is
+ * only accepted while it is exactly representable, so a value the
+ * transport already rounded is rejected rather than reported as
+ * consensus data; larger values must arrive as a decimal string.
+ */
 function parseGasUsed(value: unknown): bigint {
-  if (typeof value === "number") {
-    if (!Number.isInteger(value) || value < 0) {
-      throw new InvalidTransactionReceiptError(
-        "Invalid transaction receipt response: expected gasUsed to be a non-negative integer",
-      );
-    }
-    return BigInt(value);
+  let parsed: bigint | undefined;
+  if (typeof value === "number" && Number.isSafeInteger(value)) {
+    parsed = BigInt(value);
+  } else if (typeof value === "string" && /^\d+$/.test(value)) {
+    parsed = BigInt(value);
   }
-  if (typeof value === "string" && /^\d+$/.test(value)) {
-    return BigInt(value);
+  if (parsed === undefined || parsed < 0n || parsed > MAX_GAS_USED) {
+    throw new InvalidTransactionReceiptError(
+      "Invalid transaction receipt response: expected gasUsed to be a u64",
+    );
   }
-  throw new InvalidTransactionReceiptError(
-    "Invalid transaction receipt response: expected gasUsed to be a non-negative integer",
-  );
+  return parsed;
 }
 
 function parseHeight(value: unknown): bigint {

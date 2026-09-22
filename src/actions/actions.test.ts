@@ -519,6 +519,9 @@ describe("getTransactionReceipt", () => {
 
     expect((await receiptFor(4242))?.gasUsed).toBe(4242n);
     expect((await receiptFor(0))?.gasUsed).toBe(0n);
+    expect((await receiptFor(Number.MAX_SAFE_INTEGER))?.gasUsed).toBe(
+      BigInt(Number.MAX_SAFE_INTEGER),
+    );
     expect((await receiptFor("18446744073709551615"))?.gasUsed).toBe(
       18446744073709551615n,
     );
@@ -526,7 +529,20 @@ describe("getTransactionReceipt", () => {
 
   it("rejects a missing or malformed gasUsed", async () => {
     const txHash = hashFromHex("0x" + "aa".repeat(32));
-    for (const gasUsed of [undefined, null, -1, 1.5, "abc", "-1", true, {}]) {
+    for (const gasUsed of [
+      undefined,
+      null,
+      -1,
+      1.5,
+      "abc",
+      "-1",
+      true,
+      {},
+      // Rounded by the JSON decoder before reaching the parser.
+      Number.MAX_SAFE_INTEGER + 1,
+      // One past the u64 maximum.
+      "18446744073709551616",
+    ]) {
       const transport: Transport = {
         async request<T>(): Promise<T> {
           return {
