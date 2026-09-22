@@ -155,6 +155,12 @@ This is a coordinated SDK/codegen/client change. Rebuild contracts and regenerat
 bindings together: old scalar-topic artifacts emit hashes, and the ABI/event
 signature alone cannot distinguish the old and new encodings.
 
+## Release diagnostics
+
+For support reports, `client.getVersion()` preserves `releaseVersion` and
+`bundleManifestDigest` from the RPC, or returns `null` when unavailable. These
+fields identify a packaged release; they are diagnostic-only, not capability flags.
+
 ## Migrating the example apps
 
 Swap's `transactions/transaction-observation.ts` can map SDK waiting errors into
