@@ -27,8 +27,9 @@ export {
   HttpTransport,
   JsonRpcError,
   MockTransport,
+  classifyReadError,
 } from "./transport/index.js";
-export type { HttpTransportOptions } from "./transport/index.js";
+export type { HttpTransportOptions, ReadErrorKind } from "./transport/index.js";
 export type { Signer } from "./signers/index.js";
 export { PrivateKeySigner } from "./signers/index.js";
 export { createGroundhogClient } from "./client.js";

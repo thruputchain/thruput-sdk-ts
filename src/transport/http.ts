@@ -77,7 +77,7 @@ export interface HttpTransportOptions {
   /** Custom `fetch` implementation, useful for tests or non-standard runtimes. */
   fetch?: typeof fetch;
 
-  /** Abort each request after this many milliseconds. */
+  /** Abort each request with a TimeoutError after this many milliseconds. */
   timeoutMs?: number;
 }
 
@@ -135,7 +135,11 @@ export class HttpTransport implements Transport {
         ? AbortSignal.any([abort.signal, options.signal])
         : (abort?.signal ?? options.signal);
     const timeout = abort
-      ? setTimeout(() => abort.abort(), this.#timeoutMs)
+      ? setTimeout(
+          () =>
+            abort.abort(new DOMException("Request timed out", "TimeoutError")),
+          this.#timeoutMs,
+        )
       : undefined;
     let response: Response;
     try {

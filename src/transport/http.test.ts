@@ -179,7 +179,7 @@ describe("HttpTransport", () => {
         fetch: fetchMock,
         timeoutMs: 1,
       }).request("groundhog_version"),
-    ).rejects.toMatchObject({ name: "AbortError" });
+    ).rejects.toMatchObject({ name: "TimeoutError" });
   });
 
   it("forwards per-request cancellation to fetch", async () => {

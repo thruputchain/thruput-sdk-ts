@@ -33,6 +33,8 @@ import {
   networkHash,
   gasAmount,
   getContract,
+  classifyReadError,
+  type ReadErrorKind,
   type ContractAddress,
   type GasAmount,
   type NetworkHash,
@@ -129,6 +131,10 @@ const protocolValues: [
 ] = primitiveValues;
 const clientValues: typeof primitiveValues = protocolValues;
 void clientValues;
+const readErrorKind: ReadErrorKind = classifyReadError(
+  new Error("unknown failure"),
+);
+void readErrorKind;
 const formattedUnits: string = formatUnits(units, 2);
 const parseErrorCode: "malformed" | "precision" = new ParseUnitsError(
   "precision",

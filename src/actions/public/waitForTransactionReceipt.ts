@@ -5,18 +5,12 @@ import {
 } from "@groundhogchain/protocol";
 import type { Transport } from "../../transport/types.js";
 import type { TransactionReceipt, TransactionStatus } from "../../types/rpc.js";
-import {
-  GroundhogRpcErrorCode,
-  HttpResponseError,
-  JsonRpcError,
-} from "../../transport/http.js";
+import { GroundhogRpcErrorCode, JsonRpcError } from "../../transport/http.js";
+import { classifyReadError } from "../../transport/readError.js";
 import { getNetworkInfo } from "./getNetworkInfo.js";
 import { assertNetworkMatchesCluster } from "../../cluster.js";
 import { toHex0x } from "../hex.js";
-import {
-  getTransactionReceipt,
-  InvalidTransactionReceiptError,
-} from "./getTransactionReceipt.js";
+import { getTransactionReceipt } from "./getTransactionReceipt.js";
 import { getTransactionStatus } from "./getTransactionStatus.js";
 
 const maxTimerDelayMs = 2_147_483_647;
@@ -204,20 +198,10 @@ export async function waitForTransactionReceipt(
 }
 
 function isRetryableReceiptFailure(cause: unknown): boolean {
-  if (cause instanceof HttpResponseError)
-    return [408, 429, 502, 503, 504].includes(cause.status);
-  if (cause instanceof InvalidTransactionReceiptError) return false;
-  if (cause instanceof JsonRpcError) {
-    return (
-      cause.code === GroundhogRpcErrorCode.TxNotFound ||
-      cause.code === GroundhogRpcErrorCode.BackendUnavailable ||
-      cause.code === GroundhogRpcErrorCode.BackendTimeout ||
-      cause.code === GroundhogRpcErrorCode.Overloaded
-    );
-  }
   return (
-    cause instanceof TypeError ||
-    (cause instanceof Error && cause.name === "AbortError")
+    (cause instanceof JsonRpcError &&
+      cause.code === GroundhogRpcErrorCode.TxNotFound) ||
+    classifyReadError(cause) === "transient"
   );
 }
 
