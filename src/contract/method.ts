@@ -254,7 +254,17 @@ export interface ContractMethod<TArgs, TResult, TDeclaredException> {
     ...args: MethodArgs<TArgs>
   ): Invocation;
 
-  /** Decode complete calldata using public argument names; returns undefined for no arguments. */
+  /**
+   * Decode complete calldata using the generated public argument names.
+   * Returns undefined for no-argument methods; rejects incomplete or trailing bytes.
+   * Select the descriptor after checking the invocation's entrypoint. ABI decoding
+   * does not verify the target contract's behavior.
+   *
+   * @example
+   * ```ts
+   * const { receiver, amount } = ERC20.transfer.decodeArgs(invocation.calldata);
+   * ```
+   */
   decodeArgs(data: Uint8Array): TArgs;
   decodeReturn(data: Uint8Array): TResult;
   decodeException(data: Uint8Array): ContractException<TDeclaredException>;

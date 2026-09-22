@@ -4,7 +4,11 @@ import type {
 } from "../../transport/types.js";
 import type { VersionInfo } from "../../types/rpc.js";
 
-/** Return the gateway implementation and wire-format version. */
+/**
+ * Return gateway version information, including optional release identity.
+ * Release and manifest fields are diagnostic-only, not capability flags, and
+ * are null when the endpoint does not supply them.
+ */
 export async function getVersion(
   transport: Transport,
   options?: TransportRequestOptions,
