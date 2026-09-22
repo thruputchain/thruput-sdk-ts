@@ -254,6 +254,8 @@ export interface ContractMethod<TArgs, TResult, TDeclaredException> {
     ...args: MethodArgs<TArgs>
   ): Invocation;
 
+  /** Decode complete calldata using public argument names; returns undefined for no arguments. */
+  decodeArgs(data: Uint8Array): TArgs;
   decodeReturn(data: Uint8Array): TResult;
   decodeException(data: Uint8Array): ContractException<TDeclaredException>;
   /** Decode a view response with the same semantics as view(). */
@@ -352,6 +354,29 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
         gas_limit: gasLimit,
         calldata: encode(args[0]),
       };
+    },
+
+    decodeArgs(data) {
+      const reader = new CxsReader(data);
+      const args = Object.fromEntries(
+        argumentCodecs.map((argument) => {
+          try {
+            return [argument.publicName, argument.codec.decode(reader)];
+          } catch (cause) {
+            const detail = cause instanceof Error ? `: ${cause.message}` : "";
+            throw new ContractDecodeError(
+              `${name}: argument "${argument.publicName}"${detail}`,
+              { cause },
+            );
+          }
+        }),
+      );
+      if (reader.remaining !== 0) {
+        throw new ContractDecodeError(
+          `${name}: ${reader.remaining} trailing calldata bytes`,
+        );
+      }
+      return (argumentCodecs.length === 0 ? undefined : args) as TArgs;
     },
 
     decodeReturn(data) {

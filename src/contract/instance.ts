@@ -27,7 +27,8 @@ export type ContractInstance<T> = {
 
 /** Bind a generated interface to an address and public client; preserve view heights and events. */
 export function getContract<
-  T extends Record<string, ContractMethod<never, unknown, unknown>>,
+  // The binding contains different argument types; ContractInstance preserves each one.
+  T extends Record<string, ContractMethod<any, unknown, unknown>>,
 >(options: {
   binding: T;
   address: ContractAddress;

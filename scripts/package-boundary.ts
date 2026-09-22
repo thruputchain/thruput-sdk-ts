@@ -32,6 +32,7 @@ import {
   sha256Hash,
   networkHash,
   gasAmount,
+  getContract,
   type ContractAddress,
   type GasAmount,
   type NetworkHash,
@@ -59,6 +60,7 @@ import {
 } from "@groundhogchain/client/contracts";
 import type {
   ERC20TransferArgs,
+  DefaultWalletExecuteArgs,
   ERC20TransferEventFilter,
   ERC20BurnEventFilter,
   ERC20MintEventFilter,
@@ -138,12 +140,33 @@ async function typedExecutionBoundary(
   wallet: ProviderWalletClient,
   address: ContractAddress,
   gas: GasAmount,
+  client: GroundhogClient,
 ) {
   const transfer = ERC20.transfer.call({
     contract: address,
     gasLimit: gas,
     args: { receiver: address, amount: 1n },
   });
+  const transferArgs: ERC20TransferArgs = ERC20.transfer.decodeArgs(
+    transfer.invocation.calldata,
+  );
+  const walletArgs: DefaultWalletExecuteArgs = DefaultWallet.execute.decodeArgs(
+    DefaultWallet.execute.invocation(address, gas, { calls: [] }).calldata,
+  );
+  const noArgs: void = ERC20.getBalance.decodeArgs(new Uint8Array());
+  void [transferArgs, walletArgs, noArgs];
+  const token = getContract({ binding: ERC20, address, client });
+  const boundArgs: ERC20TransferArgs = token.transfer.decodeArgs(
+    transfer.invocation.calldata,
+  );
+  token.transfer.call({
+    gasLimit: gas,
+    // @ts-expect-error Binding an address must preserve bigint argument types.
+    args: { receiver: address, amount: "1" },
+  });
+  // @ts-expect-error Decoded arguments must retain their original types.
+  const invalidAmount: string = boundArgs.amount;
+  void invalidAmount;
   const balance = ERC20.getBalanceOf.call({
     contract: address,
     gasLimit: gas,

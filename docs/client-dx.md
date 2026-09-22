@@ -215,6 +215,21 @@ This is a coordinated SDK/codegen/client change. Rebuild contracts and regenerat
 bindings together: old scalar-topic artifacts emit hashes, and the ABI/event
 signature alone cannot distinguish the old and new encodings.
 
+## Inspecting calldata
+
+Generated methods expose `decodeArgs(bytes)` with the same argument type used to
+construct calls. It rejects incomplete or trailing calldata and returns
+`undefined` for no-argument methods. Bound methods expose the same decoder.
+
+```ts
+const { calls } = DefaultWallet.execute.decodeArgs(rootInvocation.calldata);
+const { receiver, amount } = ERC20.transfer.decodeArgs(calls[0]!.calldata);
+```
+
+Choose the matching descriptor after checking the entrypoint. Decoding bytes with
+an ABI does not verify the target contract's behavior. Shared runtime support
+provides this API to existing descriptor-based bindings without regeneration.
+
 ## Exact amounts
 
 ```ts
