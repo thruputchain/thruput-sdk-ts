@@ -27,6 +27,16 @@ import {
   parseUnits,
   formatUnits,
   ParseUnitsError,
+  contractAddress,
+  blockHeight,
+  sha256Hash,
+  networkHash,
+  gasAmount,
+  type ContractAddress,
+  type GasAmount,
+  type NetworkHash,
+  type BlockHeight,
+  type SHA256Hash,
 } from "@groundhogchain/client";
 import type { Transport } from "@groundhogchain/client/transport";
 import {
@@ -55,13 +65,10 @@ import type {
   WalletCall,
 } from "@groundhogchain/client/contracts";
 import type {
-  ContractAddress,
-  GasAmount,
   Invocation,
   Transaction,
   BitMap,
   Weight,
-  NetworkHash,
 } from "@groundhogchain/protocol";
 import type { Signer } from "@groundhogchain/client/signers";
 import {
@@ -98,6 +105,28 @@ import {
 } from "@groundhogchain/client/wallet";
 
 const units: bigint = parseUnits("12.05", 2);
+const primitiveValues: [
+  ContractAddress,
+  BlockHeight,
+  SHA256Hash,
+  NetworkHash,
+  GasAmount,
+] = [
+  contractAddress(new Uint8Array(32)),
+  blockHeight(1n),
+  sha256Hash(new Uint8Array(32)),
+  networkHash(sha256Hash(new Uint8Array(32))),
+  gasAmount(1n),
+];
+const protocolValues: [
+  import("@groundhogchain/protocol").ContractAddress,
+  import("@groundhogchain/protocol").BlockHeight,
+  import("@groundhogchain/protocol").SHA256Hash,
+  import("@groundhogchain/protocol").NetworkHash,
+  import("@groundhogchain/protocol").GasAmount,
+] = primitiveValues;
+const clientValues: typeof primitiveValues = protocolValues;
+void clientValues;
 const formattedUnits: string = formatUnits(units, 2);
 const parseErrorCode: "malformed" | "precision" = new ParseUnitsError(
   "precision",

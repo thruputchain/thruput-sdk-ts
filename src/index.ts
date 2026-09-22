@@ -64,3 +64,15 @@ export {
 } from "./derivation/entrypointId.js";
 export type * from "./types/rpc.js";
 export { parseUnits, formatUnits, ParseUnitsError } from "./units.js";
+export {
+  contractAddress,
+  blockHeight,
+  sha256Hash,
+  networkHash,
+  gasAmount,
+  type ContractAddress,
+  type BlockHeight,
+  type SHA256Hash,
+  type NetworkHash,
+  type GasAmount,
+} from "@groundhogchain/protocol";

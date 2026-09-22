@@ -80,6 +80,14 @@ const client = await createGroundhogClient({
 });
 ```
 
+Common protocol types (`ContractAddress`, `BlockHeight`, `SHA256Hash`,
+`NetworkHash`, and `GasAmount`) and their constructors are available directly from
+`@groundhogchain/client`. These re-export the original protocol definitions.
+
+```ts
+import { gasAmount, type ContractAddress } from "@groundhogchain/client";
+```
+
 Generated contract bindings are exported separately:
 
 ```ts
