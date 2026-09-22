@@ -63,3 +63,4 @@ export {
   majorVersionFromSemver,
 } from "./derivation/entrypointId.js";
 export type * from "./types/rpc.js";
+export { parseUnits, formatUnits, ParseUnitsError } from "./units.js";

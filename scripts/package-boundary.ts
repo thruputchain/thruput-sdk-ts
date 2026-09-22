@@ -24,6 +24,9 @@ import {
   devWalletAdapter,
   localnet,
   mainnet,
+  parseUnits,
+  formatUnits,
+  ParseUnitsError,
 } from "@groundhogchain/client";
 import type { Transport } from "@groundhogchain/client/transport";
 import {
@@ -93,6 +96,14 @@ import {
   type ProviderWalletClient,
   type WalletAccount as LocalWalletAccount,
 } from "@groundhogchain/client/wallet";
+
+const units: bigint = parseUnits("12.05", 2);
+const formattedUnits: string = formatUnits(units, 2);
+const parseErrorCode: "malformed" | "precision" = new ParseUnitsError(
+  "precision",
+  2,
+).code;
+void [formattedUnits, parseErrorCode];
 
 async function typedExecutionBoundary(
   wallet: ProviderWalletClient,

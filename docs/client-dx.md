@@ -155,6 +155,20 @@ This is a coordinated SDK/codegen/client change. Rebuild contracts and regenerat
 bindings together: old scalar-topic artifacts emit hashes, and the ABI/event
 signature alone cannot distinguish the old and new encodings.
 
+## Exact amounts
+
+```ts
+import { parseUnits, formatUnits } from "@groundhogchain/client";
+
+const amount = parseUnits("12.05", 7); // 120500000n
+const display = formatUnits(amount, 7); // "12.05"
+```
+
+These helpers support signed values and 0–255 decimals without rounding. Parsing
+rejects whitespace, exponent notation, and excess fractional digits with a
+`ParseUnitsError` (`code: "malformed" | "precision"`). Trim or normalize form input
+explicitly. Check token positivity and ABI bounds separately.
+
 ## Release diagnostics
 
 For support reports, `client.getVersion()` preserves `releaseVersion` and
