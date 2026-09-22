@@ -13,6 +13,7 @@ const rawReceipt = {
   events: [],
   returnData: null,
   abortData: null,
+  gasUsed: 1234,
 };
 
 describe("waitForTransactionReceipt", () => {
@@ -84,6 +85,7 @@ describe("waitForTransactionReceipt", () => {
     expect(receipt.txHash).toEqual(txHash);
     expect(receipt.height).toBe(42n);
     expect(receipt.execResult).toBe(ExecResult.ExecResultOK);
+    expect(receipt.gasUsed).toBe(1234n);
   });
 
   it("returns committed execution failures for the caller to inspect", async () => {

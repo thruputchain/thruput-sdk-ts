@@ -192,6 +192,7 @@ export class MockTransport implements Transport {
     events: never[];
     returnData: null;
     abortData: null;
+    gasUsed: number;
   } | null {
     const txHash = params && params.length > 0 ? String(params[0]) : "";
     const tx = this.#transactions.get(txHash);
@@ -203,6 +204,7 @@ export class MockTransport implements Transport {
       events: [],
       returnData: null,
       abortData: null,
+      gasUsed: 0,
     };
   }
 

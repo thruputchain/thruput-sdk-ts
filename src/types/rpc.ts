@@ -257,6 +257,14 @@ export interface TransactionReceipt {
    *  reverted contract, or `null` for any other outcome and for
    *  older receipts that pre-date revert-data recording. */
   abortData: Uint8Array | null;
+
+  /** Gas the transaction consumed: the root frame, every frame it
+   *  invoked, and the pre-execution validation of attached contracts.
+   *  Equals the transaction's gas limit on an out-of-gas fault. The
+   *  figure is committed by consensus in the transaction's event log,
+   *  so every node reports the same value. `null` when the gateway
+   *  pre-dates gas reporting in receipts. */
+  gasUsed: bigint | null;
 }
 
 /** Event emitted by a contract invocation. */

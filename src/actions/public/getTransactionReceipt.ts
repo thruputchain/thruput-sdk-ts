@@ -19,6 +19,7 @@ interface RawTransactionReceipt {
   events: unknown[];
   returnData?: string | null;
   abortData?: string | null;
+  gasUsed?: number | string | null;
 }
 
 const execStatusToResult: Record<string, ExecResult> = {
@@ -92,6 +93,24 @@ function parseOptionalBytes(
   return fromHex0x(value);
 }
 
+function parseGasUsed(value: unknown): bigint | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value === "number") {
+    if (!Number.isInteger(value) || value < 0) {
+      throw new InvalidTransactionReceiptError(
+        "Invalid transaction receipt response: expected gasUsed to be a non-negative integer",
+      );
+    }
+    return BigInt(value);
+  }
+  if (typeof value === "string" && /^\d+$/.test(value)) {
+    return BigInt(value);
+  }
+  throw new InvalidTransactionReceiptError(
+    "Invalid transaction receipt response: expected gasUsed to be a non-negative integer",
+  );
+}
+
 function parseHeight(value: unknown): bigint {
   if (
     (typeof value !== "number" && typeof value !== "string") ||
@@ -147,6 +166,7 @@ export async function getTransactionReceipt(
       events: receipt.events.map(parseEmittedEvent),
       returnData: parseOptionalBytes(receipt.returnData),
       abortData: parseOptionalBytes(receipt.abortData),
+      gasUsed: parseGasUsed(receipt.gasUsed),
     };
   } catch (cause) {
     if (cause instanceof InvalidTransactionReceiptError) throw cause;

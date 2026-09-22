@@ -22,7 +22,10 @@ import { getNetworkInfo } from "./public/getNetworkInfo.js";
 import { getBalance } from "./public/getBalance.js";
 import { getBlockByNumber } from "./public/getBlockByNumber.js";
 import { getPendingTransactionCount } from "./public/getPendingTransactionCount.js";
-import { getTransactionReceipt } from "./public/getTransactionReceipt.js";
+import {
+  getTransactionReceipt,
+  InvalidTransactionReceiptError,
+} from "./public/getTransactionReceipt.js";
 import { getTransactionStatus } from "./public/getTransactionStatus.js";
 import { getTransactionsByAddress } from "./public/getTransactionsByAddress.js";
 import { getEvents } from "./public/getEvents.js";
@@ -494,6 +497,69 @@ describe("getTransactionReceipt", () => {
         data: new Uint8Array([0x03, 0x04]),
       },
     ]);
+  });
+
+  it("parses gasUsed as a bigint", async () => {
+    const txHash = hashFromHex("0x" + "aa".repeat(32));
+    const receiptFor = (gasUsed: unknown) => {
+      const transport: Transport = {
+        async request<T>(): Promise<T> {
+          return {
+            txHash: "0x" + "aa".repeat(32),
+            height: 42,
+            status: { result: "ok" },
+            events: [],
+            gasUsed,
+          } as T;
+        },
+      };
+      return getTransactionReceipt(transport, txHash);
+    };
+
+    expect((await receiptFor(4242))?.gasUsed).toBe(4242n);
+    expect((await receiptFor(0))?.gasUsed).toBe(0n);
+    expect((await receiptFor("18446744073709551615"))?.gasUsed).toBe(
+      18446744073709551615n,
+    );
+  });
+
+  it("reports null gasUsed for receipts from gateways that pre-date gas reporting", async () => {
+    const txHash = hashFromHex("0x" + "aa".repeat(32));
+    for (const gasUsed of [undefined, null]) {
+      const transport: Transport = {
+        async request<T>(): Promise<T> {
+          return {
+            txHash: "0x" + "aa".repeat(32),
+            height: 42,
+            status: { result: "ok" },
+            events: [],
+            ...(gasUsed === undefined ? {} : { gasUsed }),
+          } as T;
+        },
+      };
+      const receipt = await getTransactionReceipt(transport, txHash);
+      expect(receipt?.gasUsed).toBeNull();
+    }
+  });
+
+  it("rejects a malformed gasUsed", async () => {
+    const txHash = hashFromHex("0x" + "aa".repeat(32));
+    for (const gasUsed of [-1, 1.5, "abc", "-1", true, {}]) {
+      const transport: Transport = {
+        async request<T>(): Promise<T> {
+          return {
+            txHash: "0x" + "aa".repeat(32),
+            height: 42,
+            status: { result: "ok" },
+            events: [],
+            gasUsed,
+          } as T;
+        },
+      };
+      await expect(getTransactionReceipt(transport, txHash)).rejects.toThrow(
+        InvalidTransactionReceiptError,
+      );
+    }
   });
 
   it("rejects an event topic that is not exactly 32 bytes", async () => {

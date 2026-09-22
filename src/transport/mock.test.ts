@@ -50,11 +50,13 @@ describe("MockTransport", () => {
       events: unknown[];
       returnData: null;
       abortData: null;
+      gasUsed: number;
     }>("groundhog_getTransactionReceipt", [hash]);
     expect(receipt).not.toBeNull();
     expect(receipt!.txHash).toBe(hash);
     expect(receipt!.status.result).toBe("ok");
     expect(receipt!.events).toEqual([]);
+    expect(receipt!.gasUsed).toBe(0);
   });
 
   it("returns null receipt for unknown transaction", async () => {
