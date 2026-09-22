@@ -219,12 +219,14 @@ export type ContractViewOptions<TArgs> = {
   client: Pick<GroundhogClient, "view">;
   contract: ContractAddress;
   caller?: ContractAddress;
+  /** Cancel this read without affecting other requests on the same client. */
+  signal?: AbortSignal;
 } & ([TArgs] extends [void] ? { args?: never } : { args: TArgs });
 
 /** Inputs to a typed, unsubmitted contract call. */
 export type ContractCallOptions<TArgs> = Omit<
   ContractViewOptions<TArgs>,
-  "client" | "caller"
+  "client" | "caller" | "signal"
 > & { gasLimit: GasAmount };
 
 /** An invocation retaining its return and exception decoders. */
@@ -439,12 +441,16 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
     },
 
     async viewOutcome(options) {
-      const response = await options.client.view({
-        contract: options.contract,
-        entrypoint: copyEntrypoint(entrypoint),
-        calldata: encode("args" in options ? options.args : undefined),
-        ...(options.caller ? { caller: options.caller } : {}),
-      });
+      options.signal?.throwIfAborted();
+      const response = await options.client.view(
+        {
+          contract: options.contract,
+          entrypoint: copyEntrypoint(entrypoint),
+          calldata: encode("args" in options ? options.args : undefined),
+          ...(options.caller ? { caller: options.caller } : {}),
+        },
+        options.signal ? { signal: options.signal } : undefined,
+      );
 
       switch (response.output.result) {
         case "return":

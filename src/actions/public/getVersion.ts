@@ -1,9 +1,20 @@
-import type { Transport } from "../../transport/types.js";
+import type {
+  Transport,
+  TransportRequestOptions,
+} from "../../transport/types.js";
 import type { VersionInfo } from "../../types/rpc.js";
 
 /** Return the gateway implementation and wire-format version. */
-export async function getVersion(transport: Transport): Promise<VersionInfo> {
-  const result = await transport.request<unknown>("groundhog_version");
+export async function getVersion(
+  transport: Transport,
+  options?: TransportRequestOptions,
+): Promise<VersionInfo> {
+  options?.signal?.throwIfAborted();
+  const result = await transport.request<unknown>(
+    "groundhog_version",
+    undefined,
+    options,
+  );
   if (!result || typeof result !== "object" || Array.isArray(result)) {
     throw new Error("Invalid version response");
   }

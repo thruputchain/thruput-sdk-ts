@@ -114,6 +114,7 @@ export async function getTransactionReceipt(
   txHash: SHA256Hash,
   options?: TransportRequestOptions,
 ): Promise<TransactionReceipt | null> {
+  options?.signal?.throwIfAborted();
   const requestedHash = toHex0x(txHash);
   const result = await transport.request<unknown>(
     "groundhog_getTransactionReceipt",

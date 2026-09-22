@@ -103,6 +103,15 @@ The factory owns its address derivation and initialization semantics.
 
 ## Bound reads
 
+Public read methods accept `{ signal }` as their final request-options argument.
+Generated and bound `.view()` / `.viewOutcome()` methods accept `signal` alongside
+their arguments. Cancelling a read leaves other requests on the client running.
+
+```ts
+const controller = new AbortController();
+await client.getEvents(query, { signal: controller.signal });
+```
+
 ```ts
 import { getContract } from "@groundhogchain/client/contract";
 

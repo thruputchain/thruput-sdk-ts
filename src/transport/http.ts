@@ -120,6 +120,7 @@ export class HttpTransport implements Transport {
     params?: unknown[],
     options: TransportRequestOptions = {},
   ): Promise<T> {
+    options.signal?.throwIfAborted();
     const id = this.#nextId++;
     const body = JSON.stringify({
       jsonrpc: "2.0",

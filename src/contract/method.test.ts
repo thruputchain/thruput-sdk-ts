@@ -396,12 +396,15 @@ describe("contract method views", () => {
         args: { first: -2n, second: 5n },
       }),
     ).resolves.toEqual({ kind: "return", value: -8n, height: 12n, events });
-    expect(client.view).toHaveBeenCalledWith({
-      contract,
-      entrypoint,
-      caller,
-      calldata: expect.any(Uint8Array),
-    });
+    expect(client.view).toHaveBeenCalledWith(
+      {
+        contract,
+        entrypoint,
+        caller,
+        calldata: expect.any(Uint8Array),
+      },
+      undefined,
+    );
   });
 
   it("the ergonomic view resolves successful return metadata", async () => {

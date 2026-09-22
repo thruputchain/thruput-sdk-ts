@@ -1,5 +1,8 @@
 import type { ContractAddress } from "@groundhogchain/protocol";
-import type { Transport } from "../../transport/types.js";
+import type {
+  Transport,
+  TransportRequestOptions,
+} from "../../transport/types.js";
 import type { StorageItemInfo, StorageItemRead } from "../../types/rpc.js";
 import { fromHex0x, hashFromHex, toHex0x } from "../hex.js";
 
@@ -18,7 +21,9 @@ export async function getStorageAt(
   transport: Transport,
   address: ContractAddress,
   key: Uint8Array,
+  options?: TransportRequestOptions,
 ): Promise<StorageItemRead> {
+  options?.signal?.throwIfAborted();
   // Mirror the server-side rpc-server validation so callers see a
   // typed error before the request leaves the client.
   if (key.length !== 32) {
@@ -26,10 +31,11 @@ export async function getStorageAt(
       `getStorageAt: storage key must be exactly 32 bytes, got ${key.length}`,
     );
   }
-  const result = await transport.request<unknown>("groundhog_getStorageAt", [
-    toHex0x(address),
-    toHex0x(key),
-  ]);
+  const result = await transport.request<unknown>(
+    "groundhog_getStorageAt",
+    [toHex0x(address), toHex0x(key)],
+    options,
+  );
 
   if (!result || typeof result !== "object" || Array.isArray(result)) {
     throw new Error("Invalid storage response");
