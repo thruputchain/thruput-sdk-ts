@@ -5,10 +5,12 @@ import { once } from "node:events";
 import openrpcSpec from "../../specs/openrpc.json";
 import {
   GroundhogRpcErrorCode,
+  HttpRequestError,
   HttpResponseError,
   HttpTransport,
   JsonRpcError,
 } from "./http.js";
+import { classifyReadError } from "./readError.js";
 
 function documentedErrorCodes() {
   const errors = openrpcSpec.components.errors as Record<
@@ -242,6 +244,46 @@ describe("HttpTransport", () => {
       ).rejects.toMatchObject({ name: "TimeoutError" });
       expect(receivedHeaders).toBe(true);
     });
+  });
+
+  it("classifies a connection dropped during the body read as transient", async () => {
+    const server = createServer((request, response) => {
+      request.resume();
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.write('{"jsonrpc":"2.0","result":');
+    });
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    try {
+      const address = server.address();
+      if (!address || typeof address === "string")
+        throw new Error("Expected a TCP listener");
+      const transport = new HttpTransport(
+        `http://127.0.0.1:${address.port}/private-token?key=secret`,
+        {
+          fetch: async (input, init) => {
+            const response = await fetch(input, init);
+            server.closeAllConnections();
+            return response;
+          },
+        },
+      );
+      const result = transport.request("groundhog_version");
+      await expect(result).rejects.toBeInstanceOf(HttpRequestError);
+      await expect(result).rejects.toMatchObject({
+        endpoint: `http://127.0.0.1:${address.port}`,
+        method: "groundhog_version",
+        cause: expect.any(TypeError),
+      });
+      await result.catch((error: unknown) => {
+        expect(classifyReadError(error)).toBe("transient");
+      });
+    } finally {
+      const closed = once(server, "close");
+      server.close();
+      server.closeAllConnections();
+      await closed;
+    }
   });
 
   it("preserves caller cancellation while reading the body", async () => {

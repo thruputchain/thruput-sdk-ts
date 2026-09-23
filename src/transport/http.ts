@@ -171,7 +171,20 @@ export class HttpTransport implements Transport {
           method,
         );
       }
-      json = await response.json();
+      try {
+        json = await response.json();
+      } catch (cause) {
+        // Fetch reports interrupted body reads as TypeError; JSON syntax errors
+        // must retain their original type and must not trigger retries.
+        if (
+          typeof cause === "object" &&
+          cause !== null &&
+          "name" in cause &&
+          cause.name === "TypeError"
+        )
+          throw new HttpRequestError(new URL(this.#url).origin, method, cause);
+        throw cause;
+      }
     } catch (cause) {
       // Body reads can reject with AbortError rather than the supplied reason.
       if (signal?.aborted) throw signal.reason;
