@@ -77,7 +77,7 @@ export interface HttpTransportOptions {
   /** Custom `fetch` implementation, useful for tests or non-standard runtimes. */
   fetch?: typeof fetch;
 
-  /** Abort each request with a TimeoutError after this many milliseconds. */
+  /** Abort the request, including response-body reading, with a TimeoutError after this many milliseconds. */
   timeoutMs?: number;
 }
 
@@ -141,38 +141,45 @@ export class HttpTransport implements Transport {
           this.#timeoutMs,
         )
       : undefined;
-    let response: Response;
+    let json: unknown;
     try {
-      response = await this.#fetch(this.#url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...this.#headers },
-        body,
-        signal,
-      });
+      let response: Response;
+      try {
+        response = await this.#fetch(this.#url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...this.#headers },
+          body,
+          signal,
+        });
+      } catch (cause) {
+        // A custom fetch may compose its own lifecycle signal outside this transport.
+        if (
+          typeof cause === "object" &&
+          cause !== null &&
+          "name" in cause &&
+          (cause.name === "AbortError" || cause.name === "TimeoutError")
+        )
+          throw cause;
+        throw new HttpRequestError(new URL(this.#url).origin, method, cause);
+      }
+
+      if (!response.ok) {
+        throw new HttpResponseError(
+          response.status,
+          response.statusText,
+          new URL(this.#url).origin,
+          method,
+        );
+      }
+      json = await response.json();
     } catch (cause) {
+      // Body reads can reject with AbortError rather than the supplied reason.
       if (signal?.aborted) throw signal.reason;
-      // A custom fetch may compose its own lifecycle signal outside this transport.
-      if (
-        typeof cause === "object" &&
-        cause !== null &&
-        "name" in cause &&
-        (cause.name === "AbortError" || cause.name === "TimeoutError")
-      )
-        throw cause;
-      throw new HttpRequestError(new URL(this.#url).origin, method, cause);
+      throw cause;
     } finally {
       if (timeout !== undefined) clearTimeout(timeout);
     }
 
-    if (!response.ok) {
-      throw new HttpResponseError(
-        response.status,
-        response.statusText,
-        new URL(this.#url).origin,
-        method,
-      );
-    }
-    const json = await response.json();
     if (!json || typeof json !== "object" || Array.isArray(json)) {
       throw new Error("Invalid JSON-RPC response");
     }
