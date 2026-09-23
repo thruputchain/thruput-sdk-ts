@@ -24,6 +24,35 @@ import {
   devWalletAdapter,
   localnet,
   mainnet,
+  parseUnits,
+  formatUnits,
+  ParseUnitsError,
+  contractAddress,
+  blockHeight,
+  sha256Hash,
+  networkHash,
+  gasAmount,
+  contractEntrypointID,
+  calldata,
+  timePoint,
+  invokeFlagSet,
+  InvokeFlag,
+  ExecResult,
+  getContract,
+  classifyReadError,
+  type ReadErrorKind,
+  type ContractAddress,
+  type GasAmount,
+  type NetworkHash,
+  type BlockHeight,
+  type SHA256Hash,
+  type ContractEntrypointID,
+  type Calldata,
+  type TimePoint,
+  type InvokeFlagSet,
+  type Invocation,
+  type Transaction,
+  type SignedTransaction,
 } from "@groundhogchain/client";
 import type { Transport } from "@groundhogchain/client/transport";
 import {
@@ -46,20 +75,13 @@ import {
 } from "@groundhogchain/client/contracts";
 import type {
   ERC20TransferArgs,
+  DefaultWalletExecuteArgs,
   ERC20TransferEventFilter,
   ERC20BurnEventFilter,
   ERC20MintEventFilter,
   WalletCall,
 } from "@groundhogchain/client/contracts";
-import type {
-  ContractAddress,
-  GasAmount,
-  Invocation,
-  Transaction,
-  BitMap,
-  Weight,
-  NetworkHash,
-} from "@groundhogchain/protocol";
+import type { BitMap, Weight } from "@groundhogchain/protocol";
 import type { Signer } from "@groundhogchain/client/signers";
 import {
   SignedOp,
@@ -94,16 +116,100 @@ import {
   type WalletAccount as LocalWalletAccount,
 } from "@groundhogchain/client/wallet";
 
+const units: bigint = parseUnits("12.05", 2);
+const primitiveValues: [
+  ContractAddress,
+  BlockHeight,
+  SHA256Hash,
+  NetworkHash,
+  GasAmount,
+  ContractEntrypointID,
+  Calldata,
+  TimePoint,
+  InvokeFlagSet,
+] = [
+  contractAddress(new Uint8Array(32)),
+  blockHeight(1n),
+  sha256Hash(new Uint8Array(32)),
+  networkHash(sha256Hash(new Uint8Array(32))),
+  gasAmount(1n),
+  contractEntrypointID(new Uint8Array(8)),
+  calldata(new Uint8Array()),
+  timePoint(1n),
+  invokeFlagSet(BigInt(InvokeFlag.ReadOnly)),
+];
+const protocolValues: [
+  import("@groundhogchain/protocol").ContractAddress,
+  import("@groundhogchain/protocol").BlockHeight,
+  import("@groundhogchain/protocol").SHA256Hash,
+  import("@groundhogchain/protocol").NetworkHash,
+  import("@groundhogchain/protocol").GasAmount,
+  import("@groundhogchain/protocol").ContractEntrypointID,
+  import("@groundhogchain/protocol").Calldata,
+  import("@groundhogchain/protocol").TimePoint,
+  import("@groundhogchain/protocol").InvokeFlagSet,
+] = primitiveValues;
+const clientValues: typeof primitiveValues = protocolValues;
+void clientValues;
+
+function transactionTypeIdentity(
+  values: [Invocation, Transaction, SignedTransaction, ExecResult],
+) {
+  const protocolTypes: [
+    import("@groundhogchain/protocol").Invocation,
+    import("@groundhogchain/protocol").Transaction,
+    import("@groundhogchain/protocol").SignedTransaction,
+    import("@groundhogchain/protocol").ExecResult,
+  ] = values;
+  const clientTypes: typeof values = protocolTypes;
+  return clientTypes;
+}
+void transactionTypeIdentity;
+const executionResult: import("@groundhogchain/protocol").ExecResult =
+  ExecResult.ExecResultOK;
+void executionResult;
+const readErrorKind: ReadErrorKind = classifyReadError(
+  new Error("unknown failure"),
+);
+void readErrorKind;
+const formattedUnits: string = formatUnits(units, 2);
+const parseErrorCode: "malformed" | "precision" = new ParseUnitsError(
+  "precision",
+  2,
+).code;
+void [formattedUnits, parseErrorCode];
+
 async function typedExecutionBoundary(
   wallet: ProviderWalletClient,
   address: ContractAddress,
   gas: GasAmount,
+  client: GroundhogClient,
 ) {
   const transfer = ERC20.transfer.call({
     contract: address,
     gasLimit: gas,
     args: { receiver: address, amount: 1n },
   });
+  const transferArgs: ERC20TransferArgs = ERC20.transfer.decodeArgs(
+    transfer.invocation.calldata,
+  );
+  const walletArgs: DefaultWalletExecuteArgs = DefaultWallet.execute.decodeArgs(
+    DefaultWallet.execute.invocation(address, gas, { calls: [] }).calldata,
+  );
+  const noArgs: void = ERC20.getBalance.decodeArgs(new Uint8Array());
+  void [transferArgs, walletArgs, noArgs];
+  const token = getContract({ binding: ERC20, address, client });
+  const boundArgs: ERC20TransferArgs = token.transfer.decodeArgs(
+    transfer.invocation.calldata,
+  );
+  token.transfer.call({
+    gasLimit: gas,
+    // @ts-expect-error Binding an address must preserve bigint argument types.
+    args: { receiver: address, amount: "1" },
+  });
+  // @ts-expect-error Decoded arguments must retain their original types.
+  const invalidAmount: string = boundArgs.amount;
+  void invalidAmount;
   const balance = ERC20.getBalanceOf.call({
     contract: address,
     gasLimit: gas,

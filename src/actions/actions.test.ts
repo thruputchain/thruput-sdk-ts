@@ -149,6 +149,8 @@ describe("getVersion", () => {
       implementation: "mock",
       commitHash: null,
       platformVersion: null,
+      releaseVersion: null,
+      bundleManifestDigest: null,
     });
   });
 });

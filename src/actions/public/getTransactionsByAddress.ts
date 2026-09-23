@@ -1,4 +1,7 @@
-import type { Transport } from "../../transport/types.js";
+import type {
+  Transport,
+  TransportRequestOptions,
+} from "../../transport/types.js";
 import type {
   AddressTransactionQuery,
   TransactionRef,
@@ -65,10 +68,13 @@ function parseTransactionRef(value: unknown): TransactionRef {
 export async function getTransactionsByAddress(
   transport: Transport,
   query: AddressTransactionQuery,
+  options?: TransportRequestOptions,
 ): Promise<TransactionRefPage> {
+  options?.signal?.throwIfAborted();
   const raw = await transport.request<unknown>(
     "groundhog_getTransactionsByAddress",
     [serializeQuery(query)],
+    options,
   );
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     throw new Error("Invalid transaction refs response");

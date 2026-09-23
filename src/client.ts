@@ -60,22 +60,30 @@ import { sendTransaction } from "./actions/wallet/sendTransaction.js";
  */
 export interface CoreGroundhogClient {
   /** Return the immutable identity configured for the RPC endpoint. */
-  getNetworkInfo(): Promise<NetworkInfo>;
+  getNetworkInfo(options?: TransportRequestOptions): Promise<NetworkInfo>;
 
   /** Return the latest block height and hash reported by the gateway. */
-  getChainTip(): Promise<ChainTip>;
+  getChainTip(options?: TransportRequestOptions): Promise<ChainTip>;
 
   /** Return the HOG balance for a contract address. */
-  getBalance(address: ContractAddress): Promise<BalanceResponse>;
+  getBalance(
+    address: ContractAddress,
+    options?: TransportRequestOptions,
+  ): Promise<BalanceResponse>;
 
   /** Return block metadata for a height, or `null` when the block is unknown. */
-  getBlockByNumber(height: bigint): Promise<BlockInfo | null>;
+  getBlockByNumber(
+    height: bigint,
+    options?: TransportRequestOptions,
+  ): Promise<BlockInfo | null>;
 
   /** Return the number of transactions currently pending in the mempool. */
-  getPendingTransactionCount(): Promise<bigint>;
+  getPendingTransactionCount(
+    options?: TransportRequestOptions,
+  ): Promise<bigint>;
 
   /** Return the gateway implementation and wire-format version. */
-  getVersion(): Promise<VersionInfo>;
+  getVersion(options?: TransportRequestOptions): Promise<VersionInfo>;
 
   /** Execute a read-only contract invocation without submitting a transaction. */
   view(
@@ -84,10 +92,16 @@ export interface CoreGroundhogClient {
   ): Promise<ViewResponse>;
 
   /** Return a committed transaction receipt, or `null` when it is not found. */
-  getTransactionReceipt(txHash: SHA256Hash): Promise<TransactionReceipt | null>;
+  getTransactionReceipt(
+    txHash: SHA256Hash,
+    options?: TransportRequestOptions,
+  ): Promise<TransactionReceipt | null>;
 
   /** Return the gateway's current knowledge of a submitted transaction. */
-  getTransactionStatus(txHash: SHA256Hash): Promise<TransactionStatus>;
+  getTransactionStatus(
+    txHash: SHA256Hash,
+    options?: TransportRequestOptions,
+  ): Promise<TransactionStatus>;
 
   /**
    * Wait for a transaction to commit and return its receipt.
@@ -102,15 +116,20 @@ export interface CoreGroundhogClient {
   /** Query transaction refs whose root invocation targets one address. */
   getTransactionsByAddress(
     query: AddressTransactionQuery,
+    options?: TransportRequestOptions,
   ): Promise<TransactionRefPage>;
 
   /** Query emitted contract events with the gateway's paginated event API. */
-  getEvents(query: EventQuery): Promise<EventPage>;
+  getEvents(
+    query: EventQuery,
+    options?: TransportRequestOptions,
+  ): Promise<EventPage>;
 
   /** Read a committed storage item at a contract address and storage key. */
   getStorageAt(
     address: ContractAddress,
     key: Uint8Array,
+    options?: TransportRequestOptions,
   ): Promise<StorageItemRead>;
 
   /** Submit a signed transaction and return its transaction hash. */
@@ -134,21 +153,26 @@ export interface GroundhogClient extends CoreGroundhogClient, AirdropActions {}
 
 function createCoreGroundhogClient(transport: Transport): CoreGroundhogClient {
   return {
-    getNetworkInfo: () => getNetworkInfo(transport),
-    getChainTip: () => getChainTip(transport),
-    getBalance: (address) => getBalance(transport, address),
-    getBlockByNumber: (height) => getBlockByNumber(transport, height),
-    getPendingTransactionCount: () => getPendingTransactionCount(transport),
-    getVersion: () => getVersion(transport),
+    getNetworkInfo: (options) => getNetworkInfo(transport, options),
+    getChainTip: (options) => getChainTip(transport, options),
+    getBalance: (address, options) => getBalance(transport, address, options),
+    getBlockByNumber: (height, options) =>
+      getBlockByNumber(transport, height, options),
+    getPendingTransactionCount: (options) =>
+      getPendingTransactionCount(transport, options),
+    getVersion: (options) => getVersion(transport, options),
     view: (request, options) => view(transport, request, options),
-    getTransactionReceipt: (txHash) => getTransactionReceipt(transport, txHash),
-    getTransactionStatus: (txHash) => getTransactionStatus(transport, txHash),
+    getTransactionReceipt: (txHash, options) =>
+      getTransactionReceipt(transport, txHash, options),
+    getTransactionStatus: (txHash, options) =>
+      getTransactionStatus(transport, txHash, options),
     waitForTransactionReceipt: (txHash, options) =>
       waitForTransactionReceipt(transport, txHash, options),
-    getTransactionsByAddress: (query) =>
-      getTransactionsByAddress(transport, query),
-    getEvents: (query) => getEvents(transport, query),
-    getStorageAt: (address, key) => getStorageAt(transport, address, key),
+    getTransactionsByAddress: (query, options) =>
+      getTransactionsByAddress(transport, query, options),
+    getEvents: (query, options) => getEvents(transport, query, options),
+    getStorageAt: (address, key, options) =>
+      getStorageAt(transport, address, key, options),
     sendTransaction: (signedTx) => sendTransaction(transport, signedTx),
   };
 }

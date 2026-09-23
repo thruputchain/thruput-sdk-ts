@@ -4,6 +4,7 @@ import type { Transport } from "../../transport/types.js";
 import {
   GroundhogRpcErrorCode,
   HttpResponseError,
+  HttpRequestError,
   HttpTransport,
   JsonRpcError,
 } from "../../transport/http.js";
@@ -253,7 +254,12 @@ describe("requestAirdrop", () => {
     const transport: Transport = {
       async request<T>(_method: string, params?: unknown[]): Promise<T> {
         nonces.push((params?.[0] as { clientNonce: string }).clientNonce);
-        if (nonces.length === 1) throw new TypeError("fetch failed");
+        if (nonces.length === 1)
+          throw new HttpRequestError(
+            "https://rpc.example",
+            "groundhog_requestAirdrop",
+            new TypeError("fetch failed"),
+          );
         return succeeded as T;
       },
     };
@@ -316,7 +322,7 @@ describe("requestAirdrop", () => {
     },
   );
 
-  it.each([408, 500, 502, 503, 504])(
+  it.each([408, 429, 500, 502, 503, 504])(
     "retries ambiguous HTTP status %i",
     async (status) => {
       vi.useFakeTimers();

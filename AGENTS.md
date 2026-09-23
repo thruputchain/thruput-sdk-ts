@@ -14,6 +14,7 @@
 - Focused tests: `npm test -- src/actions/actions.test.ts` or `npm test -- src/actions/actions.test.ts -t "getEvents"`.
 - `tsdown.config.ts` builds ESM, CJS, source maps, and declarations for every package entrypoint.
 - There is no lint script; formatting is Prettier via `npm run format` / `npm run format:check`.
+- `docs/` is generated TypeDoc output only. Put API documentation in source TSDoc and short onboarding guidance in `README.md`; do not add hand-written guides under `docs/`.
 
 ## Architecture
 

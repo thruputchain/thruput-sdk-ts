@@ -73,6 +73,7 @@ export async function view(
   request: ViewRequest,
   options?: TransportRequestOptions,
 ): Promise<ViewResponse> {
+  options?.signal?.throwIfAborted();
   if (request.entrypoint.length !== 8) {
     throw new Error(
       `view: entrypoint must be exactly 8 bytes, got ${request.entrypoint.length}`,

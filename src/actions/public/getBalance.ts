@@ -1,5 +1,8 @@
 import type { ContractAddress } from "@groundhogchain/protocol";
-import type { Transport } from "../../transport/types.js";
+import type {
+  Transport,
+  TransportRequestOptions,
+} from "../../transport/types.js";
 import type { BalanceResponse } from "../../types/rpc.js";
 import { addressFromHex, toHex0x } from "../hex.js";
 
@@ -18,10 +21,14 @@ interface RawBalanceResponse {
 export async function getBalance(
   transport: Transport,
   address: ContractAddress,
+  options?: TransportRequestOptions,
 ): Promise<BalanceResponse> {
-  const result = await transport.request<unknown>("groundhog_getBalance", [
-    toHex0x(address),
-  ]);
+  options?.signal?.throwIfAborted();
+  const result = await transport.request<unknown>(
+    "groundhog_getBalance",
+    [toHex0x(address)],
+    options,
+  );
 
   if (!result || typeof result !== "object" || Array.isArray(result)) {
     throw new Error("Invalid balance response");

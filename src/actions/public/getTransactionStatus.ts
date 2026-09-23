@@ -60,6 +60,7 @@ export async function getTransactionStatus(
   txHash: SHA256Hash,
   options?: TransportRequestOptions,
 ): Promise<TransactionStatus> {
+  options?.signal?.throwIfAborted();
   const raw = await transport.request<unknown>(
     "groundhog_getTransactionStatus",
     [toHex0x(txHash)],

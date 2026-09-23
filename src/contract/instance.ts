@@ -25,9 +25,15 @@ export type ContractInstance<T> = {
     : never;
 };
 
-/** Bind a generated interface to an address and public client; preserve view heights and events. */
+/**
+ * Bind a generated interface to an address and public client.
+ * Views preserve heights and events and accept per-read cancellation signals.
+ * Independent views may use different heights or lag a newly indexed receipt;
+ * applications must check freshness for coherent multi-read results.
+ */
 export function getContract<
-  T extends Record<string, ContractMethod<never, unknown, unknown>>,
+  // The binding contains different argument types; ContractInstance preserves each one.
+  T extends Record<string, ContractMethod<any, unknown, unknown>>,
 >(options: {
   binding: T;
   address: ContractAddress;

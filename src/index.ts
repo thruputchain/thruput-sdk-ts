@@ -27,8 +27,9 @@ export {
   HttpTransport,
   JsonRpcError,
   MockTransport,
+  classifyReadError,
 } from "./transport/index.js";
-export type { HttpTransportOptions } from "./transport/index.js";
+export type { HttpTransportOptions, ReadErrorKind } from "./transport/index.js";
 export type { Signer } from "./signers/index.js";
 export { PrivateKeySigner } from "./signers/index.js";
 export { createGroundhogClient } from "./client.js";
@@ -63,3 +64,29 @@ export {
   majorVersionFromSemver,
 } from "./derivation/entrypointId.js";
 export type * from "./types/rpc.js";
+export { parseUnits, formatUnits, ParseUnitsError } from "./units.js";
+export {
+  contractAddress,
+  blockHeight,
+  sha256Hash,
+  networkHash,
+  gasAmount,
+  contractEntrypointID,
+  calldata,
+  timePoint,
+  invokeFlagSet,
+  InvokeFlag,
+  ExecResult,
+  type ContractAddress,
+  type BlockHeight,
+  type SHA256Hash,
+  type NetworkHash,
+  type GasAmount,
+  type ContractEntrypointID,
+  type Calldata,
+  type TimePoint,
+  type InvokeFlagSet,
+  type Invocation,
+  type Transaction,
+  type SignedTransaction,
+} from "@groundhogchain/protocol";

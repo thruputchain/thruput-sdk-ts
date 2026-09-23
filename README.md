@@ -80,6 +80,17 @@ const client = await createGroundhogClient({
 });
 ```
 
+Common protocol types and constructors are available directly from
+`@groundhogchain/client`: addresses, hashes, block heights, gas amounts,
+`ContractEntrypointID`, `Calldata`, `TimePoint`, and `InvokeFlagSet`. The client also
+exports `Invocation`, `Transaction`, `SignedTransaction`, `InvokeFlag`, and
+`ExecResult`. These are the original protocol definitions; the full protocol and
+XDR API remains available from `@groundhogchain/protocol`.
+
+```ts
+import { gasAmount, type ContractAddress } from "@groundhogchain/client";
+```
+
 Generated contract bindings are exported separately:
 
 ```ts
@@ -165,6 +176,12 @@ comes from a cluster-validated client's `networkHash`.
 When binding an unqualified client, pass an explicit `networkHash` to
 `createWalletClient`.
 
+Choose a workload-specific root gas budget: it reserves scheduling capacity
+against the sender's free HOG even though gas is not burned. New storage also
+needs HOG deposits at the address that owns it. See
+[gas and storage funding](#gas-and-storage-funding) before copying
+budgets or sending a small first credit to a fresh address.
+
 Source-address accounts expose `execute` when configured with an adapter:
 
 ```ts
@@ -214,9 +231,38 @@ const customWalletAdapter = defineWalletInvocationAdapter({
 ```
 
 Wallet binding returns an independent object without changing the supplied public
-client. Multiple accounts can share one public client. See
-[contract transactions](docs/client-dx.md) for typed calls, receipt observation,
-provider persistence, gas budgeting, and deployment.
+client. Multiple accounts can share one public client. Use `executeAndWait` to
+require successful execution, or `executeCallsAndWait` to also decode ordered,
+typed child results. Provider-backed helpers require `onSigned` to persist signed
+evidence before broadcast. Generated API docs describe the full lifecycle.
+
+### Gas and storage funding
+
+Gas is not burned, but the declared root budget reserves scheduling capacity
+against the sender's free HOG. Funding a target contract's storage does not fund
+the sender's capacity. Use measured budgets for each workload; `walletGasLimit`
+sums explicit child budgets and a calibrated overhead, without estimating gas.
+
+A new native HOG balance item needs a deposit at the recipient address. A large
+enough first credit can fund it; a small credit can be excluded with
+`recentFailure` / `boundsExceeded`. The transfer example funds both accounts first
+because its 1,000-unit credit cannot cover a new balance item's deposit.
+
+The live funding test verifies an excluded 1,000-unit first credit, a successful
+100,000-unit first credit with a deposit deduction, and a later 1,000-unit credit
+without another balance-item deposit. It uses 500,000 child gas and 1,000,000 root
+gas. Verified locally with CLI 0.18.0, hog-devnode 0.1.28-rc.1, and protocol
+`hogp/63c9284d8d5727e`; storage costs depend on runtime configuration.
+
+The standard ERC20 binding uses `adjustAllowance` with `{ spender, diff }`, not `approve`.
+`diff` is signed: positive increases the allowance, negative reduces it. Reading
+the current allowance and submitting a delta cannot guarantee an exact target
+when concurrent transactions also change it.
+
+A receipt proves commitment; inspect its execution result. `invalid` reports
+rejection, while `recentFailure` is an advisory scheduling conflict. A timeout or
+cancellation stops observation without proving the outcome. Preserve signed
+evidence and resume observing the original hash instead of automatically re-signing.
 
 ## Signed operations
 
