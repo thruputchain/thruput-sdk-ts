@@ -80,9 +80,12 @@ const client = await createGroundhogClient({
 });
 ```
 
-Common protocol types (`ContractAddress`, `BlockHeight`, `SHA256Hash`,
-`NetworkHash`, and `GasAmount`) and their constructors are available directly from
-`@groundhogchain/client`. These re-export the original protocol definitions.
+Common protocol types and constructors are available directly from
+`@groundhogchain/client`: addresses, hashes, block heights, gas amounts,
+`ContractEntrypointID`, `Calldata`, `TimePoint`, and `InvokeFlagSet`. The client also
+exports `Invocation`, `Transaction`, `SignedTransaction`, `InvokeFlag`, and
+`ExecResult`. These are the original protocol definitions; the full protocol and
+XDR API remains available from `@groundhogchain/protocol`.
 
 ```ts
 import { gasAmount, type ContractAddress } from "@groundhogchain/client";

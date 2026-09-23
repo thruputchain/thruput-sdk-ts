@@ -32,6 +32,12 @@ import {
   sha256Hash,
   networkHash,
   gasAmount,
+  contractEntrypointID,
+  calldata,
+  timePoint,
+  invokeFlagSet,
+  InvokeFlag,
+  ExecResult,
   getContract,
   classifyReadError,
   type ReadErrorKind,
@@ -40,6 +46,13 @@ import {
   type NetworkHash,
   type BlockHeight,
   type SHA256Hash,
+  type ContractEntrypointID,
+  type Calldata,
+  type TimePoint,
+  type InvokeFlagSet,
+  type Invocation,
+  type Transaction,
+  type SignedTransaction,
 } from "@groundhogchain/client";
 import type { Transport } from "@groundhogchain/client/transport";
 import {
@@ -68,12 +81,7 @@ import type {
   ERC20MintEventFilter,
   WalletCall,
 } from "@groundhogchain/client/contracts";
-import type {
-  Invocation,
-  Transaction,
-  BitMap,
-  Weight,
-} from "@groundhogchain/protocol";
+import type { BitMap, Weight } from "@groundhogchain/protocol";
 import type { Signer } from "@groundhogchain/client/signers";
 import {
   SignedOp,
@@ -115,12 +123,20 @@ const primitiveValues: [
   SHA256Hash,
   NetworkHash,
   GasAmount,
+  ContractEntrypointID,
+  Calldata,
+  TimePoint,
+  InvokeFlagSet,
 ] = [
   contractAddress(new Uint8Array(32)),
   blockHeight(1n),
   sha256Hash(new Uint8Array(32)),
   networkHash(sha256Hash(new Uint8Array(32))),
   gasAmount(1n),
+  contractEntrypointID(new Uint8Array(8)),
+  calldata(new Uint8Array()),
+  timePoint(1n),
+  invokeFlagSet(BigInt(InvokeFlag.ReadOnly)),
 ];
 const protocolValues: [
   import("@groundhogchain/protocol").ContractAddress,
@@ -128,9 +144,30 @@ const protocolValues: [
   import("@groundhogchain/protocol").SHA256Hash,
   import("@groundhogchain/protocol").NetworkHash,
   import("@groundhogchain/protocol").GasAmount,
+  import("@groundhogchain/protocol").ContractEntrypointID,
+  import("@groundhogchain/protocol").Calldata,
+  import("@groundhogchain/protocol").TimePoint,
+  import("@groundhogchain/protocol").InvokeFlagSet,
 ] = primitiveValues;
 const clientValues: typeof primitiveValues = protocolValues;
 void clientValues;
+
+function transactionTypeIdentity(
+  values: [Invocation, Transaction, SignedTransaction, ExecResult],
+) {
+  const protocolTypes: [
+    import("@groundhogchain/protocol").Invocation,
+    import("@groundhogchain/protocol").Transaction,
+    import("@groundhogchain/protocol").SignedTransaction,
+    import("@groundhogchain/protocol").ExecResult,
+  ] = values;
+  const clientTypes: typeof values = protocolTypes;
+  return clientTypes;
+}
+void transactionTypeIdentity;
+const executionResult: import("@groundhogchain/protocol").ExecResult =
+  ExecResult.ExecResultOK;
+void executionResult;
 const readErrorKind: ReadErrorKind = classifyReadError(
   new Error("unknown failure"),
 );
