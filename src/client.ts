@@ -46,6 +46,12 @@ import {
 } from "./actions/public/waitForTransactionReceipt.js";
 import { getTransactionsByAddress } from "./actions/public/getTransactionsByAddress.js";
 import { getEvents } from "./actions/public/getEvents.js";
+import {
+  getContractEvents,
+  type ContractEventQuery,
+  type ContractEventPage,
+} from "./actions/public/getContractEvents.js";
+import { iterateEventPages } from "./actions/public/iterateEventPages.js";
 import { getStorageAt } from "./actions/public/getStorageAt.js";
 import { getVersion } from "./actions/public/getVersion.js";
 import { view } from "./actions/public/view.js";
@@ -125,6 +131,18 @@ export interface CoreGroundhogClient {
     options?: TransportRequestOptions,
   ): Promise<EventPage>;
 
+  /** Fetch one page of decoded events using a generated descriptor. */
+  getContractEvents<TName extends string, TTopics, TFields, TFilter>(
+    query: ContractEventQuery<TName, TTopics, TFields, TFilter>,
+    options?: TransportRequestOptions,
+  ): Promise<ContractEventPage<TName, TTopics, TFields>>;
+
+  /** Walk event pages lazily; stops at an empty cursor without polling or retrying. */
+  iterateEventPages(
+    query: EventQuery,
+    options?: TransportRequestOptions,
+  ): AsyncGenerator<EventPage, void, unknown>;
+
   /** Read a committed storage item at a contract address and storage key. */
   getStorageAt(
     address: ContractAddress,
@@ -171,6 +189,10 @@ function createCoreGroundhogClient(transport: Transport): CoreGroundhogClient {
     getTransactionsByAddress: (query, options) =>
       getTransactionsByAddress(transport, query, options),
     getEvents: (query, options) => getEvents(transport, query, options),
+    getContractEvents: (query, options) =>
+      getContractEvents(transport, query, options),
+    iterateEventPages: (query, options) =>
+      iterateEventPages(transport, query, options),
     getStorageAt: (address, key, options) =>
       getStorageAt(transport, address, key, options),
     sendTransaction: (signedTx) => sendTransaction(transport, signedTx),

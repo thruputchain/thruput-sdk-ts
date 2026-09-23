@@ -58,6 +58,10 @@ import {
 } from "@groundhogchain/client";
 import type { Transport } from "@groundhogchain/client/transport";
 import {
+  getContractEvents,
+  iterateEventPages,
+} from "@groundhogchain/client/actions";
+import {
   ContractDecodeError,
   defineContractMethod,
   fixedBytes,
@@ -117,6 +121,55 @@ import {
   type ProviderWalletClient,
   type WalletAccount as LocalWalletAccount,
 } from "@groundhogchain/client/wallet";
+
+async function eventPagesBoundary(
+  client: GroundhogClient,
+  transport: Transport,
+  address: ContractAddress,
+  signal: AbortSignal,
+) {
+  const query = {
+    event: ERC20TransferEvent,
+    contractAddresses: [address],
+    topics: { to: address },
+    limit: 20,
+  };
+  const page = await client.getContractEvents(query, { signal });
+  const directPage: typeof page = await getContractEvents(transport, query, {
+    signal,
+  });
+  const amount: bigint = page.events[0]!.fields.amount;
+  const receiver: ContractAddress = page.events[0]!.topics.to;
+  const name: "TransferEvent" = page.events[0]!.name;
+  const height: bigint = page.events[0]!.blockHeight;
+  const rawQuery = {
+    filters: [ERC20TransferEvent.filter(query)],
+    cursor: page.cursor,
+  };
+  const pages: AsyncIterable<import("@groundhogchain/client").EventPage> =
+    client.iterateEventPages(rawQuery, { signal });
+  const directPages: typeof pages = iterateEventPages(transport, rawQuery, {
+    signal,
+  });
+  await client.getContractEvents({
+    ...query,
+    // @ts-expect-error Topic names come from the selected descriptor.
+    topics: { missing: address },
+  });
+  await client.getContractEvents({
+    ...query,
+    // @ts-expect-error Address topics cannot be bigint values.
+    topics: { to: 1n },
+  });
+  const mint = await client.getContractEvents({
+    event: ERC20MintEvent,
+    contractAddresses: [address],
+  });
+  // @ts-expect-error Mint events have no from topic.
+  mint.events[0]!.topics.from;
+  void [directPage, amount, receiver, name, height, directPages];
+}
+void eventPagesBoundary;
 
 const units: bigint = parseUnits("12.05", 2);
 const batchOptions: HttpBatchOptions = { maxSize: 100, waitMs: 0 };

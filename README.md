@@ -128,6 +128,48 @@ const transfer = ERC20.transfer.invocation(tokenAddress, gasLimit, {
 });
 ```
 
+### Event pages
+
+Use a generated event descriptor to fetch one page with typed topics and fields:
+
+```ts
+import { ERC20TransferEvent } from "@groundhogchain/client/contracts";
+
+const page = await client.getContractEvents({
+  event: ERC20TransferEvent,
+  contractAddresses: [tokenAddress],
+  topics: { to: accountAddress },
+  limit: 20,
+});
+
+for (const transfer of page.events) {
+  console.log(transfer.txHash, transfer.blockHeight, transfer.fields.amount);
+}
+```
+
+This makes one RPC request. Pass `page.cursor` with the same filters when the user
+requests another page. The result retains `latestBlock`, `oldestBlock`, and each
+event's emitter and sequence number. Existing generated bindings work unchanged.
+
+For a background scan, the raw-page iterator handles cursor advancement:
+
+```ts
+const query = {
+  filters: [ERC20TransferEvent.filter({ contractAddresses: [tokenAddress] })],
+  limit: 200,
+};
+for await (const page of client.iterateEventPages(query, { signal })) {
+  await processPage(page);
+  if (shouldPause()) break;
+}
+```
+
+The iterator fetches on demand, follows empty pages with continuation cursors,
+and stops at an empty cursor. It rejects repeated cursors and propagates RPC
+errors. It does not prefetch, retry, subscribe, or persist checkpoints. Applications
+own processing and history-coverage checks; `latestBlock` is the indexer's head,
+not proof that the current page has covered every event through that block.
+
 Node.js applications targeting `groundhog node` can load a deterministic local
 signer from its active runtime manifest:
 

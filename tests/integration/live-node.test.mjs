@@ -242,6 +242,83 @@ test("built SDK against a real local node", { timeout }, async (t) => {
   );
 
   await t.test(
+    "reads typed event pages and lazily follows a real continuation cursor",
+    async () => {
+      assert.ok(transfer, "requires the transfer subtest to have passed");
+      const { sender, recipient, amount, hash, receipt } = transfer;
+      const wallet = createWalletClient({ client, account: sender });
+      const secondAmount = 2_000n;
+      const second = await wallet.executeAndWait(
+        {
+          invocation: ERC20.transfer.invocation(
+            HOG_ADDRESS,
+            gasAmount(500_000n),
+            {
+              receiver: recipient.address,
+              amount: secondAmount,
+            },
+          ),
+          gasLimit: gasAmount(1_000_000n),
+        },
+        { timeoutMs: receiptTimeoutMs },
+      );
+      const query = {
+        event: ERC20TransferEvent,
+        contractAddresses: [HOG_ADDRESS],
+        topics: { from: sender.address },
+        order: "ascending",
+        anchor: { height: receipt.height },
+        limit: 1,
+      };
+      const deadline = Date.now() + eventsTimeoutMs;
+      let first;
+      for (;;) {
+        first = await client.getContractEvents(query);
+        if (first.latestBlock >= second.receipt.height) break;
+        assert.ok(
+          Date.now() < deadline,
+          "event indexer did not reach the second transfer",
+        );
+        await sleep(250);
+      }
+      assert.equal(first.events.length, 1);
+      assert.equal(first.events[0].fields.amount, amount);
+      assert.deepEqual(first.events[0].txHash, hash);
+      assert.deepEqual(first.events[0].contractAddress, HOG_ADDRESS);
+      assert.deepEqual(first.events[0].topics.to, recipient.address);
+      assert.ok(
+        first.cursor.length > 0,
+        "limit: 1 should return a continuation cursor",
+      );
+      const next = await client.getContractEvents({
+        ...query,
+        cursor: first.cursor,
+      });
+      assert.equal(next.events.length, 1);
+      assert.equal(next.events[0].fields.amount, secondAmount);
+      assert.deepEqual(next.events[0].txHash, second.txHash);
+
+      const found = [];
+      let pageCount = 0;
+      for await (const page of client.iterateEventPages({
+        filters: [ERC20TransferEvent.filter(query)],
+        order: query.order,
+        anchor: query.anchor,
+        limit: 1,
+      })) {
+        pageCount++;
+        assert.ok(page.events.length <= 1);
+        found.push(...page.events);
+      }
+      assert.ok(pageCount >= 2);
+      assert.deepEqual(
+        found.map((event) => event.txHash),
+        [hash, second.txHash],
+      );
+    },
+  );
+
+  await t.test(
     "prefunds and deploys a contract, then decodes and filters its scalar event",
     async () => {
       const sender = createPubkeyAccount({
