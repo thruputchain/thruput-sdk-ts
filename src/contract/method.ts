@@ -477,15 +477,15 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
 
     async viewOutcome(options) {
       options.signal?.throwIfAborted();
-      const response = await options.client.view(
-        {
-          contract: options.contract,
-          entrypoint: copyEntrypoint(entrypoint),
-          calldata: encode("args" in options ? options.args : undefined),
-          ...(options.caller ? { caller: options.caller } : {}),
-        },
-        options.signal ? { signal: options.signal } : undefined,
-      );
+      const request = {
+        contract: options.contract,
+        entrypoint: copyEntrypoint(entrypoint),
+        calldata: encode("args" in options ? options.args : undefined),
+        ...(options.caller ? { caller: options.caller } : {}),
+      };
+      const response = await (options.signal
+        ? options.client.view(request, { signal: options.signal })
+        : options.client.view(request));
 
       switch (response.output.result) {
         case "return":
