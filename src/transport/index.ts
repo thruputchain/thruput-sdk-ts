@@ -14,6 +14,6 @@ export {
   HttpTransport,
   JsonRpcError,
 } from "./http.js";
-export type { HttpTransportOptions } from "./http.js";
+export type { HttpTransportOptions, HttpBatchOptions } from "./http.js";
 export { MockTransport } from "./mock.js";
 export { classifyReadError, type ReadErrorKind } from "./readError.js";
