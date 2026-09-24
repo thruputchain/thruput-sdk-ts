@@ -32,9 +32,7 @@ export function buildNamedCodecs(
         codecs[specIdKey(structDef.name)] = {
           encode(w, val: unknown) {
             if (!val || typeof val !== "object" || Array.isArray(val)) {
-              throw new TypeError(
-                `Expected object for struct "${structName}"`,
-              );
+              throw new TypeError(`Expected object for struct "${structName}"`);
             }
             const obj = val as Record<string, unknown>;
             for (const field of structDef.fields) {
@@ -68,11 +66,7 @@ export function buildNamedCodecs(
               );
             }
             const obj = val as { case?: unknown; value?: unknown };
-            const caseName = ownProperty(
-              obj,
-              "case",
-              `Union "${unionName}"`,
-            );
+            const caseName = ownProperty(obj, "case", `Union "${unionName}"`);
             const caseSpec = unionDef.cases.find(
               (candidate) => candidate.name === caseName,
             );

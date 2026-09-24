@@ -52,12 +52,16 @@ const vectorFile = JSON.parse(readFileSync(vectorsPath, "utf-8")) as VectorFile;
 
 const s = contractSpecString;
 
-/** A spec id for a test type: one demo crate, so only the name varies. */
+// The id the Rust generator gives these types. The preimage commits to the
+// whole id, not just the declared name, so these segments are part of what is
+// signed -- they must match `groundhog-test-vectors` exactly or every
+// signed_message_hex below drifts. The vector JSON reports only `type_name`,
+// so they are mirrored here the same way the type definitions are.
 function specId(declared: string): ContractSpecId {
   return {
-    crate_name: s("demo"),
-    major: s("1"),
-    module_path: s("demo"),
+    crate_name: s("groundhog-test-vectors"),
+    major: s("0"),
+    module_path: s("groundhog_test_vectors::signed_op_vectors"),
     declared: s(declared),
   };
 }

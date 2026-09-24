@@ -277,7 +277,9 @@ function findTypeDef(
   // A bare name addresses the declared segment. It stays supported because it
   // is what every caller writes, but it is no longer guaranteed unique, so an
   // ambiguous one is reported rather than resolved to whichever came first.
-  const matches = typeDefs.filter((def) => typeDefId(def).declared === typeName);
+  const matches = typeDefs.filter(
+    (def) => typeDefId(def).declared === typeName,
+  );
   if (matches.length === 0) {
     throw new Error(
       `Contract type "${typeName}" is not defined in the given type definitions`,

@@ -77,7 +77,15 @@ export const spec: ContractSpec = {
       throws: [
         {
           selector: 0xeb2cf72be75a4c62n,
-          ty: { v: ContractTypeKind.Named, named: s("CounterError") },
+          ty: {
+            v: ContractTypeKind.Named,
+            named: {
+              crate_name: s("counter"),
+              major: s("0.1"),
+              module_path: s("counter::implementation"),
+              declared: s("CounterError"),
+            },
+          },
         },
       ],
       methods: [
@@ -118,14 +126,24 @@ export const spec: ContractSpec = {
     {
       v: ContractTypeDefKind.TypeDefEnum,
       enum_def: {
-        name: s("CounterError"),
+        name: {
+          crate_name: s("counter"),
+          major: s("0.1"),
+          module_path: s("counter::implementation"),
+          declared: s("CounterError"),
+        },
         variants: [{ name: s("NotAuthorized"), value: 1n }],
       },
     },
   ],
   events: [
     {
-      name: s("PingEvent"),
+      name: {
+        crate_name: s("counter"),
+        major: s("0.1"),
+        module_path: s("counter::implementation"),
+        declared: s("PingEvent"),
+      },
       signature: topic(
         fromHex(
           "f0c8fa264c489d9d6bc8796daa7d6ab408d76b37ef41b6d6d951e20f63d10f52",

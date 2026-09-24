@@ -67,7 +67,15 @@ export const spec: ContractSpec = {
           args: [
             {
               name: s("tree"),
-              ty: { v: ContractTypeKind.Named, named: s("Tree") },
+              ty: {
+                v: ContractTypeKind.Named,
+                named: {
+                  crate_name: s("recursive_type"),
+                  major: s("0.4"),
+                  module_path: s("recursive_type::implementation"),
+                  declared: s("Tree"),
+                },
+              },
             },
           ],
           return_type: { v: ContractTypeKind.U32 },
@@ -77,7 +85,15 @@ export const spec: ContractSpec = {
           args: [
             {
               name: s("forest"),
-              ty: { v: ContractTypeKind.Named, named: s("Forest") },
+              ty: {
+                v: ContractTypeKind.Named,
+                named: {
+                  crate_name: s("recursive_type"),
+                  major: s("0.4"),
+                  module_path: s("recursive_type::implementation"),
+                  declared: s("Forest"),
+                },
+              },
             },
           ],
           return_type: { v: ContractTypeKind.U32 },
@@ -94,14 +110,27 @@ export const spec: ContractSpec = {
     {
       v: ContractTypeDefKind.TypeDefStruct,
       struct_def: {
-        name: s("Forest"),
+        name: {
+          crate_name: s("recursive_type"),
+          major: s("0.4"),
+          module_path: s("recursive_type::implementation"),
+          declared: s("Forest"),
+        },
         fields: [
           {
             name: s("trees"),
             ty: {
               v: ContractTypeKind.Vector,
               vector: {
-                element: { v: ContractTypeKind.Named, named: s("Forest") },
+                element: {
+                  v: ContractTypeKind.Named,
+                  named: {
+                    crate_name: s("recursive_type"),
+                    major: s("0.4"),
+                    module_path: s("recursive_type::implementation"),
+                    declared: s("Forest"),
+                  },
+                },
                 max_len: 4294967295n,
               },
             },
@@ -113,21 +142,42 @@ export const spec: ContractSpec = {
     {
       v: ContractTypeDefKind.TypeDefStruct,
       struct_def: {
-        name: s("Tree"),
+        name: {
+          crate_name: s("recursive_type"),
+          major: s("0.4"),
+          module_path: s("recursive_type::implementation"),
+          declared: s("Tree"),
+        },
         fields: [
           { name: s("value"), ty: { v: ContractTypeKind.U32 } },
           {
             name: s("left"),
             ty: {
               v: ContractTypeKind.Option,
-              option_inner: { v: ContractTypeKind.Named, named: s("Tree") },
+              option_inner: {
+                v: ContractTypeKind.Named,
+                named: {
+                  crate_name: s("recursive_type"),
+                  major: s("0.4"),
+                  module_path: s("recursive_type::implementation"),
+                  declared: s("Tree"),
+                },
+              },
             },
           },
           {
             name: s("right"),
             ty: {
               v: ContractTypeKind.Option,
-              option_inner: { v: ContractTypeKind.Named, named: s("Tree") },
+              option_inner: {
+                v: ContractTypeKind.Named,
+                named: {
+                  crate_name: s("recursive_type"),
+                  major: s("0.4"),
+                  module_path: s("recursive_type::implementation"),
+                  declared: s("Tree"),
+                },
+              },
             },
           },
         ],

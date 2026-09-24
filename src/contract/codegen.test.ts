@@ -7,6 +7,7 @@ import {
   type ContractSpecId,
 } from "@groundhogchain/contract-spec";
 import type { ContractTypeDef } from "./spec.js";
+import { specIdKey } from "./specId.js";
 import { buildNamedCodecs } from "./codegen.js";
 
 const s = contractSpecString;
@@ -52,14 +53,20 @@ describe("buildNamedCodecs with recursive types", () => {
             name: s("left"),
             ty: {
               v: ContractTypeKind.Option,
-              option_inner: { v: ContractTypeKind.Named, named: specId("Tree") },
+              option_inner: {
+                v: ContractTypeKind.Named,
+                named: specId("Tree"),
+              },
             },
           },
           {
             name: s("right"),
             ty: {
               v: ContractTypeKind.Option,
-              option_inner: { v: ContractTypeKind.Named, named: specId("Tree") },
+              option_inner: {
+                v: ContractTypeKind.Named,
+                named: specId("Tree"),
+              },
             },
           },
         ],
@@ -69,7 +76,7 @@ describe("buildNamedCodecs with recursive types", () => {
 
   it("round-trips a Tree with nested children", () => {
     const codecs = buildNamedCodecs(typeDefs);
-    const treeCodec = codecs["Tree"];
+    const treeCodec = codecs[specIdKey(specId("Tree"))];
     assert.isDefined(treeCodec);
 
     const tree = {
@@ -96,7 +103,7 @@ describe("buildNamedCodecs with recursive types", () => {
 
   it("round-trips a leaf node (both children null)", () => {
     const codecs = buildNamedCodecs(typeDefs);
-    const treeCodec = codecs["Tree"];
+    const treeCodec = codecs[specIdKey(specId("Tree"))];
     assert.isDefined(treeCodec);
 
     const leaf = { value: 42n, left: null, right: null };
@@ -109,7 +116,7 @@ describe("buildNamedCodecs with recursive types", () => {
 
   it("round-trips a Forest with nested forests", () => {
     const codecs = buildNamedCodecs(typeDefs);
-    const forestCodec = codecs["Forest"];
+    const forestCodec = codecs[specIdKey(specId("Forest"))];
     assert.isDefined(forestCodec);
 
     const forest = {
@@ -131,7 +138,7 @@ describe("buildNamedCodecs with recursive types", () => {
 
   it("round-trips an empty Forest", () => {
     const codecs = buildNamedCodecs(typeDefs);
-    const forestCodec = codecs["Forest"];
+    const forestCodec = codecs[specIdKey(specId("Forest"))];
     assert.isDefined(forestCodec);
 
     const empty = { trees: [], label: 0n };

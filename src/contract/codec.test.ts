@@ -230,8 +230,11 @@ describe("contract codecs", () => {
 
   it("rejects inherited named-codec properties", () => {
     expect(() =>
-      resolveCodec({ v: ContractTypeKind.Named, named: specId("toString") }, {}),
-    ).toThrow('No codec for named type "toString"');
+      resolveCodec(
+        { v: ContractTypeKind.Named, named: specId("toString") },
+        {},
+      ),
+    ).toThrow('No codec for named type "demo::toString (demo@1)"');
   });
 
   it("rejects missing and explicitly undefined named codecs", () => {
@@ -240,10 +243,10 @@ describe("contract codecs", () => {
       named: specId("Missing"),
     };
     expect(() => resolveCodec(type, {})).toThrow(
-      'No codec for named type "Missing"',
+      'No codec for named type "demo::Missing (demo@1)"',
     );
     expect(() => resolveCodec(type, { Missing: undefined } as never)).toThrow(
-      'No codec for named type "Missing"',
+      'No codec for named type "demo::Missing (demo@1)"',
     );
   });
 
@@ -325,13 +328,13 @@ describe("signed enum and union codecs", () => {
 
   it("rejects undeclared enum values when encoding and decoding", () => {
     expect(() => signedEnum.encode(-8n)).toThrow(
-      'Unknown value -8 for enum "SignedEnum"',
+      'Unknown value -8 for enum "demo::SignedEnum (demo@1)"',
     );
 
     const writer = new CxsWriter();
     Int32Codec.encode(writer, -8n);
     expect(() => signedEnum.decode(writer.finish())).toThrow(
-      /Unknown value -8 for enum "SignedEnum"/,
+      /Unknown value -8 for enum "demo::SignedEnum \(demo@1\)"/,
     );
   });
 
@@ -346,13 +349,13 @@ describe("signed enum and union codecs", () => {
 
   it("rejects undeclared union cases and discriminants", () => {
     expect(() => signedUnion.encode({ case: "Missing" } as never)).toThrow(
-      'Unknown case Missing for union "SignedUnion"',
+      'Unknown case Missing for union "demo::SignedUnion (demo@1)"',
     );
 
     const writer = new CxsWriter();
     writer.writeInt32(-4n);
     expect(() => signedUnion.decode(writer.finish())).toThrow(
-      /Unknown discriminant -4 for union "SignedUnion"/,
+      /Unknown discriminant -4 for union "demo::SignedUnion \(demo@1\)"/,
     );
   });
 });

@@ -15,6 +15,7 @@ import {
   type ContractSpecId,
 } from "@groundhogchain/contract-spec";
 import type { ContractSpec, ContractTypeDef } from "./spec.js";
+import { specIdKey } from "./specId.js";
 import { encodeCalldata, decodeCalldata } from "./encode.js";
 import { buildNamedCodecs } from "./codegen.js";
 
@@ -442,9 +443,9 @@ describe("buildNamedCodecs", () => {
   it("generates a working codec for an enum type", () => {
     const codecs = buildNamedCodecs(erc20Spec.type_defs);
 
-    expect(codecs["ERC20Error"]).toBeDefined();
+    expect(codecs[specIdKey(specId("ERC20Error"))]).toBeDefined();
 
-    const enumCodec = codecs["ERC20Error"];
+    const enumCodec = codecs[specIdKey(specId("ERC20Error"))];
     assert.isDefined(enumCodec);
     const w = new CxsWriter();
     enumCodec.encode(w, 3n);
@@ -471,12 +472,12 @@ describe("buildNamedCodecs", () => {
     ];
 
     const codecs = buildNamedCodecs(typeDefs);
-    const structCodec = codecs["TokenInfo"];
+    const structCodec = codecs[specIdKey(specId("TokenInfo"))];
     assert.isDefined(structCodec);
 
     for (const invalid of [undefined, null, 1, "value", []]) {
       expect(() => structCodec.encode(new CxsWriter(), invalid)).toThrow(
-        'Expected object for struct "TokenInfo"',
+        'Expected object for struct "demo::TokenInfo (demo@1)"',
       );
     }
 
@@ -485,7 +486,7 @@ describe("buildNamedCodecs", () => {
     const inherited = Object.create(original) as typeof original;
 
     expect(() => structCodec.encode(new CxsWriter(), inherited)).toThrow(
-      'Struct "TokenInfo" requires own property "owner"',
+      'Struct "demo::TokenInfo (demo@1)" requires own property "owner"',
     );
 
     const w = new CxsWriter();
@@ -514,7 +515,9 @@ describe("buildNamedCodecs", () => {
     value.__proto__ = 7n;
     const writer = new CxsWriter();
 
-    const codec = codecs.__proto__;
+    // Keyed by the whole id, so a type declared `__proto__` can no longer
+    // land on that property name at all -- the key is a JSON array string.
+    const codec = codecs[specIdKey(specId("__proto__"))];
     assert.isDefined(codec);
     codec.encode(writer, value);
     const decoded = codec.decode(new CxsReader(writer.finish())) as Record<
@@ -564,7 +567,7 @@ describe("buildNamedCodecs", () => {
     ];
 
     const codecs = buildNamedCodecs(typeDefs);
-    const unionCodec = codecs["Result"];
+    const unionCodec = codecs[specIdKey(specId("Result"))];
     assert.isDefined(unionCodec);
 
     // Test tuple case
@@ -593,7 +596,7 @@ describe("buildNamedCodecs", () => {
 
     const inheritedCase = Object.create(okVal) as typeof okVal;
     expect(() => unionCodec.encode(new CxsWriter(), inheritedCase)).toThrow(
-      'Union "Result" requires own property "case"',
+      'Union "demo::Result (demo@1)" requires own property "case"',
     );
 
     const inheritedTuple = Array<bigint>(1);
