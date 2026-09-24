@@ -14,6 +14,8 @@ import type {
 } from "@groundhogchain/client";
 import {
   createGroundhogClient,
+  HttpTransport,
+  type HttpBatchOptions,
   createPubkeyAccount,
   createSourceAddressAccount,
   createWalletClient,
@@ -117,6 +119,15 @@ import {
 } from "@groundhogchain/client/wallet";
 
 const units: bigint = parseUnits("12.05", 2);
+const batchOptions: HttpBatchOptions = { maxSize: 100, waitMs: 0 };
+const subpathBatchOptions: import("@groundhogchain/client/transport").HttpBatchOptions =
+  batchOptions;
+const batchedTransport: Transport = new HttpTransport("https://rpc.example", {
+  batch: subpathBatchOptions,
+});
+const batchedResult: Promise<string> =
+  batchedTransport.request<string>("example");
+void batchedResult;
 const primitiveValues: [
   ContractAddress,
   BlockHeight,

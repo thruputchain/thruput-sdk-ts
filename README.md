@@ -30,6 +30,26 @@ const tip = await client.getChainTip();
 const txHash = await client.sendTransaction(signedTransaction);
 ```
 
+Enable HTTP batching to group concurrent calls into one JSON-RPC array:
+
+```ts
+const client = await createGroundhogClient({
+  transport: new HttpTransport("https://rpc.example.com", {
+    batch: true, // defaults to { maxSize: 100, waitMs: 0 }
+  }),
+});
+
+const [tip, version] = await Promise.all([
+  client.getChainTip(),
+  client.getVersion(),
+]);
+```
+
+Batching is opt-in and requires an endpoint that accepts JSON-RPC arrays.
+It reduces HTTP requests but does not guarantee a shared snapshot, execution
+order, or atomicity. Await dependent calls separately. See `HttpTransportOptions`
+in the API reference for timeout, cancellation, and error behavior.
+
 Pass a cluster to fetch the endpoint's network identity during connection and
 verify it against the cluster's `networkHash`, if supplied:
 

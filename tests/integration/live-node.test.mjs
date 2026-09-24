@@ -73,6 +73,43 @@ test("built SDK against a real local node", { timeout }, async (t) => {
     },
   );
 
+  await t.test("batches independent reads over one HTTP request", async () => {
+    const bodies = [];
+    const batchedTransport = new HttpTransport(rpcUrl, {
+      batch: true,
+      timeoutMs: rpcTimeoutMs,
+      fetch: async (input, init) => {
+        bodies.push(JSON.parse(init.body));
+        return fetch(input, init);
+      },
+    });
+    const batchedClient = await createGroundhogClient({
+      transport: batchedTransport,
+    });
+    const hash = `0x${"00".repeat(32)}`;
+    const [version, tip, missing, duplicate, invalid] =
+      await Promise.allSettled([
+        batchedClient.getVersion(),
+        batchedClient.getChainTip(),
+        batchedTransport.request("groundhog_getTransactionReceipt", [hash]),
+        batchedTransport.request("groundhog_getTransactionReceipt", [hash]),
+        batchedTransport.request("groundhog_getTransactionReceipt", [
+          "bad-hash",
+        ]),
+      ]);
+    assert.equal(bodies.length, 1);
+    assert.equal(bodies[0].length, 5);
+    assert.equal(version.status, "fulfilled");
+    assert.deepEqual(version.value, await client.getVersion());
+    assert.equal(tip.status, "fulfilled");
+    assert.equal(typeof tip.value.height, "bigint");
+    assert.deepEqual(missing, { status: "fulfilled", value: null });
+    assert.deepEqual(duplicate, missing);
+    assert.equal(invalid.status, "rejected");
+    assert.ok(invalid.reason instanceof JsonRpcError);
+    assert.equal(invalid.reason.code, GroundhogRpcErrorCode.InvalidParams);
+  });
+
   await t.test(
     "funds pubkey wallets, transfers HOG, and decodes receipt, event, and view",
     async () => {
