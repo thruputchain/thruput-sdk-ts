@@ -27,7 +27,7 @@ import {
   FixedArrayCodec,
 } from "@groundhogchain/protocol";
 import type { ContractType, ContractSpec, ContractSpecMethod } from "./spec.js";
-import { ContractTypeKind } from "./spec.js";
+import { ContractTypeKind, formatSpecId, specIdKey } from "./spec.js";
 import { ContractDecodeError } from "./errors.js";
 import { SignedTokenCodec } from "./signedToken.js";
 
@@ -297,12 +297,13 @@ function resolveUncachedCodec(
       } as XdrCodec<unknown>;
     }
     case ContractTypeKind.Named: {
+      const key = specIdKey(ty.named);
       const codec =
-        namedCodecs && Object.hasOwn(namedCodecs, ty.named)
-          ? namedCodecs[ty.named]
+        namedCodecs && Object.hasOwn(namedCodecs, key)
+          ? namedCodecs[key]
           : undefined;
       if (codec === undefined) {
-        throw new Error(`No codec for named type "${ty.named}".`);
+        throw new Error(`No codec for named type "${formatSpecId(ty.named)}".`);
       }
       return codec;
     }

@@ -73,7 +73,15 @@ export const spec: ContractSpec = {
       throws: [
         {
           selector: 0x931d3297d37d1bdfn,
-          ty: { v: ContractTypeKind.Named, named: s("WalletError") },
+          ty: {
+            v: ContractTypeKind.Named,
+            named: {
+              crate_name: s("default_wallet"),
+              major: s("0.1"),
+              module_path: s("default_wallet::interface"),
+              declared: s("WalletError"),
+            },
+          },
         },
       ],
       methods: [
@@ -107,7 +115,12 @@ export const spec: ContractSpec = {
                 vector: {
                   element: {
                     v: ContractTypeKind.Named,
-                    named: s("WalletCall"),
+                    named: {
+                      crate_name: s("default_wallet"),
+                      major: s("0.1"),
+                      module_path: s("default_wallet::interface"),
+                      declared: s("WalletCall"),
+                    },
                   },
                   max_len: 4294967295n,
                 },
@@ -135,7 +148,12 @@ export const spec: ContractSpec = {
     {
       v: ContractTypeDefKind.TypeDefStruct,
       struct_def: {
-        name: s("WalletCall"),
+        name: {
+          crate_name: s("default_wallet"),
+          major: s("0.1"),
+          module_path: s("default_wallet::interface"),
+          declared: s("WalletCall"),
+        },
         fields: [
           { name: s("target"), ty: { v: ContractTypeKind.Address } },
           {
@@ -162,7 +180,12 @@ export const spec: ContractSpec = {
     {
       v: ContractTypeDefKind.TypeDefEnum,
       enum_def: {
-        name: s("WalletError"),
+        name: {
+          crate_name: s("default_wallet"),
+          major: s("0.1"),
+          module_path: s("default_wallet::interface"),
+          declared: s("WalletError"),
+        },
         variants: [
           { name: s("NotRootInvocation"), value: 1n },
           { name: s("InvalidAuthClaim"), value: 2n },

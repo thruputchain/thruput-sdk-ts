@@ -20,6 +20,7 @@ import {
   contractSpecString,
   ContractTypeKind,
   ContractTypeDefKind,
+  type ContractSpecId,
 } from "@groundhogchain/contract-spec";
 import { PrivateKeySigner } from "./signers/privateKey.js";
 import { createInvocation, createTransaction } from "./transaction/build.js";
@@ -36,6 +37,16 @@ import { MockTransport } from "./transport/mock.js";
 import { createGroundhogClient } from "./client.js";
 import { ERC20 } from "./contracts/erc20.js";
 
+/** A spec id for a type declared at the root of a `fixture` crate. */
+function specId(declared: string): ContractSpecId {
+  return {
+    crate_name: contractSpecString("fixture"),
+    major: contractSpecString("0.1"),
+    module_path: contractSpecString("fixture"),
+    declared: contractSpecString(declared),
+  };
+}
+
 const s = contractSpecString;
 
 const erc20Spec: ContractSpec = {
@@ -46,7 +57,7 @@ const erc20Spec: ContractSpec = {
       throws: [
         {
           selector: 0xb19947acb2fa14ffn,
-          ty: { v: ContractTypeKind.Named, named: s("ERC20Error") },
+          ty: { v: ContractTypeKind.Named, named: specId("ERC20Error") },
         },
       ],
       methods: [
@@ -65,7 +76,7 @@ const erc20Spec: ContractSpec = {
     {
       v: ContractTypeDefKind.TypeDefEnum,
       enum_def: {
-        name: s("ERC20Error"),
+        name: specId("ERC20Error"),
         variants: [
           { name: s("AlreadyInitialized"), value: 1n },
           { name: s("MustBeContractOwner"), value: 2n },

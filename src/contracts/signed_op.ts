@@ -1,4 +1,4 @@
-// Generated from signed_op.spec.xdr - SignedOp interface v0.1.22
+// Generated from signed_op.spec.xdr - SignedOp interface v0.1.36
 // DO NOT EDIT. Re-run codegen to update.
 
 import { contractEntrypointID } from "@groundhogchain/protocol";
@@ -59,11 +59,19 @@ export const spec: ContractSpec = {
   interfaces: [
     {
       name: s("SignedOp"),
-      vers: s("0.1.22"),
+      vers: s("0.1.36"),
       throws: [
         {
           selector: 0x65f3de61c8178163n,
-          ty: { v: ContractTypeKind.Named, named: s("SignedOpError") },
+          ty: {
+            v: ContractTypeKind.Named,
+            named: {
+              crate_name: s("groundhog-signed-op-if"),
+              major: s("0.1"),
+              module_path: s("groundhog_signed_op_if::error"),
+              declared: s("SignedOpError"),
+            },
+          },
         },
       ],
       methods: [
@@ -72,7 +80,15 @@ export const spec: ContractSpec = {
           args: [
             {
               name: s("op"),
-              ty: { v: ContractTypeKind.Named, named: s("Operation") },
+              ty: {
+                v: ContractTypeKind.Named,
+                named: {
+                  crate_name: s("groundhog-signed-op-if"),
+                  major: s("0.1"),
+                  module_path: s("groundhog_signed_op_if"),
+                  declared: s("Operation"),
+                },
+              },
             },
             {
               name: s("signature"),
@@ -94,7 +110,12 @@ export const spec: ContractSpec = {
     {
       v: ContractTypeDefKind.TypeDefStruct,
       struct_def: {
-        name: s("Operation"),
+        name: {
+          crate_name: s("groundhog-signed-op-if"),
+          major: s("0.1"),
+          module_path: s("groundhog_signed_op_if"),
+          declared: s("Operation"),
+        },
         fields: [
           { name: s("block_expiry_height"), ty: { v: ContractTypeKind.I64 } },
           { name: s("nonce"), ty: { v: ContractTypeKind.U64 } },
@@ -114,7 +135,12 @@ export const spec: ContractSpec = {
     {
       v: ContractTypeDefKind.TypeDefEnum,
       enum_def: {
-        name: s("SignedOpError"),
+        name: {
+          crate_name: s("groundhog-signed-op-if"),
+          major: s("0.1"),
+          module_path: s("groundhog_signed_op_if::error"),
+          declared: s("SignedOpError"),
+        },
         variants: [
           { name: s("InvalidSignature"), value: 1n },
           { name: s("Expired"), value: 2n },
@@ -137,7 +163,7 @@ export const SignedOp = {
     SignedOpDeclaredException
   >({
     interfaceName: "SignedOp",
-    interfaceVersion: "0.1.22",
+    interfaceVersion: "0.1.36",
     abiName: "execute_signed_op",
     publicName: "executeSignedOp",
     entrypoint: entrypoints.SignedOp.executeSignedOp,

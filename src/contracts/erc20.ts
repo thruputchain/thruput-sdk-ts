@@ -1,5 +1,5 @@
-// Generated from erc20.spec.xdr - ERC20 interface v0.1.24
-// Generated from erc20.spec.xdr - ERC20Metadata interface v0.1.24
+// Generated from erc20.spec.xdr - ERC20 interface v0.1.36
+// Generated from erc20.spec.xdr - ERC20Metadata interface v0.1.36
 // DO NOT EDIT. Re-run codegen to update.
 
 import type { ContractAddress } from "@groundhogchain/protocol";
@@ -138,11 +138,19 @@ export const spec: ContractSpec = {
   interfaces: [
     {
       name: s("ERC20"),
-      vers: s("0.1.24"),
+      vers: s("0.1.36"),
       throws: [
         {
           selector: 0xb19947acb2fa14ffn,
-          ty: { v: ContractTypeKind.Named, named: s("ERC20Error") },
+          ty: {
+            v: ContractTypeKind.Named,
+            named: {
+              crate_name: s("groundhog-erc20-if"),
+              major: s("0.1"),
+              module_path: s("groundhog_erc20_if::error"),
+              declared: s("ERC20Error"),
+            },
+          },
         },
       ],
       methods: [
@@ -221,7 +229,7 @@ export const spec: ContractSpec = {
     },
     {
       name: s("ERC20Metadata"),
-      vers: s("0.1.24"),
+      vers: s("0.1.36"),
       throws: [],
       methods: [
         {
@@ -283,7 +291,12 @@ export const spec: ContractSpec = {
     {
       v: ContractTypeDefKind.TypeDefEnum,
       enum_def: {
-        name: s("ERC20Error"),
+        name: {
+          crate_name: s("groundhog-erc20-if"),
+          major: s("0.1"),
+          module_path: s("groundhog_erc20_if::error"),
+          declared: s("ERC20Error"),
+        },
         variants: [
           { name: s("AlreadyInitialized"), value: 1n },
           { name: s("MustBeContractOwner"), value: 2n },
@@ -295,7 +308,12 @@ export const spec: ContractSpec = {
   ],
   events: [
     {
-      name: s("ApprovalEvent"),
+      name: {
+        crate_name: s("groundhog-erc20-if"),
+        major: s("0.1"),
+        module_path: s("groundhog_erc20_if::events"),
+        declared: s("ApprovalEvent"),
+      },
       signature: topic(
         fromHex(
           "296f450df2d1160d2c84d8e9e1361b46906b8497e3f8fbaeb9a1c2740294c6ef",
@@ -308,7 +326,12 @@ export const spec: ContractSpec = {
       fields: [{ name: s("difference"), ty: { v: ContractTypeKind.I128 } }],
     },
     {
-      name: s("BurnEvent"),
+      name: {
+        crate_name: s("groundhog-erc20-if"),
+        major: s("0.1"),
+        module_path: s("groundhog_erc20_if::events"),
+        declared: s("BurnEvent"),
+      },
       signature: topic(
         fromHex(
           "513f00645e2752c8b6273adbbd6b0dae498cf7c4028751e05c7d8900fb4182c5",
@@ -318,7 +341,12 @@ export const spec: ContractSpec = {
       fields: [{ name: s("amount"), ty: { v: ContractTypeKind.I128 } }],
     },
     {
-      name: s("MintEvent"),
+      name: {
+        crate_name: s("groundhog-erc20-if"),
+        major: s("0.1"),
+        module_path: s("groundhog_erc20_if::events"),
+        declared: s("MintEvent"),
+      },
       signature: topic(
         fromHex(
           "10c4493b678f7f00f19a3bbf4fa153186a2d1f4cf328a495718af7679fa54ea4",
@@ -328,7 +356,12 @@ export const spec: ContractSpec = {
       fields: [{ name: s("amount"), ty: { v: ContractTypeKind.I128 } }],
     },
     {
-      name: s("TransferEvent"),
+      name: {
+        crate_name: s("groundhog-erc20-if"),
+        major: s("0.1"),
+        module_path: s("groundhog_erc20_if::events"),
+        declared: s("TransferEvent"),
+      },
       signature: topic(
         fromHex(
           "5ff62377bf52711e75461f4d8f9b4585f17d1c20f7e1eceb280194a7764bae5f",
@@ -352,7 +385,7 @@ export const ERC20 = {
     ERC20DeclaredException
   >({
     interfaceName: "ERC20",
-    interfaceVersion: "0.1.24",
+    interfaceVersion: "0.1.36",
     abiName: "adjust_allowance",
     publicName: "adjustAllowance",
     entrypoint: entrypoints.ERC20.adjustAllowance,
@@ -384,7 +417,7 @@ export const ERC20 = {
     ERC20DeclaredException
   >({
     interfaceName: "ERC20",
-    interfaceVersion: "0.1.24",
+    interfaceVersion: "0.1.36",
     abiName: "allowance",
     publicName: "allowance",
     entrypoint: entrypoints.ERC20.allowance,
@@ -416,7 +449,7 @@ export const ERC20 = {
     ERC20DeclaredException
   >({
     interfaceName: "ERC20",
-    interfaceVersion: "0.1.24",
+    interfaceVersion: "0.1.36",
     abiName: "burn",
     publicName: "burn",
     entrypoint: entrypoints.ERC20.burn,
@@ -448,7 +481,7 @@ export const ERC20 = {
     ERC20DeclaredException
   >({
     interfaceName: "ERC20",
-    interfaceVersion: "0.1.24",
+    interfaceVersion: "0.1.36",
     abiName: "get_balance",
     publicName: "getBalance",
     entrypoint: entrypoints.ERC20.getBalance,
@@ -469,7 +502,7 @@ export const ERC20 = {
     ERC20DeclaredException
   >({
     interfaceName: "ERC20",
-    interfaceVersion: "0.1.24",
+    interfaceVersion: "0.1.36",
     abiName: "get_balance_of",
     publicName: "getBalanceOf",
     entrypoint: entrypoints.ERC20.getBalanceOf,
@@ -496,7 +529,7 @@ export const ERC20 = {
     ERC20DeclaredException
   >({
     interfaceName: "ERC20",
-    interfaceVersion: "0.1.24",
+    interfaceVersion: "0.1.36",
     abiName: "initialize",
     publicName: "initialize",
     entrypoint: entrypoints.ERC20.initialize,
@@ -523,7 +556,7 @@ export const ERC20 = {
     ERC20DeclaredException
   >({
     interfaceName: "ERC20",
-    interfaceVersion: "0.1.24",
+    interfaceVersion: "0.1.36",
     abiName: "mint",
     publicName: "mint",
     entrypoint: entrypoints.ERC20.mint,
@@ -555,7 +588,7 @@ export const ERC20 = {
     ERC20DeclaredException
   >({
     interfaceName: "ERC20",
-    interfaceVersion: "0.1.24",
+    interfaceVersion: "0.1.36",
     abiName: "total_supply",
     publicName: "totalSupply",
     entrypoint: entrypoints.ERC20.totalSupply,
@@ -576,7 +609,7 @@ export const ERC20 = {
     ERC20DeclaredException
   >({
     interfaceName: "ERC20",
-    interfaceVersion: "0.1.24",
+    interfaceVersion: "0.1.36",
     abiName: "transfer",
     publicName: "transfer",
     entrypoint: entrypoints.ERC20.transfer,
@@ -608,7 +641,7 @@ export const ERC20 = {
     ERC20DeclaredException
   >({
     interfaceName: "ERC20",
-    interfaceVersion: "0.1.24",
+    interfaceVersion: "0.1.36",
     abiName: "transfer_from",
     publicName: "transferFrom",
     entrypoint: entrypoints.ERC20.transferFrom,
@@ -648,7 +681,7 @@ export const ERC20Metadata = {
     ERC20MetadataDeclaredException
   >({
     interfaceName: "ERC20Metadata",
-    interfaceVersion: "0.1.24",
+    interfaceVersion: "0.1.36",
     abiName: "decimals",
     publicName: "decimals",
     entrypoint: entrypoints.ERC20Metadata.decimals,
@@ -663,7 +696,7 @@ export const ERC20Metadata = {
     ERC20MetadataDeclaredException
   >({
     interfaceName: "ERC20Metadata",
-    interfaceVersion: "0.1.24",
+    interfaceVersion: "0.1.36",
     abiName: "initialize",
     publicName: "initialize",
     entrypoint: entrypoints.ERC20Metadata.initialize,
@@ -699,7 +732,7 @@ export const ERC20Metadata = {
     ERC20MetadataDeclaredException
   >({
     interfaceName: "ERC20Metadata",
-    interfaceVersion: "0.1.24",
+    interfaceVersion: "0.1.36",
     abiName: "name",
     publicName: "name",
     entrypoint: entrypoints.ERC20Metadata.name,
@@ -714,7 +747,7 @@ export const ERC20Metadata = {
     ERC20MetadataDeclaredException
   >({
     interfaceName: "ERC20Metadata",
-    interfaceVersion: "0.1.24",
+    interfaceVersion: "0.1.36",
     abiName: "symbol",
     publicName: "symbol",
     entrypoint: entrypoints.ERC20Metadata.symbol,

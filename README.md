@@ -307,14 +307,14 @@ sums explicit child budgets and a calibrated overhead, without estimating gas.
 
 A new native HOG balance item needs a deposit at the recipient address. A large
 enough first credit can fund it; a small credit can be excluded with
-`recentFailure` / `boundsExceeded`. The transfer example funds both accounts first
+`recentFailure` / `insufficientFunds`. The transfer example funds both accounts first
 because its 1,000-unit credit cannot cover a new balance item's deposit.
 
 The live funding test verifies an excluded 1,000-unit first credit, a successful
 100,000-unit first credit with a deposit deduction, and a later 1,000-unit credit
 without another balance-item deposit. It uses 500,000 child gas and 1,000,000 root
-gas. Verified locally with CLI 0.18.0, hog-devnode 0.1.28-rc.1, and protocol
-`hogp/63c9284d8d5727e`; storage costs depend on runtime configuration.
+gas. Verified locally with CLI 0.19.0-pre.1 and hog-devnode 0.1.28-rc.3; storage
+costs depend on runtime configuration.
 
 The standard ERC20 binding uses `adjustAllowance` with `{ spender, diff }`, not `approve`.
 `diff` is signed: positive increases the allowance, negative reduces it. Reading

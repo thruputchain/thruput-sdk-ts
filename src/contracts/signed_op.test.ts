@@ -35,7 +35,7 @@ describe("SignedOp binding", () => {
     expect(spec).toEqual(pinned);
     expect(spec.interfaces).toHaveLength(1);
     expect(spec.interfaces[0]!.name).toBe("SignedOp");
-    expect(spec.interfaces[0]!.vers).toBe("0.1.22");
+    expect(spec.interfaces[0]!.vers).toBe("0.1.36");
     // Nonces are unordered, so the nonce view of earlier releases is gone:
     // nothing on chain needs reading before signing.
     expect(spec.interfaces[0]!.methods.map((m) => m.name)).toEqual([

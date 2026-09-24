@@ -6,6 +6,7 @@ import {
   ContractTypeDefKind,
   ContractTypeKind,
   ContractUnionCaseKind,
+  type ContractSpecId,
 } from "@groundhogchain/contract-spec";
 import {
   createContractCodec,
@@ -16,6 +17,17 @@ import {
 import { resolveCodec } from "./encode.js";
 import { ContractDecodeError } from "./errors.js";
 import type { ContractType, ContractTypeDef } from "./spec.js";
+import { specIdKey } from "./spec.js";
+
+/** A spec id for a type declared at the root of a `fixture` crate. */
+function specId(declared: string): ContractSpecId {
+  return {
+    crate_name: contractSpecString("fixture"),
+    major: contractSpecString("0.1"),
+    module_path: contractSpecString("fixture"),
+    declared: contractSpecString(declared),
+  };
+}
 
 const s = contractSpecString;
 
@@ -23,7 +35,7 @@ const signedTypes: ContractTypeDef[] = [
   {
     v: ContractTypeDefKind.TypeDefEnum,
     enum_def: {
-      name: s("SignedEnum"),
+      name: specId("SignedEnum"),
       variants: [
         { name: s("Negative"), value: -7n },
         { name: s("Positive"), value: 9n },
@@ -33,7 +45,7 @@ const signedTypes: ContractTypeDef[] = [
   {
     v: ContractTypeDefKind.TypeDefUnion,
     union_def: {
-      name: s("SignedUnion"),
+      name: specId("SignedUnion"),
       cases: [
         {
           name: s("Negative"),
@@ -150,7 +162,7 @@ describe("contract codecs", () => {
       {
         v: ContractTypeDefKind.TypeDefStruct,
         struct_def: {
-          name: s("Value"),
+          name: specId("Value"),
           fields: [{ name: s("value"), ty: fieldType }],
         },
       },
@@ -159,7 +171,7 @@ describe("contract codecs", () => {
     Object.assign(fieldType, { v: ContractTypeKind.Bool });
     const codec = createContractCodec<{ value: bigint }>(context, {
       v: ContractTypeKind.Named,
-      named: s("Value"),
+      named: specId("Value"),
     });
 
     expect(codec.decode(codec.encode({ value: 63n }))).toEqual({ value: 63n });
@@ -219,21 +231,26 @@ describe("contract codecs", () => {
 
   it("rejects inherited named-codec properties", () => {
     expect(() =>
-      resolveCodec({ v: ContractTypeKind.Named, named: s("toString") }, {}),
-    ).toThrow('No codec for named type "toString"');
+      resolveCodec(
+        { v: ContractTypeKind.Named, named: specId("toString") },
+        {},
+      ),
+    ).toThrow('No codec for named type "fixture::toString (fixture@0.1)"');
   });
 
   it("rejects missing and explicitly undefined named codecs", () => {
     const type: ContractType = {
       v: ContractTypeKind.Named,
-      named: s("Missing"),
+      named: specId("Missing"),
     };
     expect(() => resolveCodec(type, {})).toThrow(
-      'No codec for named type "Missing"',
+      'No codec for named type "fixture::Missing (fixture@0.1)"',
     );
-    expect(() => resolveCodec(type, { Missing: undefined } as never)).toThrow(
-      'No codec for named type "Missing"',
-    );
+    expect(() =>
+      resolveCodec(type, {
+        [specIdKey(specId("Missing"))]: undefined,
+      } as never),
+    ).toThrow('No codec for named type "fixture::Missing (fixture@0.1)"');
   });
 
   it("returns immutable fixed arrays and rejects incorrect input lengths", () => {
@@ -299,13 +316,13 @@ describe("signed enum and union codecs", () => {
   const context = createContractCodecContext(signedTypes);
   const signedEnum = createContractCodec<bigint>(context, {
     v: ContractTypeKind.Named,
-    named: s("SignedEnum"),
+    named: specId("SignedEnum"),
   });
   const signedUnion = createContractCodec<
     { case: "Negative"; value: [bigint] } | { case: "Positive" }
   >(context, {
     v: ContractTypeKind.Named,
-    named: s("SignedUnion"),
+    named: specId("SignedUnion"),
   });
 
   it("round-trips declared negative enum values", () => {
@@ -314,13 +331,13 @@ describe("signed enum and union codecs", () => {
 
   it("rejects undeclared enum values when encoding and decoding", () => {
     expect(() => signedEnum.encode(-8n)).toThrow(
-      'Unknown value -8 for enum "SignedEnum"',
+      'Unknown value -8 for enum "fixture::SignedEnum (fixture@0.1)"',
     );
 
     const writer = new CxsWriter();
     Int32Codec.encode(writer, -8n);
     expect(() => signedEnum.decode(writer.finish())).toThrow(
-      /Unknown value -8 for enum "SignedEnum"/,
+      /Unknown value -8 for enum "fixture::SignedEnum \(fixture@0\.1\)"/,
     );
   });
 
@@ -335,13 +352,13 @@ describe("signed enum and union codecs", () => {
 
   it("rejects undeclared union cases and discriminants", () => {
     expect(() => signedUnion.encode({ case: "Missing" } as never)).toThrow(
-      'Unknown case Missing for union "SignedUnion"',
+      'Unknown case Missing for union "fixture::SignedUnion (fixture@0.1)"',
     );
 
     const writer = new CxsWriter();
     writer.writeInt32(-4n);
     expect(() => signedUnion.decode(writer.finish())).toThrow(
-      /Unknown discriminant -4 for union "SignedUnion"/,
+      /Unknown discriminant -4 for union "fixture::SignedUnion \(fixture@0\.1\)"/,
     );
   });
 });

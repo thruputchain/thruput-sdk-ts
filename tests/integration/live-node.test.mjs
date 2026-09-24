@@ -359,11 +359,13 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         specCodec.ContractSpec,
       );
       const iface = spec.interfaces.find((entry) => entry.name === "Counter");
-      const event = spec.events.find((entry) => entry.name === "PingEvent");
+      const event = spec.events.find(
+        (entry) => entry.name.declared === "PingEvent",
+      );
       assert.ok(iface);
       assert.ok(event);
       const ping = defineContractEvent({
-        name: event.name,
+        name: event.name.declared,
         signature: event.signature,
         topics: event.topics.map((field) => ({
           name: field.name,

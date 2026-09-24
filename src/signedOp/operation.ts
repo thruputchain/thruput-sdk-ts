@@ -7,7 +7,7 @@ import {
 import {
   ContractTypeDefKind,
   ContractTypeKind,
-  contractSpecString,
+  type ContractSpecId,
   type ContractTypeDef,
 } from "@groundhogchain/contract-spec";
 import type { FixedBytes } from "@groundhogchain/xdr";
@@ -16,6 +16,7 @@ import {
   createContractCodec,
   createContractCodecContext,
 } from "../contract/codec.js";
+import { formatSpecId } from "../contract/spec.js";
 import type { Signer } from "../signers/types.js";
 import { signedOperationPreimage } from "./preimage.js";
 
@@ -96,7 +97,11 @@ export interface DefineSignedOperationOptions {
    * it references.
    */
   readonly typeDefs: readonly ContractTypeDef[];
-  /** Name of the payload type, as declared with `#[contract_type]`. */
+  /**
+   * Name of the payload type, as declared with `#[contract_type]`: the
+   * `declared` segment of its spec id. It must name exactly one of
+   * `typeDefs`.
+   */
   readonly typeName: string;
 }
 
@@ -149,7 +154,7 @@ export function randomNonce(): bigint {
  * const invocation = MyWallet.submit.invocation(walletAddress, gasLimit, { op, signature });
  * ```
  *
- * @throws If `typeName` is not among `typeDefs`.
+ * @throws If `typeName` names none, or more than one, of `typeDefs`.
  */
 export function defineSignedOperation<TBody>(
   options: DefineSignedOperationOptions,
@@ -162,7 +167,7 @@ export function defineSignedOperation<TBody>(
   const context = createContractCodecContext(typeDefs);
   const bodyCodec = createContractCodec<TBody>(
     context,
-    { v: ContractTypeKind.Named, named: contractSpecString(options.typeName) },
+    { v: ContractTypeKind.Named, named: typeDefId(typeDef) },
     `${options.typeName} payload`,
   );
 
@@ -228,7 +233,7 @@ function deepFreeze<T>(value: T): T {
   return value;
 }
 
-function typeDefName(typeDef: ContractTypeDef): string {
+function typeDefId(typeDef: ContractTypeDef): ContractSpecId {
   switch (typeDef.v) {
     case ContractTypeDefKind.TypeDefStruct:
       return typeDef.struct_def.name;
@@ -243,10 +248,19 @@ function findTypeDef(
   typeDefs: readonly ContractTypeDef[],
   typeName: string,
 ): ContractTypeDef {
-  const typeDef = typeDefs.find((def) => typeDefName(def) === typeName);
+  const matches = typeDefs.filter(
+    (def) => typeDefId(def).declared === typeName,
+  );
+  const [typeDef] = matches;
   if (typeDef === undefined) {
     throw new Error(
       `Contract type "${typeName}" is not defined in the given type definitions`,
+    );
+  }
+  if (matches.length > 1) {
+    const ids = matches.map((def) => formatSpecId(typeDefId(def)));
+    throw new Error(
+      `Contract type "${typeName}" is ambiguous in the given type definitions: ${ids.join(", ")}`,
     );
   }
   return typeDef;

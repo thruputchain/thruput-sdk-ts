@@ -1,7 +1,16 @@
 import type { XdrCodec } from "@groundhogchain/xdr";
 import { Int32Codec } from "@groundhogchain/protocol";
-import type { ContractTypeDef, ContractUnionCaseType } from "./spec.js";
-import { ContractTypeDefKind, ContractUnionCaseKind } from "./spec.js";
+import type {
+  ContractSpecId,
+  ContractTypeDef,
+  ContractUnionCaseType,
+} from "./spec.js";
+import {
+  ContractTypeDefKind,
+  ContractUnionCaseKind,
+  formatSpecId,
+  specIdKey,
+} from "./spec.js";
 import { resolveCodec } from "./encode.js";
 
 /**
@@ -9,37 +18,50 @@ import { resolveCodec } from "./encode.js";
  *
  * The returned map is required by {@link encodeCalldata},
  * {@link decodeCalldata}, and {@link resolveCodec} whenever a method argument
- * references a named struct, enum, or union.
+ * references a named struct, enum, or union. It is keyed by
+ * {@link specIdKey} of each type's spec id.
+ *
+ * @throws If two definitions share a spec id.
  */
 export function buildNamedCodecs(
   typeDefs: ContractTypeDef[],
 ): Record<string, XdrCodec<unknown>> {
   const codecs: Record<string, XdrCodec<unknown>> = Object.create(null);
 
+  const define = (id: ContractSpecId, codec: XdrCodec<unknown>): void => {
+    const key = specIdKey(id);
+    if (Object.hasOwn(codecs, key)) {
+      throw new Error(`Contract spec defines "${formatSpecId(id)}" twice`);
+    }
+    codecs[key] = codec;
+  };
+
   for (const def of typeDefs) {
     switch (def.v) {
       case ContractTypeDefKind.TypeDefEnum:
-        codecs[def.enum_def.name] = enumCodec(
+        define(
           def.enum_def.name,
-          def.enum_def.variants.map((variant) => variant.value),
+          enumCodec(
+            formatSpecId(def.enum_def.name),
+            def.enum_def.variants.map((variant) => variant.value),
+          ),
         );
         break;
 
       case ContractTypeDefKind.TypeDefStruct: {
         const structDef = def.struct_def;
-        codecs[structDef.name] = {
+        const name = formatSpecId(structDef.name);
+        define(structDef.name, {
           encode(w, val: unknown) {
             if (!val || typeof val !== "object" || Array.isArray(val)) {
-              throw new TypeError(
-                `Expected object for struct "${structDef.name}"`,
-              );
+              throw new TypeError(`Expected object for struct "${name}"`);
             }
             const obj = val as Record<string, unknown>;
             for (const field of structDef.fields) {
               const fieldCodec = resolveCodec(field.ty, codecs);
               fieldCodec.encode(
                 w,
-                ownProperty(obj, field.name, `Struct "${structDef.name}"`),
+                ownProperty(obj, field.name, `Struct "${name}"`),
               );
             }
           },
@@ -51,31 +73,26 @@ export function buildNamedCodecs(
             }
             return obj;
           },
-        };
+        });
         break;
       }
 
       case ContractTypeDefKind.TypeDefUnion: {
         const unionDef = def.union_def;
-        codecs[unionDef.name] = {
+        const name = formatSpecId(unionDef.name);
+        define(unionDef.name, {
           encode(w, val: unknown) {
             if (!val || typeof val !== "object" || Array.isArray(val)) {
-              throw new TypeError(
-                `Expected case object for union "${unionDef.name}"`,
-              );
+              throw new TypeError(`Expected case object for union "${name}"`);
             }
             const obj = val as { case?: unknown; value?: unknown };
-            const caseName = ownProperty(
-              obj,
-              "case",
-              `Union "${unionDef.name}"`,
-            );
+            const caseName = ownProperty(obj, "case", `Union "${name}"`);
             const caseSpec = unionDef.cases.find(
               (candidate) => candidate.name === caseName,
             );
             if (!caseSpec) {
               throw new Error(
-                `Unknown case ${String(caseName)} for union "${unionDef.name}"`,
+                `Unknown case ${String(caseName)} for union "${name}"`,
               );
             }
             w.writeInt32(caseSpec.discriminant);
@@ -93,7 +110,7 @@ export function buildNamedCodecs(
             );
             if (!caseSpec) {
               throw new Error(
-                `Unknown discriminant ${discriminant} for union "${unionDef.name}"`,
+                `Unknown discriminant ${discriminant} for union "${name}"`,
               );
             }
             return decodeUnionCase(
@@ -103,7 +120,7 @@ export function buildNamedCodecs(
               codecs,
             );
           },
-        };
+        });
         break;
       }
 

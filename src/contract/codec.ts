@@ -4,6 +4,7 @@ import {
   ContractTypeDefKind,
   ContractTypeKind,
   ContractUnionCaseKind,
+  specIdKey,
 } from "./spec.js";
 import { buildNamedCodecs } from "./codegen.js";
 import { enableResolvedCodecCache, resolveCodec } from "./encode.js";
@@ -44,7 +45,7 @@ export function createContractCodecContext(
   for (const definition of typeDefsSnapshot) {
     if (definition.v === ContractTypeDefKind.TypeDefEnum) {
       enums.set(
-        definition.enum_def.name,
+        specIdKey(definition.enum_def.name),
         new Map(
           definition.enum_def.variants.map((variant) => [
             variant.value,
@@ -65,7 +66,7 @@ export function contextEnumVariant(
   value: unknown,
 ): string | undefined {
   return type.v === ContractTypeKind.Named && typeof value === "bigint"
-    ? contextEnums.get(context)?.get(type.named)?.get(value)
+    ? contextEnums.get(context)?.get(specIdKey(type.named))?.get(value)
     : undefined;
 }
 

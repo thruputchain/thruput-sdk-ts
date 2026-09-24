@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import { verify } from "@noble/ed25519";
 import {
   CryptographicScheme,
@@ -12,10 +12,21 @@ import {
   ContractTypeKind,
   contractSpecString,
   type ContractTypeDef,
+  type ContractSpecId,
 } from "@groundhogchain/contract-spec";
 import { PrivateKeySigner } from "../signers/privateKey.js";
 import type { Signer } from "../signers/types.js";
 import { defineSignedOperation, randomNonce } from "./operation.js";
+
+/** A spec id for a type declared at the root of a `fixture` crate. */
+function specId(declared: string): ContractSpecId {
+  return {
+    crate_name: contractSpecString("fixture"),
+    major: contractSpecString("0.1"),
+    module_path: contractSpecString("fixture"),
+    declared: contractSpecString(declared),
+  };
+}
 
 const s = contractSpecString;
 
@@ -23,7 +34,7 @@ const typeDefs: ContractTypeDef[] = [
   {
     v: ContractTypeDefKind.TypeDefStruct,
     struct_def: {
-      name: s("Transfer"),
+      name: specId("Transfer"),
       fields: [
         { name: s("to"), ty: { v: ContractTypeKind.Address } },
         { name: s("amount"), ty: { v: ContractTypeKind.U64 } },
@@ -56,6 +67,24 @@ describe("defineSignedOperation", () => {
     expect(() =>
       defineSignedOperation({ typeDefs, typeName: "Missing" }),
     ).toThrow(/"Missing" is not defined/);
+  });
+
+  it("rejects a payload name declared in more than one module", () => {
+    const [transferDef] = typeDefs;
+    assert(transferDef?.v === ContractTypeDefKind.TypeDefStruct);
+    const elsewhere: ContractTypeDef = {
+      ...transferDef,
+      struct_def: {
+        ...transferDef.struct_def,
+        name: { ...specId("Transfer"), module_path: s("fixture::other") },
+      },
+    };
+    expect(() =>
+      defineSignedOperation({
+        typeDefs: [...typeDefs, elsewhere],
+        typeName: "Transfer",
+      }),
+    ).toThrow(/"Transfer" is ambiguous/);
   });
 
   it("produces the wire operation and an Ed25519 signature over the preimage", async () => {
