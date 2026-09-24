@@ -1,9 +1,24 @@
-import type { Transport } from "../../transport/types.js";
+import type {
+  Transport,
+  TransportRequestOptions,
+} from "../../transport/types.js";
 import type { VersionInfo } from "../../types/rpc.js";
 
-/** Return the gateway implementation and wire-format version. */
-export async function getVersion(transport: Transport): Promise<VersionInfo> {
-  const result = await transport.request<unknown>("groundhog_version");
+/**
+ * Return gateway version information, including optional release identity.
+ * Release and manifest fields are diagnostic-only, not capability flags, and
+ * are null when the endpoint does not supply them.
+ */
+export async function getVersion(
+  transport: Transport,
+  options?: TransportRequestOptions,
+): Promise<VersionInfo> {
+  options?.signal?.throwIfAborted();
+  const result = await transport.request<unknown>(
+    "groundhog_version",
+    undefined,
+    options,
+  );
   if (!result || typeof result !== "object" || Array.isArray(result)) {
     throw new Error("Invalid version response");
   }
@@ -15,24 +30,24 @@ export async function getVersion(transport: Transport): Promise<VersionInfo> {
   if (typeof version.implementation !== "string") {
     throw new Error("Invalid version response: expected implementation");
   }
-  if (version.commitHash !== undefined && version.commitHash !== null) {
-    if (typeof version.commitHash !== "string") {
-      throw new Error("Invalid version response: expected commitHash");
-    }
-  }
-  if (
-    version.platformVersion !== undefined &&
-    version.platformVersion !== null
-  ) {
-    if (typeof version.platformVersion !== "string") {
-      throw new Error("Invalid version response: expected platformVersion");
-    }
-  }
-
   return {
     wireFormat: version.wireFormat,
     implementation: version.implementation,
-    commitHash: version.commitHash ?? null,
-    platformVersion: version.platformVersion ?? null,
+    commitHash: optionalString(version, "commitHash"),
+    platformVersion: optionalString(version, "platformVersion"),
+    releaseVersion: optionalString(version, "releaseVersion"),
+    bundleManifestDigest: optionalString(version, "bundleManifestDigest"),
   };
+}
+
+function optionalString(
+  version: Record<string, unknown>,
+  field: string,
+): string | null {
+  const value = version[field];
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string") {
+    throw new Error(`Invalid version response: expected ${field}`);
+  }
+  return value;
 }

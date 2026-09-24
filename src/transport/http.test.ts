@@ -1,12 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import { runInNewContext } from "node:vm";
+import { createServer } from "node:http";
+import { once } from "node:events";
 import openrpcSpec from "../../specs/openrpc.json";
 import {
   GroundhogRpcErrorCode,
+  HttpRequestError,
   HttpResponseError,
   HttpTransport,
   JsonRpcError,
 } from "./http.js";
+import { classifyReadError } from "./readError.js";
 
 function documentedErrorCodes() {
   const errors = openrpcSpec.components.errors as Record<
@@ -16,6 +20,31 @@ function documentedErrorCodes() {
   return Object.fromEntries(
     Object.entries(errors).map(([name, error]) => [name, error.code]),
   );
+}
+
+async function withDelayedBody(run: (url: string) => Promise<void>) {
+  const server = createServer((request, response) => {
+    request.resume();
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.flushHeaders();
+    const timer = setTimeout(() => {
+      response.end(JSON.stringify({ jsonrpc: "2.0", id: 1, result: "ok" }));
+    }, 1_000);
+    response.once("close", () => clearTimeout(timer));
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  try {
+    const address = server.address();
+    if (!address || typeof address === "string")
+      throw new Error("Expected a TCP listener");
+    await run(`http://127.0.0.1:${address.port}`);
+  } finally {
+    const closed = once(server, "close");
+    server.close();
+    server.closeAllConnections();
+    await closed;
+  }
 }
 
 describe("GroundhogRpcErrorCode", () => {
@@ -179,7 +208,7 @@ describe("HttpTransport", () => {
         fetch: fetchMock,
         timeoutMs: 1,
       }).request("groundhog_version"),
-    ).rejects.toMatchObject({ name: "AbortError" });
+    ).rejects.toMatchObject({ name: "TimeoutError" });
   });
 
   it("forwards per-request cancellation to fetch", async () => {
@@ -198,4 +227,139 @@ describe("HttpTransport", () => {
 
     await expect(result).rejects.toThrow("cancelled");
   });
+
+  it("keeps the timeout active after headers arrive until the body is read", async () => {
+    await withDelayedBody(async (url) => {
+      let receivedHeaders = false;
+      const transport = new HttpTransport(url, {
+        timeoutMs: 250,
+        fetch: async (input, init) => {
+          const response = await fetch(input, init);
+          receivedHeaders = true;
+          return response;
+        },
+      });
+      await expect(
+        transport.request("groundhog_version"),
+      ).rejects.toMatchObject({ name: "TimeoutError" });
+      expect(receivedHeaders).toBe(true);
+    });
+  });
+
+  it("classifies a connection dropped during the body read as transient", async () => {
+    const server = createServer((request, response) => {
+      request.resume();
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.write('{"jsonrpc":"2.0","result":');
+    });
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    try {
+      const address = server.address();
+      if (!address || typeof address === "string")
+        throw new Error("Expected a TCP listener");
+      const transport = new HttpTransport(
+        `http://127.0.0.1:${address.port}/private-token?key=secret`,
+        {
+          fetch: async (input, init) => {
+            const response = await fetch(input, init);
+            server.closeAllConnections();
+            return response;
+          },
+        },
+      );
+      const result = transport.request("groundhog_version");
+      await expect(result).rejects.toBeInstanceOf(HttpRequestError);
+      await expect(result).rejects.toMatchObject({
+        endpoint: `http://127.0.0.1:${address.port}`,
+        method: "groundhog_version",
+        cause: expect.any(TypeError),
+      });
+      await result.catch((error: unknown) => {
+        expect(classifyReadError(error)).toBe("transient");
+      });
+    } finally {
+      const closed = once(server, "close");
+      server.close();
+      server.closeAllConnections();
+      await closed;
+    }
+  });
+
+  it("preserves caller cancellation while reading the body", async () => {
+    await withDelayedBody(async (url) => {
+      let receivedHeaders!: () => void;
+      const headers = new Promise<void>((resolve) => {
+        receivedHeaders = resolve;
+      });
+      const controller = new AbortController();
+      const transport = new HttpTransport(url, {
+        timeoutMs: 5_000,
+        fetch: async (input, init) => {
+          const response = await fetch(input, init);
+          receivedHeaders();
+          return response;
+        },
+      });
+      const result = transport.request("groundhog_version", [], {
+        signal: controller.signal,
+      });
+      await headers;
+      const reason = new Error("view closed");
+      controller.abort(reason);
+      await expect(result).rejects.toBe(reason);
+    });
+  });
+
+  it.each([
+    {
+      name: "success",
+      response: () => Response.json({ result: "ok" }),
+      error: null,
+    },
+    {
+      name: "HTTP error",
+      response: () => new Response(null, { status: 503 }),
+      error: HttpResponseError,
+    },
+    {
+      name: "JSON-RPC error",
+      response: () =>
+        Response.json({ error: { code: -32602, message: "invalid params" } }),
+      error: JsonRpcError,
+    },
+    {
+      name: "malformed JSON",
+      response: () => new Response("{"),
+      error: SyntaxError,
+    },
+    {
+      name: "invalid envelope",
+      response: () => Response.json([]),
+      error: Error,
+    },
+  ])(
+    "clears the timer after $name without changing error classification",
+    async ({ response, error }) => {
+      vi.useFakeTimers();
+      try {
+        let signal: AbortSignal | null | undefined;
+        const transport = new HttpTransport("https://rpc.example", {
+          timeoutMs: 1_000,
+          fetch: async (_, init) => {
+            signal = init?.signal;
+            return response();
+          },
+        });
+        const result = transport.request("groundhog_version");
+        if (error) await expect(result).rejects.toBeInstanceOf(error);
+        else await expect(result).resolves.toBe("ok");
+        expect(vi.getTimerCount()).toBe(0);
+        await vi.advanceTimersByTimeAsync(1_500);
+        expect(signal?.aborted).toBe(false);
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
 });

@@ -6,6 +6,7 @@ import {
   type GasAmount,
 } from "@groundhogchain/protocol";
 import type { AirdropActions, CoreGroundhogClient } from "../client.js";
+import type { TransportRequestOptions } from "../transport/types.js";
 import type { AirdropSucceeded, BalanceResponse } from "../types/rpc.js";
 import type { RequestAirdropOptions } from "../actions/public/requestAirdrop.js";
 import type {
@@ -74,7 +75,10 @@ export type WalletRequestAirdropOptions = Omit<
 /** Signer-bound transaction and account actions. */
 export interface WalletActions<TAccount extends WalletAccount = WalletAccount> {
   readonly account: TAccount;
-  getBalance(address?: ContractAddress): Promise<BalanceResponse>;
+  getBalance(
+    address?: ContractAddress,
+    options?: TransportRequestOptions,
+  ): Promise<BalanceResponse>;
   prepareTransaction(request: PrepareTransactionRequest): Promise<Transaction>;
   signTransaction(transaction: Transaction): Promise<SignedTransaction>;
   sendInvocation(request: PrepareTransactionRequest): Promise<SHA256Hash>;
@@ -247,7 +251,8 @@ export function createWalletClient<
       : undefined;
   const walletActions: WalletActions<TAccount> = {
     account,
-    getBalance: (address = account.address) => getBalance(address),
+    getBalance: (address = account.address, options) =>
+      getBalance(address, options),
     prepareTransaction: (request) =>
       prepareTransaction(client, account, request),
     signTransaction: (transaction) =>

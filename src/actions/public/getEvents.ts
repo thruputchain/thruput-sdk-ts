@@ -1,4 +1,7 @@
-import type { Transport } from "../../transport/types.js";
+import type {
+  Transport,
+  TransportRequestOptions,
+} from "../../transport/types.js";
 import type {
   EventQuery,
   EventPage,
@@ -83,10 +86,14 @@ function parseIdentifiedEvent(value: unknown): IdentifiedEvent {
 export async function getEvents(
   transport: Transport,
   query: EventQuery,
+  options?: TransportRequestOptions,
 ): Promise<EventPage> {
-  const raw = await transport.request<unknown>("groundhog_getEvents", [
-    serializeQuery(query),
-  ]);
+  options?.signal?.throwIfAborted();
+  const raw = await transport.request<unknown>(
+    "groundhog_getEvents",
+    [serializeQuery(query)],
+    options,
+  );
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     throw new Error("Invalid events response");
   }

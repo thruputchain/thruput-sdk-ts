@@ -8,7 +8,9 @@ import {
   PrivateKeySigner,
   createGroundhogClient,
   createPubkeyAccount,
+  createSourceAddressAccount,
   createWalletClient,
+  devWalletAdapter,
   localnet,
   prepareContractDeployment,
   createContractCodecContext,
@@ -28,7 +30,13 @@ import {
   decodeERC20Event,
 } from "@groundhogchain/client/contracts";
 import { loadLocalDevAccount } from "@groundhogchain/client/local-dev";
-import { ExecResult, HOG_ADDRESS, gasAmount } from "@groundhogchain/protocol";
+import {
+  ExecResult,
+  HOG_ADDRESS,
+  gasAmount,
+  bitMap,
+  weight,
+} from "@groundhogchain/protocol";
 import versions from "../../scripts/integration-versions.json" with { type: "json" };
 import {
   airdropTimeoutMs,
@@ -64,6 +72,43 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       assert.equal(tip.blockHash.length, 32);
     },
   );
+
+  await t.test("batches independent reads over one HTTP request", async () => {
+    const bodies = [];
+    const batchedTransport = new HttpTransport(rpcUrl, {
+      batch: true,
+      timeoutMs: rpcTimeoutMs,
+      fetch: async (input, init) => {
+        bodies.push(JSON.parse(init.body));
+        return fetch(input, init);
+      },
+    });
+    const batchedClient = await createGroundhogClient({
+      transport: batchedTransport,
+    });
+    const hash = `0x${"00".repeat(32)}`;
+    const [version, tip, missing, duplicate, invalid] =
+      await Promise.allSettled([
+        batchedClient.getVersion(),
+        batchedClient.getChainTip(),
+        batchedTransport.request("groundhog_getTransactionReceipt", [hash]),
+        batchedTransport.request("groundhog_getTransactionReceipt", [hash]),
+        batchedTransport.request("groundhog_getTransactionReceipt", [
+          "bad-hash",
+        ]),
+      ]);
+    assert.equal(bodies.length, 1);
+    assert.equal(bodies[0].length, 5);
+    assert.equal(version.status, "fulfilled");
+    assert.deepEqual(version.value, await client.getVersion());
+    assert.equal(tip.status, "fulfilled");
+    assert.equal(typeof tip.value.height, "bigint");
+    assert.deepEqual(missing, { status: "fulfilled", value: null });
+    assert.deepEqual(duplicate, missing);
+    assert.equal(invalid.status, "rejected");
+    assert.ok(invalid.reason instanceof JsonRpcError);
+    assert.equal(invalid.reason.code, GroundhogRpcErrorCode.InvalidParams);
+  });
 
   await t.test(
     "funds pubkey wallets, transfers HOG, and decodes receipt, event, and view",
@@ -109,7 +154,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
               },
             }),
           ],
-          gasLimit: gasAmount(10_000_000n),
+          gasLimit: gasAmount(1_000_000n),
         },
         { timeoutMs: receiptTimeoutMs },
       );
@@ -302,3 +347,87 @@ test("built SDK against a real local node", { timeout }, async (t) => {
     },
   );
 });
+
+test(
+  "fresh HOG funding covers the recipient balance-item deposit",
+  { timeout },
+  async () => {
+    const client = await createGroundhogClient({
+      cluster: localnet({ rpcUrl: process.env.GROUNDHOG_RPC_URL }),
+      transport: new HttpTransport(process.env.GROUNDHOG_RPC_URL, {
+        timeoutMs: rpcTimeoutMs,
+      }),
+    });
+    const local = await loadLocalDevAccount();
+    const funder = createWalletClient({
+      client,
+      account: createSourceAddressAccount({
+        address: local.address,
+        signers: [{ signer: local.signer, publicKeyId: 0n }],
+        allowedKeys: bitMap(1n),
+        requiredWeight: weight(1n),
+      }),
+      invocationAdapter: devWalletAdapter,
+    });
+    const freshAccount = () =>
+      createPubkeyAccount({ signer: new PrivateKeySigner(randomBytes(32)) });
+    const sender = freshAccount();
+    const smallRecipient = freshAccount();
+    const fundedRecipient = freshAccount();
+    const send = (wallet, receiver, amount) =>
+      wallet.execute({
+        invocation: ERC20.transfer.invocation(
+          HOG_ADDRESS,
+          gasAmount(500_000n),
+          { receiver, amount },
+        ),
+        gasLimit: gasAmount(1_000_000n),
+      });
+    const balance = (account) => client.getBalance(account.address);
+    async function until(read, ready) {
+      const deadline = Date.now() + receiptTimeoutMs;
+      for (;;) {
+        const value = await read();
+        if (ready(value)) return value;
+        assert.ok(
+          Date.now() < deadline,
+          "funding state did not become visible",
+        );
+        await sleep(100);
+      }
+    }
+
+    await send(funder, sender.address, 100_000_000n);
+    await until(
+      () => balance(sender),
+      ({ rawBalance }) => rawBalance > 1_000_000n,
+    );
+    const wallet = createWalletClient({ client, account: sender });
+    const smallHash = await send(wallet, smallRecipient.address, 1_000n);
+    const failure = await until(
+      () => client.getTransactionStatus(smallHash),
+      (status) => status.status === "recentFailure",
+    );
+    assert.equal(failure.conflict.code, "insufficientFunds");
+    assert.deepEqual(failure.conflict.address, smallRecipient.address);
+    assert.equal((await balance(smallRecipient)).rawBalance, 0n);
+
+    // A sufficient first credit can fund its own balance item: a prior faucet
+    // airdrop is not a universal prerequisite for receiving native HOG.
+    await send(wallet, fundedRecipient.address, 100_000n);
+    const funded = await until(
+      () => balance(fundedRecipient),
+      ({ rawBalance }) => rawBalance > 0n,
+    );
+    assert.ok(
+      funded.rawBalance < 100_000n,
+      "the first credit locks a storage deposit",
+    );
+    await send(wallet, fundedRecipient.address, 1_000n);
+    const toppedUp = await until(
+      () => balance(fundedRecipient),
+      ({ rawBalance }) => rawBalance > funded.rawBalance,
+    );
+    assert.equal(toppedUp.rawBalance - funded.rawBalance, 1_000n);
+  },
+);

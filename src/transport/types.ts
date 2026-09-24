@@ -20,6 +20,10 @@ export interface Transport {
 
 /** Per-request transport controls supported by built-in transports. */
 export interface TransportRequestOptions {
-  /** Cancel the in-flight transport operation. */
+  /**
+   * Cancel this request without affecting other requests on the same transport.
+   * Public reads accept these options as their final argument; generated view
+   * methods accept signal alongside their contract arguments.
+   */
   readonly signal?: AbortSignal;
 }

@@ -10,6 +10,8 @@ import {
   sha256Hash,
 } from "@groundhogchain/protocol";
 import { ContractTypeKind } from "@groundhogchain/contract-spec";
+import { DefaultWallet, ERC20 } from "../contracts/index.js";
+import { getContract } from "./instance.js";
 import type { GroundhogClient } from "../client.js";
 import type {
   EmittedEvent,
@@ -189,6 +191,98 @@ describe("contract method invocation", () => {
         second: 300n,
       }),
     ).not.toThrow();
+  });
+});
+
+describe("contract argument decoding", () => {
+  const method = defineContractMethod<
+    { first: bigint; second: bigint },
+    bigint,
+    never
+  >(definition({ interfaceName: "Example", publicName: "update" }));
+
+  it("decodes ABI order into public argument names", () => {
+    const data = encode((writer) => {
+      writer.writeUint32(300n);
+      writer.writeInt32(-4n);
+    });
+    expect(method.decodeArgs(data)).toEqual({ second: 300n, first: -4n });
+  });
+
+  it("identifies the method and argument on truncated calldata", () => {
+    expect(() =>
+      method.decodeArgs(encode((writer) => writer.writeUint32(300n))),
+    ).toThrow('Example.update: argument "first"');
+    expect(() => method.decodeArgs(new Uint8Array())).toThrow(
+      ContractDecodeError,
+    );
+  });
+
+  it("rejects trailing calldata", () => {
+    const data = method.invocation(contract, gasAmount(1n), {
+      first: -4n,
+      second: 300n,
+    }).calldata;
+    expect(() => method.decodeArgs(new Uint8Array([...data, 0]))).toThrow(
+      "Example.update: 1 trailing calldata bytes",
+    );
+  });
+
+  it("returns undefined only for valid no-argument calldata", () => {
+    expect(ERC20.getBalance.decodeArgs(new Uint8Array())).toBeUndefined();
+    expect(() => ERC20.getBalance.decodeArgs(new Uint8Array([0]))).toThrow(
+      ContractDecodeError,
+    );
+  });
+
+  it("decodes generated compound wallet arguments through a bound descriptor", () => {
+    const transfer = ERC20.transfer.invocation(contract, gasAmount(100n), {
+      receiver: caller,
+      amount: 42n,
+    });
+    const calls = [
+      {
+        target: transfer.invoked_address,
+        entrypoint: transfer.entrypoint,
+        gas_limit: transfer.gas_limit,
+        calldata: transfer.calldata,
+      },
+    ];
+    const root = DefaultWallet.execute.invocation(contract, gasAmount(200n), {
+      calls,
+    });
+    const wallet = getContract({
+      binding: DefaultWallet,
+      address: contract,
+      client: clientReturning({
+        output: { result: "fault" },
+        height: 0n,
+        events: [],
+      }),
+    });
+    expect(wallet.execute.decodeArgs(root.calldata)).toEqual({ calls });
+    expect(ERC20.transfer.decodeArgs(transfer.calldata)).toEqual({
+      receiver: caller,
+      amount: 42n,
+    });
+  });
+
+  it("creates own properties for prototype-like argument names", () => {
+    const special = defineContractMethod<Record<string, bigint>, void, never>(
+      definition({
+        args: [
+          {
+            abiName: "__proto__",
+            publicName: "__proto__",
+            type: { v: ContractTypeKind.U32 },
+          },
+        ],
+      }),
+    );
+    const args = special.decodeArgs(encode((writer) => writer.writeUint32(7n)));
+    expect(Object.hasOwn(args, "__proto__")).toBe(true);
+    expect(args.__proto__).toBe(7n);
+    expect(Object.getPrototypeOf(args)).toBe(Object.prototype);
   });
 });
 

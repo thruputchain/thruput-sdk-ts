@@ -152,6 +152,8 @@ describe("getVersion", () => {
       implementation: "mock",
       commitHash: null,
       platformVersion: null,
+      releaseVersion: null,
+      bundleManifestDigest: null,
     });
   });
 });
@@ -602,36 +604,39 @@ describe("getTransactionStatus", () => {
     expect(status.status).toBe("unknown");
   });
 
-  it("parses recent failure diagnostics", async () => {
-    const transport: Transport = {
-      async request<T>(): Promise<T> {
-        return {
-          status: "recentFailure",
-          attemptHeight: "42",
-          conflict: {
-            address: "0x" + "ab".repeat(32),
-            key: "0x010203",
-            code: "exclusiveLock",
-          },
-        } as T;
-      },
-    };
+  it.each(["exclusiveLock", "boundsExceeded", "insufficientFunds"])(
+    "parses recent failure diagnostics: %s",
+    async (code) => {
+      const transport: Transport = {
+        async request<T>(): Promise<T> {
+          return {
+            status: "recentFailure",
+            attemptHeight: "42",
+            conflict: {
+              address: "0x" + "ab".repeat(32),
+              key: "0x010203",
+              code,
+            },
+          } as T;
+        },
+      };
 
-    const status = await getTransactionStatus(
-      transport,
-      hashFromHex("0x" + "11".repeat(32)),
-    );
+      const status = await getTransactionStatus(
+        transport,
+        hashFromHex("0x" + "11".repeat(32)),
+      );
 
-    expect(status).toEqual({
-      status: "recentFailure",
-      attemptHeight: 42n,
-      conflict: {
-        address: contractAddress(new Uint8Array(32).fill(0xab)),
-        key: new Uint8Array([1, 2, 3]),
-        code: "exclusiveLock",
-      },
-    });
-  });
+      expect(status).toEqual({
+        status: "recentFailure",
+        attemptHeight: 42n,
+        conflict: {
+          address: contractAddress(new Uint8Array(32).fill(0xab)),
+          key: new Uint8Array([1, 2, 3]),
+          code,
+        },
+      });
+    },
+  );
 
   it("maps unknown recent failure conflict codes to other", async () => {
     const transport: Transport = {

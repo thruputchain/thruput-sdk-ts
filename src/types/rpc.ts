@@ -136,6 +136,12 @@ export interface VersionInfo {
 
   /** Platform release this implementation was packaged for, when reported. */
   platformVersion: string | null;
+
+  /** Validated bundle release, when reported. Diagnostic-only; not a capability flag. */
+  releaseVersion: string | null;
+
+  /** Validated bundle manifest digest, when reported. Diagnostic-only. */
+  bundleManifestDigest: string | null;
 }
 
 /** Request for a read-only contract invocation. */
@@ -194,6 +200,7 @@ export type ConflictCode =
   | "replayProtection"
   | "queueConsumer"
   | "capacityExceeded"
+  | "insufficientFunds"
   | "other";
 
 /** First conflicting storage operation reported for a recent failed attempt. */

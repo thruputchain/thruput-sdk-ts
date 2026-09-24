@@ -1,4 +1,7 @@
-import type { Transport } from "../../transport/types.js";
+import type {
+  Transport,
+  TransportRequestOptions,
+} from "../../transport/types.js";
 import {
   blockHeight,
   networkHash,
@@ -28,13 +31,16 @@ interface RawBlockInfo {
 export async function getBlockByNumber(
   transport: Transport,
   height: bigint,
+  options?: TransportRequestOptions,
 ): Promise<BlockInfo | null> {
+  options?.signal?.throwIfAborted();
   if (height < 0n || height > BigInt(Number.MAX_SAFE_INTEGER)) {
     throw new RangeError("height must be a non-negative safe integer");
   }
   const result = await transport.request<unknown>(
     "groundhog_getBlockByNumber",
     [Number(height)],
+    options,
   );
   if (result === null) return null;
 

@@ -219,12 +219,14 @@ export type ContractViewOptions<TArgs> = {
   client: Pick<GroundhogClient, "view">;
   contract: ContractAddress;
   caller?: ContractAddress;
+  /** Cancel this read without affecting other requests on the same client. */
+  signal?: AbortSignal;
 } & ([TArgs] extends [void] ? { args?: never } : { args: TArgs });
 
 /** Inputs to a typed, unsubmitted contract call. */
 export type ContractCallOptions<TArgs> = Omit<
   ContractViewOptions<TArgs>,
-  "client" | "caller"
+  "client" | "caller" | "signal"
 > & { gasLimit: GasAmount };
 
 /** An invocation retaining its return and exception decoders. */
@@ -252,6 +254,18 @@ export interface ContractMethod<TArgs, TResult, TDeclaredException> {
     ...args: MethodArgs<TArgs>
   ): Invocation;
 
+  /**
+   * Decode complete calldata using the generated public argument names.
+   * Returns undefined for no-argument methods; rejects incomplete or trailing bytes.
+   * Select the descriptor after checking the invocation's entrypoint. ABI decoding
+   * does not verify the target contract's behavior.
+   *
+   * @example
+   * ```ts
+   * const { receiver, amount } = ERC20.transfer.decodeArgs(invocation.calldata);
+   * ```
+   */
+  decodeArgs(data: Uint8Array): TArgs;
   decodeReturn(data: Uint8Array): TResult;
   decodeException(data: Uint8Array): ContractException<TDeclaredException>;
   /** Decode a view response with the same semantics as view(). */
@@ -352,6 +366,29 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
       };
     },
 
+    decodeArgs(data) {
+      const reader = new CxsReader(data);
+      const args = Object.fromEntries(
+        argumentCodecs.map((argument) => {
+          try {
+            return [argument.publicName, argument.codec.decode(reader)];
+          } catch (cause) {
+            const detail = cause instanceof Error ? `: ${cause.message}` : "";
+            throw new ContractDecodeError(
+              `${name}: argument "${argument.publicName}"${detail}`,
+              { cause },
+            );
+          }
+        }),
+      );
+      if (reader.remaining !== 0) {
+        throw new ContractDecodeError(
+          `${name}: ${reader.remaining} trailing calldata bytes`,
+        );
+      }
+      return (argumentCodecs.length === 0 ? undefined : args) as TArgs;
+    },
+
     decodeReturn(data) {
       assertReturnBufferLimit(data, "return");
       return decodeComplete<TResult>(
@@ -439,12 +476,16 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
     },
 
     async viewOutcome(options) {
-      const response = await options.client.view({
+      options.signal?.throwIfAborted();
+      const request = {
         contract: options.contract,
         entrypoint: copyEntrypoint(entrypoint),
         calldata: encode("args" in options ? options.args : undefined),
         ...(options.caller ? { caller: options.caller } : {}),
-      });
+      };
+      const response = await (options.signal
+        ? options.client.view(request, { signal: options.signal })
+        : options.client.view(request));
 
       switch (response.output.result) {
         case "return":

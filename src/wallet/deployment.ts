@@ -38,7 +38,12 @@ export function rv32Contract(artifact: Uint8Array): Contract {
   };
 }
 
-/** Hash canonical contract encoding and predict the address without creating an expiring transaction. */
+/**
+ * Hash canonical contract encoding and predict the address without creating an
+ * expiring transaction. Fund the predicted address's storage before deployment;
+ * this helper does not fund it. The deployment nonce differs from the transaction
+ * nonce. Factory-created contracts remain factory calls with attached code.
+ */
 export function prepareContractDeployment(input: {
   deployer: ContractAddress;
   contract: Contract | Uint8Array;

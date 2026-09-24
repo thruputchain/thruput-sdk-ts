@@ -1,7 +1,12 @@
 import { ExecResult, networkHash } from "@groundhogchain/protocol";
 import { describe, expect, it, vi } from "vitest";
 import type { Transport } from "../../transport/types.js";
-import { GroundhogRpcErrorCode, JsonRpcError } from "../../transport/http.js";
+import {
+  GroundhogRpcErrorCode,
+  HttpRequestError,
+  HttpResponseError,
+  JsonRpcError,
+} from "../../transport/http.js";
 import { hashFromHex } from "../hex.js";
 import { waitForTransactionReceipt } from "./waitForTransactionReceipt.js";
 
@@ -24,7 +29,12 @@ describe("waitForTransactionReceipt", () => {
       async request<T>(method: string): Promise<T> {
         methods.push(method);
         if (method === "groundhog_networkInfo") {
-          if (++attempts === 1) throw new TypeError("fetch failed");
+          if (++attempts === 1)
+            throw new HttpRequestError(
+              "https://rpc.example",
+              method,
+              new TypeError("fetch failed"),
+            );
           return { networkHash: rawReceipt.txHash } as T;
         }
         return rawReceipt as T;
@@ -185,11 +195,17 @@ describe("waitForTransactionReceipt", () => {
   });
 
   it.each([
-    ["fetch failure", new TypeError("fetch failed")],
     [
-      "request abort",
-      Object.assign(new Error("request aborted"), { name: "AbortError" }),
+      "fetch failure",
+      new HttpRequestError(
+        "https://rpc.example",
+        "groundhog_getTransactionReceipt",
+        new TypeError("fetch failed"),
+      ),
     ],
+    ["HTTP 500", new HttpResponseError(500, "server failure")],
+    ["HTTP 429", new HttpResponseError(429, "rate limited")],
+    ["request timeout", new DOMException("request timed out", "TimeoutError")],
   ])("retries a transient %s", async (_, failure) => {
     let receiptQueries = 0;
     const transport: Transport = {

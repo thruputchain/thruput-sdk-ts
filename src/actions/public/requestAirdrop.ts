@@ -3,11 +3,7 @@ import type {
   Transport,
   TransportRequestOptions,
 } from "../../transport/types.js";
-import {
-  GroundhogRpcErrorCode,
-  HttpResponseError,
-  JsonRpcError,
-} from "../../transport/http.js";
+import { classifyReadError } from "../../transport/readError.js";
 import type {
   AirdropAttemptRequest,
   AirdropPending,
@@ -103,7 +99,7 @@ export async function requestAirdrop(
       );
     } catch (cause) {
       if (options.signal?.aborted) throw abortReason(options.signal);
-      if (!isRetryableFailure(cause)) throw cause;
+      if (classifyReadError(cause) !== "transient") throw cause;
       await sleepBeforeDeadline(
         transientRetryDelayMs,
         deadline,
@@ -257,24 +253,6 @@ function parseExecutionStatus(value: unknown): AirdropExecutionStatus {
       }
       return { result: "other" };
   }
-}
-
-function isRetryableFailure(cause: unknown): boolean {
-  if (cause instanceof InvalidAirdropResponseError) return false;
-  if (cause instanceof HttpResponseError) {
-    return [408, 500, 502, 503, 504].includes(cause.status);
-  }
-  if (cause instanceof JsonRpcError) {
-    return (
-      cause.code === GroundhogRpcErrorCode.BackendUnavailable ||
-      cause.code === GroundhogRpcErrorCode.BackendTimeout ||
-      cause.code === GroundhogRpcErrorCode.Overloaded
-    );
-  }
-  return (
-    cause instanceof TypeError ||
-    (cause instanceof Error && cause.name === "AbortError")
-  );
 }
 
 async function beforeDeadline<T>(

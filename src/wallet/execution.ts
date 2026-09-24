@@ -95,7 +95,13 @@ export type CallResults<T extends readonly ContractCall[]> = {
   [K in keyof T]: T[K] extends ContractCall<infer R> ? R : never;
 };
 
-/** Decode DefaultWallet child returns without modifying the root receipt. Works after disconnect. */
+/**
+ * Decode DefaultWallet child returns without modifying the root receipt.
+ * Works after disconnect and preserves call order. Supply an adapter for other
+ * wallets. Wallets such as DevWallet that discard child return data report
+ * unavailable results. Failed wallet receipts are not decoded with a child ABI:
+ * even a single child call does not establish where an abort originated.
+ */
 export function decodeExecution<T extends readonly ContractCall[]>(
   receipt: TransactionReceipt,
   calls: T,
@@ -143,7 +149,13 @@ export class ExecutionReturnUnavailableError extends Error {
   }
 }
 
-/** Derive a root budget from explicit child budgets and a calibrated wallet overhead. This is not gas estimation. */
+/**
+ * Sum explicit child budgets and a calibrated wallet overhead, checking u64 bounds.
+ * This is not gas estimation. Calibrate budgets against the target runtime and
+ * workload; there is no universally safe wallet overhead. Root gas reserves
+ * scheduling capacity against the sender's free HOG. Storage deposits are a
+ * separate requirement, and funding a target contract does not sponsor root gas.
+ */
 export function walletGasLimit(
   calls: readonly { gas_limit: GasAmount }[],
   overhead: GasAmount,

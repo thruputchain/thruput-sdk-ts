@@ -13,6 +13,7 @@ export async function getNetworkInfo(
   transport: Transport,
   options?: TransportRequestOptions,
 ): Promise<NetworkInfo> {
+  options?.signal?.throwIfAborted();
   const result = await transport.request<unknown>(
     "groundhog_networkInfo",
     undefined,
