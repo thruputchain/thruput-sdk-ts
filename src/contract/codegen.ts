@@ -3,6 +3,7 @@ import { Int32Codec } from "@groundhogchain/protocol";
 import type { ContractTypeDef, ContractUnionCaseType } from "./spec.js";
 import { ContractTypeDefKind, ContractUnionCaseKind } from "./spec.js";
 import { resolveCodec } from "./encode.js";
+import { specIdKey, specIdText } from "./specId.js";
 
 /**
  * Build codecs for named contract-spec types.
@@ -19,19 +20,20 @@ export function buildNamedCodecs(
   for (const def of typeDefs) {
     switch (def.v) {
       case ContractTypeDefKind.TypeDefEnum:
-        codecs[def.enum_def.name] = enumCodec(
-          def.enum_def.name,
+        codecs[specIdKey(def.enum_def.name)] = enumCodec(
+          specIdText(def.enum_def.name),
           def.enum_def.variants.map((variant) => variant.value),
         );
         break;
 
       case ContractTypeDefKind.TypeDefStruct: {
         const structDef = def.struct_def;
-        codecs[structDef.name] = {
+        const structName = specIdText(structDef.name);
+        codecs[specIdKey(structDef.name)] = {
           encode(w, val: unknown) {
             if (!val || typeof val !== "object" || Array.isArray(val)) {
               throw new TypeError(
-                `Expected object for struct "${structDef.name}"`,
+                `Expected object for struct "${structName}"`,
               );
             }
             const obj = val as Record<string, unknown>;
@@ -39,7 +41,7 @@ export function buildNamedCodecs(
               const fieldCodec = resolveCodec(field.ty, codecs);
               fieldCodec.encode(
                 w,
-                ownProperty(obj, field.name, `Struct "${structDef.name}"`),
+                ownProperty(obj, field.name, `Struct "${structName}"`),
               );
             }
           },
@@ -57,25 +59,26 @@ export function buildNamedCodecs(
 
       case ContractTypeDefKind.TypeDefUnion: {
         const unionDef = def.union_def;
-        codecs[unionDef.name] = {
+        const unionName = specIdText(unionDef.name);
+        codecs[specIdKey(unionDef.name)] = {
           encode(w, val: unknown) {
             if (!val || typeof val !== "object" || Array.isArray(val)) {
               throw new TypeError(
-                `Expected case object for union "${unionDef.name}"`,
+                `Expected case object for union "${unionName}"`,
               );
             }
             const obj = val as { case?: unknown; value?: unknown };
             const caseName = ownProperty(
               obj,
               "case",
-              `Union "${unionDef.name}"`,
+              `Union "${unionName}"`,
             );
             const caseSpec = unionDef.cases.find(
               (candidate) => candidate.name === caseName,
             );
             if (!caseSpec) {
               throw new Error(
-                `Unknown case ${String(caseName)} for union "${unionDef.name}"`,
+                `Unknown case ${String(caseName)} for union "${unionName}"`,
               );
             }
             w.writeInt32(caseSpec.discriminant);
@@ -93,7 +96,7 @@ export function buildNamedCodecs(
             );
             if (!caseSpec) {
               throw new Error(
-                `Unknown discriminant ${discriminant} for union "${unionDef.name}"`,
+                `Unknown discriminant ${discriminant} for union "${unionName}"`,
               );
             }
             return decodeUnionCase(

@@ -29,6 +29,7 @@ import {
 import type { ContractType, ContractSpec, ContractSpecMethod } from "./spec.js";
 import { ContractTypeKind } from "./spec.js";
 import { ContractDecodeError } from "./errors.js";
+import { specIdKey, specIdText } from "./specId.js";
 import { SignedTokenCodec } from "./signedToken.js";
 
 const AddressCodec = requireByteArrayCodec(
@@ -297,12 +298,16 @@ function resolveUncachedCodec(
       } as XdrCodec<unknown>;
     }
     case ContractTypeKind.Named: {
+      // Keyed on the whole id, matching what buildNamedCodecs writes: a
+      // reference and the type def that satisfies it agree on all four
+      // segments, so two same-named types cannot answer for each other.
+      const key = specIdKey(ty.named);
       const codec =
-        namedCodecs && Object.hasOwn(namedCodecs, ty.named)
-          ? namedCodecs[ty.named]
+        namedCodecs && Object.hasOwn(namedCodecs, key)
+          ? namedCodecs[key]
           : undefined;
       if (codec === undefined) {
-        throw new Error(`No codec for named type "${ty.named}".`);
+        throw new Error(`No codec for named type "${specIdText(ty.named)}".`);
       }
       return codec;
     }

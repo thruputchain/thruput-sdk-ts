@@ -16,6 +16,7 @@ export type {
   ContractVectorType,
   ContractExceptionType,
   ContractSpecString,
+  ContractSpecId,
 } from "@groundhogchain/contract-spec";
 
 /** Contract spec enum discriminants used when inspecting parsed specs. */

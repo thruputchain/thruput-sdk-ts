@@ -12,6 +12,7 @@ import {
   ContractTypeKind,
   contractSpecString,
   type ContractTypeDef,
+  type ContractSpecId,
 } from "@groundhogchain/contract-spec";
 import { PrivateKeySigner } from "../signers/privateKey.js";
 import type { Signer } from "../signers/types.js";
@@ -19,11 +20,21 @@ import { defineSignedOperation, randomNonce } from "./operation.js";
 
 const s = contractSpecString;
 
+/** A spec id for a test type: one demo crate, so only the name varies. */
+function specId(declared: string): ContractSpecId {
+  return {
+    crate_name: s("demo"),
+    major: s("1"),
+    module_path: s("demo"),
+    declared: s(declared),
+  };
+}
+
 const typeDefs: ContractTypeDef[] = [
   {
     v: ContractTypeDefKind.TypeDefStruct,
     struct_def: {
-      name: s("Transfer"),
+      name: specId("Transfer"),
       fields: [
         { name: s("to"), ty: { v: ContractTypeKind.Address } },
         { name: s("amount"), ty: { v: ContractTypeKind.U64 } },

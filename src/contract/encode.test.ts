@@ -12,12 +12,23 @@ import {
   ContractTypeKind,
   ContractTypeDefKind,
   ContractUnionCaseKind,
+  type ContractSpecId,
 } from "@groundhogchain/contract-spec";
 import type { ContractSpec, ContractTypeDef } from "./spec.js";
 import { encodeCalldata, decodeCalldata } from "./encode.js";
 import { buildNamedCodecs } from "./codegen.js";
 
 const s = contractSpecString;
+
+/** A spec id for a test type: one demo crate, so only the name varies. */
+function specId(declared: string): ContractSpecId {
+  return {
+    crate_name: s("demo"),
+    major: s("1"),
+    module_path: s("demo"),
+    declared: s(declared),
+  };
+}
 
 const erc20Spec: ContractSpec = {
   interfaces: [
@@ -27,7 +38,7 @@ const erc20Spec: ContractSpec = {
       throws: [
         {
           selector: 0xb19947acb2fa14ffn,
-          ty: { v: ContractTypeKind.Named, named: s("ERC20Error") },
+          ty: { v: ContractTypeKind.Named, named: specId("ERC20Error") },
         },
       ],
       methods: [
@@ -56,7 +67,7 @@ const erc20Spec: ContractSpec = {
     {
       v: ContractTypeDefKind.TypeDefEnum,
       enum_def: {
-        name: s("ERC20Error"),
+        name: specId("ERC20Error"),
         variants: [
           { name: s("AlreadyInitialized"), value: 1n },
           { name: s("MustBeContractOwner"), value: 2n },
@@ -449,7 +460,7 @@ describe("buildNamedCodecs", () => {
       {
         v: ContractTypeDefKind.TypeDefStruct,
         struct_def: {
-          name: s("TokenInfo"),
+          name: specId("TokenInfo"),
           fields: [
             { name: s("owner"), ty: { v: ContractTypeKind.Address } },
             { name: s("supply"), ty: { v: ContractTypeKind.U128 } },
@@ -494,7 +505,7 @@ describe("buildNamedCodecs", () => {
       {
         v: ContractTypeDefKind.TypeDefStruct,
         struct_def: {
-          name: s("__proto__"),
+          name: specId("__proto__"),
           fields: [{ name: s("__proto__"), ty: { v: ContractTypeKind.U32 } }],
         },
       },
@@ -521,7 +532,7 @@ describe("buildNamedCodecs", () => {
       {
         v: ContractTypeDefKind.TypeDefUnion,
         union_def: {
-          name: s("Result"),
+          name: specId("Result"),
           cases: [
             {
               name: s("Ok"),

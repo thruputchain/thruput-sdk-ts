@@ -20,6 +20,7 @@ import {
   contractSpecString,
   ContractTypeKind,
   ContractTypeDefKind,
+  type ContractSpecId,
 } from "@groundhogchain/contract-spec";
 import { PrivateKeySigner } from "./signers/privateKey.js";
 import { createInvocation, createTransaction } from "./transaction/build.js";
@@ -38,6 +39,16 @@ import { ERC20 } from "./contracts/erc20.js";
 
 const s = contractSpecString;
 
+/** A spec id for a test type: one demo crate, so only the name varies. */
+function specId(declared: string): ContractSpecId {
+  return {
+    crate_name: s("demo"),
+    major: s("1"),
+    module_path: s("demo"),
+    declared: s(declared),
+  };
+}
+
 const erc20Spec: ContractSpec = {
   interfaces: [
     {
@@ -46,7 +57,7 @@ const erc20Spec: ContractSpec = {
       throws: [
         {
           selector: 0xb19947acb2fa14ffn,
-          ty: { v: ContractTypeKind.Named, named: s("ERC20Error") },
+          ty: { v: ContractTypeKind.Named, named: specId("ERC20Error") },
         },
       ],
       methods: [
@@ -65,7 +76,7 @@ const erc20Spec: ContractSpec = {
     {
       v: ContractTypeDefKind.TypeDefEnum,
       enum_def: {
-        name: s("ERC20Error"),
+        name: specId("ERC20Error"),
         variants: [
           { name: s("AlreadyInitialized"), value: 1n },
           { name: s("MustBeContractOwner"), value: 2n },

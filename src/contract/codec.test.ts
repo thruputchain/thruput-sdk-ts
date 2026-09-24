@@ -6,6 +6,7 @@ import {
   ContractTypeDefKind,
   ContractTypeKind,
   ContractUnionCaseKind,
+  type ContractSpecId,
 } from "@groundhogchain/contract-spec";
 import {
   createContractCodec,
@@ -19,11 +20,21 @@ import type { ContractType, ContractTypeDef } from "./spec.js";
 
 const s = contractSpecString;
 
+/** A spec id for a test type: one demo crate, so only the name varies. */
+function specId(declared: string): ContractSpecId {
+  return {
+    crate_name: s("demo"),
+    major: s("1"),
+    module_path: s("demo"),
+    declared: s(declared),
+  };
+}
+
 const signedTypes: ContractTypeDef[] = [
   {
     v: ContractTypeDefKind.TypeDefEnum,
     enum_def: {
-      name: s("SignedEnum"),
+      name: specId("SignedEnum"),
       variants: [
         { name: s("Negative"), value: -7n },
         { name: s("Positive"), value: 9n },
@@ -33,7 +44,7 @@ const signedTypes: ContractTypeDef[] = [
   {
     v: ContractTypeDefKind.TypeDefUnion,
     union_def: {
-      name: s("SignedUnion"),
+      name: specId("SignedUnion"),
       cases: [
         {
           name: s("Negative"),
@@ -150,7 +161,7 @@ describe("contract codecs", () => {
       {
         v: ContractTypeDefKind.TypeDefStruct,
         struct_def: {
-          name: s("Value"),
+          name: specId("Value"),
           fields: [{ name: s("value"), ty: fieldType }],
         },
       },
@@ -159,7 +170,7 @@ describe("contract codecs", () => {
     Object.assign(fieldType, { v: ContractTypeKind.Bool });
     const codec = createContractCodec<{ value: bigint }>(context, {
       v: ContractTypeKind.Named,
-      named: s("Value"),
+      named: specId("Value"),
     });
 
     expect(codec.decode(codec.encode({ value: 63n }))).toEqual({ value: 63n });
@@ -219,14 +230,14 @@ describe("contract codecs", () => {
 
   it("rejects inherited named-codec properties", () => {
     expect(() =>
-      resolveCodec({ v: ContractTypeKind.Named, named: s("toString") }, {}),
+      resolveCodec({ v: ContractTypeKind.Named, named: specId("toString") }, {}),
     ).toThrow('No codec for named type "toString"');
   });
 
   it("rejects missing and explicitly undefined named codecs", () => {
     const type: ContractType = {
       v: ContractTypeKind.Named,
-      named: s("Missing"),
+      named: specId("Missing"),
     };
     expect(() => resolveCodec(type, {})).toThrow(
       'No codec for named type "Missing"',
@@ -299,13 +310,13 @@ describe("signed enum and union codecs", () => {
   const context = createContractCodecContext(signedTypes);
   const signedEnum = createContractCodec<bigint>(context, {
     v: ContractTypeKind.Named,
-    named: s("SignedEnum"),
+    named: specId("SignedEnum"),
   });
   const signedUnion = createContractCodec<
     { case: "Negative"; value: [bigint] } | { case: "Positive" }
   >(context, {
     v: ContractTypeKind.Named,
-    named: s("SignedUnion"),
+    named: specId("SignedUnion"),
   });
 
   it("round-trips declared negative enum values", () => {

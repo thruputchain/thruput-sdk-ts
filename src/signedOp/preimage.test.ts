@@ -16,6 +16,7 @@ import {
   codec as contractSpecCodec,
   contractSpecString,
   type ContractTypeDef,
+  type ContractSpecId,
 } from "@groundhogchain/contract-spec";
 import { SIGNED_OP } from "../derivation/domainSeparator.js";
 import { defineSignedOperation } from "./operation.js";
@@ -51,6 +52,16 @@ const vectorFile = JSON.parse(readFileSync(vectorsPath, "utf-8")) as VectorFile;
 
 const s = contractSpecString;
 
+/** A spec id for a test type: one demo crate, so only the name varies. */
+function specId(declared: string): ContractSpecId {
+  return {
+    crate_name: s("demo"),
+    major: s("1"),
+    module_path: s("demo"),
+    declared: s(declared),
+  };
+}
+
 // The payload types the Rust generator derives its vectors from. Written out
 // here exactly as `#[contract_type]` would describe them, so the test pins the
 // type-definition encoding as well as the message around it.
@@ -58,21 +69,21 @@ const typeDefs: ContractTypeDef[] = [
   {
     v: ContractTypeDefKind.TypeDefStruct,
     struct_def: {
-      name: s("Grant"),
+      name: specId("Grant"),
       fields: [{ name: s("amount"), ty: { v: ContractTypeKind.U64 } }],
     },
   },
   {
     v: ContractTypeDefKind.TypeDefStruct,
     struct_def: {
-      name: s("Revoke"),
+      name: specId("Revoke"),
       fields: [{ name: s("id"), ty: { v: ContractTypeKind.U64 } }],
     },
   },
   {
     v: ContractTypeDefKind.TypeDefStruct,
     struct_def: {
-      name: s("Transfer"),
+      name: specId("Transfer"),
       fields: [
         { name: s("to"), ty: { v: ContractTypeKind.Address } },
         { name: s("amount"), ty: { v: ContractTypeKind.U64 } },

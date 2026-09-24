@@ -7,9 +7,10 @@ import {
 import {
   ContractTypeDefKind,
   ContractTypeKind,
-  contractSpecString,
+  type ContractSpecId,
   type ContractTypeDef,
 } from "@groundhogchain/contract-spec";
+import { specIdKey, specIdText } from "../contract/specId.js";
 import type { FixedBytes } from "@groundhogchain/xdr";
 import { randomBytes } from "@noble/hashes/utils.js";
 import {
@@ -73,8 +74,15 @@ export interface SignedOperationRequest<TBody> {
 
 /** Signing helpers bound to one payload type. */
 export interface SignedOperationType<TBody> {
-  /** Name of the payload type in the contract spec. */
+  /**
+   * Declared name of the payload type, without its crate or module.
+   *
+   * Convenient to read and print, but not unique on its own: two crates may
+   * declare the same name. {@link typeId} is what identifies the type.
+   */
   readonly typeName: string;
+  /** Whole spec id of the payload type: crate, major, module and name. */
+  readonly typeId: ContractSpecId;
   /** The payload type's spec definition, as bound into every preimage. */
   readonly typeDef: ContractTypeDef;
   /** CXS-encode a payload value the way the contract decodes it. */
@@ -96,8 +104,14 @@ export interface DefineSignedOperationOptions {
    * it references.
    */
   readonly typeDefs: readonly ContractTypeDef[];
-  /** Name of the payload type, as declared with `#[contract_type]`. */
-  readonly typeName: string;
+  /**
+   * The payload type, as declared with `#[contract_type]`.
+   *
+   * A bare declared name resolves when exactly one type def carries it. Pass
+   * the whole {@link ContractSpecId} when two crates or modules declare the
+   * same name -- a bare name is rejected as ambiguous rather than guessed at.
+   */
+  readonly typeName: string | ContractSpecId;
 }
 
 /**
@@ -149,7 +163,8 @@ export function randomNonce(): bigint {
  * const invocation = MyWallet.submit.invocation(walletAddress, gasLimit, { op, signature });
  * ```
  *
- * @throws If `typeName` is not among `typeDefs`.
+ * @throws If `typeName` is not among `typeDefs`, or if a bare name is
+ * declared by more than one of them.
  */
 export function defineSignedOperation<TBody>(
   options: DefineSignedOperationOptions,
@@ -159,11 +174,14 @@ export function defineSignedOperation<TBody>(
   // or a later mutation of the caller's array would split the two.
   const typeDefs = structuredClone([...options.typeDefs]);
   const typeDef = deepFreeze(findTypeDef(typeDefs, options.typeName));
+  // The reference is built from the definition's own id, not from what the
+  // caller passed, so a bare name and a whole id resolve to the same codec.
+  const typeId = typeDefId(typeDef);
   const context = createContractCodecContext(typeDefs);
   const bodyCodec = createContractCodec<TBody>(
     context,
-    { v: ContractTypeKind.Named, named: contractSpecString(options.typeName) },
-    `${options.typeName} payload`,
+    { v: ContractTypeKind.Named, named: typeId },
+    `${typeId.declared} payload`,
   );
 
   const preimageOf = (
@@ -182,7 +200,8 @@ export function defineSignedOperation<TBody>(
     });
 
   return {
-    typeName: options.typeName,
+    typeName: typeId.declared,
+    typeId,
     typeDef,
     encodeBody: (body) => bodyCodec.encode(body),
     preimage: (request) =>
@@ -228,7 +247,7 @@ function deepFreeze<T>(value: T): T {
   return value;
 }
 
-function typeDefName(typeDef: ContractTypeDef): string {
+function typeDefId(typeDef: ContractTypeDef): ContractSpecId {
   switch (typeDef.v) {
     case ContractTypeDefKind.TypeDefStruct:
       return typeDef.struct_def.name;
@@ -241,13 +260,37 @@ function typeDefName(typeDef: ContractTypeDef): string {
 
 function findTypeDef(
   typeDefs: readonly ContractTypeDef[],
-  typeName: string,
+  typeName: string | ContractSpecId,
 ): ContractTypeDef {
-  const typeDef = typeDefs.find((def) => typeDefName(def) === typeName);
-  if (typeDef === undefined) {
+  if (typeof typeName !== "string") {
+    const wanted = specIdKey(typeName);
+    const typeDef = typeDefs.find(
+      (def) => specIdKey(typeDefId(def)) === wanted,
+    );
+    if (typeDef === undefined) {
+      throw new Error(
+        `Contract type "${specIdText(typeName)}" is not defined in the given type definitions`,
+      );
+    }
+    return typeDef;
+  }
+  // A bare name addresses the declared segment. It stays supported because it
+  // is what every caller writes, but it is no longer guaranteed unique, so an
+  // ambiguous one is reported rather than resolved to whichever came first.
+  const matches = typeDefs.filter((def) => typeDefId(def).declared === typeName);
+  if (matches.length === 0) {
     throw new Error(
       `Contract type "${typeName}" is not defined in the given type definitions`,
     );
   }
-  return typeDef;
+  if (matches.length > 1) {
+    const candidates = matches
+      .map((def) => specIdText(typeDefId(def)))
+      .join(", ");
+    throw new Error(
+      `Contract type "${typeName}" is declared more than once (${candidates}); ` +
+        `pass the whole ContractSpecId instead of a bare name`,
+    );
+  }
+  return matches[0]!;
 }

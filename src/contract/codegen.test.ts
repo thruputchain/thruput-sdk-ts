@@ -4,25 +4,36 @@ import {
   contractSpecString,
   ContractTypeKind,
   ContractTypeDefKind,
+  type ContractSpecId,
 } from "@groundhogchain/contract-spec";
 import type { ContractTypeDef } from "./spec.js";
 import { buildNamedCodecs } from "./codegen.js";
 
 const s = contractSpecString;
 
+/** A spec id for a test type: one demo crate, so only the name varies. */
+function specId(declared: string): ContractSpecId {
+  return {
+    crate_name: s("demo"),
+    major: s("1"),
+    module_path: s("demo"),
+    declared: s(declared),
+  };
+}
+
 describe("buildNamedCodecs with recursive types", () => {
   const typeDefs: ContractTypeDef[] = [
     {
       v: ContractTypeDefKind.TypeDefStruct,
       struct_def: {
-        name: s("Forest"),
+        name: specId("Forest"),
         fields: [
           {
             name: s("trees"),
             ty: {
               v: ContractTypeKind.Vector,
               vector: {
-                element: { v: ContractTypeKind.Named, named: s("Forest") },
+                element: { v: ContractTypeKind.Named, named: specId("Forest") },
                 max_len: 4294967295n,
               },
             },
@@ -34,21 +45,21 @@ describe("buildNamedCodecs with recursive types", () => {
     {
       v: ContractTypeDefKind.TypeDefStruct,
       struct_def: {
-        name: s("Tree"),
+        name: specId("Tree"),
         fields: [
           { name: s("value"), ty: { v: ContractTypeKind.U32 } },
           {
             name: s("left"),
             ty: {
               v: ContractTypeKind.Option,
-              option_inner: { v: ContractTypeKind.Named, named: s("Tree") },
+              option_inner: { v: ContractTypeKind.Named, named: specId("Tree") },
             },
           },
           {
             name: s("right"),
             ty: {
               v: ContractTypeKind.Option,
-              option_inner: { v: ContractTypeKind.Named, named: s("Tree") },
+              option_inner: { v: ContractTypeKind.Named, named: specId("Tree") },
             },
           },
         ],
