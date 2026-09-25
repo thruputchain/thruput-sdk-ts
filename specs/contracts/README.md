@@ -25,7 +25,7 @@ The Counter ABI comes from
 The DevWallet ABI comes from
 `groundhogchain/integration_test_contracts@c2036930aee317f5cb0ad0c887237b7ed1db6c42`,
 and the DefaultWallet ABI comes from
-`groundhogchain/integration_test_contracts@abda17ab438f5e668209fb72c12aa695e9f60c3a`.
+`groundhogchain/integration_test_contracts@c21ab653be044b42eae6793750f04c66e6aade6f`.
 The DefaultWallet spec was built from the canonical Rust contract with SDK 0.36.1.
 It contains the unified `deploy(nonce, contract_hash, amount, initializer)` ABI.
 The entrypoint selector is unchanged; the argument shape intentionally replaces
