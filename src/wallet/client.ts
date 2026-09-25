@@ -47,6 +47,7 @@ import {
   deploymentRequest,
   decodeDeployment,
   type ContractDeployment,
+  type DeploymentOptions,
 } from "./deployment.js";
 
 const walletClientMarker = Symbol("GroundhogWalletClient");
@@ -82,21 +83,21 @@ export interface WalletActions<TAccount extends WalletAccount = WalletAccount> {
   prepareTransaction(request: PrepareTransactionRequest): Promise<Transaction>;
   signTransaction(transaction: Transaction): Promise<SignedTransaction>;
   sendInvocation(request: PrepareTransactionRequest): Promise<SHA256Hash>;
-  /** Prepare a root deployment after any required address prefunding. */
+  /** Prepare explicit funding, deployment and optional initialization in one root. */
   prepareDeployment(
     deployment: ContractDeployment,
-    gasLimit: GasAmount,
+    options: DeploymentOptions,
   ): Promise<Transaction>;
   /** Submit deployment and return its predicted address before commitment. */
   deployContract(
     deployment: ContractDeployment,
-    gasLimit: GasAmount,
+    options: DeploymentOptions,
   ): Promise<{ txHash: SHA256Hash; address: ContractAddress }>;
   /** Deploy, wait for success and verify the returned address. */
   deployContractAndWait(
     deployment: ContractDeployment,
-    gasLimit: GasAmount,
-    options?: WaitForTransactionReceiptOptions,
+    options: DeploymentOptions,
+    wait?: WaitForTransactionReceiptOptions,
   ): Promise<ExecutionResult & { address: ContractAddress }>;
 }
 
@@ -259,22 +260,22 @@ export function createWalletClient<
       signWalletTransaction(account, transaction, signingNetworkHash),
     sendInvocation: (request) =>
       sendInvocation(client, account, signingNetworkHash, request),
-    prepareDeployment: (deployment, gasLimit) =>
+    prepareDeployment: (deployment, options) =>
       prepareTransaction(
         client,
         account,
         deploymentRequest(
           deployment,
           account.address,
-          gasLimit,
+          options,
           requireDeploymentAdapter(),
         ),
       ),
-    deployContract: async (deployment, gasLimit) => {
+    deployContract: async (deployment, options) => {
       const request = deploymentRequest(
         deployment,
         account.address,
-        gasLimit,
+        options,
         requireDeploymentAdapter(),
       );
       const address = deployment.address.slice() as ContractAddress;
@@ -288,11 +289,11 @@ export function createWalletClient<
         address,
       };
     },
-    deployContractAndWait: async (deployment, gasLimit, wait) => {
+    deployContractAndWait: async (deployment, options, wait) => {
       const adapter = requireDeploymentAdapter();
       const address = deployment.address.slice() as ContractAddress;
       const result = await sendAndObserve(
-        deploymentRequest(deployment, account.address, gasLimit, adapter),
+        deploymentRequest(deployment, account.address, options, adapter),
         wait,
       );
       decodeDeployment(result.receipt, { ...deployment, address }, adapter);

@@ -216,6 +216,40 @@ Use `prepareExecution` to inspect the wrapped transaction before signing. Both
 execution methods accept `nonce`, `blockExpiryHeight`, `expiryBlocks`, and
 `contractsToDeploy` overrides.
 
+Native wallets deploy through one atomic operation with an explicit funding
+amount and an optional initializer. Prepare the deployment identity first, then
+compose an initializer using the generated contract binding:
+
+```ts
+import { prepareContractDeployment } from "@groundhogchain/client/wallet";
+import { Counter } from "./generated/counter.js";
+
+const deployment = prepareContractDeployment({
+  deployer: wallet.account.address,
+  contract: rv32Artifact,
+});
+const result = await wallet.deployContractAndWait(deployment, {
+  gasLimit: deploymentGas,
+  amount: authorizedFunding,
+  initializer: Counter.initialize.invocation(deployment.address, initGas, {
+    initialValue: 42n,
+  }),
+});
+```
+
+`amount` is raw HOG, chosen by the caller; `0n` skips the transfer. The target's
+existing balance plus this amount must cover deployment and initialized storage.
+There is no automatic cost estimate or prefunding transaction. The initializer
+must target the predicted address, sees the wallet as its caller, and returns no
+value to the deployment client. An abort or fault rolls back all three steps.
+Omit `initializer` when no call is required.
+
+This API requires the unified native `DefaultWallet.deploy` runtime ABI; older
+nodes are unsupported and there is no two-transaction fallback. The legacy
+DevWallet adapter supports calls, but rejects this deployment API. Provider
+wallets accept the same deployment options and retain their explicit signing
+and approval-persistence boundary.
+
 The explicit root-invocation APIs remain available for advanced workflows:
 
 ```ts
@@ -498,3 +532,19 @@ The harness isolates configuration and state, stops its child processes, and
 retains logs and node state on failure at the printed temporary path. Set
 `GROUNDHOG_INTEGRATION_LOG_DIR` to retain logs at a chosen location; CI uploads
 them as `live-node-logs`.
+
+The published devnode pin does not yet implement unified native deployment, so
+that acceptance case is skipped by the pinned harness. To qualify a matching
+local build, start a disposable node with the unified ABI and run the built
+package tests against its reported URL and manifest:
+
+```sh
+npm run build
+GROUNDHOG_RPC_URL=http://127.0.0.1:9545 \
+GROUNDHOG_RUNTIME_MANIFEST=/absolute/path/to/runtime-manifest.json \
+GROUNDHOG_UNIFIED_WALLET_DEPLOY=1 \
+node --test --test-concurrency=1 tests/integration/live-node.test.mjs
+```
+
+This enables atomic funding, deployment, initialization and state readback.
+It does not perform capability discovery or fall back on unsupported runtimes.

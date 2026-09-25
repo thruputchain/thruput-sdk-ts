@@ -81,6 +81,7 @@ export type {
   DefaultWalletExecuteArgs,
   DefaultWalletExecuteResult,
   WalletCall,
+  WalletInitCall,
 } from "./default_wallet.js";
 export { DevWallet, spec as DevWalletSpec } from "./dev_wallet.js";
 export type {

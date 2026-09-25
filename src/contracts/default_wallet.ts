@@ -45,9 +45,17 @@ export const WalletError = {
 
 export type WalletError = (typeof WalletError)[keyof typeof WalletError];
 
+export interface WalletInitCall {
+  entrypoint: FixedBytes<8>;
+  gas_limit: bigint;
+  calldata: Uint8Array;
+}
+
 export interface DefaultWalletDeployArgs {
   nonce: FixedBytes<32>;
   contractHash: FixedBytes<32>;
+  amount: bigint;
+  initializer: WalletInitCall | null;
 }
 export type DefaultWalletDeployResult = ContractAddress;
 
@@ -92,6 +100,17 @@ export const spec: ContractSpec = {
               ty: {
                 v: ContractTypeKind.Array,
                 array: { element: { v: ContractTypeKind.U8 }, len: 32n },
+              },
+            },
+            { name: s("amount"), ty: { v: ContractTypeKind.U128 } },
+            {
+              name: s("initializer"),
+              ty: {
+                v: ContractTypeKind.Option,
+                option_inner: {
+                  v: ContractTypeKind.Named,
+                  named: s("WalletInitCall"),
+                },
               },
             },
           ],
@@ -174,6 +193,32 @@ export const spec: ContractSpec = {
         ],
       },
     },
+    {
+      v: ContractTypeDefKind.TypeDefStruct,
+      struct_def: {
+        name: s("WalletInitCall"),
+        fields: [
+          {
+            name: s("entrypoint"),
+            ty: {
+              v: ContractTypeKind.Array,
+              array: { element: { v: ContractTypeKind.U8 }, len: 8n },
+            },
+          },
+          { name: s("gas_limit"), ty: { v: ContractTypeKind.U64 } },
+          {
+            name: s("calldata"),
+            ty: {
+              v: ContractTypeKind.Vector,
+              vector: {
+                element: { v: ContractTypeKind.U8 },
+                max_len: 4294967295n,
+              },
+            },
+          },
+        ],
+      },
+    },
   ],
   events: [],
 };
@@ -201,6 +246,16 @@ export const DefaultWallet = {
         abiName: "contract_hash",
         publicName: "contractHash",
         type: spec.interfaces[0]!.methods[0]!.args[1]!.ty,
+      },
+      {
+        abiName: "amount",
+        publicName: "amount",
+        type: spec.interfaces[0]!.methods[0]!.args[2]!.ty,
+      },
+      {
+        abiName: "initializer",
+        publicName: "initializer",
+        type: spec.interfaces[0]!.methods[0]!.args[3]!.ty,
       },
     ],
     returnType: spec.interfaces[0]!.methods[0]!.return_type,

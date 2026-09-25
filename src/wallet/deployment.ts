@@ -8,6 +8,7 @@ import {
   type Contract,
   type ContractAddress,
   type GasAmount,
+  type Invocation,
   type SHA256Hash,
 } from "@groundhogchain/protocol";
 import { fixedBytes } from "@groundhogchain/xdr";
@@ -19,13 +20,27 @@ import type { WalletInvocationAdapter } from "./invocationAdapter.js";
 import type { PrepareTransactionRequest } from "../actions/wallet/prepareTransaction.js";
 import { toHex0x } from "../actions/hex.js";
 
-/** Stable deployment inputs, available before prefunding and transaction preparation. */
+/** Stable deployment identity, available before transaction preparation. */
 export interface ContractDeployment {
   readonly contract: Contract;
   readonly deployer: ContractAddress;
   readonly deploymentNonce: SHA256Hash;
   readonly contractHash: SHA256Hash;
   readonly address: ContractAddress;
+}
+
+/** Explicit effects and gas budgets for one atomic wallet deployment. */
+export interface DeploymentOptions {
+  /** Gas available to the complete wallet root. */
+  readonly gasLimit: GasAmount;
+  /** Exact raw HOG to transfer to the target. Zero skips funding. */
+  readonly amount: bigint;
+  /**
+   * Optional ordinary call to the predicted deployment address. Build it with
+   * a generated method's invocation API. The caller is the wallet; return data
+   * is discarded. Failure rolls back funding, deployment and initialization.
+   */
+  readonly initializer?: Invocation;
 }
 
 /** Wrap raw RV32 artifact bytes in the canonical protocol Contract. */
@@ -40,8 +55,8 @@ export function rv32Contract(artifact: Uint8Array): Contract {
 
 /**
  * Hash canonical contract encoding and predict the address without creating an
- * expiring transaction. Fund the predicted address's storage before deployment;
- * this helper does not fund it. The deployment nonce differs from the transaction
+ * expiring transaction. Funding and initialization are explicit deployment options;
+ * this helper performs neither. The deployment nonce differs from the transaction
  * nonce. Factory-created contracts remain factory calls with attached code.
  */
 export function prepareContractDeployment(input: {
@@ -76,7 +91,7 @@ export function prepareContractDeployment(input: {
 export function deploymentRequest(
   deployment: ContractDeployment,
   account: ContractAddress,
-  gasLimit: GasAmount,
+  options: DeploymentOptions,
   adapter: WalletInvocationAdapter,
 ): PrepareTransactionRequest {
   if (!adapter.createDeploymentInvocation)
@@ -91,12 +106,12 @@ export function deploymentRequest(
       "Deployment inputs no longer match the predicted address or wallet account",
     );
   return {
-    invocation: adapter.createDeploymentInvocation(account, gasLimit, snapshot),
+    invocation: adapter.createDeploymentInvocation(account, snapshot, options),
     contractsToDeploy: [snapshot.contract],
   };
 }
 
-/** Verify committed deployment evidence against the pre-funded predicted address. */
+/** Verify committed deployment evidence against the predicted address. */
 export function decodeDeployment(
   receipt: TransactionReceipt,
   deployment: ContractDeployment,

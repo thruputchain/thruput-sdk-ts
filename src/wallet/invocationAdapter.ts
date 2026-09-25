@@ -7,10 +7,11 @@ import {
   type Invocation,
 } from "@groundhogchain/protocol";
 import { fixedBytes } from "@groundhogchain/xdr";
+import { bytesEqual } from "../contract/event.js";
 import { DefaultWallet } from "../contracts/default_wallet.js";
 import { DevWallet } from "../contracts/dev_wallet.js";
 import { MAX_DEFAULT_WALLET_CALLS } from "../provider/validation.js";
-import type { ContractDeployment } from "./deployment.js";
+import type { ContractDeployment, DeploymentOptions } from "./deployment.js";
 import type { TransactionReceipt } from "../types/rpc.js";
 
 /** Common inputs for wrapping one inner invocation through a wallet contract. */
@@ -59,8 +60,8 @@ export interface WalletInvocationAdapter<
   /** Build a root deployment when supported by this wallet. */
   createDeploymentInvocation?(
     account: ContractAddress,
-    gasLimit: GasAmount,
     deployment: ContractDeployment,
+    options: DeploymentOptions,
   ): Invocation;
   /** Decode the address returned by a root deployment. */
   decodeDeploymentReceipt?(receipt: TransactionReceipt): ContractAddress;
@@ -93,10 +94,25 @@ export const defaultWalletAdapter = defineWalletInvocationAdapter({
   createBatchRootInvocation: createDefaultWalletBatchInvocation,
   decodeExecutionReturns: (receipt) =>
     DefaultWallet.execute.decodeReceipt(receipt).value,
-  createDeploymentInvocation(account, gasLimit, deployment) {
-    return DefaultWallet.deploy.invocation(account, gasLimit, {
+  createDeploymentInvocation(account, deployment, options) {
+    if (
+      options.initializer &&
+      !bytesEqual(options.initializer.invoked_address, deployment.address)
+    )
+      throw new Error(
+        "Initializer must target the predicted deployment address",
+      );
+    return DefaultWallet.deploy.invocation(account, options.gasLimit, {
       nonce: fixedBytes(deployment.deploymentNonce, 32),
       contractHash: fixedBytes(deployment.contractHash, 32),
+      amount: options.amount,
+      initializer: options.initializer
+        ? {
+            entrypoint: fixedBytes(options.initializer.entrypoint, 8),
+            gas_limit: options.initializer.gas_limit,
+            calldata: options.initializer.calldata,
+          }
+        : null,
     });
   },
   decodeDeploymentReceipt: (receipt) =>
@@ -112,17 +128,9 @@ export const defaultWalletAdapter = defineWalletInvocationAdapter({
   },
 });
 
-/** Wrap one call through the local-development DevWallet interface. */
+/** Wrap one call through the legacy DevWallet. Unified deployment is unsupported. */
 export const devWalletAdapter = defineWalletInvocationAdapter({
   decodeExecutionReturns: () => null,
-  createDeploymentInvocation(account, gasLimit, deployment) {
-    return DevWallet.deploy.invocation(account, gasLimit, {
-      nonce: fixedBytes(deployment.deploymentNonce, 32),
-      contractHash: fixedBytes(deployment.contractHash, 32),
-    });
-  },
-  decodeDeploymentReceipt: (receipt) =>
-    DevWallet.deploy.decodeReceipt(receipt).value,
   createRootInvocation(
     accountAddress: ContractAddress,
     request: WalletExecutionRequest,

@@ -39,6 +39,9 @@ import {
 import { createPubkeyAccount } from "./account.js";
 import { createProviderWalletClient } from "./providerClient.js";
 import { defaultWalletAdapter } from "./invocationAdapter.js";
+import { prepareContractDeployment } from "./deployment.js";
+import { DefaultWallet } from "../contracts/default_wallet.js";
+import { Counter } from "../../examples/generated/counter.js";
 
 const networkHash = "ab".repeat(32);
 const signingNetwork = toNetworkHash(sha256Hash(new Uint8Array(32).fill(0xab)));
@@ -156,6 +159,59 @@ function wireResult(signed: SignedTransaction): SignTransactionResult {
 }
 
 describe("provider atomic batches", () => {
+  it("signs and submits the exact unified deployment after preserving approval evidence", async () => {
+    const { wallet, client, request } = await setup();
+    const plan = prepareContractDeployment({
+      deployer: localAccount.address,
+      contract: new Uint8Array([1, 2, 3]),
+    });
+    const initializer = Counter.initialize.invocation(
+      plan.address,
+      gasAmount(100n),
+      { initialValue: 42n },
+    );
+    vi.spyOn(client, "waitForTransactionReceipt").mockImplementation(
+      async (txHash) => ({
+        txHash,
+        height: 1n,
+        execResult: ExecResult.ExecResultOK,
+        events: [],
+        returnData: plan.address,
+        abortData: null,
+        gasUsed: 1n,
+      }),
+    );
+    const onSigned = vi.fn((evidence: { signedTransaction: string }) => {
+      const signed = parseSignedTransactionHex(evidence.signedTransaction);
+      expect(signed.tx.contracts_to_deploy).toEqual([plan.contract]);
+      expect(
+        DefaultWallet.deploy.decodeArgs(signed.tx.invocation.calldata),
+      ).toMatchObject({
+        amount: 123n,
+        initializer: {
+          entrypoint: initializer.entrypoint,
+          calldata: initializer.calldata,
+        },
+      });
+      expect(
+        request.mock.calls.some(
+          ([call]) => call.method === "submitTransaction",
+        ),
+      ).toBe(false);
+    });
+    const result = await wallet.deployContractAndWait(
+      plan,
+      { gasLimit: gasAmount(1000n), amount: 123n, initializer },
+      { onSigned },
+    );
+    expect(result.address).toEqual(plan.address);
+    expect(onSigned).toHaveBeenCalledOnce();
+    expect(
+      request.mock.calls.filter(
+        ([call]) => call.method === "submitTransaction",
+      ),
+    ).toHaveLength(1);
+  });
   it("awaits durable persistence and blocks approval replacement throughout execution", async () => {
     const { wallet, client, request } = await setup();
     const barrier = deferred<void>();

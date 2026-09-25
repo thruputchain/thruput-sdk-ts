@@ -42,4 +42,5 @@ export {
   rv32Contract,
   decodeDeployment,
   type ContractDeployment,
+  type DeploymentOptions,
 } from "./deployment.js";

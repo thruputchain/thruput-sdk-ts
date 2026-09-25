@@ -24,6 +24,7 @@ import {
   deploymentRequest,
   decodeDeployment,
   type ContractDeployment,
+  type DeploymentOptions,
 } from "./deployment.js";
 import type { CoreGroundhogClient } from "../client.js";
 import { toHex0x } from "../actions/hex.js";
@@ -110,13 +111,13 @@ export interface ProviderWalletClient {
   /** Prepare a root deployment, preserving the explicit signing boundary. */
   prepareDeployment(
     deployment: ContractDeployment,
-    gasLimit: GasAmount,
+    options: DeploymentOptions,
   ): Promise<Transaction>;
   /** Persist approved evidence, deploy once, and verify the committed address. */
   deployContractAndWait(
     deployment: ContractDeployment,
-    gasLimit: GasAmount,
-    options: ProviderExecutionOptions,
+    options: DeploymentOptions,
+    controls: ProviderExecutionOptions,
   ): Promise<
     ExecutionResult & {
       address: import("@groundhogchain/protocol").ContractAddress;
@@ -476,12 +477,12 @@ export function createProviderWalletClient(
     ProviderWalletClient,
     "executeAndWait" | "executeCallsAndWait" | "deployContractAndWait"
   > = {
-    prepareDeployment: (deployment, gasLimit) =>
+    prepareDeployment: (deployment, options) =>
       run(async () => {
         const preparation = deploymentRequest(
           deployment,
           preparationAccount.address,
-          gasLimit,
+          options,
           defaultWalletAdapter,
         );
         await checkSession();
@@ -639,15 +640,15 @@ export function createProviderWalletClient(
   }
   return {
     ...base,
-    prepareDeployment: async (deployment, gasLimit) => {
+    prepareDeployment: async (deployment, options) => {
       assertIdle();
-      return base.prepareDeployment(deployment, gasLimit);
+      return base.prepareDeployment(deployment, options);
     },
-    async deployContractAndWait(deployment, gasLimit, controls) {
+    async deployContractAndWait(deployment, options, controls) {
       const address =
         deployment.address.slice() as import("@groundhogchain/protocol").ContractAddress;
       const result = await execute(
-        () => base.prepareDeployment(deployment, gasLimit),
+        () => base.prepareDeployment(deployment, options),
         controls,
         false,
       );

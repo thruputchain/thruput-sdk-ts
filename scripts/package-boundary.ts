@@ -19,6 +19,8 @@ import {
   createPubkeyAccount,
   createSourceAddressAccount,
   createWalletClient,
+  prepareContractDeployment,
+  type DeploymentOptions,
   defineCluster,
   defaultWalletAdapter,
   defineWalletInvocationAdapter,
@@ -492,6 +494,19 @@ function walletBoundaryTypecheck(
   > = createWalletClient({ client, account: pubkeyAccount, networkHash });
   pubkeyWallet.prepareExecution({
     invocation,
+    gasLimit: invocation.gas_limit,
+  });
+  const deployment = prepareContractDeployment({
+    deployer: pubkeyWallet.account.address,
+    contract: new Uint8Array([1]),
+  });
+  const deploymentOptions: DeploymentOptions = {
+    gasLimit: invocation.gas_limit,
+    amount: 0n,
+  };
+  pubkeyWallet.prepareDeployment(deployment, deploymentOptions);
+  // @ts-expect-error Deployment requires an explicit amount.
+  pubkeyWallet.prepareDeployment(deployment, {
     gasLimit: invocation.gas_limit,
   });
 
