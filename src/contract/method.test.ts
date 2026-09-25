@@ -85,6 +85,7 @@ function receipt(
     events,
     returnData: null,
     abortData: null,
+    gasUsed: 1_000n,
     ...overrides,
   };
 }

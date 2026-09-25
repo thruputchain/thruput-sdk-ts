@@ -19,6 +19,7 @@ const conflictCodes = new Set<string>([
   "replayProtection",
   "queueConsumer",
   "capacityExceeded",
+  "insufficientFunds",
   "other",
 ]);
 

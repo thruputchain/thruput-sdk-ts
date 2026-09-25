@@ -19,6 +19,7 @@ interface RawTransactionReceipt {
   events: unknown[];
   returnData?: string | null;
   abortData?: string | null;
+  gasUsed: number | string;
 }
 
 const execStatusToResult: Record<string, ExecResult> = {
@@ -92,6 +93,29 @@ function parseOptionalBytes(
   return fromHex0x(value);
 }
 
+const MAX_GAS_USED = 0xffff_ffff_ffff_ffffn;
+
+/**
+ * Parse the receipt's `gasUsed`, a u64 on the wire. A JSON number is
+ * only accepted while it is exactly representable, so a value the
+ * transport already rounded is rejected rather than reported as
+ * consensus data; larger values must arrive as a decimal string.
+ */
+function parseGasUsed(value: unknown): bigint {
+  let parsed: bigint | undefined;
+  if (typeof value === "number" && Number.isSafeInteger(value)) {
+    parsed = BigInt(value);
+  } else if (typeof value === "string" && /^\d+$/.test(value)) {
+    parsed = BigInt(value);
+  }
+  if (parsed === undefined || parsed < 0n || parsed > MAX_GAS_USED) {
+    throw new InvalidTransactionReceiptError(
+      "Invalid transaction receipt response: expected gasUsed to be a u64",
+    );
+  }
+  return parsed;
+}
+
 function parseHeight(value: unknown): bigint {
   if (
     (typeof value !== "number" && typeof value !== "string") ||
@@ -148,6 +172,7 @@ export async function getTransactionReceipt(
       events: receipt.events.map(parseEmittedEvent),
       returnData: parseOptionalBytes(receipt.returnData),
       abortData: parseOptionalBytes(receipt.abortData),
+      gasUsed: parseGasUsed(receipt.gasUsed),
     };
   } catch (cause) {
     if (cause instanceof InvalidTransactionReceiptError) throw cause;

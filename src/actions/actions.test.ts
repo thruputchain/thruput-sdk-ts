@@ -22,7 +22,10 @@ import { getNetworkInfo } from "./public/getNetworkInfo.js";
 import { getBalance } from "./public/getBalance.js";
 import { getBlockByNumber } from "./public/getBlockByNumber.js";
 import { getPendingTransactionCount } from "./public/getPendingTransactionCount.js";
-import { getTransactionReceipt } from "./public/getTransactionReceipt.js";
+import {
+  getTransactionReceipt,
+  InvalidTransactionReceiptError,
+} from "./public/getTransactionReceipt.js";
 import { getTransactionStatus } from "./public/getTransactionStatus.js";
 import { getTransactionsByAddress } from "./public/getTransactionsByAddress.js";
 import { getEvents } from "./public/getEvents.js";
@@ -476,6 +479,7 @@ describe("getTransactionReceipt", () => {
           txHash: "0x" + "aa".repeat(32),
           height: "42",
           status: { result: "ok" },
+          gasUsed: 7,
           events: [
             {
               contractAddress: "0x" + "11".repeat(32),
@@ -498,6 +502,66 @@ describe("getTransactionReceipt", () => {
     ]);
   });
 
+  it("parses gasUsed as a bigint", async () => {
+    const txHash = hashFromHex("0x" + "aa".repeat(32));
+    const receiptFor = (gasUsed: unknown) => {
+      const transport: Transport = {
+        async request<T>(): Promise<T> {
+          return {
+            txHash: "0x" + "aa".repeat(32),
+            height: 42,
+            status: { result: "ok" },
+            events: [],
+            gasUsed,
+          } as T;
+        },
+      };
+      return getTransactionReceipt(transport, txHash);
+    };
+
+    expect((await receiptFor(4242))?.gasUsed).toBe(4242n);
+    expect((await receiptFor(0))?.gasUsed).toBe(0n);
+    expect((await receiptFor(Number.MAX_SAFE_INTEGER))?.gasUsed).toBe(
+      BigInt(Number.MAX_SAFE_INTEGER),
+    );
+    expect((await receiptFor("18446744073709551615"))?.gasUsed).toBe(
+      18446744073709551615n,
+    );
+  });
+
+  it("rejects a missing or malformed gasUsed", async () => {
+    const txHash = hashFromHex("0x" + "aa".repeat(32));
+    for (const gasUsed of [
+      undefined,
+      null,
+      -1,
+      1.5,
+      "abc",
+      "-1",
+      true,
+      {},
+      // Rounded by the JSON decoder before reaching the parser.
+      Number.MAX_SAFE_INTEGER + 1,
+      // One past the u64 maximum.
+      "18446744073709551616",
+    ]) {
+      const transport: Transport = {
+        async request<T>(): Promise<T> {
+          return {
+            txHash: "0x" + "aa".repeat(32),
+            height: 42,
+            status: { result: "ok" },
+            events: [],
+            gasUsed,
+          } as T;
+        },
+      };
+      await expect(getTransactionReceipt(transport, txHash)).rejects.toThrow(
+        InvalidTransactionReceiptError,
+      );
+    }
+  });
+
   it("rejects an event topic that is not exactly 32 bytes", async () => {
     const txHash = hashFromHex("0x" + "aa".repeat(32));
     const transport: Transport = {
@@ -506,6 +570,7 @@ describe("getTransactionReceipt", () => {
           txHash: "0x" + "aa".repeat(32),
           height: 42,
           status: { result: "ok" },
+          gasUsed: 7,
           events: [
             {
               contractAddress: "0x" + "11".repeat(32),
@@ -539,36 +604,39 @@ describe("getTransactionStatus", () => {
     expect(status.status).toBe("unknown");
   });
 
-  it("parses recent failure diagnostics", async () => {
-    const transport: Transport = {
-      async request<T>(): Promise<T> {
-        return {
-          status: "recentFailure",
-          attemptHeight: "42",
-          conflict: {
-            address: "0x" + "ab".repeat(32),
-            key: "0x010203",
-            code: "exclusiveLock",
-          },
-        } as T;
-      },
-    };
+  it.each(["exclusiveLock", "boundsExceeded", "insufficientFunds"])(
+    "parses recent failure diagnostics: %s",
+    async (code) => {
+      const transport: Transport = {
+        async request<T>(): Promise<T> {
+          return {
+            status: "recentFailure",
+            attemptHeight: "42",
+            conflict: {
+              address: "0x" + "ab".repeat(32),
+              key: "0x010203",
+              code,
+            },
+          } as T;
+        },
+      };
 
-    const status = await getTransactionStatus(
-      transport,
-      hashFromHex("0x" + "11".repeat(32)),
-    );
+      const status = await getTransactionStatus(
+        transport,
+        hashFromHex("0x" + "11".repeat(32)),
+      );
 
-    expect(status).toEqual({
-      status: "recentFailure",
-      attemptHeight: 42n,
-      conflict: {
-        address: contractAddress(new Uint8Array(32).fill(0xab)),
-        key: new Uint8Array([1, 2, 3]),
-        code: "exclusiveLock",
-      },
-    });
-  });
+      expect(status).toEqual({
+        status: "recentFailure",
+        attemptHeight: 42n,
+        conflict: {
+          address: contractAddress(new Uint8Array(32).fill(0xab)),
+          key: new Uint8Array([1, 2, 3]),
+          code,
+        },
+      });
+    },
+  );
 
   it("maps unknown recent failure conflict codes to other", async () => {
     const transport: Transport = {

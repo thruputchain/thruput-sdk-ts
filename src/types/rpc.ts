@@ -200,6 +200,7 @@ export type ConflictCode =
   | "replayProtection"
   | "queueConsumer"
   | "capacityExceeded"
+  | "insufficientFunds"
   | "other";
 
 /** First conflicting storage operation reported for a recent failed attempt. */
@@ -263,6 +264,13 @@ export interface TransactionReceipt {
    *  reverted contract, or `null` for any other outcome and for
    *  older receipts that pre-date revert-data recording. */
   abortData: Uint8Array | null;
+
+  /** Gas the transaction consumed: the root frame, every frame it
+   *  invoked, and the pre-execution validation of attached contracts.
+   *  Equals the transaction's gas limit on an out-of-gas fault. The
+   *  figure is committed by consensus in the transaction's event log,
+   *  so every node reports the same value. */
+  gasUsed: bigint;
 }
 
 /** Event emitted by a contract invocation. */

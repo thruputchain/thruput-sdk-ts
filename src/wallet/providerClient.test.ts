@@ -169,6 +169,7 @@ describe("provider atomic batches", () => {
         events: [],
         returnData: null,
         abortData: null,
+        gasUsed: 0n,
       }));
     const pending = wallet.executeAndWait(execution, {
       onSigned: async (evidence) => {
@@ -248,6 +249,7 @@ describe("provider atomic batches", () => {
           events: [],
           returnData: null,
           abortData: null,
+          gasUsed: 0n,
         }));
       const original = request.getMockImplementation()!;
       request.mockImplementation(async (input) => {
@@ -282,6 +284,7 @@ describe("provider atomic batches", () => {
         events: [],
         returnData: null,
         abortData: null,
+        gasUsed: 0n,
       }),
     );
     const original = request.getMockImplementation()!;
@@ -735,6 +738,7 @@ describe("external provider wallet", () => {
         height: 1,
         status: { result: "ok" },
         events: [],
+        gasUsed: 0,
       });
     const receipt = await client.getTransactionReceipt(
       hashFromHex(signed.hash),

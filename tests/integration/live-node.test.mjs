@@ -408,7 +408,7 @@ test(
       () => client.getTransactionStatus(smallHash),
       (status) => status.status === "recentFailure",
     );
-    assert.equal(failure.conflict.code, "boundsExceeded");
+    assert.equal(failure.conflict.code, "insufficientFunds");
     assert.deepEqual(failure.conflict.address, smallRecipient.address);
     assert.equal((await balance(smallRecipient)).rawBalance, 0n);
 

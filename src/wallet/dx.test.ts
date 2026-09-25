@@ -35,6 +35,7 @@ const receipt: TransactionReceipt = {
   events: [],
   returnData: null,
   abortData: null,
+  gasUsed: 1_000n,
 };
 
 describe("contract execution DX", () => {
