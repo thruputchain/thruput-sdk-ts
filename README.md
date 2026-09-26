@@ -521,8 +521,9 @@ npm run test:integration
 GROUNDHOG_CLI=/path/to/groundhog npm run test:integration
 ```
 
-The harness downloads the checksum-verified devnode version from the same pin
-file, checks that its executable runs, and starts a fresh node on an OS-assigned
+The harness downloads the public devnode bundle using the URL, size, and SHA-256
+in the same pin file, verifies it before extraction, and passes its binary to the
+CLI explicitly. It checks that the executable runs and starts a fresh node on an OS-assigned
 loopback port. The host must provide the devnode's native runtime libraries;
 CI uses the same Ubuntu 26.04 Namespace profile as the RPC repository. Tests
 import the built package and check connection, local funding, a HOG transfer, receipts,
@@ -533,18 +534,16 @@ retains logs and node state on failure at the printed temporary path. Set
 `GROUNDHOG_INTEGRATION_LOG_DIR` to retain logs at a chosen location; CI uploads
 them as `live-node-logs`.
 
-The published devnode pin does not yet implement unified native deployment, so
-that acceptance case is skipped by the pinned harness. To qualify a matching
-local build, start a disposable node with the unified ABI and run the built
-package tests against its reported URL and manifest:
+The pinned devnode supports unified native deployment. The standard integration
+run requires atomic funding, deployment, initialization and state readback to
+pass. To qualify another matching runtime, start a disposable node and run the
+built package tests against its reported URL and manifest:
 
 ```sh
 npm run build
 GROUNDHOG_RPC_URL=http://127.0.0.1:9545 \
 GROUNDHOG_RUNTIME_MANIFEST=/absolute/path/to/runtime-manifest.json \
-GROUNDHOG_UNIFIED_WALLET_DEPLOY=1 \
 node --test --test-concurrency=1 tests/integration/live-node.test.mjs
 ```
 
-This enables atomic funding, deployment, initialization and state readback.
-It does not perform capability discovery or fall back on unsupported runtimes.
+The tests do not perform capability discovery or fall back on unsupported runtimes.

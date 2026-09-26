@@ -243,11 +243,6 @@ test("built SDK against a real local node", { timeout }, async (t) => {
 
   await t.test(
     "atomically funds, deploys and initializes a contract, then reads its state and scalar event",
-    {
-      skip:
-        process.env.GROUNDHOG_UNIFIED_WALLET_DEPLOY !== "1" &&
-        "requires an explicitly selected unified-deploy runtime",
-    },
     async () => {
       const sender = createPubkeyAccount({
         signer: new PrivateKeySigner(randomBytes(32)),
