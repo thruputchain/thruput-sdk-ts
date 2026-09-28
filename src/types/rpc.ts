@@ -305,10 +305,10 @@ export interface EventPage {
   /** Events in this page. */
   events: IdentifiedEvent[];
 
-  /** Cursor to pass into the next query for pagination. */
+  /** Continuation cursor. Empty means exhausted; an empty event list alone does not. */
   cursor: Uint8Array;
 
-  /** Latest block visible to the event indexer. */
+  /** Latest block visible to the event indexer, not proof that this page covers that height. */
   latestBlock: bigint;
 
   /** Oldest block retained by the event indexer. */
