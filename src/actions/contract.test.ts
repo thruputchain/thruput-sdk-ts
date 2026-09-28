@@ -48,6 +48,7 @@ import { getTransactionStatus } from "./public/getTransactionStatus.js";
 import { getTransactionsByAddress } from "./public/getTransactionsByAddress.js";
 import { getVersion } from "./public/getVersion.js";
 import { view } from "./public/view.js";
+import { viewBatch } from "./public/viewBatch.js";
 import { sendTransaction } from "./wallet/sendTransaction.js";
 import { PrivateKeySigner } from "../signers/privateKey.js";
 import { createInvocation, createTransaction } from "../transaction/build.js";
@@ -549,5 +550,24 @@ describe("contract tests against specs/openrpc.json", () => {
       .map((m) => m.name)
       .sort();
     expect([...coveredMethods].sort()).toEqual(specMethods);
+  });
+
+  it("groundhog_viewBatch — sends ordered calls and a minimum height", async () => {
+    const { transport, calls } = spyTransport({
+      height: 42,
+      results: [{ output: { result: "fault" }, events: [] }],
+    });
+    await viewBatch(transport, {
+      calls: [
+        {
+          contract: contractAddress(new Uint8Array(32)),
+          entrypoint: contractEntrypointID(new Uint8Array(8)),
+          calldata: calldata(new Uint8Array()),
+        },
+      ],
+      minHeight: 42n,
+    });
+    expect(calls).toHaveLength(1);
+    assertCapturedParamsMatchSpec("groundhog_viewBatch", calls[0]!.params);
   });
 });

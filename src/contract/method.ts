@@ -19,6 +19,7 @@ import type {
   EmittedEvent,
   TransactionReceipt,
   ViewResponse,
+  ViewRequest,
 } from "../types/rpc.js";
 import type { ContractCodecContext } from "./codec.js";
 import {
@@ -232,6 +233,21 @@ export type ContractCallOptions<TArgs> = Omit<
   "client" | "caller" | "signal"
 > & { gasLimit: GasAmount };
 
+/** Inputs for an unsubmitted view, with arguments checked by the generated method. */
+export type ContractViewRequestOptions<TArgs> = Omit<
+  ContractViewOptions<TArgs>,
+  "client" | "signal"
+>;
+
+/** Encoded view request retaining its generated outcome decoder. */
+export interface ContractViewRequest<TResult = unknown, TException = unknown> {
+  readonly request: ViewRequest;
+  readonly method: Pick<
+    ContractMethod<never, TResult, TException>,
+    "name" | "decodeViewOutcome"
+  >;
+}
+
 /** An invocation retaining its return and exception decoders. */
 export interface ContractCall<TResult = unknown, TException = unknown> {
   readonly invocation: Invocation;
@@ -245,6 +261,10 @@ export interface ContractCall<TResult = unknown, TException = unknown> {
 export interface ContractMethod<TArgs, TResult, TDeclaredException> {
   /** Qualified method name, or entrypoint when generated identity is absent. */
   readonly name: string;
+  /** Prepare an independent read for readViews without performing I/O. */
+  viewRequest(
+    options: ContractViewRequestOptions<TArgs>,
+  ): ContractViewRequest<TResult, TDeclaredException>;
   /** Build an unsubmitted call retaining typed decoding context. */
   call(
     options: ContractCallOptions<TArgs>,
@@ -273,6 +293,10 @@ export interface ContractMethod<TArgs, TResult, TDeclaredException> {
   decodeException(data: Uint8Array): ContractException<TDeclaredException>;
   /** Decode a view response with the same semantics as view(). */
   decodeView(response: ViewResponse): ContractView<TResult>;
+  /** Decode return, abort, or fault without throwing for a contract failure. */
+  decodeViewOutcome(
+    response: ViewResponse,
+  ): ContractViewOutcome<TResult, ContractException<TDeclaredException>>;
 
   /** Decode a receipt whose root invocation called this method; nested invocation results are not inspected. */
   decodeReceipt(receipt: TransactionReceipt): ContractReceipt<TResult>;
@@ -345,6 +369,19 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
 
   const method: ContractMethod<TArgs, TResult, TDeclaredException> = {
     name,
+    viewRequest(options) {
+      return {
+        request: {
+          contract: contractAddress(new Uint8Array(options.contract)),
+          entrypoint: copyEntrypoint(entrypoint),
+          calldata: encode("args" in options ? options.args : undefined),
+          ...(options.caller
+            ? { caller: contractAddress(new Uint8Array(options.caller)) }
+            : {}),
+        },
+        method,
+      };
+    },
     call(options) {
       return {
         invocation: {
@@ -494,6 +531,10 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
         ? options.client.view(request, { signal: options.signal })
         : options.client.view(request));
 
+      return method.decodeViewOutcome(response);
+    },
+
+    decodeViewOutcome(response) {
       switch (response.output.result) {
         case "return":
           return {

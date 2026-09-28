@@ -5,8 +5,14 @@ import type { ContractMethod, ContractViewOptions } from "./method.js";
 /** A method descriptor with address/client defaults bound for reads and calls. */
 export type BoundContractMethod<A, R, E> = Omit<
   ContractMethod<A, R, E>,
-  "view" | "viewOutcome" | "call"
+  "view" | "viewOutcome" | "viewRequest" | "call"
 > & {
+  viewRequest(
+    options: Omit<
+      Parameters<ContractMethod<A, R, E>["viewRequest"]>[0],
+      "contract"
+    >,
+  ): ReturnType<ContractMethod<A, R, E>["viewRequest"]>;
   view(
     options: Omit<ContractViewOptions<A>, "client" | "contract">,
   ): ReturnType<ContractMethod<A, R, E>["view"]>;
@@ -51,6 +57,8 @@ export function getContract<
       key,
       {
         ...method,
+        viewRequest: (input: Parameters<typeof method.viewRequest>[0]) =>
+          method.viewRequest({ ...input, contract: address }),
         view: (input: ContractViewOptions<never>) =>
           method.view({ ...input, contract: address, client: options.client }),
         viewOutcome: (input: ContractViewOptions<never>) =>

@@ -62,11 +62,45 @@ import {
   type SignedTransaction,
 } from "@groundhogchain/client";
 import type { Transport } from "@groundhogchain/client/transport";
+import { ERC20 as BatchERC20 } from "@groundhogchain/client/contracts";
 import {
   getContractEvents,
   getChainConfig,
   iterateEventPages,
+  readViews,
 } from "@groundhogchain/client/actions";
+
+async function typedSnapshotBoundary(
+  transport: Transport,
+  address: ContractAddress,
+) {
+  const result = await readViews(transport, {
+    calls: [
+      BatchERC20.totalSupply.viewRequest({ contract: address }),
+      BatchERC20.transfer.viewRequest({
+        contract: address,
+        args: { receiver: address, amount: 1n },
+      }),
+    ],
+  });
+  const [supply, transfer] = result.results;
+  if (supply.kind === "return") {
+    const value: bigint = supply.value;
+    void value;
+    // @ts-expect-error a supply result is not a string
+    const wrong: string = supply.value;
+    void wrong;
+  }
+  if (transfer.kind === "return") {
+    const value: void = transfer.value;
+    void value;
+  }
+  // @ts-expect-error getBalanceOf requires its generated argument object
+  BatchERC20.getBalanceOf.viewRequest({ contract: address });
+  // @ts-expect-error no arguments are accepted by totalSupply
+  BatchERC20.totalSupply.viewRequest({ contract: address, args: {} });
+}
+void typedSnapshotBoundary;
 import {
   ContractDecodeError,
   defineContractMethod,

@@ -2,6 +2,8 @@
 set -euo pipefail
 
 GENERATOR="${GROUNDHOG_OPENRPC_GENERATOR:-}"
+# The viewBatch draft snapshot was generated from groundhog-rpc commit 47bcd8e.
+# Until its registry release, use GROUNDHOG_OPENRPC_GENERATOR with that build.
 if [[ -z "$GENERATOR" ]]; then
   cargo install groundhog-open-rpc-spec@0.25.0 --registry groundhog --locked
   GENERATOR="groundhog-open-rpc-spec"

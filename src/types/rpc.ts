@@ -277,6 +277,20 @@ export interface ViewRequest {
   gasLimit?: bigint;
 }
 
+/** Independent calls evaluated against one committed snapshot. */
+export interface ViewBatchRequest {
+  /** Between 1 and 16 calls, with at most 64 KiB of aggregate calldata. */
+  calls: readonly ViewRequest[];
+  /** Refresh once if behind this height; do not wait for a future block. */
+  minHeight?: bigint;
+}
+
+/** Ordered outputs and events with the group's committed snapshot height. */
+export interface ViewBatchResponse {
+  height: bigint;
+  results: Omit<ViewResponse, "height">[];
+}
+
 /** Tagged output from a read-only contract invocation. */
 export type ViewOutput =
   | { result: "return"; returnData: Uint8Array }

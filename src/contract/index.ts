@@ -47,6 +47,8 @@ export {
   type ContractView,
   type ContractViewFailure,
   type ContractViewOptions,
+  type ContractViewRequest,
+  type ContractViewRequestOptions,
   type ContractViewOutcome,
   type MethodArgs,
   type UnknownContractException,

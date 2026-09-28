@@ -20,7 +20,7 @@ interface RawViewResponse {
   gasUsed: unknown;
 }
 
-function parseOutput(value: unknown): ViewOutput {
+export function parseViewOutput(value: unknown): ViewOutput {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Expected view output to be an object");
   }
@@ -111,7 +111,7 @@ export async function view(
   }
 
   return {
-    output: parseOutput(response.output),
+    output: parseViewOutput(response.output),
     events: response.events.map(parseEmittedEvent),
     height: parseHeight(response.height),
     gasUsed: parseU64(response.gasUsed, "gasUsed"),

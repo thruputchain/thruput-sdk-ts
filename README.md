@@ -210,6 +210,49 @@ console.log(
 Release identity and bundle digest can be `null`;
 they help diagnose installations. Use `wireFormat` for RPC compatibility decisions.
 
+### Reads at one snapshot
+
+Use `readViews` when several contract reads must use the same committed state:
+
+```ts
+const snapshot = await client.readViews({
+  calls: [
+    ERC20.v0_1.totalSupply.viewRequest({ contract: tokenAddress }),
+    ERC20.v0_1.getBalanceOf.viewRequest({
+      contract: tokenAddress,
+      args: { addr: accountAddress },
+    }),
+  ],
+  minHeight: receipt.height,
+});
+
+const [supply, balance] = snapshot.results;
+if (supply.kind === "return" && balance.kind === "return") {
+  console.log(snapshot.height, supply.value, balance.value);
+}
+```
+
+Each tuple position retains its generated return and exception types. Results are
+`return`, `abort`, or `fault`, with events. Simulated writes stay within each call.
+Omit `minHeight` if no freshness floor is needed. If the server is behind, it
+refreshes once and returns `ViewHeightUnavailable` with requested and observed
+heights; it does not wait for a future block.
+
+This requires `groundhog_viewBatch` (RPC wire format 7.1.0). Existing generated
+bindings gain `viewRequest` through the runtime. The low-level API is
+`client.viewBatch({ calls, minHeight })`. Neither API splits calls or falls back
+to separate views. HTTP transport batching alone does not share snapshots.
+
+Limits are 16 calls, 64 KiB of aggregate calldata, 160M gas per attempt, and 1 MiB
+of encoded backend results including events. The server retries an abandoned
+snapshot as a whole group, at most three times. The response deadline is at most
+30 seconds, but running backend work can outlive it. Pass `{ signal }` as the
+second argument to cancel the client's wait.
+
+To test this path against a matching local RPC build, set `GROUNDHOG_RPC_URL`
+and `GROUNDHOG_RUNTIME_MANIFEST`, build the package, then run
+`node --test tests/integration/view-batch.test.mjs`.
+
 ### Event pages
 
 Use a generated event descriptor to fetch one page with typed topics and fields:
