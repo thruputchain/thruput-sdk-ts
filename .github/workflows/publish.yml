@@ -5,6 +5,8 @@ on:
 
 jobs:
   publish:
+    # workflow_dispatch can target any branch; only publish from main.
+    if: github.ref == 'refs/heads/main'
     permissions:
       contents: write
       packages: write
