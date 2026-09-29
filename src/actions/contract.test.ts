@@ -125,10 +125,12 @@ const coveredMethods = new Set<string>();
 
 function assertCapturedParamsMatchSpec(
   methodName: string,
-  capturedParams: unknown[] | undefined,
+  captured: { method: string; params?: unknown[] } | undefined,
 ): void {
+  // Count a method as covered only when the action really sent it.
+  expect(captured?.method).toBe(methodName);
   coveredMethods.add(methodName);
-  const params = capturedParams ?? [];
+  const params = captured?.params ?? [];
   const method = (
     openrpcSpec as { methods: Array<{ name: string; params: Array<unknown> }> }
   ).methods.find((m) => m.name === methodName);
@@ -188,10 +190,7 @@ describe("contract tests against specs/openrpc.json", () => {
     const { transport, calls } = spyTransport("0x" + "11".repeat(32));
     await sendTransaction(transport, await makeDummySignedTx());
     expect(calls).toHaveLength(1);
-    assertCapturedParamsMatchSpec(
-      "groundhog_sendRawTransaction",
-      calls[0]!.params,
-    );
+    assertCapturedParamsMatchSpec("groundhog_sendRawTransaction", calls[0]);
   });
 
   it("groundhog_chainTip — sends an empty params array", async () => {
@@ -201,7 +200,7 @@ describe("contract tests against specs/openrpc.json", () => {
     });
     await getChainTip(transport);
     expect(calls).toHaveLength(1);
-    assertCapturedParamsMatchSpec("groundhog_chainTip", calls[0]!.params);
+    assertCapturedParamsMatchSpec("groundhog_chainTip", calls[0]);
   });
 
   it("groundhog_version — sends an empty params array", async () => {
@@ -212,7 +211,7 @@ describe("contract tests against specs/openrpc.json", () => {
     });
     await getVersion(transport);
     expect(calls).toHaveLength(1);
-    assertCapturedParamsMatchSpec("groundhog_version", calls[0]!.params);
+    assertCapturedParamsMatchSpec("groundhog_version", calls[0]);
   });
 
   it("groundhog_networkInfo — sends an empty params array", async () => {
@@ -221,7 +220,7 @@ describe("contract tests against specs/openrpc.json", () => {
     });
     await getNetworkInfo(transport);
     expect(calls).toHaveLength(1);
-    assertCapturedParamsMatchSpec("groundhog_networkInfo", calls[0]!.params);
+    assertCapturedParamsMatchSpec("groundhog_networkInfo", calls[0]);
   });
 
   it("groundhog_requestAirdrop — sends an AirdropRequest", async () => {
@@ -237,7 +236,7 @@ describe("contract tests against specs/openrpc.json", () => {
       clientNonce: new Uint8Array([0x01, 0x02]),
     });
     expect(calls).toHaveLength(1);
-    assertCapturedParamsMatchSpec("groundhog_requestAirdrop", calls[0]!.params);
+    assertCapturedParamsMatchSpec("groundhog_requestAirdrop", calls[0]);
   });
 
   it("groundhog_getBalance — sends a Hex0x_ContractAddress", async () => {
@@ -251,17 +250,14 @@ describe("contract tests against specs/openrpc.json", () => {
     await getBalance(transport, address);
 
     expect(calls).toHaveLength(1);
-    assertCapturedParamsMatchSpec("groundhog_getBalance", calls[0]!.params);
+    assertCapturedParamsMatchSpec("groundhog_getBalance", calls[0]);
   });
 
   it("groundhog_getBlockByNumber — sends a BlockHeight", async () => {
     const { transport, calls } = spyTransport(null);
     await getBlockByNumber(transport, 42n);
     expect(calls).toHaveLength(1);
-    assertCapturedParamsMatchSpec(
-      "groundhog_getBlockByNumber",
-      calls[0]!.params,
-    );
+    assertCapturedParamsMatchSpec("groundhog_getBlockByNumber", calls[0]);
   });
 
   it("groundhog_pendingTransactionCount — sends an empty params array", async () => {
@@ -270,7 +266,7 @@ describe("contract tests against specs/openrpc.json", () => {
     expect(calls).toHaveLength(1);
     assertCapturedParamsMatchSpec(
       "groundhog_pendingTransactionCount",
-      calls[0]!.params,
+      calls[0],
     );
   });
 
@@ -279,10 +275,7 @@ describe("contract tests against specs/openrpc.json", () => {
     const hash = new Uint8Array(32).fill(0xab) as unknown as SHA256Hash;
     await getTransactionReceipt(transport, hash);
     expect(calls).toHaveLength(1);
-    assertCapturedParamsMatchSpec(
-      "groundhog_getTransactionReceipt",
-      calls[0]!.params,
-    );
+    assertCapturedParamsMatchSpec("groundhog_getTransactionReceipt", calls[0]);
   });
 
   it("groundhog_getTransactionStatus — sends a TxHash", async () => {
@@ -290,10 +283,7 @@ describe("contract tests against specs/openrpc.json", () => {
     const hash = new Uint8Array(32).fill(0xab) as unknown as SHA256Hash;
     await getTransactionStatus(transport, hash);
     expect(calls).toHaveLength(1);
-    assertCapturedParamsMatchSpec(
-      "groundhog_getTransactionStatus",
-      calls[0]!.params,
-    );
+    assertCapturedParamsMatchSpec("groundhog_getTransactionStatus", calls[0]);
   });
 
   it("groundhog_getTransactionsByAddress — sends an AddressTransactionQuery", async () => {
@@ -316,7 +306,7 @@ describe("contract tests against specs/openrpc.json", () => {
     expect(calls).toHaveLength(1);
     assertCapturedParamsMatchSpec(
       "groundhog_getTransactionsByAddress",
-      calls[0]!.params,
+      calls[0],
     );
   });
 
@@ -326,7 +316,7 @@ describe("contract tests against specs/openrpc.json", () => {
     const key = new Uint8Array(32).fill(0xcd);
     await getStorageAt(transport, addr, key);
     expect(calls).toHaveLength(1);
-    assertCapturedParamsMatchSpec("groundhog_getStorageAt", calls[0]!.params);
+    assertCapturedParamsMatchSpec("groundhog_getStorageAt", calls[0]);
   });
 
   it("groundhog_getEvents — sends an EventQuery and accepts a spec-shaped response", async () => {
@@ -350,7 +340,7 @@ describe("contract tests against specs/openrpc.json", () => {
       limit: 10,
     });
     expect(calls).toHaveLength(1);
-    assertCapturedParamsMatchSpec("groundhog_getEvents", calls[0]!.params);
+    assertCapturedParamsMatchSpec("groundhog_getEvents", calls[0]);
     // Empty-cursor sentinel should parse to an empty Uint8Array.
     expect(page.cursor).toBeInstanceOf(Uint8Array);
     expect(page.cursor.length).toBe(0);
@@ -373,7 +363,7 @@ describe("contract tests against specs/openrpc.json", () => {
     });
 
     expect(calls).toHaveLength(1);
-    assertCapturedParamsMatchSpec("groundhog_view", calls[0]!.params);
+    assertCapturedParamsMatchSpec("groundhog_view", calls[0]);
   });
 
   it("groundhog_chainConfig — sends an empty params array and reads stated parameters", async () => {
@@ -383,7 +373,7 @@ describe("contract tests against specs/openrpc.json", () => {
     });
     const config = await getChainConfig(transport);
     expect(calls).toHaveLength(1);
-    assertCapturedParamsMatchSpec("groundhog_chainConfig", calls[0]!.params);
+    assertCapturedParamsMatchSpec("groundhog_chainConfig", calls[0]);
     expect(config.maxNewContractsPerTx).toBe(4);
     expect(config.maxRv32CodeBytes).toBe(65_536);
     expect(config.maxContractSizeBytes).toBeNull();

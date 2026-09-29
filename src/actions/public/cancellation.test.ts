@@ -17,6 +17,7 @@ const reads: Record<
   (client: GroundhogClient, signal: AbortSignal) => Promise<unknown>
 > = {
   network: (client, signal) => client.getNetworkInfo({ signal }),
+  chainConfig: (client, signal) => client.getChainConfig({ signal }),
   version: (client, signal) => client.getVersion({ signal }),
   tip: (client, signal) => client.getChainTip({ signal }),
   balance: (client, signal) => client.getBalance(address, { signal }),
