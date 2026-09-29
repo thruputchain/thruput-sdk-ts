@@ -46,7 +46,7 @@ jobs:
 
       - name: Install contract binding generator
         if: steps.groundhog-cli-cache.outputs.cache-hit != 'true'
-        run: cargo install "groundhog-cli@${GROUNDHOG_CLI_VERSION}" --registry groundhog --locked
+        run: cargo install "groundhog-cli@${GROUNDHOG_CLI_VERSION}" --registry groundhog --locked --force
 
       - name: Configure contract binding generator
         run: |
@@ -195,7 +195,7 @@ jobs:
 
       - name: Install CLI
         if: steps.groundhog-cli-cache.outputs.cache-hit != 'true'
-        run: cargo install "groundhog-cli@${GROUNDHOG_CLI_VERSION}" --registry groundhog --locked
+        run: cargo install "groundhog-cli@${GROUNDHOG_CLI_VERSION}" --registry groundhog --locked --force
 
       - run: npm ci
         env:
