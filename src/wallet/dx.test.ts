@@ -176,6 +176,14 @@ describe("deployment descriptions", () => {
       DefaultWallet.v0_1.deploy.entrypoint,
     );
     expect(
+      DefaultWallet.v0_1.deploy.decodeArgs(request.invocation.calldata),
+    ).toEqual({
+      nonce: plan.deploymentNonce,
+      contractHash: plan.contractHash,
+      amount: 0n,
+      initializer: null,
+    });
+    expect(
       decodeDeployment(
         { ...receipt, returnData: plan.address },
         plan,

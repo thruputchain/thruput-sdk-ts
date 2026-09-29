@@ -94,9 +94,13 @@ export const defaultWalletAdapter = defineWalletInvocationAdapter({
   decodeExecutionReturns: (receipt) =>
     DefaultWallet.v0_1.execute.decodeReceipt(receipt).value,
   createDeploymentInvocation(account, gasLimit, deployment) {
+    // No funding and no initializer: the deploy the wallet performed
+    // before it took either.
     return DefaultWallet.v0_1.deploy.invocation(account, gasLimit, {
       nonce: fixedBytes(deployment.deploymentNonce, 32),
       contractHash: fixedBytes(deployment.contractHash, 32),
+      amount: 0n,
+      initializer: null,
     });
   },
   decodeDeploymentReceipt: (receipt) =>

@@ -32,6 +32,12 @@ export namespace default_wallet {
       }
 
       export type WalletError = 1n | 2n | 3n | 4n | 5n | 6n | 7n;
+
+      export interface WalletInitCall {
+        entrypoint: __gh_client_contract.FixedBytes<8>;
+        gas_limit: bigint;
+        calldata: globalThis.Uint8Array;
+      }
     }
   }
 }
@@ -41,6 +47,8 @@ export namespace DefaultWallet {
     export interface DeployArgs {
       nonce: __gh_client_contract.FixedBytes<32>;
       contractHash: __gh_client_contract.FixedBytes<32>;
+      amount: bigint;
+      initializer: __gh_codegen.default_wallet$v0_1$$interface$WalletInitCall | null;
     }
     export type DeployResult = __gh_protocol.ContractAddress;
 
@@ -100,6 +108,25 @@ export const spec: __gh_client_contract.ContractSpec = {
                 array: {
                   element: { v: __gh_contract_spec.ContractTypeKind.U8 },
                   len: 32n,
+                },
+              },
+            },
+            {
+              name: __gh_s("amount"),
+              ty: { v: __gh_contract_spec.ContractTypeKind.U128 },
+            },
+            {
+              name: __gh_s("initializer"),
+              ty: {
+                v: __gh_contract_spec.ContractTypeKind.Option,
+                option_inner: {
+                  v: __gh_contract_spec.ContractTypeKind.Named,
+                  named: {
+                    crate_name: __gh_s("default_wallet"),
+                    major: __gh_s("0.1"),
+                    module_path: __gh_s("default_wallet::interface"),
+                    declared: __gh_s("WalletInitCall"),
+                  },
                 },
               },
             },
@@ -207,6 +234,43 @@ export const spec: __gh_client_contract.ContractSpec = {
         ],
       },
     },
+    {
+      v: __gh_contract_spec.ContractTypeDefKind.TypeDefStruct,
+      struct_def: {
+        name: {
+          crate_name: __gh_s("default_wallet"),
+          major: __gh_s("0.1"),
+          module_path: __gh_s("default_wallet::interface"),
+          declared: __gh_s("WalletInitCall"),
+        },
+        fields: [
+          {
+            name: __gh_s("entrypoint"),
+            ty: {
+              v: __gh_contract_spec.ContractTypeKind.Array,
+              array: {
+                element: { v: __gh_contract_spec.ContractTypeKind.U8 },
+                len: 8n,
+              },
+            },
+          },
+          {
+            name: __gh_s("gas_limit"),
+            ty: { v: __gh_contract_spec.ContractTypeKind.U64 },
+          },
+          {
+            name: __gh_s("calldata"),
+            ty: {
+              v: __gh_contract_spec.ContractTypeKind.Vector,
+              vector: {
+                element: { v: __gh_contract_spec.ContractTypeKind.U8 },
+                max_len: 4294967295n,
+              },
+            },
+          },
+        ],
+      },
+    },
   ],
   events: [],
 };
@@ -237,6 +301,16 @@ export const DefaultWallet = {
           abiName: "contract_hash",
           publicName: "contractHash",
           type: spec.interfaces[0]!.methods[0]!.args[1]!.ty,
+        },
+        {
+          abiName: "amount",
+          publicName: "amount",
+          type: spec.interfaces[0]!.methods[0]!.args[2]!.ty,
+        },
+        {
+          abiName: "initializer",
+          publicName: "initializer",
+          type: spec.interfaces[0]!.methods[0]!.args[3]!.ty,
         },
       ],
       returnType: spec.interfaces[0]!.methods[0]!.return_type,
@@ -301,4 +375,6 @@ export namespace __gh_codegen {
     default_wallet.v0_1.$interface.WalletCall;
   export type default_wallet$v0_1$$interface$WalletError =
     default_wallet.v0_1.$interface.WalletError;
+  export type default_wallet$v0_1$$interface$WalletInitCall =
+    default_wallet.v0_1.$interface.WalletInitCall;
 }

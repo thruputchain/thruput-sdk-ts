@@ -26,6 +26,8 @@ describe("generated wallet contract bindings", () => {
         DefaultWallet.v0_1.deploy.invocation(address, gasAmount(1n), {
           nonce: fixedBytes(new Uint8Array(32), 32),
           contractHash: fixedBytes(new Uint8Array(32), 32),
+          amount: 0n,
+          initializer: null,
         }).entrypoint,
       ),
     ).toBe("6be0cb0f6de0917a");

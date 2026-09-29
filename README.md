@@ -322,7 +322,7 @@ because its 1,000-unit credit cannot cover a new balance item's deposit.
 The live funding test verifies an excluded 1,000-unit first credit, a successful
 100,000-unit first credit with a deposit deduction, and a later 1,000-unit credit
 without another balance-item deposit. It uses 500,000 child gas and 1,000,000 root
-gas. Verified locally with CLI 0.19.0-pre.1 and hog-devnode 0.1.28-rc.3; storage
+gas. Verified locally with CLI 0.19.0-pre.2 and hog-devnode 0.1.29-rc.3; storage
 costs depend on runtime configuration.
 
 The standard ERC20 binding uses `adjustAllowance` with `{ spender, diff }`, not `approve`.
