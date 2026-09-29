@@ -85,6 +85,7 @@ import {
   signedOperationPreimage,
 } from "@groundhogchain/client/signed-op";
 import type {
+  ContractTypeSelector,
   Operation,
   SignedOperation,
   SignedOperationType,
@@ -404,6 +405,16 @@ async function packageBoundaryTypecheck(
       typeDefs: [],
       typeName: "Transfer",
     });
+  const transferId: ContractTypeSelector = {
+    crate_name: "my_wallet",
+    major: "0.1",
+    module_path: "my_wallet",
+    declared: "Transfer",
+  };
+  defineSignedOperation<{ amount: bigint }>({
+    typeDefs: [],
+    typeName: transferId,
+  });
   const signedOperation: Promise<SignedOperation> = transferOperation.sign(
     {} as Signer,
     {

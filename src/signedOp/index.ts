@@ -27,6 +27,7 @@
 export {
   defineSignedOperation,
   randomNonce,
+  type ContractTypeSelector,
   type DefineSignedOperationOptions,
   type Operation,
   type SignedOperation,

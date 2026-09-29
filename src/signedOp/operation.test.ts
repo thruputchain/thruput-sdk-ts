@@ -85,6 +85,35 @@ describe("defineSignedOperation", () => {
         typeName: "Transfer",
       }),
     ).toThrow(/"Transfer" is ambiguous/);
+
+    const selected = defineSignedOperation<Transfer>({
+      typeDefs: [...typeDefs, elsewhere],
+      typeName: {
+        crate_name: "fixture",
+        major: "0.1",
+        module_path: "fixture::other",
+        declared: "Transfer",
+      },
+    });
+    expect(selected.typeName).toBe("Transfer");
+    expect(selected.typeDef).toEqual(elsewhere);
+    expect(
+      defineSignedOperation<Transfer>({
+        typeDefs: [...typeDefs, elsewhere],
+        typeName: specId("Transfer"),
+      }).typeDef,
+    ).toEqual(transferDef);
+  });
+
+  it("rejects a full spec id that matches no type definition", () => {
+    expect(() =>
+      defineSignedOperation({
+        typeDefs,
+        typeName: { ...specId("Transfer"), major: "0.2" },
+      }),
+    ).toThrow(
+      "Contract type fixture::Transfer (fixture@0.2) is not defined in the given type definitions",
+    );
   });
 
   it("produces the wire operation and an Ed25519 signature over the preimage", async () => {

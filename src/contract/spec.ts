@@ -44,6 +44,8 @@ export function specIdKey(id: ContractSpecId): string {
  * Render a spec id for diagnostics as `module_path::declared (crate@major)`,
  * the shape the Groundhog CLI and spec tool print.
  */
-export function formatSpecId(id: ContractSpecId): string {
+export function formatSpecId(
+  id: Readonly<Record<keyof ContractSpecId, string>>,
+): string {
   return `${id.module_path}::${id.declared} (${id.crate_name}@${id.major})`;
 }

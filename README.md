@@ -349,12 +349,14 @@ import {
   defineSignedOperation,
   randomNonce,
 } from "@groundhogchain/client/signed-op";
-import { spec, MyWallet, type Transfer } from "./generated/my_wallet.js";
+import { spec, MyWallet, type my_wallet } from "./generated/my_wallet.js";
 
 // Bind the payload type from the contract's generated spec. Its definition is
 // part of the signed bytes, so a payload with the same encoding but a
-// different type never shares a signature.
-const transfer = defineSignedOperation<Transfer>({
+// different type never shares a signature. When another crate or module also
+// declares `Transfer`, pass its full spec id ({ crate_name, major,
+// module_path, declared }) as `typeName` instead.
+const transfer = defineSignedOperation<my_wallet.v0_1.Transfer>({
   typeDefs: spec.type_defs,
   typeName: "Transfer",
 });
@@ -371,7 +373,7 @@ const { op, signature } = await transfer.sign(signer, {
 
 // `op` and `signature` are the arguments of whichever entrypoint hands the
 // operation to the verifying contract; the submitter need not be the signer.
-const invocation = MyWallet.submit.invocation(walletAddress, gasLimit, {
+const invocation = MyWallet.v0_1.submit.invocation(walletAddress, gasLimit, {
   op,
   signature,
 });
