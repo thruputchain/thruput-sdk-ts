@@ -38,6 +38,7 @@ import {
   weight,
 } from "@groundhogchain/protocol";
 import versions from "../../scripts/integration-versions.json" with { type: "json" };
+import openrpcSpec from "../../specs/openrpc.json" with { type: "json" };
 import {
   airdropTimeoutMs,
   eventsTimeoutMs,
@@ -66,10 +67,19 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       const version = await client.getVersion();
       assert.equal(version.implementation, versions.cli);
       assert.match(version.wireFormat, /^\d+\.\d+\.\d+$/);
+      // The pinned spec must describe the wire format the pinned node serves.
+      assert.equal(
+        version.wireFormat.split(".")[0],
+        openrpcSpec.info.version.split(".")[0],
+      );
       const tip = await client.getChainTip();
       assert.equal(typeof tip.height, "bigint");
       assert.ok(tip.height >= 1n);
       assert.equal(tip.blockHash.length, 32);
+      const config = await client.getChainConfig();
+      for (const value of Object.values(config)) {
+        assert.ok(value === null || Number.isInteger(value));
+      }
     },
   );
 

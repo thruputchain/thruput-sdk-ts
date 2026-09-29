@@ -26,7 +26,11 @@ const reads: Record<
   status: (client, signal) => client.getTransactionStatus(hash, { signal }),
   transactions: (client, signal) =>
     client.getTransactionsByAddress({ address }, { signal }),
-  events: (client, signal) => client.getEvents({ filters: [] }, { signal }),
+  events: (client, signal) =>
+    client.getEvents(
+      { filters: [{ contractAddresses: [address] }] },
+      { signal },
+    ),
   storage: (client, signal) =>
     client.getStorageAt(address, new Uint8Array(32), { signal }),
   view: (client, signal) =>

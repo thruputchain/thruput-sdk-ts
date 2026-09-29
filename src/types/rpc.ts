@@ -20,6 +20,43 @@ export interface NetworkInfo {
   readonly networkHash: NetworkHash;
 }
 
+/**
+ * Execution parameters the chain's network config states, as of the latest
+ * tip the RPC server has read.
+ *
+ * Each field is `null` when the config does not state that parameter; the
+ * node alone then decides what is in force. For code size, RV32 code size,
+ * and RV32 memory, the protocol fixes the value in force when unstated.
+ */
+export interface NetworkConfigParams {
+  /** Levels of node nesting an auth token may carry. */
+  readonly maxAuthTokenDepth: number | null;
+
+  /** Bytes one bytestring storage item may hold. */
+  readonly maxBytestringLen: number | null;
+
+  /** Bytes one attached contract's code blob may hold. */
+  readonly maxContractSizeBytes: number | null;
+
+  /** Invocation frames one transaction may have open at once. */
+  readonly maxCrossInvokeDepth: number | null;
+
+  /** Contracts one transaction may attach in `contractsToDeploy`. */
+  readonly maxNewContractsPerTx: number | null;
+
+  /** Code bytes an RV32 artifact may carry to be attached. */
+  readonly maxRv32CodeBytes: number | null;
+
+  /** Guest data memory bytes an RV32 artifact may declare to be attached. */
+  readonly maxRv32MemoryBytes: number | null;
+
+  /** Storage savepoints one transaction may have open at once. */
+  readonly maxSavepointDepth: number | null;
+
+  /** Concurrently open incremental SHA-256 buffers per invocation frame. */
+  readonly maxSha256Buffers: number | null;
+}
+
 /** One idempotent airdrop attempt. */
 export interface AirdropAttemptRequest {
   /** Address to fund. */
@@ -112,6 +149,9 @@ export interface BlockInfo {
 
   /** Event accumulator hash for the block. */
   eventsHash: SHA256Hash;
+
+  /** Hash of the post-block network configuration committed by consensus. */
+  configHash: SHA256Hash;
 
   /** Previous block hash. */
   prevBlockHash: SHA256Hash;

@@ -28,11 +28,13 @@ export {
   JsonRpcError,
   MockTransport,
   classifyReadError,
+  txInvalidDetail,
 } from "./transport/index.js";
 export type {
   HttpTransportOptions,
   HttpBatchOptions,
   ReadErrorKind,
+  TxInvalidDetail,
 } from "./transport/index.js";
 export type { Signer } from "./signers/index.js";
 export { PrivateKeySigner } from "./signers/index.js";

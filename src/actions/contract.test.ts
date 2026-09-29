@@ -34,6 +34,7 @@ import { getBlockByNumber } from "./public/getBlockByNumber.js";
 import { getEvents } from "./public/getEvents.js";
 import { getPendingTransactionCount } from "./public/getPendingTransactionCount.js";
 import { getNetworkInfo } from "./public/getNetworkInfo.js";
+import { getChainConfig } from "./public/getChainConfig.js";
 import { requestAirdropAttempt } from "./public/requestAirdrop.js";
 import { getStorageAt } from "./public/getStorageAt.js";
 import { getTransactionReceipt } from "./public/getTransactionReceipt.js";
@@ -119,10 +120,14 @@ function spyTransport<R>(stub: R): {
   return { transport, calls };
 }
 
+/** Methods a test below has checked, for the coverage test at the end. */
+const coveredMethods = new Set<string>();
+
 function assertCapturedParamsMatchSpec(
   methodName: string,
   capturedParams: unknown[] | undefined,
 ): void {
+  coveredMethods.add(methodName);
   const params = capturedParams ?? [];
   const method = (
     openrpcSpec as { methods: Array<{ name: string; params: Array<unknown> }> }
@@ -369,5 +374,27 @@ describe("contract tests against specs/openrpc.json", () => {
 
     expect(calls).toHaveLength(1);
     assertCapturedParamsMatchSpec("groundhog_view", calls[0]!.params);
+  });
+
+  it("groundhog_chainConfig — sends an empty params array and reads stated parameters", async () => {
+    const { transport, calls } = spyTransport({
+      maxNewContractsPerTx: 4,
+      maxRv32CodeBytes: 65_536,
+    });
+    const config = await getChainConfig(transport);
+    expect(calls).toHaveLength(1);
+    assertCapturedParamsMatchSpec("groundhog_chainConfig", calls[0]!.params);
+    expect(config.maxNewContractsPerTx).toBe(4);
+    expect(config.maxRv32CodeBytes).toBe(65_536);
+    expect(config.maxContractSizeBytes).toBeNull();
+  });
+
+  it("covers every method in specs/openrpc.json", () => {
+    const specMethods = (
+      openrpcSpec as { methods: Array<{ name: string }> }
+    ).methods
+      .map((m) => m.name)
+      .sort();
+    expect([...coveredMethods].sort()).toEqual(specMethods);
   });
 });

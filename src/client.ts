@@ -20,6 +20,7 @@ import type {
   EventPage,
   StorageItemRead,
   NetworkInfo,
+  NetworkConfigParams,
 } from "./types/rpc.js";
 import type { Cluster, ClusterHasCapability } from "./cluster.js";
 import { assertNetworkMatchesCluster, defineCluster } from "./cluster.js";
@@ -54,6 +55,7 @@ import {
 import { iterateEventPages } from "./actions/public/iterateEventPages.js";
 import { getStorageAt } from "./actions/public/getStorageAt.js";
 import { getVersion } from "./actions/public/getVersion.js";
+import { getChainConfig } from "./actions/public/getChainConfig.js";
 import { view } from "./actions/public/view.js";
 import { sendTransaction } from "./actions/wallet/sendTransaction.js";
 
@@ -90,6 +92,14 @@ export interface CoreGroundhogClient {
 
   /** Return the gateway implementation and wire-format version. */
   getVersion(options?: TransportRequestOptions): Promise<VersionInfo>;
+
+  /**
+   * Return the execution parameters the chain's network config states;
+   * unstated parameters are `null`.
+   */
+  getChainConfig(
+    options?: TransportRequestOptions,
+  ): Promise<NetworkConfigParams>;
 
   /** Execute a read-only contract invocation without submitting a transaction. */
   view(
@@ -179,6 +189,7 @@ function createCoreGroundhogClient(transport: Transport): CoreGroundhogClient {
     getPendingTransactionCount: (options) =>
       getPendingTransactionCount(transport, options),
     getVersion: (options) => getVersion(transport, options),
+    getChainConfig: (options) => getChainConfig(transport, options),
     view: (request, options) => view(transport, request, options),
     getTransactionReceipt: (txHash, options) =>
       getTransactionReceipt(transport, txHash, options),

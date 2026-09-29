@@ -1,5 +1,6 @@
 export { getChainTip } from "./getChainTip.js";
 export { getNetworkInfo } from "./getNetworkInfo.js";
+export { getChainConfig } from "./getChainConfig.js";
 export {
   InvalidAirdropResponseError,
   requestAirdrop,

@@ -22,6 +22,7 @@ interface RawBlockInfo {
   txsHash: string;
   storageHash: string;
   eventsHash: string;
+  configHash: string;
   prevBlockHash: string;
   proposalTxsHash: string;
   upgrades: string[];
@@ -61,6 +62,7 @@ export async function getBlockByNumber(
     txsHash: parseHash(block.txsHash, "txsHash"),
     storageHash: parseHash(block.storageHash, "storageHash"),
     eventsHash: parseHash(block.eventsHash, "eventsHash"),
+    configHash: parseHash(block.configHash, "configHash"),
     prevBlockHash: parseHash(block.prevBlockHash, "prevBlockHash"),
     proposalTxsHash: parseHash(block.proposalTxsHash, "proposalTxsHash"),
     upgrades: parseUpgrades(block.upgrades),
