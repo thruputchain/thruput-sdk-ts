@@ -352,10 +352,16 @@ const { address } = await wallet.deployContractAndWait(
 DevWallet's deploy takes neither; with it, prefund the address and initialize in a
 later call.
 
-The standard ERC20 binding uses `adjustAllowance` with `{ spender, diff }`, not `approve`.
-`diff` is signed: positive increases the allowance, negative reduces it. Reading
-the current allowance and submitting a delta cannot guarantee an exact target
-when concurrent transactions also change it.
+The standard ERC20 binding uses `adjustAllowance` with
+`{ spender, difference, exclusive }`, not `approve`. `difference` is signed:
+positive increases the allowance, negative reduces it. Reading the current
+allowance and submitting a delta cannot guarantee an exact target when
+concurrent transactions also change it; set `exclusive` to `true` to lock the
+allowance entry for the transaction so a concurrent change conflicts instead
+of interleaving. `clearAllowance({ spender })` revokes an allowance and deletes
+its storage entry, and `clearBalance()` deletes the caller's empty balance
+entry. Allowance changes emit `AllowanceChangeEvent` with the signed
+`difference`; the earlier `ApprovalEvent` is gone with interface 0.1.41.
 
 A receipt proves commitment; inspect its execution result. `invalid` reports
 rejection, while `recentFailure` is an advisory scheduling conflict. A timeout or
