@@ -368,7 +368,7 @@ async function packageBoundaryTypecheck(
     });
 
   ERC20Metadata.v0_1.symbol.invocation(contract, gasLimit);
-  groundhog_erc20_if.v0_1.events.ApprovalEvent.filter({
+  groundhog_erc20_if.v0_1.events.AllowanceChangeEvent.filter({
     contractAddresses: [contract],
     topics: { owner: contract },
   });

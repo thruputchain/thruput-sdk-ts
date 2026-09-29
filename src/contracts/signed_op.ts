@@ -1,4 +1,4 @@
-// Generated from signed_op.spec.xdr - SignedOp interface v0.1.36
+// Generated from signed_op.spec.xdr - SignedOp interface v0.1.41
 // DO NOT EDIT. Re-run codegen to update.
 
 import * as __gh_protocol from "@groundhogchain/protocol";
@@ -55,7 +55,7 @@ export const spec: __gh_client_contract.ContractSpec = {
   interfaces: [
     {
       name: __gh_s("SignedOp"),
-      vers: __gh_s("0.1.36"),
+      vers: __gh_s("0.1.41"),
       throws: [
         {
           selector: 0x65f3de61c8178163n,
@@ -171,7 +171,7 @@ export const SignedOp = {
       SignedOp.v0_1.DeclaredException
     >({
       interfaceName: "SignedOp",
-      interfaceVersion: "0.1.36",
+      interfaceVersion: "0.1.41",
       abiName: "execute_signed_op",
       publicName: "executeSignedOp",
       entrypoint: __gh_entrypoints.SignedOp.v0_1.executeSignedOp,

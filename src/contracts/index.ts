@@ -45,3 +45,8 @@ export {
   groundhog_signed_op_if,
   spec as SignedOpSpec,
 } from "./signed_op.js";
+export {
+  ERC20Permit,
+  groundhog_erc20_permit_if,
+  spec as ERC20PermitSpec,
+} from "./erc20_permit.js";
