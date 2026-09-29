@@ -17,11 +17,7 @@ test("typed shared-snapshot reads against a matching live node", async () => {
   const client = await createGroundhogClient({
     transport: new HttpTransport(rpcUrl),
   });
-  const tip = await ERC20.getBalanceOf.view({
-    client,
-    contract: HOG_ADDRESS,
-    args: { addr: account.address },
-  });
+  const tip = await client.getChainTip();
   const snapshot = await client.readViews({
     calls: [
       ERC20.getBalanceOf.viewRequest({
