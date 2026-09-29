@@ -8,6 +8,7 @@ import type {
   TransportRequestOptions,
 } from "../../transport/types.js";
 import { viewBatch } from "./viewBatch.js";
+import { ContractDecodeError } from "../../contract/errors.js";
 
 /** Typed calls and an optional minimum committed height for one snapshot read. */
 export interface ReadViewsRequest<
@@ -54,6 +55,7 @@ export async function readViews<
   // later edits its array. viewBatch serializes the byte inputs before yielding.
   const calls = request.calls.map((call) => ({
     request: call.request,
+    name: call.method.name,
     decode: call.method.decodeViewOutcome,
   }));
   const response = await viewBatch(
@@ -66,12 +68,19 @@ export async function readViews<
     },
     options,
   );
-  const results = calls.map((call, index) =>
-    call.decode({
-      ...response.results[index]!,
-      height: response.height,
-    }),
-  );
+  const results = calls.map((call, index) => {
+    try {
+      return call.decode({
+        ...response.results[index]!,
+        height: response.height,
+      });
+    } catch (cause) {
+      throw new ContractDecodeError(
+        `Failed to decode readViews result ${index} (${call.name})`,
+        { cause },
+      );
+    }
+  });
   // viewBatch validates the exact count; each position uses its retained decoder.
   return {
     height: response.height,

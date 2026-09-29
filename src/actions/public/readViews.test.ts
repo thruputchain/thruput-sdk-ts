@@ -7,7 +7,6 @@ import {
 import { ERC20 } from "../../contracts/index.js";
 import { createGroundhogClient } from "../../client.js";
 import { getContract } from "../../contract/instance.js";
-import { ContractDecodeError } from "../../contract/errors.js";
 import type { Transport } from "../../transport/types.js";
 import { JsonRpcError } from "../../transport/http.js";
 import { viewBatch } from "./viewBatch.js";
@@ -153,7 +152,7 @@ describe("shared-snapshot reads", () => {
     expect(request).toHaveBeenCalledTimes(1);
   });
 
-  it("rejects malformed typed return data", async () => {
+  it("rejects malformed typed return data with method context", async () => {
     const { transport } = stub({
       height: 42,
       results: [{ output: { result: "return", returnData: "0x" }, events: [] }],
@@ -162,7 +161,7 @@ describe("shared-snapshot reads", () => {
       readViews(transport, {
         calls: [ERC20.totalSupply.viewRequest({ contract: address })],
       }),
-    ).rejects.toBeInstanceOf(ContractDecodeError);
+    ).rejects.toThrow("readViews result 0 (ERC20.totalSupply)");
   });
 
   it("honors cancellation before I/O and forwards the group signal", async () => {
