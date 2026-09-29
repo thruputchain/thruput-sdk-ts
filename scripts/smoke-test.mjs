@@ -43,6 +43,7 @@ const requiredExports = {
   ],
   "./transport": [
     "GroundhogRpcErrorCode",
+    "txInvalidDetail",
     "HttpResponseError",
     "HttpTransport",
     "JsonRpcError",
@@ -71,6 +72,7 @@ const requiredExports = {
   "./signers": ["PrivateKeySigner"],
   "./actions": [
     "InvalidTransactionReceiptError",
+    "getChainConfig",
     "getChainTip",
     "getEvents",
     "getNetworkInfo",

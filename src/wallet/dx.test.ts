@@ -9,6 +9,7 @@ import {
 import { CxsWriter, Uint64Codec } from "@groundhogchain/xdr";
 import { Counter } from "../../examples/generated/counter.js";
 import { DefaultWallet, default_wallet } from "../contracts/default_wallet.js";
+import { DevWallet } from "../contracts/dev_wallet.js";
 import { getContract } from "../contract/instance.js";
 import {
   decodeExecution,
@@ -156,6 +157,120 @@ describe("contract execution DX", () => {
 });
 
 describe("deployment descriptions", () => {
+  const artifact = new Uint8Array([1, 2, 3]);
+  const initGas = gasAmount(40n);
+
+  it("funds and initializes the contract through DefaultWallet deploy", () => {
+    const planned = prepareContractDeployment({
+      deployer: address,
+      contract: artifact,
+      funding: 10_000_000n,
+    });
+    const initializer = Counter.v0_1.initialize.invocation(
+      planned.address,
+      initGas,
+      { initialValue: 7n },
+    );
+    const deployment = { ...planned, initializer };
+    const request = deploymentRequest(
+      deployment,
+      address,
+      gas,
+      defaultWalletAdapter,
+    );
+    expect(
+      DefaultWallet.v0_1.deploy.decodeArgs(request.invocation.calldata),
+    ).toEqual({
+      nonce: planned.deploymentNonce,
+      contractHash: planned.contractHash,
+      amount: 10_000_000n,
+      initializer: {
+        entrypoint: Counter.v0_1.initialize.entrypoint,
+        gas_limit: 40n,
+        calldata: initializer.calldata,
+      },
+    });
+
+    // A plan holds its own copy of the initializer, so editing the
+    // invocation after preparing cannot change what the plan deploys.
+    const copied = prepareContractDeployment({ ...deployment });
+    const original = initializer.calldata.slice();
+    initializer.calldata.fill(0);
+    const later = deploymentRequest(copied, address, gas, defaultWalletAdapter);
+    expect(
+      DefaultWallet.v0_1.deploy.decodeArgs(later.invocation.calldata)
+        .initializer?.calldata,
+    ).toEqual(original);
+  });
+
+  it("rejects funding outside u128 and an initializer aimed elsewhere", () => {
+    expect(() =>
+      prepareContractDeployment({
+        deployer: address,
+        contract: artifact,
+        funding: -1n,
+      }),
+    ).toThrow(RangeError);
+    expect(() =>
+      prepareContractDeployment({
+        deployer: address,
+        contract: artifact,
+        funding: 1n << 128n,
+      }),
+    ).toThrow(RangeError);
+    const planned = prepareContractDeployment({
+      deployer: address,
+      contract: artifact,
+    });
+    expect(() =>
+      deploymentRequest(
+        {
+          ...planned,
+          initializer: Counter.v0_1.initialize.invocation(address, initGas, {
+            initialValue: 7n,
+          }),
+        },
+        address,
+        gas,
+        defaultWalletAdapter,
+      ),
+    ).toThrow(/initializer targets/);
+  });
+
+  it("refuses funding or an initializer through DevWallet", () => {
+    const planned = prepareContractDeployment({
+      deployer: address,
+      contract: artifact,
+    });
+    expect(() =>
+      deploymentRequest(
+        { ...planned, funding: 1n },
+        address,
+        gas,
+        devWalletAdapter,
+      ),
+    ).toThrow(/DevWallet deploy cannot fund or initialize/);
+    expect(() =>
+      deploymentRequest(
+        {
+          ...planned,
+          initializer: Counter.v0_1.initialize.invocation(
+            planned.address,
+            initGas,
+            { initialValue: 7n },
+          ),
+        },
+        address,
+        gas,
+        devWalletAdapter,
+      ),
+    ).toThrow(/DevWallet deploy cannot fund or initialize/);
+    expect(
+      deploymentRequest(planned, address, gas, devWalletAdapter).invocation
+        .entrypoint,
+    ).toEqual(DevWallet.v0_1.deploy.entrypoint);
+  });
+
   it("snapshots inputs and attaches canonical code at the wallet root", () => {
     const bytes = new Uint8Array([1, 2, 3]);
     const nonce = new Uint8Array(32);

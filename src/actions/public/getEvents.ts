@@ -72,7 +72,8 @@ function parseIdentifiedEvent(value: unknown): IdentifiedEvent {
  * Query emitted contract events with the gateway's paginated event API.
  *
  * Use `cursor` from the returned page to request the next page with the same
- * filters and ordering.
+ * filters and ordering. The query needs at least one filter, and each filter
+ * at least one contract address.
  *
  * @example
  * ```ts
@@ -89,6 +90,14 @@ export async function getEvents(
   options?: TransportRequestOptions,
 ): Promise<EventPage> {
   options?.signal?.throwIfAborted();
+  if (query.filters.length === 0) {
+    throw new RangeError("getEvents requires at least one filter");
+  }
+  if (query.filters.some((filter) => filter.contractAddresses.length === 0)) {
+    throw new RangeError(
+      "getEvents requires at least one contract address in every filter",
+    );
+  }
   const raw = await transport.request<unknown>(
     "groundhog_getEvents",
     [serializeQuery(query)],

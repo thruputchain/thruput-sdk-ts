@@ -17,6 +17,7 @@ const reads: Record<
   (client: GroundhogClient, signal: AbortSignal) => Promise<unknown>
 > = {
   network: (client, signal) => client.getNetworkInfo({ signal }),
+  chainConfig: (client, signal) => client.getChainConfig({ signal }),
   version: (client, signal) => client.getVersion({ signal }),
   tip: (client, signal) => client.getChainTip({ signal }),
   balance: (client, signal) => client.getBalance(address, { signal }),
@@ -26,7 +27,11 @@ const reads: Record<
   status: (client, signal) => client.getTransactionStatus(hash, { signal }),
   transactions: (client, signal) =>
     client.getTransactionsByAddress({ address }, { signal }),
-  events: (client, signal) => client.getEvents({ filters: [] }, { signal }),
+  events: (client, signal) =>
+    client.getEvents(
+      { filters: [{ contractAddresses: [address] }] },
+      { signal },
+    ),
   storage: (client, signal) =>
     client.getStorageAt(address, new Uint8Array(32), { signal }),
   view: (client, signal) =>

@@ -94,13 +94,18 @@ export const defaultWalletAdapter = defineWalletInvocationAdapter({
   decodeExecutionReturns: (receipt) =>
     DefaultWallet.v0_1.execute.decodeReceipt(receipt).value,
   createDeploymentInvocation(account, gasLimit, deployment) {
-    // No funding and no initializer: the deploy the wallet performed
-    // before it took either.
+    const init = deployment.initializer;
     return DefaultWallet.v0_1.deploy.invocation(account, gasLimit, {
       nonce: fixedBytes(deployment.deploymentNonce, 32),
       contractHash: fixedBytes(deployment.contractHash, 32),
-      amount: 0n,
-      initializer: null,
+      amount: deployment.funding ?? 0n,
+      initializer: init
+        ? {
+            entrypoint: fixedBytes(init.entrypoint, 8),
+            gas_limit: init.gas_limit,
+            calldata: init.calldata,
+          }
+        : null,
     });
   },
   decodeDeploymentReceipt: (receipt) =>
@@ -120,6 +125,10 @@ export const defaultWalletAdapter = defineWalletInvocationAdapter({
 export const devWalletAdapter = defineWalletInvocationAdapter({
   decodeExecutionReturns: () => null,
   createDeploymentInvocation(account, gasLimit, deployment) {
+    if ((deployment.funding ?? 0n) !== 0n || deployment.initializer)
+      throw new Error(
+        "DevWallet deploy cannot fund or initialize the contract; prefund its address and initialize it in a later call",
+      );
     return DevWallet.v0_1.deploy.invocation(account, gasLimit, {
       nonce: fixedBytes(deployment.deploymentNonce, 32),
       contractHash: fixedBytes(deployment.contractHash, 32),

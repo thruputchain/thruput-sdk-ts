@@ -33,11 +33,14 @@ import { loadLocalDevAccount } from "@groundhogchain/client/local-dev";
 import {
   ExecResult,
   HOG_ADDRESS,
+  Uint64Codec,
+  deserializeCxs,
   gasAmount,
   bitMap,
   weight,
 } from "@groundhogchain/protocol";
 import versions from "../../scripts/integration-versions.json" with { type: "json" };
+import openrpcSpec from "../../specs/openrpc.json" with { type: "json" };
 import {
   airdropTimeoutMs,
   eventsTimeoutMs,
@@ -66,10 +69,19 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       const version = await client.getVersion();
       assert.equal(version.implementation, versions.cli);
       assert.match(version.wireFormat, /^\d+\.\d+\.\d+$/);
+      // The pinned spec must describe the wire format the pinned node serves.
+      assert.equal(
+        version.wireFormat.split(".")[0],
+        openrpcSpec.info.version.split(".")[0],
+      );
       const tip = await client.getChainTip();
       assert.equal(typeof tip.height, "bigint");
       assert.ok(tip.height >= 1n);
       assert.equal(tip.blockHash.length, 32);
+      const config = await client.getChainConfig();
+      for (const value of Object.values(config)) {
+        assert.ok(value === null || Number.isInteger(value));
+      }
     },
   );
 
@@ -415,6 +427,58 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       );
       assert.ok(raw);
       assert.deepEqual(filter.topics.topic1[0], raw.topics[1]);
+    },
+  );
+
+  await t.test(
+    "funds, deploys, and initializes a contract in one DefaultWallet transaction",
+    async () => {
+      const sender = createPubkeyAccount({
+        signer: new PrivateKeySigner(randomBytes(32)),
+      });
+      const wallet = createWalletClient({ client, account: sender });
+      await wallet.requestAirdrop({ timeoutMs: airdropTimeoutMs });
+      const spec = deserialize(
+        await readFile(
+          new URL("../../specs/contracts/counter.spec.xdr", import.meta.url),
+        ),
+        specCodec.ContractSpec,
+      );
+      const iface = spec.interfaces.find((entry) => entry.name === "Counter");
+      assert.ok(iface);
+      const planned = prepareContractDeployment({
+        deployer: sender.address,
+        contract: await readFile(
+          new URL("../../examples/fixtures/counter.rv32a", import.meta.url),
+        ),
+        funding: 10_000_000n,
+      });
+      const deployment = {
+        ...planned,
+        initializer: {
+          invoked_address: planned.address,
+          entrypoint: deriveEntrypointID(iface.name, iface.vers, "initialize"),
+          gas_limit: gasAmount(500_000n),
+          calldata: encodeCalldata(spec, iface.name, "initialize", [7n], {}),
+        },
+      };
+      // No prefunding transfer: the deploy itself funds the address.
+      const result = await wallet.deployContractAndWait(
+        deployment,
+        gasAmount(10_000_000n),
+        { timeoutMs: receiptTimeoutMs },
+      );
+      assert.deepEqual(result.address, planned.address);
+      assert.equal(result.receipt.execResult, ExecResult.ExecResultOK);
+
+      const view = await client.view({
+        contract: result.address,
+        entrypoint: deriveEntrypointID(iface.name, iface.vers, "get"),
+        calldata: encodeCalldata(spec, iface.name, "get", [], {}),
+        caller: sender.address,
+      });
+      assert.equal(view.output.result, "return");
+      assert.equal(deserializeCxs(view.output.returnData, Uint64Codec), 7n);
     },
   );
 
