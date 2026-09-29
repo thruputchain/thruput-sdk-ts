@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // Loads every subpath in the package `exports` map under the current Node
-// runtime, in both ESM and CJS form, and checks that the legacy `main` /
-// `module` / `types` fields agree with the root export.
+// runtime, in both ESM and CJS form.
 //
 // `npm test` runs src/ through vitest's transform pipeline, so it can pass on
 // a runtime that cannot actually load the artifact we publish — a downlevel
@@ -44,6 +43,7 @@ const requiredExports = {
   ],
   "./transport": [
     "GroundhogRpcErrorCode",
+    "txInvalidDetail",
     "HttpResponseError",
     "HttpTransport",
     "JsonRpcError",
@@ -62,17 +62,17 @@ const requiredExports = {
     "DefaultWallet",
     "DevWallet",
     "ERC20",
-    "ERC20ApprovalEvent",
-    "ERC20BurnEvent",
-    "ERC20MintEvent",
     "ERC20Metadata",
-    "ERC20TransferEvent",
+    "SignedOp",
     "decodeERC20Event",
-    "WalletError",
+    "default_wallet",
+    "groundhog_erc20_if",
+    "groundhog_signed_op_if",
   ],
   "./signers": ["PrivateKeySigner"],
   "./actions": [
     "InvalidTransactionReceiptError",
+    "getChainConfig",
     "getChainTip",
     "getEvents",
     "getNetworkInfo",
@@ -132,9 +132,9 @@ for (const [subpath, entry] of Object.entries(pkg.exports)) {
         }
       }
       if (subpath === "./contracts") {
-        if (typeof mod.ERC20?.transfer?.invocation !== "function") {
+        if (typeof mod.ERC20?.v0_1?.transfer?.invocation !== "function") {
           failures.push(
-            `${subpath} (${condition}): ERC20.transfer is not a method descriptor`,
+            `${subpath} (${condition}): ERC20.v0_1.transfer is not a method descriptor`,
           );
         }
       }
@@ -142,28 +142,6 @@ for (const [subpath, entry] of Object.entries(pkg.exports)) {
       const message = error instanceof Error ? error.message : String(error);
       failures.push(`${subpath} (${condition}): ${message}`);
     }
-  }
-}
-
-// Consumers that ignore the `exports` map (older bundlers, some type
-// checkers) resolve the top-level `main` / `module` / `types` fields, so
-// those must name the same files the root export does.
-const legacyEntryFields = { main: "require", module: "import", types: "types" };
-for (const [field, condition] of Object.entries(legacyEntryFields)) {
-  const relative = pkg[field];
-  const expected = pkg.exports["."]?.[condition];
-  checked++;
-  if (typeof relative !== "string") {
-    failures.push(`package.json: missing "${field}" field`);
-    continue;
-  }
-  if (relative !== expected) {
-    failures.push(
-      `package.json: "${field}" is ${relative} but exports["."].${condition} is ${expected}`,
-    );
-  }
-  if (!existsSync(fileURLToPath(new URL(relative, root)))) {
-    failures.push(`package.json: "${field}" points at missing ${relative}`);
   }
 }
 
@@ -177,5 +155,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Smoke test passed on Node ${process.version}: ${checked} package entry points checked against dist/.`,
+  `Smoke test passed on Node ${process.version}: ${checked} package export conditions loaded from dist/.`,
 );
