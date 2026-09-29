@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Loads every subpath in the package `exports` map under the current Node
-// runtime, in both ESM and CJS form.
+// runtime, in both ESM and CJS form, and checks that the legacy `main` /
+// `module` / `types` fields agree with the root export.
 //
 // `npm test` runs src/ through vitest's transform pipeline, so it can pass on
 // a runtime that cannot actually load the artifact we publish — a downlevel
@@ -144,6 +145,28 @@ for (const [subpath, entry] of Object.entries(pkg.exports)) {
   }
 }
 
+// Consumers that ignore the `exports` map (older bundlers, some type
+// checkers) resolve the top-level `main` / `module` / `types` fields, so
+// those must name the same files the root export does.
+const legacyEntryFields = { main: "require", module: "import", types: "types" };
+for (const [field, condition] of Object.entries(legacyEntryFields)) {
+  const relative = pkg[field];
+  const expected = pkg.exports["."]?.[condition];
+  checked++;
+  if (typeof relative !== "string") {
+    failures.push(`package.json: missing "${field}" field`);
+    continue;
+  }
+  if (relative !== expected) {
+    failures.push(
+      `package.json: "${field}" is ${relative} but exports["."].${condition} is ${expected}`,
+    );
+  }
+  if (!existsSync(fileURLToPath(new URL(relative, root)))) {
+    failures.push(`package.json: "${field}" points at missing ${relative}`);
+  }
+}
+
 if (failures.length > 0) {
   console.error(
     `Smoke test FAILED on Node ${process.version} (${pkg.name}@${pkg.version}):`,
@@ -154,5 +177,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Smoke test passed on Node ${process.version}: ${checked} package export conditions loaded from dist/.`,
+  `Smoke test passed on Node ${process.version}: ${checked} package entry points checked against dist/.`,
 );
