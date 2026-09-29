@@ -60,6 +60,10 @@ import {
 } from "@groundhogchain/client";
 import type { Transport } from "@groundhogchain/client/transport";
 import {
+  getContractEvents,
+  iterateEventPages,
+} from "@groundhogchain/client/actions";
+import {
   ContractDecodeError,
   defineContractMethod,
   fixedBytes,
@@ -67,23 +71,12 @@ import {
 import type { SignedToken } from "@groundhogchain/client/contract";
 import {
   ERC20,
-  ERC20ApprovalEvent,
-  ERC20BurnEvent,
-  ERC20MintEvent,
   ERC20Metadata,
-  ERC20TransferEvent,
   DefaultWallet,
   DevWallet,
-  WalletError,
   decodeERC20Event,
-} from "@groundhogchain/client/contracts";
-import type {
-  ERC20TransferArgs,
-  DefaultWalletExecuteArgs,
-  ERC20TransferEventFilter,
-  ERC20BurnEventFilter,
-  ERC20MintEventFilter,
-  WalletCall,
+  default_wallet,
+  groundhog_erc20_if,
 } from "@groundhogchain/client/contracts";
 import type { BitMap, Weight } from "@groundhogchain/protocol";
 import type { Signer } from "@groundhogchain/client/signers";
@@ -94,8 +87,8 @@ import {
   signedOperationPreimage,
 } from "@groundhogchain/client/signed-op";
 import type {
+  ContractTypeSelector,
   Operation,
-  SignedOpExecuteSignedOpArgs,
   SignedOperation,
   SignedOperationType,
 } from "@groundhogchain/client/signed-op";
@@ -119,6 +112,55 @@ import {
   type ProviderWalletClient,
   type WalletAccount as LocalWalletAccount,
 } from "@groundhogchain/client/wallet";
+
+async function eventPagesBoundary(
+  client: GroundhogClient,
+  transport: Transport,
+  address: ContractAddress,
+  signal: AbortSignal,
+) {
+  const query = {
+    event: groundhog_erc20_if.v0_1.events.TransferEvent,
+    contractAddresses: [address],
+    topics: { to: address },
+    limit: 20,
+  };
+  const page = await client.getContractEvents(query, { signal });
+  const directPage: typeof page = await getContractEvents(transport, query, {
+    signal,
+  });
+  const amount: bigint = page.events[0]!.fields.amount;
+  const receiver: ContractAddress = page.events[0]!.topics.to;
+  const name: "TransferEvent" = page.events[0]!.name;
+  const height: bigint = page.events[0]!.blockHeight;
+  const rawQuery = {
+    filters: [groundhog_erc20_if.v0_1.events.TransferEvent.filter(query)],
+    cursor: page.cursor,
+  };
+  const pages: AsyncIterable<import("@groundhogchain/client").EventPage> =
+    client.iterateEventPages(rawQuery, { signal });
+  const directPages: typeof pages = iterateEventPages(transport, rawQuery, {
+    signal,
+  });
+  await client.getContractEvents({
+    ...query,
+    // @ts-expect-error Topic names come from the selected descriptor.
+    topics: { missing: address },
+  });
+  await client.getContractEvents({
+    ...query,
+    // @ts-expect-error Address topics cannot be bigint values.
+    topics: { to: 1n },
+  });
+  const mint = await client.getContractEvents({
+    event: groundhog_erc20_if.v0_1.events.MintEvent,
+    contractAddresses: [address],
+  });
+  // @ts-expect-error Mint events have no from topic.
+  mint.events[0]!.topics.from;
+  void [directPage, amount, receiver, name, height, directPages];
+}
+void eventPagesBoundary;
 
 const units: bigint = parseUnits("12.05", 2);
 const batchOptions: HttpBatchOptions = { maxSize: 100, waitMs: 0 };
@@ -198,21 +240,23 @@ async function typedExecutionBoundary(
   gas: GasAmount,
   client: GroundhogClient,
 ) {
-  const transfer = ERC20.transfer.call({
+  const transfer = ERC20.v0_1.transfer.call({
     contract: address,
     gasLimit: gas,
     args: { receiver: address, amount: 1n },
   });
-  const transferArgs: ERC20TransferArgs = ERC20.transfer.decodeArgs(
+  const transferArgs: ERC20.v0_1.TransferArgs = ERC20.v0_1.transfer.decodeArgs(
     transfer.invocation.calldata,
   );
-  const walletArgs: DefaultWalletExecuteArgs = DefaultWallet.execute.decodeArgs(
-    DefaultWallet.execute.invocation(address, gas, { calls: [] }).calldata,
-  );
-  const noArgs: void = ERC20.getBalance.decodeArgs(new Uint8Array());
+  const walletArgs: DefaultWallet.v0_1.ExecuteArgs =
+    DefaultWallet.v0_1.execute.decodeArgs(
+      DefaultWallet.v0_1.execute.invocation(address, gas, { calls: [] })
+        .calldata,
+    );
+  const noArgs: void = ERC20.v0_1.getBalance.decodeArgs(new Uint8Array());
   void [transferArgs, walletArgs, noArgs];
-  const token = getContract({ binding: ERC20, address, client });
-  const boundArgs: ERC20TransferArgs = token.transfer.decodeArgs(
+  const token = getContract({ binding: ERC20.v0_1, address, client });
+  const boundArgs: ERC20.v0_1.TransferArgs = token.transfer.decodeArgs(
     transfer.invocation.calldata,
   );
   token.transfer.call({
@@ -223,7 +267,7 @@ async function typedExecutionBoundary(
   // @ts-expect-error Decoded arguments must retain their original types.
   const invalidAmount: string = boundArgs.amount;
   void invalidAmount;
-  const balance = ERC20.getBalanceOf.call({
+  const balance = ERC20.v0_1.getBalanceOf.call({
     contract: address,
     gasLimit: gas,
     args: { addr: address },
@@ -241,7 +285,7 @@ async function typedExecutionBoundary(
   // @ts-expect-error The second call returns a bigint, not a string.
   const wrong: string = result.values[1];
   // @ts-expect-error Typed calls require the generated arguments.
-  ERC20.transfer.call({ contract: address, gasLimit: gas });
+  ERC20.v0_1.transfer.call({ contract: address, gasLimit: gas });
   void values;
   void wrong;
 }
@@ -302,8 +346,8 @@ async function packageBoundaryTypecheck(
     { receiver: ContractAddress; amount: bigint },
     void,
     unknown
-  > = ERC20.transfer;
-  const transferArgs: ERC20TransferArgs = {
+  > = ERC20.v0_1.transfer;
+  const transferArgs: ERC20.v0_1.TransferArgs = {
     receiver: recipient,
     amount: 1n,
   };
@@ -313,46 +357,66 @@ async function packageBoundaryTypecheck(
     transferArgs,
   );
 
-  const balance = await ERC20.getBalanceOf.view({
+  const balance = await ERC20.v0_1.getBalanceOf.view({
     client,
     contract,
     args: { addr: recipient },
   });
   const outcome: ContractViewOutcome<bigint, unknown> =
-    await ERC20.getBalanceOf.viewOutcome({
+    await ERC20.v0_1.getBalanceOf.viewOutcome({
       client,
       contract,
       args: { addr: recipient },
     });
 
-  ERC20Metadata.symbol.invocation(contract, gasLimit);
-  ERC20ApprovalEvent.filter({
+  ERC20Metadata.v0_1.symbol.invocation(contract, gasLimit);
+  groundhog_erc20_if.v0_1.events.AllowanceChangeEvent.filter({
     contractAddresses: [contract],
     topics: { owner: contract },
   });
-  const transferTopics: ERC20TransferEventFilter = {
+  const transferTopics: groundhog_erc20_if.v0_1.events.TransferEventFilter = {
     to: { oneOf: [recipient] },
   };
-  ERC20TransferEvent.filter({
+  groundhog_erc20_if.v0_1.events.TransferEvent.filter({
     contractAddresses: [contract],
     topics: transferTopics,
   });
   decodeERC20Event(event);
-  const mintTopics: ERC20MintEventFilter = { to: recipient };
-  const burnTopics: ERC20BurnEventFilter = { from: recipient };
-  ERC20MintEvent.filter({ contractAddresses: [contract], topics: mintTopics });
-  ERC20BurnEvent.filter({ contractAddresses: [contract], topics: burnTopics });
+  const mintTopics: groundhog_erc20_if.v0_1.events.MintEventFilter = {
+    to: recipient,
+  };
+  const burnTopics: groundhog_erc20_if.v0_1.events.BurnEventFilter = {
+    from: recipient,
+  };
+  groundhog_erc20_if.v0_1.events.MintEvent.filter({
+    contractAddresses: [contract],
+    topics: mintTopics,
+  });
+  groundhog_erc20_if.v0_1.events.BurnEvent.filter({
+    contractAddresses: [contract],
+    topics: burnTopics,
+  });
 
   const executeSignedOp: ContractMethod<
-    SignedOpExecuteSignedOpArgs,
+    SignedOp.v0_1.ExecuteSignedOpArgs,
     SignedToken,
     unknown
-  > = SignedOp.executeSignedOp;
+  > = SignedOp.v0_1.executeSignedOp;
   const transferOperation: SignedOperationType<{ amount: bigint }> =
     defineSignedOperation<{ amount: bigint }>({
       typeDefs: [],
       typeName: "Transfer",
     });
+  const transferId: ContractTypeSelector = {
+    crate_name: "my_wallet",
+    major: "0.1",
+    module_path: "my_wallet",
+    declared: "Transfer",
+  };
+  defineSignedOperation<{ amount: bigint }>({
+    typeDefs: [],
+    typeName: transferId,
+  });
   const signedOperation: Promise<SignedOperation> = transferOperation.sign(
     {} as Signer,
     {
@@ -529,20 +593,20 @@ function walletBoundaryTypecheck(
     policy: "custom",
   });
 
-  const call: WalletCall = {
+  const call: default_wallet.v0_1.$interface.WalletCall = {
     target: address,
     entrypoint: fixedBytes(invocation.entrypoint, 8),
     gas_limit: invocation.gas_limit,
     calldata: invocation.calldata,
   };
-  DefaultWallet.execute.invocation(address, invocation.gas_limit, {
+  DefaultWallet.v0_1.execute.invocation(address, invocation.gas_limit, {
     calls: [call],
   });
-  DevWallet.doAction.invocation(address, invocation.gas_limit, {
+  DevWallet.v0_1.doAction.invocation(address, invocation.gas_limit, {
     invocationBytes: invocation.calldata,
   });
   void defaultWalletAdapter;
-  void WalletError.EmptyCallList;
+  void default_wallet.v0_1.$interface.WalletError.EmptyCallList;
 }
 
 void packageBoundaryTypecheck;

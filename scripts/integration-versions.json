@@ -1,17 +1,4 @@
 {
-  "cli": "0.19.0-pre.1",
-  "devnode": "0.1.29-rc.2",
-  "devnodeSourceCommit": "0f78d581f3bb10971b5e824f0d550363231e6e40",
-  "devnodeArtifacts": {
-    "x64": {
-      "url": "https://groundhog-public-release-artifacts-017820684264.s3.us-west-2.amazonaws.com/hog-devnode/0.1.29-rc.2/hog-devnode_0.1.29-rc.2_x86_64-unknown-linux-gnu.tar.gz",
-      "sha256": "c963202c6bea87dbc34ebe2893e1c171a7e936cbba001ef6708083d8c5bc52c4",
-      "size": 9689890
-    },
-    "arm64": {
-      "url": "https://groundhog-public-release-artifacts-017820684264.s3.us-west-2.amazonaws.com/hog-devnode/0.1.29-rc.2/hog-devnode_0.1.29-rc.2_aarch64-unknown-linux-gnu.tar.gz",
-      "sha256": "bbb73551b82fe72ce96f842aea699aa7681d6e7a7861131f7af913d764006d6e",
-      "size": 8868111
-    }
-  }
+  "cli": "0.19.0",
+  "devnode": "0.1.29-rc.4"
 }

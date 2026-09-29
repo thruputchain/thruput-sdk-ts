@@ -10,12 +10,12 @@ Run examples from the repository root:
 npm run example <name>
 ```
 
-| Example            | Network  | What it demonstrates                                      |
-| ------------------ | -------- | --------------------------------------------------------- |
-| `chain-tip`        | Devnet   | Validated cluster connection and basic RPC actions        |
-| `transfer-hog`     | Devnet   | Airdrops, pubkey accounts, DefaultWallet, and receipts    |
-| `view-hog-balance` | Localnet | Runtime account discovery and typed contract views        |
-| `deploy-counter`   | Localnet | Deployment, explicit roots, wallet adapters, and readback |
+| Example            | Network  | What it demonstrates                                       |
+| ------------------ | -------- | ---------------------------------------------------------- |
+| `chain-tip`        | Devnet   | Validated cluster connection and basic RPC actions         |
+| `transfer-hog`     | Devnet   | Airdrops, pubkey accounts, DefaultWallet, and receipts     |
+| `view-hog-balance` | Localnet | Runtime account discovery and typed contract views         |
+| `deploy-counter`   | Localnet | Native wallet funding, atomic initialization, and readback |
 
 Set `GROUNDHOG_RPC_URL` to override a cluster's default endpoint. A Localnet
 override must also set `GROUNDHOG_RUNTIME_MANIFEST` to the manifest produced by
@@ -66,8 +66,8 @@ Read `dev-1`'s HOG balance through the generated ERC-20 binding:
 npm run example view-hog-balance
 ```
 
-Deploy the included Counter contract through DevWallet, increment it through a
-wallet adapter, and read the committed value:
+Create a native wallet, fund it explicitly, deploy and initialize the included
+Counter contract, increment it, and read the committed value:
 
 ```bash
 npm run example deploy-counter
@@ -78,29 +78,23 @@ using `GROUNDHOG_RPC_URL`, both overrides must identify the same local node.
 
 ## Contract Deployment
 
-`deploy-counter` demonstrates both wallet submission levels:
+`deploy-counter` creates an ephemeral pubkey account and explicitly funds it with
+an airdrop. `prepareContractDeployment()` predicts the contract address, then
+`wallet.deployContractAndWait()` transfers 50,000,000 raw HOG units (5 HOG),
+deploys the code, and initializes the counter to 42 in one transaction. Funding
+and gas budgets are calibrated for the bundled fixture and local runtime; they
+are not deployment cost estimates.
 
-- `wallet.sendInvocation()` submits the wallet-specific `DevWallet.deploy`
-  root invocation and includes the artifact in `contractsToDeploy`.
-- `wallet.execute()` wraps the normal `Counter.increment` invocation through
-  `devWalletAdapter`.
+`wallet.executeAndWait()` increments the counter through DefaultWallet, and a
+typed view verifies the value is 47. The private key is never printed or saved;
+any remaining funds become inaccessible when the process exits.
 
-The local DevWallet transfers 100,000,000 base units (10 HOG) to each derived
-contract address before deployment so that address can pay the storage charge.
-This is wallet policy, not part of the protocol deployment mechanism. See
-[`docs/contract-deployment.md`](../docs/contract-deployment.md) for the full
-model and address derivation rules.
-
-The Counter fixture and pinned spec come from
-[`groundhog-examples/contracts/counter`](https://github.com/groundhogchain/groundhog-examples/tree/56208548187a653af650b6c6b1708bac1b93b5e7/contracts/counter).
-Its raw SHA-256 is
-`3ce9c1f3257a080679ac95aa9597c00cc39f66f1c89fa1cac27c6a4c9ddb3903`;
-its canonical Groundhog contract hash is
-`4eb0b279d37ff9ff0d73a94ec26102cc5d0b9ea7f726ba63bdf123a876d2c2ef`.
-Wallet binding provenance and all canonical input hashes are recorded in
+The Counter fixture's source and artifact provenance are recorded in
+[`examples/fixtures/README.md`](fixtures/README.md). Wallet binding provenance
+and canonical input hashes are recorded in
 [`specs/contracts/README.md`](../specs/contracts/README.md).
 
-To build a contract and generate TypeScript bindings with CLI `0.9.6`:
+To build a contract and generate TypeScript bindings with CLI `0.19.0`:
 
 ```bash
 groundhog build -p counter --bindings ts

@@ -210,6 +210,7 @@ describe("getBlockByNumber", () => {
     expect(block!.txsHash.length).toBe(32);
     expect(block!.storageHash.length).toBe(32);
     expect(block!.eventsHash.length).toBe(32);
+    expect(block!.configHash.length).toBe(32);
     expect(block!.prevBlockHash.length).toBe(32);
     expect(block!.proposalTxsHash.length).toBe(32);
     expect(block!.upgrades).toEqual([]);
@@ -769,6 +770,22 @@ describe("getTransactionsByAddress", () => {
 });
 
 describe("getEvents", () => {
+  const anyEventQuery = {
+    filters: [{ contractAddresses: [contractAddress(new Uint8Array(32))] }],
+  };
+
+  it("rejects a query with no filter, or a filter with no contract address", async () => {
+    const transport = new MockTransport();
+    await expect(getEvents(transport, { filters: [] })).rejects.toThrow(
+      "getEvents requires at least one filter",
+    );
+    await expect(
+      getEvents(transport, { filters: [{ contractAddresses: [] }] }),
+    ).rejects.toThrow(
+      "getEvents requires at least one contract address in every filter",
+    );
+  });
+
   it("returns empty event page from mock", async () => {
     const transport = new MockTransport();
     const page = await getEvents(transport, {
@@ -877,7 +894,7 @@ describe("getEvents", () => {
       },
     };
 
-    const page = await getEvents(transport, { filters: [] });
+    const page = await getEvents(transport, anyEventQuery);
 
     expect(page.events).toEqual([
       {
@@ -916,7 +933,7 @@ describe("getEvents", () => {
       },
     };
 
-    await expect(getEvents(transport, { filters: [] })).rejects.toThrow(
+    await expect(getEvents(transport, anyEventQuery)).rejects.toThrow(
       /at most 3 topics/,
     );
   });
@@ -944,7 +961,7 @@ describe("getEvents", () => {
       },
     };
 
-    await expect(getEvents(transport, { filters: [] })).rejects.toThrow(
+    await expect(getEvents(transport, anyEventQuery)).rejects.toThrow(
       /exceed 1024 bytes/,
     );
   });

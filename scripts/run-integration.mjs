@@ -8,7 +8,6 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import versions from "./integration-versions.json" with { type: "json" };
 import { harnessTimeoutMs, runnerTimeoutMs } from "./integration-timeouts.mjs";
-import { downloadDevnode } from "./integration-devnode.mjs";
 
 const exec = promisify(execFile);
 const repo = fileURLToPath(new URL("../", import.meta.url));
@@ -177,8 +176,6 @@ async function main() {
   if (process.platform !== "linux") {
     throw new Error("The live-node harness currently supports Linux only");
   }
-  const artifact = versions.devnodeArtifacts[process.arch];
-  if (!artifact) throw new Error(`No pinned devnode for Linux ${process.arch}`);
   const requestedCli = process.env.GROUNDHOG_CLI ?? "groundhog";
   const cli = requestedCli.includes("/") ? resolve(requestedCli) : requestedCli;
   const { stdout } = await exec(cli, ["--version"], { timeout: 10_000 });
@@ -206,24 +203,34 @@ async function main() {
   env.XDG_CONFIG_HOME = join(work, "config");
   env.XDG_CACHE_HOME = join(work, "cache");
 
-  const archive = join(work, "devnode.tar.gz");
-  await downloadDevnode(artifact, archive, abort.signal);
-  const bundle = join(work, "devnode");
-  await mkdir(bundle);
   const install = launch(
-    "tar",
-    ["-xzf", archive, "-C", bundle],
+    cli,
+    ["--json", "toolchain", "install", versions.devnode],
     env,
-    "extract",
+    "install",
   );
   requireSuccess(
     install,
     await bounded(install.done, 300_000, "Devnode installation"),
   );
-  const devnode = join(bundle, "hog-devnode");
+  const installed = JSON.parse(
+    await readFile(join(logs, "install.stdout.log"), "utf8"),
+  );
+  if (
+    !installed.ok ||
+    typeof installed.data?.path !== "string" ||
+    !isAbsolute(installed.data.path)
+  ) {
+    throw new Error("Devnode installation did not report an executable path");
+  }
   // Run directly so dynamic-loader failures reach our logs rather than being
   // reduced to an exit code by the node supervisor.
-  const preflight = launch(devnode, ["--version"], env, "devnode-version");
+  const preflight = launch(
+    installed.data.path,
+    ["--version"],
+    env,
+    "devnode-version",
+  );
   requireSuccess(
     preflight,
     await bounded(preflight.done, 10_000, "Devnode version preflight"),
@@ -237,8 +244,8 @@ async function main() {
       "127.0.0.1",
       "--port",
       "0",
-      "--hog-devnode-binary",
-      devnode,
+      "--hog-devnode-version",
+      versions.devnode,
       "--offline",
       "--block-driver",
       "instant",
@@ -302,7 +309,7 @@ try {
   failed ||= abort.signal.aborted;
   if (failed) {
     if (logs) {
-      for (const label of ["extract", "devnode-version", "node"]) {
+      for (const label of ["install", "devnode-version", "node"]) {
         const stderr = await readFile(
           join(logs, `${label}.stderr.log`),
           "utf8",

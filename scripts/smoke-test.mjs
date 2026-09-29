@@ -43,6 +43,7 @@ const requiredExports = {
   ],
   "./transport": [
     "GroundhogRpcErrorCode",
+    "txInvalidDetail",
     "HttpResponseError",
     "HttpTransport",
     "JsonRpcError",
@@ -61,17 +62,17 @@ const requiredExports = {
     "DefaultWallet",
     "DevWallet",
     "ERC20",
-    "ERC20ApprovalEvent",
-    "ERC20BurnEvent",
-    "ERC20MintEvent",
     "ERC20Metadata",
-    "ERC20TransferEvent",
+    "SignedOp",
     "decodeERC20Event",
-    "WalletError",
+    "default_wallet",
+    "groundhog_erc20_if",
+    "groundhog_signed_op_if",
   ],
   "./signers": ["PrivateKeySigner"],
   "./actions": [
     "InvalidTransactionReceiptError",
+    "getChainConfig",
     "getChainTip",
     "getEvents",
     "getNetworkInfo",
@@ -131,9 +132,9 @@ for (const [subpath, entry] of Object.entries(pkg.exports)) {
         }
       }
       if (subpath === "./contracts") {
-        if (typeof mod.ERC20?.transfer?.invocation !== "function") {
+        if (typeof mod.ERC20?.v0_1?.transfer?.invocation !== "function") {
           failures.push(
-            `${subpath} (${condition}): ERC20.transfer is not a method descriptor`,
+            `${subpath} (${condition}): ERC20.v0_1.transfer is not a method descriptor`,
           );
         }
       }

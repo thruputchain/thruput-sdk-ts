@@ -165,7 +165,7 @@ describe("provider atomic batches", () => {
       deployer: localAccount.address,
       contract: new Uint8Array([1, 2, 3]),
     });
-    const initializer = Counter.initialize.invocation(
+    const initializer = Counter.v0_1.initialize.invocation(
       plan.address,
       gasAmount(100n),
       { initialValue: 42n },
@@ -185,7 +185,7 @@ describe("provider atomic batches", () => {
       const signed = parseSignedTransactionHex(evidence.signedTransaction);
       expect(signed.tx.contracts_to_deploy).toEqual([plan.contract]);
       expect(
-        DefaultWallet.deploy.decodeArgs(signed.tx.invocation.calldata),
+        DefaultWallet.v0_1.deploy.decodeArgs(signed.tx.invocation.calldata),
       ).toMatchObject({
         amount: 123n,
         initializer: {

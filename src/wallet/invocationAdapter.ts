@@ -39,7 +39,7 @@ export function createDefaultWalletBatchInvocation(
     request.invocations.length > MAX_DEFAULT_WALLET_CALLS
   )
     throw new RangeError("DefaultWallet requires 1 to 16 calls");
-  return DefaultWallet.execute.invocation(
+  return DefaultWallet.v0_1.execute.invocation(
     contractAddress(new Uint8Array(accountAddress)),
     request.gasLimit,
     {
@@ -93,7 +93,7 @@ export function defineWalletInvocationAdapter<
 export const defaultWalletAdapter = defineWalletInvocationAdapter({
   createBatchRootInvocation: createDefaultWalletBatchInvocation,
   decodeExecutionReturns: (receipt) =>
-    DefaultWallet.execute.decodeReceipt(receipt).value,
+    DefaultWallet.v0_1.execute.decodeReceipt(receipt).value,
   createDeploymentInvocation(account, deployment, options) {
     if (
       options.initializer &&
@@ -102,7 +102,7 @@ export const defaultWalletAdapter = defineWalletInvocationAdapter({
       throw new Error(
         "Initializer must target the predicted deployment address",
       );
-    return DefaultWallet.deploy.invocation(account, options.gasLimit, {
+    return DefaultWallet.v0_1.deploy.invocation(account, options.gasLimit, {
       nonce: fixedBytes(deployment.deploymentNonce, 32),
       contractHash: fixedBytes(deployment.contractHash, 32),
       amount: options.amount,
@@ -116,7 +116,7 @@ export const defaultWalletAdapter = defineWalletInvocationAdapter({
     });
   },
   decodeDeploymentReceipt: (receipt) =>
-    DefaultWallet.deploy.decodeReceipt(receipt).value,
+    DefaultWallet.v0_1.deploy.decodeReceipt(receipt).value,
   createRootInvocation(
     accountAddress: ContractAddress,
     request: WalletExecutionRequest,
@@ -135,7 +135,7 @@ export const devWalletAdapter = defineWalletInvocationAdapter({
     accountAddress: ContractAddress,
     request: WalletExecutionRequest,
   ): Invocation {
-    return DevWallet.doAction.invocation(
+    return DevWallet.v0_1.doAction.invocation(
       contractAddress(new Uint8Array(accountAddress)),
       request.gasLimit,
       {

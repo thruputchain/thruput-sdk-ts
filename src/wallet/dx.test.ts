@@ -8,7 +8,7 @@ import {
 } from "@groundhogchain/protocol";
 import { CxsWriter, Uint64Codec } from "@groundhogchain/xdr";
 import { Counter } from "../../examples/generated/counter.js";
-import { DefaultWallet, WalletError } from "../contracts/default_wallet.js";
+import { DefaultWallet, default_wallet } from "../contracts/default_wallet.js";
 import { getContract } from "../contract/instance.js";
 import {
   decodeExecution,
@@ -25,6 +25,8 @@ import {
   decodeDeployment,
 } from "./deployment.js";
 import type { TransactionReceipt } from "../types/rpc.js";
+
+const { WalletError } = default_wallet.v0_1.$interface;
 
 const address = contractAddress(new Uint8Array(32));
 const gas = gasAmount(100n);
@@ -46,7 +48,7 @@ describe("contract execution DX", () => {
     const decodeReceiptOutcome = vi.fn(() => {
       throw new Error("Child decoder must not run");
     });
-    const call = Counter.get.call({ contract: address, gasLimit: gas });
+    const call = Counter.v0_1.get.call({ contract: address, gasLimit: gas });
     const child = { ...call, method: { ...call.method, decodeReceiptOutcome } };
     for (const abortData of [writer.finish(), new Uint8Array([0xff]), null]) {
       const failed = {
@@ -89,17 +91,17 @@ describe("contract execution DX", () => {
     });
   });
   it("keeps method identity, types, and bound read metadata", async () => {
-    const call = Counter.increment.call({
+    const call = Counter.v0_1.increment.call({
       contract: address,
       gasLimit: gas,
       args: { amount: 5n },
     });
     expect(call.invocation).toEqual(
-      Counter.increment.invocation(address, gas, { amount: 5n }),
+      Counter.v0_1.increment.invocation(address, gas, { amount: 5n }),
     );
     expect(call.method.name).toBe("Counter.increment");
     expect(() =>
-      Counter.increment.call({
+      Counter.v0_1.increment.call({
         contract: address,
         gasLimit: gas,
         args: { amount: 5 as unknown as bigint },
@@ -108,7 +110,7 @@ describe("contract execution DX", () => {
     const writer = new CxsWriter();
     Uint64Codec.encode(writer, 42n);
     const contract = getContract({
-      binding: Counter,
+      binding: Counter.v0_1,
       address,
       client: {
         view: async () => ({
@@ -124,7 +126,7 @@ describe("contract execution DX", () => {
   });
 
   it("does not pretend a wallet that discards returns exposes a typed value", () => {
-    const call = Counter.get.call({ contract: address, gasLimit: gas });
+    const call = Counter.v0_1.get.call({ contract: address, gasLimit: gas });
     expect(() => decodeExecution(receipt, [call], devWalletAdapter)).toThrow(
       ExecutionReturnUnavailableError,
     );
@@ -134,10 +136,12 @@ describe("contract execution DX", () => {
     // DefaultWallet's CXS return is a vector of byte vectors.
     const data = new Uint8Array([0]);
     const original = { ...receipt, returnData: data };
-    expect(DefaultWallet.execute.decodeReceipt(original).value).toEqual([]);
+    expect(DefaultWallet.v0_1.execute.decodeReceipt(original).value).toEqual(
+      [],
+    );
     expect(() =>
       decodeExecution(original, [
-        Counter.get.call({ contract: address, gasLimit: gas }),
+        Counter.v0_1.get.call({ contract: address, gasLimit: gas }),
       ]),
     ).toThrow(/expected 1/);
     expect(original.returnData).toBe(data);
@@ -157,7 +161,7 @@ describe("deployment descriptions", () => {
       deployer: address,
       contract: new Uint8Array([1]),
     });
-    const initializer = Counter.initialize.invocation(plan.address, gas, {
+    const initializer = Counter.v0_1.initialize.invocation(plan.address, gas, {
       initialValue: 42n,
     });
     const request = deploymentRequest(
@@ -167,7 +171,7 @@ describe("deployment descriptions", () => {
       defaultWalletAdapter,
     );
     expect(
-      DefaultWallet.deploy.decodeArgs(request.invocation.calldata),
+      DefaultWallet.v0_1.deploy.decodeArgs(request.invocation.calldata),
     ).toEqual({
       nonce: plan.deploymentNonce,
       contractHash: plan.contractHash,
@@ -180,10 +184,10 @@ describe("deployment descriptions", () => {
     });
     initializer.calldata.fill(0);
     expect(
-      DefaultWallet.deploy.decodeArgs(request.invocation.calldata).initializer
-        ?.calldata,
+      DefaultWallet.v0_1.deploy.decodeArgs(request.invocation.calldata)
+        .initializer?.calldata,
     ).not.toEqual(initializer.calldata);
-    const wrongTarget = Counter.initialize.invocation(address, gas, {
+    const wrongTarget = Counter.v0_1.initialize.invocation(address, gas, {
       initialValue: 42n,
     });
     expect(() =>
@@ -252,8 +256,16 @@ describe("deployment descriptions", () => {
     );
     expect(request.contractsToDeploy).toEqual([plan.contract]);
     expect(request.invocation.entrypoint).toEqual(
-      DefaultWallet.deploy.entrypoint,
+      DefaultWallet.v0_1.deploy.entrypoint,
     );
+    expect(
+      DefaultWallet.v0_1.deploy.decodeArgs(request.invocation.calldata),
+    ).toEqual({
+      nonce: plan.deploymentNonce,
+      contractHash: plan.contractHash,
+      amount: 0n,
+      initializer: null,
+    });
     expect(
       decodeDeployment(
         { ...receipt, returnData: plan.address },

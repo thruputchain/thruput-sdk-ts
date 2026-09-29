@@ -1,6 +1,6 @@
 {
   "name": "@groundhogchain/client",
-  "version": "0.10.0",
+  "version": "0.12.0",
   "description": "TypeScript client for the Groundhog blockchain",
   "repository": {
     "type": "git",
@@ -85,7 +85,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:smoke": "node scripts/smoke-test.mjs",
-    "test:integration": "node --test scripts/integration-devnode.test.mjs && npm run build && node scripts/run-integration.mjs",
+    "test:integration": "npm run build && node scripts/run-integration.mjs",
     "test:package-boundary": "tsc -p scripts/tsconfig.package-boundary.json",
     "typecheck": "tsc --noEmit",
     "docs": "typedoc",
@@ -109,9 +109,9 @@
     "vitest": "4.1.11"
   },
   "dependencies": {
-    "@groundhogchain/contract-spec": "0.11.0",
-    "@groundhogchain/protocol": "0.11.0",
-    "@groundhogchain/xdr": "0.11.0",
+    "@groundhogchain/contract-spec": "0.12.0",
+    "@groundhogchain/protocol": "0.12.0",
+    "@groundhogchain/xdr": "0.12.0",
     "@noble/ed25519": "^3.1.0",
     "@noble/hashes": "^2.2.0",
     "smol-toml": "1.8.0"

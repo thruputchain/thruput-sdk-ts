@@ -17,3 +17,4 @@ export {
 export type { HttpTransportOptions, HttpBatchOptions } from "./http.js";
 export { MockTransport } from "./mock.js";
 export { classifyReadError, type ReadErrorKind } from "./readError.js";
+export { txInvalidDetail, type TxInvalidDetail } from "./txInvalidDetail.js";

@@ -72,7 +72,7 @@ describe("wallet account defaults", () => {
       deployer: wallet.account.address,
       contract: new Uint8Array([1, 2, 3]),
     });
-    const initializer = Counter.initialize.invocation(
+    const initializer = Counter.v0_1.initialize.invocation(
       plan.address,
       gasAmount(100n),
       { initialValue: 42n },
@@ -85,7 +85,7 @@ describe("wallet account defaults", () => {
     expect(tx.auth_claim).toEqual(wallet.account.authClaim);
     expect(tx.contracts_to_deploy).toEqual([plan.contract]);
     expect(
-      DefaultWallet.deploy.decodeArgs(tx.invocation.calldata),
+      DefaultWallet.v0_1.deploy.decodeArgs(tx.invocation.calldata),
     ).toMatchObject({
       amount: 123n,
       initializer: {

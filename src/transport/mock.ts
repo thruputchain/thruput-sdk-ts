@@ -21,6 +21,8 @@ export class MockTransport implements Transport {
     switch (method) {
       case "groundhog_networkInfo":
         return this.#networkInfo() as T;
+      case "groundhog_chainConfig":
+        return this.#chainConfig() as T;
       case "groundhog_requestAirdrop":
         return this.#requestAirdrop(params) as T;
       case "groundhog_chainTip":
@@ -56,6 +58,10 @@ export class MockTransport implements Transport {
     return {
       networkHash: "0x" + "00".repeat(32),
     };
+  }
+
+  #chainConfig(): Record<string, number> {
+    return { maxNewContractsPerTx: 4 };
   }
 
   #requestAirdrop(params?: unknown[]): {
@@ -101,6 +107,7 @@ export class MockTransport implements Transport {
     txsHash: string;
     storageHash: string;
     eventsHash: string;
+    configHash: string;
     prevBlockHash: string;
     proposalTxsHash: string;
     upgrades: string[];
@@ -117,6 +124,7 @@ export class MockTransport implements Transport {
       txsHash: this.#blockHash(height),
       storageHash: this.#blockHash(height),
       eventsHash: this.#blockHash(height),
+      configHash: this.#blockHash(height),
       prevBlockHash: this.#blockHash(height > 0n ? height - 1n : 0n),
       proposalTxsHash: this.#blockHash(height),
       upgrades: [],
