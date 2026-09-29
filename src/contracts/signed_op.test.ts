@@ -18,7 +18,9 @@ import {
 import { fixedBytes } from "@groundhogchain/xdr";
 import { signedToken } from "../contract/signedToken.js";
 import { deriveEntrypointID } from "../derivation/entrypointId.js";
-import { SignedOp, SignedOpError, spec } from "./signed_op.js";
+import { SignedOp, groundhog_signed_op_if, spec } from "./signed_op.js";
+
+const { SignedOpError } = groundhog_signed_op_if.v0_1.error;
 
 // The finalized spec of `groundhog-signed-op-if`, built from its rv32 spec
 // carrier: the input the binding was generated from.
@@ -35,7 +37,7 @@ describe("SignedOp binding", () => {
     expect(spec).toEqual(pinned);
     expect(spec.interfaces).toHaveLength(1);
     expect(spec.interfaces[0]!.name).toBe("SignedOp");
-    expect(spec.interfaces[0]!.vers).toBe("0.1.22");
+    expect(spec.interfaces[0]!.vers).toBe("0.1.41");
     // Nonces are unordered, so the nonce view of earlier releases is gone:
     // nothing on chain needs reading before signing.
     expect(spec.interfaces[0]!.methods.map((m) => m.name)).toEqual([
@@ -55,18 +57,20 @@ describe("SignedOp binding", () => {
 
   it("derives execute_signed_op's entrypoint from the interface", () => {
     const iface = spec.interfaces[0]!;
-    expect(toHex(SignedOp.executeSignedOp.entrypoint)).toBe(
+    expect(toHex(SignedOp.v0_1.executeSignedOp.entrypoint)).toBe(
       toHex(deriveEntrypointID(iface.name, iface.vers, "execute_signed_op")),
     );
     // Pinned against the Rust `contract_entrypoint_id` for the same triple;
     // unchanged across 0.1.x releases, since only the major-version domain
     // enters the derivation.
-    expect(toHex(SignedOp.executeSignedOp.entrypoint)).toBe("c281dc2ffb5eeb1e");
+    expect(toHex(SignedOp.v0_1.executeSignedOp.entrypoint)).toBe(
+      "c281dc2ffb5eeb1e",
+    );
   });
 
   it("encodes the operation as the chain's Uniquifier then the body, and returns one token", () => {
     const signature = fixedBytes(new Uint8Array(64).fill(0xcd), 64);
-    const invocation = SignedOp.executeSignedOp.invocation(
+    const invocation = SignedOp.v0_1.executeSignedOp.invocation(
       contractAddress(new Uint8Array(32)),
       gasAmount(1n),
       {
@@ -88,8 +92,8 @@ describe("SignedOp binding", () => {
     expected.writeFixedOpaque(signature, 64);
     expect(toHex(invocation.calldata)).toBe(toHex(expected.finish()));
     // The minted token comes back as a placeholder and no bytes at all.
-    expect(SignedOp.executeSignedOp.decodeReturn(new Uint8Array())).toEqual(
-      signedToken(),
-    );
+    expect(
+      SignedOp.v0_1.executeSignedOp.decodeReturn(new Uint8Array()),
+    ).toEqual(signedToken());
   });
 });

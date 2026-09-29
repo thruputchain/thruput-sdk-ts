@@ -111,22 +111,69 @@ XDR API remains available from `@groundhogchain/protocol`.
 import { gasAmount, type ContractAddress } from "@groundhogchain/client";
 ```
 
-Generated contract bindings are exported separately:
+Generated contract bindings are exported separately. Each interface nests its
+methods and their argument, result, and exception types under the major version
+its entrypoints hash (`ERC20.v0_1.transfer`, `ERC20.v0_1.TransferArgs`); named
+types, enum values, and event descriptors nest under the declaring crate and
+major (`groundhog_erc20_if.v0_1.events.TransferEvent`).
 
 ```ts
 import { ERC20 } from "@groundhogchain/client/contracts";
 
-const balance = await ERC20.getBalanceOf.view({
+const balance = await ERC20.v0_1.getBalanceOf.view({
   client,
   contract: tokenAddress,
   args: { addr: accountAddress },
 });
 
-const transfer = ERC20.transfer.invocation(tokenAddress, gasLimit, {
+const transfer = ERC20.v0_1.transfer.invocation(tokenAddress, gasLimit, {
   receiver: recipientAddress,
   amount: 1_000n,
 });
 ```
+
+### Event pages
+
+Use a generated event descriptor to fetch one page with typed topics and fields:
+
+```ts
+import { groundhog_erc20_if } from "@groundhogchain/client/contracts";
+
+const { TransferEvent } = groundhog_erc20_if.v0_1.events;
+const page = await client.getContractEvents({
+  event: TransferEvent,
+  contractAddresses: [tokenAddress],
+  topics: { to: accountAddress },
+  limit: 20,
+});
+
+for (const transfer of page.events) {
+  console.log(transfer.txHash, transfer.blockHeight, transfer.fields.amount);
+}
+```
+
+This makes one RPC request. Pass `page.cursor` with the same filters when the user
+requests another page. The result retains `latestBlock`, `oldestBlock`, and each
+event's emitter and sequence number. Existing generated bindings work unchanged.
+
+For a background scan, the raw-page iterator handles cursor advancement:
+
+```ts
+const query = {
+  filters: [TransferEvent.filter({ contractAddresses: [tokenAddress] })],
+  limit: 200,
+};
+for await (const page of client.iterateEventPages(query, { signal })) {
+  await processPage(page);
+  if (shouldPause()) break;
+}
+```
+
+The iterator fetches on demand, follows empty pages with continuation cursors,
+and stops at an empty cursor. It rejects repeated cursors and propagates RPC
+errors. It does not prefetch, retry, subscribe, or persist checkpoints. Applications
+own processing and history-coverage checks; `latestBlock` is the indexer's head,
+not proof that the current page has covered every event through that block.
 
 Node.js applications targeting `groundhog node` can load a deterministic local
 signer from its active runtime manifest:
@@ -242,10 +289,14 @@ changing the SDK:
 ```ts
 const customWalletAdapter = defineWalletInvocationAdapter({
   createRootInvocation(accountAddress, request: CustomWalletRequest) {
-    return CustomWallet.execute.invocation(accountAddress, request.gasLimit, {
-      call: request.invocation,
-      policy: request.policy,
-    });
+    return CustomWallet.v0_1.execute.invocation(
+      accountAddress,
+      request.gasLimit,
+      {
+        call: request.invocation,
+        policy: request.policy,
+      },
+    );
   },
 });
 ```
@@ -265,19 +316,52 @@ sums explicit child budgets and a calibrated overhead, without estimating gas.
 
 A new native HOG balance item needs a deposit at the recipient address. A large
 enough first credit can fund it; a small credit can be excluded with
-`recentFailure` / `boundsExceeded`. The transfer example funds both accounts first
+`recentFailure` / `insufficientFunds`. The transfer example funds both accounts first
 because its 1,000-unit credit cannot cover a new balance item's deposit.
 
 The live funding test verifies an excluded 1,000-unit first credit, a successful
 100,000-unit first credit with a deposit deduction, and a later 1,000-unit credit
 without another balance-item deposit. It uses 500,000 child gas and 1,000,000 root
-gas. Verified locally with CLI 0.18.0, hog-devnode 0.1.28-rc.1, and protocol
-`hogp/63c9284d8d5727e`; storage costs depend on runtime configuration.
+gas. Verified locally with CLI 0.19.0-pre.2 and hog-devnode 0.1.29-rc.3; storage
+costs depend on runtime configuration.
 
-The standard ERC20 binding uses `adjustAllowance` with `{ spender, diff }`, not `approve`.
-`diff` is signed: positive increases the allowance, negative reduces it. Reading
-the current allowance and submitting a delta cannot guarantee an exact target
-when concurrent transactions also change it.
+A deployed contract's storage needs HOG at its address too. With DefaultWallet
+(every pubkey account), set `funding` on the deployment and the deploying
+transaction transfers it before the code lands, so no separate prefunding
+transaction is needed. An optional `initializer` calls the new contract in the
+same transaction, with the wallet as caller; a failure in any step rolls back
+all three. Build the initializer against the predicted address:
+
+```ts
+const planned = prepareContractDeployment({
+  deployer: account.address,
+  contract: artifact,
+  funding: 10_000_000n,
+});
+const { address } = await wallet.deployContractAndWait(
+  {
+    ...planned,
+    initializer: Counter.v0_1.initialize.invocation(planned.address, initGas, {
+      initialValue: 7n,
+    }),
+  },
+  rootGas, // must also cover the initializer's gas
+);
+```
+
+DevWallet's deploy takes neither; with it, prefund the address and initialize in a
+later call.
+
+The standard ERC20 binding uses `adjustAllowance` with
+`{ spender, difference, exclusive }`, not `approve`. `difference` is signed:
+positive increases the allowance, negative reduces it. Reading the current
+allowance and submitting a delta cannot guarantee an exact target when
+concurrent transactions also change it; set `exclusive` to `true` to lock the
+allowance entry for the transaction so a concurrent change conflicts instead
+of interleaving. `clearAllowance({ spender })` revokes an allowance and deletes
+its storage entry, and `clearBalance()` deletes the caller's empty balance
+entry. Allowance changes emit `AllowanceChangeEvent` with the signed
+`difference`; the earlier `ApprovalEvent` is gone with interface 0.1.41.
 
 A receipt proves commitment; inspect its execution result. `invalid` reports
 rejection, while `recentFailure` is an advisory scheduling conflict. A timeout or
@@ -298,12 +382,14 @@ import {
   defineSignedOperation,
   randomNonce,
 } from "@groundhogchain/client/signed-op";
-import { spec, MyWallet, type Transfer } from "./generated/my_wallet.js";
+import { spec, MyWallet, type my_wallet } from "./generated/my_wallet.js";
 
 // Bind the payload type from the contract's generated spec. Its definition is
 // part of the signed bytes, so a payload with the same encoding but a
-// different type never shares a signature.
-const transfer = defineSignedOperation<Transfer>({
+// different type never shares a signature. When another crate or module also
+// declares `Transfer`, pass its full spec id ({ crate_name, major,
+// module_path, declared }) as `typeName` instead.
+const transfer = defineSignedOperation<my_wallet.v0_1.Transfer>({
   typeDefs: spec.type_defs,
   typeName: "Transfer",
 });
@@ -320,7 +406,7 @@ const { op, signature } = await transfer.sign(signer, {
 
 // `op` and `signature` are the arguments of whichever entrypoint hands the
 // operation to the verifying contract; the submitter need not be the signer.
-const invocation = MyWallet.submit.invocation(walletAddress, gasLimit, {
+const invocation = MyWallet.v0_1.submit.invocation(walletAddress, gasLimit, {
   op,
   signature,
 });
@@ -393,7 +479,7 @@ before asynchronous work. Each call has its own gas limit; the root budget must
 cover the calls and wallet overhead.
 
 Use the existing sign, persist, and submit sequence for the resulting transaction.
-Decode the root receipt with `DefaultWallet.execute.decodeReceipt(receipt)`;
+Decode the root receipt with `DefaultWallet.v0_1.execute.decodeReceipt(receipt)`;
 its `value` contains one return payload per call, in order. Decode each payload
 with that call's generated `decodeReturn` method. A failed inner call rolls back
 the batch. A successfully enqueued request can still fail during later queue

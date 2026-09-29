@@ -11,12 +11,13 @@ import { HttpTransport } from "../../transport/http.js";
 
 const address = contractAddress(new Uint8Array(32));
 const hash = sha256Hash(new Uint8Array(32));
-const invocation = ERC20.getBalance.invocation(address, gasAmount(1n));
+const invocation = ERC20.v0_1.getBalance.invocation(address, gasAmount(1n));
 const reads: Record<
   string,
   (client: GroundhogClient, signal: AbortSignal) => Promise<unknown>
 > = {
   network: (client, signal) => client.getNetworkInfo({ signal }),
+  chainConfig: (client, signal) => client.getChainConfig({ signal }),
   version: (client, signal) => client.getVersion({ signal }),
   tip: (client, signal) => client.getChainTip({ signal }),
   balance: (client, signal) => client.getBalance(address, { signal }),
@@ -26,7 +27,11 @@ const reads: Record<
   status: (client, signal) => client.getTransactionStatus(hash, { signal }),
   transactions: (client, signal) =>
     client.getTransactionsByAddress({ address }, { signal }),
-  events: (client, signal) => client.getEvents({ filters: [] }, { signal }),
+  events: (client, signal) =>
+    client.getEvents(
+      { filters: [{ contractAddresses: [address] }] },
+      { signal },
+    ),
   storage: (client, signal) =>
     client.getStorageAt(address, new Uint8Array(32), { signal }),
   view: (client, signal) =>
@@ -39,15 +44,19 @@ const reads: Record<
       { signal },
     ),
   descriptor: (client, signal) =>
-    ERC20.getBalance.view({ client, contract: address, signal }),
+    ERC20.v0_1.getBalance.view({ client, contract: address, signal }),
   outcome: (client, signal) =>
-    ERC20.getBalance.viewOutcome({ client, contract: address, signal }),
+    ERC20.v0_1.getBalance.viewOutcome({ client, contract: address, signal }),
   bound: (client, signal) =>
-    getContract({ binding: ERC20, address, client }).getBalance.view({
+    getContract({ binding: ERC20.v0_1, address, client }).getBalance.view({
       signal,
     }),
   boundOutcome: (client, signal) =>
-    getContract({ binding: ERC20, address, client }).getBalance.viewOutcome({
+    getContract({
+      binding: ERC20.v0_1,
+      address,
+      client,
+    }).getBalance.viewOutcome({
       signal,
     }),
 };

@@ -1,5 +1,6 @@
 export { getChainTip } from "./getChainTip.js";
 export { getNetworkInfo } from "./getNetworkInfo.js";
+export { getChainConfig } from "./getChainConfig.js";
 export {
   InvalidAirdropResponseError,
   requestAirdrop,
@@ -22,6 +23,13 @@ export {
 } from "./waitForTransactionReceipt.js";
 export { getTransactionsByAddress } from "./getTransactionsByAddress.js";
 export { getEvents } from "./getEvents.js";
+export {
+  getContractEvents,
+  type ContractEventQuery,
+  type ContractEventPage,
+  type IdentifiedContractEvent,
+} from "./getContractEvents.js";
+export { iterateEventPages } from "./iterateEventPages.js";
 export { getStorageAt } from "./getStorageAt.js";
 export { getVersion } from "./getVersion.js";
 export { view } from "./view.js";

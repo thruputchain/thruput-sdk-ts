@@ -20,6 +20,7 @@ import type {
   EventPage,
   StorageItemRead,
   NetworkInfo,
+  NetworkConfigParams,
 } from "./types/rpc.js";
 import type { Cluster, ClusterHasCapability } from "./cluster.js";
 import { assertNetworkMatchesCluster, defineCluster } from "./cluster.js";
@@ -46,8 +47,15 @@ import {
 } from "./actions/public/waitForTransactionReceipt.js";
 import { getTransactionsByAddress } from "./actions/public/getTransactionsByAddress.js";
 import { getEvents } from "./actions/public/getEvents.js";
+import {
+  getContractEvents,
+  type ContractEventQuery,
+  type ContractEventPage,
+} from "./actions/public/getContractEvents.js";
+import { iterateEventPages } from "./actions/public/iterateEventPages.js";
 import { getStorageAt } from "./actions/public/getStorageAt.js";
 import { getVersion } from "./actions/public/getVersion.js";
+import { getChainConfig } from "./actions/public/getChainConfig.js";
 import { view } from "./actions/public/view.js";
 import { sendTransaction } from "./actions/wallet/sendTransaction.js";
 
@@ -84,6 +92,14 @@ export interface CoreGroundhogClient {
 
   /** Return the gateway implementation and wire-format version. */
   getVersion(options?: TransportRequestOptions): Promise<VersionInfo>;
+
+  /**
+   * Return the execution parameters the chain's network config states;
+   * unstated parameters are `null`.
+   */
+  getChainConfig(
+    options?: TransportRequestOptions,
+  ): Promise<NetworkConfigParams>;
 
   /** Execute a read-only contract invocation without submitting a transaction. */
   view(
@@ -125,6 +141,18 @@ export interface CoreGroundhogClient {
     options?: TransportRequestOptions,
   ): Promise<EventPage>;
 
+  /** Fetch one page of decoded events using a generated descriptor. */
+  getContractEvents<TName extends string, TTopics, TFields, TFilter>(
+    query: ContractEventQuery<TName, TTopics, TFields, TFilter>,
+    options?: TransportRequestOptions,
+  ): Promise<ContractEventPage<TName, TTopics, TFields>>;
+
+  /** Walk event pages lazily; stops at an empty cursor without polling or retrying. */
+  iterateEventPages(
+    query: EventQuery,
+    options?: TransportRequestOptions,
+  ): AsyncGenerator<EventPage, void, unknown>;
+
   /** Read a committed storage item at a contract address and storage key. */
   getStorageAt(
     address: ContractAddress,
@@ -161,6 +189,7 @@ function createCoreGroundhogClient(transport: Transport): CoreGroundhogClient {
     getPendingTransactionCount: (options) =>
       getPendingTransactionCount(transport, options),
     getVersion: (options) => getVersion(transport, options),
+    getChainConfig: (options) => getChainConfig(transport, options),
     view: (request, options) => view(transport, request, options),
     getTransactionReceipt: (txHash, options) =>
       getTransactionReceipt(transport, txHash, options),
@@ -171,6 +200,10 @@ function createCoreGroundhogClient(transport: Transport): CoreGroundhogClient {
     getTransactionsByAddress: (query, options) =>
       getTransactionsByAddress(transport, query, options),
     getEvents: (query, options) => getEvents(transport, query, options),
+    getContractEvents: (query, options) =>
+      getContractEvents(transport, query, options),
+    iterateEventPages: (query, options) =>
+      iterateEventPages(transport, query, options),
     getStorageAt: (address, key, options) =>
       getStorageAt(transport, address, key, options),
     sendTransaction: (signedTx) => sendTransaction(transport, signedTx),

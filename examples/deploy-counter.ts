@@ -66,7 +66,7 @@ const deployedAddress = deriveContractAddress(
 
 // Deployment is a wallet-specific root operation, so use the explicit escape
 // hatch and include the artifact in this transaction.
-const deployInvocation = DevWallet.deploy.invocation(
+const deployInvocation = DevWallet.v0_1.deploy.invocation(
   account.address,
   walletGasLimit,
   {
@@ -78,7 +78,7 @@ const deployHash = await wallet.sendInvocation({
   invocation: deployInvocation,
   contractsToDeploy: [contract],
 });
-const { value: returnedAddress } = DevWallet.deploy.decodeReceipt(
+const { value: returnedAddress } = DevWallet.v0_1.deploy.decodeReceipt(
   await wallet.waitForTransactionReceipt(deployHash),
 );
 if (toHex0x(returnedAddress) !== toHex0x(deployedAddress)) {
@@ -89,7 +89,7 @@ if (toHex0x(returnedAddress) !== toHex0x(deployedAddress)) {
 
 // Normal contract calls are inner invocations wrapped by the configured
 // DevWallet adapter.
-const increment = Counter.increment.invocation(
+const increment = Counter.v0_1.increment.invocation(
   deployedAddress,
   counterGasLimit,
   { amount: 5n },
@@ -98,11 +98,11 @@ const callHash = await wallet.execute({
   invocation: increment,
   gasLimit: walletGasLimit,
 });
-DevWallet.doAction.decodeReceipt(
+DevWallet.v0_1.doAction.decodeReceipt(
   await wallet.waitForTransactionReceipt(callHash),
 );
 
-const view = await Counter.get.view({
+const view = await Counter.v0_1.get.view({
   client: wallet,
   contract: deployedAddress,
   caller: account.address,

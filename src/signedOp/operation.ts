@@ -7,7 +7,7 @@ import {
 import {
   ContractTypeDefKind,
   ContractTypeKind,
-  contractSpecString,
+  type ContractSpecId,
   type ContractTypeDef,
 } from "@groundhogchain/contract-spec";
 import type { FixedBytes } from "@groundhogchain/xdr";
@@ -16,6 +16,7 @@ import {
   createContractCodec,
   createContractCodecContext,
 } from "../contract/codec.js";
+import { formatSpecId } from "../contract/spec.js";
 import type { Signer } from "../signers/types.js";
 import { signedOperationPreimage } from "./preimage.js";
 
@@ -73,7 +74,10 @@ export interface SignedOperationRequest<TBody> {
 
 /** Signing helpers bound to one payload type. */
 export interface SignedOperationType<TBody> {
-  /** Name of the payload type in the contract spec. */
+  /**
+   * Declared name of the payload type: the `declared` segment of its spec id.
+   * {@link SignedOperationType.typeDef} carries the full id.
+   */
   readonly typeName: string;
   /** The payload type's spec definition, as bound into every preimage. */
   readonly typeDef: ContractTypeDef;
@@ -96,8 +100,24 @@ export interface DefineSignedOperationOptions {
    * it references.
    */
   readonly typeDefs: readonly ContractTypeDef[];
-  /** Name of the payload type, as declared with `#[contract_type]`. */
-  readonly typeName: string;
+  /**
+   * The payload type: either its name as declared with `#[contract_type]`
+   * (the `declared` segment of its spec id), which must name exactly one of
+   * `typeDefs`, or its full spec id, which selects one type even when another
+   * crate or module declares the same name.
+   */
+  readonly typeName: string | ContractTypeSelector;
+}
+
+/**
+ * Every segment of a payload type's spec id, as plain strings. A
+ * `ContractSpecId` taken from a generated spec is assignable to it.
+ */
+export interface ContractTypeSelector {
+  readonly crate_name: string;
+  readonly major: string;
+  readonly module_path: string;
+  readonly declared: string;
 }
 
 /**
@@ -132,9 +152,9 @@ export function randomNonce(): bigint {
  *   defineSignedOperation,
  *   randomNonce,
  * } from "@groundhogchain/client/signed-op";
- * import { spec, MyWallet, type Transfer } from "./generated/my_wallet.js";
+ * import { spec, MyWallet, type my_wallet } from "./generated/my_wallet.js";
  *
- * const transfer = defineSignedOperation<Transfer>({
+ * const transfer = defineSignedOperation<my_wallet.v0_1.Transfer>({
  *   typeDefs: spec.type_defs,
  *   typeName: "Transfer",
  * });
@@ -146,10 +166,13 @@ export function randomNonce(): bigint {
  *   body: { to: recipient, amount: 42n },
  * });
  * // `op` and `signature` are the arguments of the contract's execute entrypoint.
- * const invocation = MyWallet.submit.invocation(walletAddress, gasLimit, { op, signature });
+ * const invocation = MyWallet.v0_1.submit.invocation(walletAddress, gasLimit, {
+ *   op,
+ *   signature,
+ * });
  * ```
  *
- * @throws If `typeName` is not among `typeDefs`.
+ * @throws If `typeName` selects none, or more than one, of `typeDefs`.
  */
 export function defineSignedOperation<TBody>(
   options: DefineSignedOperationOptions,
@@ -159,11 +182,12 @@ export function defineSignedOperation<TBody>(
   // or a later mutation of the caller's array would split the two.
   const typeDefs = structuredClone([...options.typeDefs]);
   const typeDef = deepFreeze(findTypeDef(typeDefs, options.typeName));
+  const id = typeDefId(typeDef);
   const context = createContractCodecContext(typeDefs);
   const bodyCodec = createContractCodec<TBody>(
     context,
-    { v: ContractTypeKind.Named, named: contractSpecString(options.typeName) },
-    `${options.typeName} payload`,
+    { v: ContractTypeKind.Named, named: id },
+    `${formatSpecId(id)} payload`,
   );
 
   const preimageOf = (
@@ -182,7 +206,7 @@ export function defineSignedOperation<TBody>(
     });
 
   return {
-    typeName: options.typeName,
+    typeName: id.declared,
     typeDef,
     encodeBody: (body) => bodyCodec.encode(body),
     preimage: (request) =>
@@ -228,7 +252,7 @@ function deepFreeze<T>(value: T): T {
   return value;
 }
 
-function typeDefName(typeDef: ContractTypeDef): string {
+function typeDefId(typeDef: ContractTypeDef): ContractSpecId {
   switch (typeDef.v) {
     case ContractTypeDefKind.TypeDefStruct:
       return typeDef.struct_def.name;
@@ -241,12 +265,29 @@ function typeDefName(typeDef: ContractTypeDef): string {
 
 function findTypeDef(
   typeDefs: readonly ContractTypeDef[],
-  typeName: string,
+  selector: string | ContractTypeSelector,
 ): ContractTypeDef {
-  const typeDef = typeDefs.find((def) => typeDefName(def) === typeName);
+  const selects =
+    typeof selector === "string"
+      ? (id: ContractSpecId) => id.declared === selector
+      : (id: ContractSpecId) =>
+          id.crate_name === selector.crate_name &&
+          id.major === selector.major &&
+          id.module_path === selector.module_path &&
+          id.declared === selector.declared;
+  const label =
+    typeof selector === "string" ? `"${selector}"` : formatSpecId(selector);
+  const matches = typeDefs.filter((def) => selects(typeDefId(def)));
+  const [typeDef] = matches;
   if (typeDef === undefined) {
     throw new Error(
-      `Contract type "${typeName}" is not defined in the given type definitions`,
+      `Contract type ${label} is not defined in the given type definitions`,
+    );
+  }
+  if (matches.length > 1) {
+    const ids = matches.map((def) => formatSpecId(typeDefId(def)));
+    throw new Error(
+      `Contract type ${label} is ambiguous in the given type definitions: ${ids.join(", ")}; select one by its full spec id`,
     );
   }
   return typeDef;

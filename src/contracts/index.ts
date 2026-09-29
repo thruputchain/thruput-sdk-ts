@@ -6,10 +6,18 @@
  * and expose declared exceptions. Event descriptors decode events, build named
  * topic filters, and extract matching receipt events.
  *
+ * Each interface nests its methods, argument and result types, and exceptions
+ * under the major version its entrypoints hash (`ERC20.v0_1.transfer`,
+ * `ERC20.v0_1.TransferArgs`). Named types, enum values, and event descriptors
+ * nest under the declaring crate and major (`groundhog_erc20_if.v0_1.error.ERC20Error`,
+ * `groundhog_erc20_if.v0_1.events.TransferEvent`). Select a major once and
+ * keep short calls from there.
+ *
  * @example
  * ```ts
- * import { ERC20 } from "@groundhogchain/client/contracts";
+ * import { ERC20 as ERC20Versions } from "@groundhogchain/client/contracts";
  *
+ * const ERC20 = ERC20Versions.v0_1;
  * const invocation = ERC20.transfer.invocation(tokenAddress, gasLimit, {
  *   receiver,
  *   amount: 1_000n,
@@ -21,85 +29,24 @@
 export {
   ERC20,
   ERC20Metadata,
-  ERC20Error,
-  ApprovalEvent as ERC20ApprovalEvent,
-  BurnEvent as ERC20BurnEvent,
-  MintEvent as ERC20MintEvent,
-  TransferEvent as ERC20TransferEvent,
+  groundhog_erc20_if,
   decodeEvent as decodeERC20Event,
   spec as ERC20Spec,
 } from "./erc20.js";
-export type {
-  ApprovalEventFilter as ERC20ApprovalEventFilter,
-  BurnEventFilter as ERC20BurnEventFilter,
-  MintEventFilter as ERC20MintEventFilter,
-  ERC20AdjustAllowanceArgs,
-  ERC20AdjustAllowanceResult,
-  ERC20AllowanceArgs,
-  ERC20AllowanceResult,
-  ERC20BurnArgs,
-  ERC20BurnResult,
-  ERC20DeclaredException,
-  ERC20Event,
-  ERC20Exception,
-  ERC20GetBalanceArgs,
-  ERC20GetBalanceOfArgs,
-  ERC20GetBalanceOfResult,
-  ERC20GetBalanceResult,
-  ERC20InitializeArgs,
-  ERC20InitializeResult,
-  ERC20MetadataDecimalsArgs,
-  ERC20MetadataDecimalsResult,
-  ERC20MetadataDeclaredException,
-  ERC20MetadataException,
-  ERC20MetadataInitializeArgs,
-  ERC20MetadataInitializeResult,
-  ERC20MetadataNameArgs,
-  ERC20MetadataNameResult,
-  ERC20MetadataSymbolArgs,
-  ERC20MetadataSymbolResult,
-  ERC20MintArgs,
-  ERC20MintResult,
-  ERC20TotalSupplyArgs,
-  ERC20TotalSupplyResult,
-  ERC20TransferArgs,
-  ERC20TransferFromArgs,
-  ERC20TransferFromResult,
-  ERC20TransferResult,
-  TransferEventFilter as ERC20TransferEventFilter,
-} from "./erc20.js";
+export type { ERC20Event } from "./erc20.js";
 export {
   DefaultWallet,
-  WalletError,
+  default_wallet,
   spec as DefaultWalletSpec,
 } from "./default_wallet.js";
-export type {
-  DefaultWalletDeclaredException,
-  DefaultWalletDeployArgs,
-  DefaultWalletDeployResult,
-  DefaultWalletException,
-  DefaultWalletExecuteArgs,
-  DefaultWalletExecuteResult,
-  WalletCall,
-} from "./default_wallet.js";
 export { DevWallet, spec as DevWalletSpec } from "./dev_wallet.js";
-export type {
-  DevWalletCreateWalletArgs,
-  DevWalletCreateWalletResult,
-  DevWalletDeclaredException,
-  DevWalletDeployArgs,
-  DevWalletDeployResult,
-  DevWalletDoActionArgs,
-  DevWalletDoActionResult,
-  DevWalletException,
-  DevWalletInitializeArgs,
-  DevWalletInitializeResult,
-} from "./dev_wallet.js";
-export { SignedOp, SignedOpError, spec as SignedOpSpec } from "./signed_op.js";
-export type {
-  Operation as SignedOpOperation,
-  SignedOpDeclaredException,
-  SignedOpException,
-  SignedOpExecuteSignedOpArgs,
-  SignedOpExecuteSignedOpResult,
+export {
+  SignedOp,
+  groundhog_signed_op_if,
+  spec as SignedOpSpec,
 } from "./signed_op.js";
+export {
+  ERC20Permit,
+  groundhog_erc20_permit_if,
+  spec as ERC20PermitSpec,
+} from "./erc20_permit.js";

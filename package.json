@@ -1,6 +1,6 @@
 {
   "name": "@groundhogchain/client",
-  "version": "0.10.0",
+  "version": "0.12.0",
   "description": "TypeScript client for the Groundhog blockchain",
   "repository": {
     "type": "git",
@@ -110,9 +110,9 @@
     "vitest": "4.1.11"
   },
   "dependencies": {
-    "@groundhogchain/contract-spec": "0.11.0",
-    "@groundhogchain/protocol": "0.11.0",
-    "@groundhogchain/xdr": "0.11.0",
+    "@groundhogchain/contract-spec": "0.12.0",
+    "@groundhogchain/protocol": "0.12.0",
+    "@groundhogchain/xdr": "0.12.0",
     "@noble/ed25519": "^3.1.0",
     "@noble/hashes": "^2.2.0",
     "smol-toml": "1.8.0"

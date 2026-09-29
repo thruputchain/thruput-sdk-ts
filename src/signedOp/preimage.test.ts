@@ -16,10 +16,26 @@ import {
   codec as contractSpecCodec,
   contractSpecString,
   type ContractTypeDef,
+  type ContractSpecId,
 } from "@groundhogchain/contract-spec";
 import { SIGNED_OP } from "../derivation/domainSeparator.js";
 import { defineSignedOperation } from "./operation.js";
 import { signedOperationPreimage } from "./preimage.js";
+
+/**
+ * The spec id `#[contract_type]` gives a payload declared in the Rust
+ * generator's `signed_op_vectors` module.
+ */
+function specId(declared: string): ContractSpecId {
+  return {
+    crate_name: contractSpecString("groundhog-test-vectors"),
+    major: contractSpecString("0"),
+    module_path: contractSpecString(
+      "groundhog_test_vectors::signed_op_vectors",
+    ),
+    declared: contractSpecString(declared),
+  };
+}
 
 interface Vector {
   label: string;
@@ -58,21 +74,21 @@ const typeDefs: ContractTypeDef[] = [
   {
     v: ContractTypeDefKind.TypeDefStruct,
     struct_def: {
-      name: s("Grant"),
+      name: specId("Grant"),
       fields: [{ name: s("amount"), ty: { v: ContractTypeKind.U64 } }],
     },
   },
   {
     v: ContractTypeDefKind.TypeDefStruct,
     struct_def: {
-      name: s("Revoke"),
+      name: specId("Revoke"),
       fields: [{ name: s("id"), ty: { v: ContractTypeKind.U64 } }],
     },
   },
   {
     v: ContractTypeDefKind.TypeDefStruct,
     struct_def: {
-      name: s("Transfer"),
+      name: specId("Transfer"),
       fields: [
         { name: s("to"), ty: { v: ContractTypeKind.Address } },
         { name: s("amount"), ty: { v: ContractTypeKind.U64 } },

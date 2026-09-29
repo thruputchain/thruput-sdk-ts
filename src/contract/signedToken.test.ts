@@ -6,10 +6,21 @@ import {
   ContractTypeKind,
   contractSpecString,
   type ContractType,
+  type ContractSpecId,
 } from "@groundhogchain/contract-spec";
 import { createContractCodec, createContractCodecContext } from "./codec.js";
 import { resolveCodec } from "./encode.js";
 import { isSignedToken, signedToken } from "./signedToken.js";
+
+/** A spec id for a type declared at the root of a `fixture` crate. */
+function specId(declared: string): ContractSpecId {
+  return {
+    crate_name: contractSpecString("fixture"),
+    major: contractSpecString("0.1"),
+    module_path: contractSpecString("fixture"),
+    declared: contractSpecString(declared),
+  };
+}
 
 const s = contractSpecString;
 
@@ -48,7 +59,7 @@ describe("SignedToken codec", () => {
       {
         v: ContractTypeDefKind.TypeDefStruct,
         struct_def: {
-          name: s("Call"),
+          name: specId("Call"),
           fields: [
             { name: s("amount"), ty: { v: ContractTypeKind.U64 } },
             {
@@ -66,7 +77,7 @@ describe("SignedToken codec", () => {
     ]);
     const codec = createContractCodec<{ amount: bigint; auth: unknown }>(
       context,
-      { v: ContractTypeKind.Named, named: s("Call") },
+      { v: ContractTypeKind.Named, named: specId("Call") },
     );
     expect(toHex(codec.encode({ amount: 5n, auth: signedToken() }))).toBe("05");
     expect(codec.decode(new Uint8Array([5]))).toEqual({
