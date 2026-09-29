@@ -29,7 +29,7 @@
 
 ## Generated And Spec Files
 
-- `src/contracts/erc20.ts`, `src/contracts/recursive_type.ts`, `src/contracts/default_wallet.ts`, `src/contracts/dev_wallet.ts`, `src/contracts/signed_op.ts`, and the example-local bindings under `examples/generated/` are generated; do not hand-edit. Only standard bindings are exported from `src/contracts/index.ts`.
+- `src/contracts/erc20.ts`, `src/contracts/recursive_type.ts`, `src/contracts/default_wallet.ts`, `src/contracts/dev_wallet.ts`, `src/contracts/signed_op.ts`, `src/contracts/erc20_permit.ts`, and the example-local bindings under `examples/generated/` are generated; do not hand-edit. Only standard bindings are exported from `src/contracts/index.ts`.
 - TypeScript binding codegen lives in `groundhog-rpc`. Regenerate every checked-in binding with `scripts/regenerate-contract-bindings.sh`, setting `GROUNDHOG_CLI` to a reviewed generator build; use `--check` to verify checked-in output. The script always uses the pinned inputs in `specs/contracts/`.
 - The regeneration script rewrites only the generated self-import to a repository-relative import. Generated output must compile for strict consumers, including `noUncheckedIndexedAccess`.
 - `specs/openrpc.json` is the pinned Groundhog OpenRPC spec. Regenerate with `scripts/regen-openrpc.sh`, which installs a pinned `groundhog-open-rpc-spec@x.y.z` from the Cargo `groundhog` registry and formats the JSON; bump the hardcoded script version when syncing to a newer RPC spec release.
