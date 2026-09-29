@@ -80,9 +80,9 @@ using `GROUNDHOG_RPC_URL`, both overrides must identify the same local node.
 
 `deploy-counter` demonstrates both wallet submission levels:
 
-- `wallet.sendInvocation()` submits the wallet-specific `DevWallet.deploy`
+- `wallet.sendInvocation()` submits the wallet-specific `DevWallet.v0_1.deploy`
   root invocation and includes the artifact in `contractsToDeploy`.
-- `wallet.execute()` wraps the normal `Counter.increment` invocation through
+- `wallet.execute()` wraps the normal `Counter.v0_1.increment` invocation through
   `devWalletAdapter`.
 
 The local DevWallet transfers 100,000,000 base units (10 HOG) to each derived

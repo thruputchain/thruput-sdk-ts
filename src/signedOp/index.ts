@@ -10,7 +10,9 @@
  * reading anything on chain.
  *
  * {@link SignedOp} is the generated binding of the `SignedOp` standard
- * interface. `executeSignedOp` verifies an operation, consumes its pair, and
+ * interface, and {@link groundhog_signed_op_if} holds the types and error
+ * values its crate declares (`groundhog_signed_op_if.v0_1.error.SignedOpError`).
+ * `SignedOp.v0_1.executeSignedOp` verifies an operation, consumes its pair, and
  * mints the one auth token the operation authorizes. Tokens never travel in
  * return data, so a client decodes it as a `SignedToken` placeholder; it is
  * the calling contract that consumes it on chain. Most applications submit an
@@ -25,6 +27,7 @@
 export {
   defineSignedOperation,
   randomNonce,
+  type ContractTypeSelector,
   type DefineSignedOperationOptions,
   type Operation,
   type SignedOperation,
@@ -37,10 +40,6 @@ export {
 } from "./preimage.js";
 export {
   SignedOp,
-  SignedOpError,
+  groundhog_signed_op_if,
   spec as SignedOpSpec,
-  type SignedOpDeclaredException,
-  type SignedOpException,
-  type SignedOpExecuteSignedOpArgs,
-  type SignedOpExecuteSignedOpResult,
 } from "../contracts/signed_op.js";

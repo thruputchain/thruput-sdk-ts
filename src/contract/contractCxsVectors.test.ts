@@ -11,9 +11,11 @@ import { fromHex, toHex } from "@groundhogchain/protocol/utils";
 import { ContractTypeKind } from "@groundhogchain/contract-spec";
 import {
   RecursiveTypeContract,
-  type Tree,
+  type recursive_type,
 } from "../contracts/recursive_type.js";
 import { createContractCodec, createContractCodecContext } from "./codec.js";
+
+type Tree = recursive_type.v0_4.implementation.Tree;
 
 interface VectorFile {
   version: number;
@@ -119,7 +121,7 @@ describe("Rust contract CXS vectors", () => {
       },
       right: null,
     };
-    const invocation = RecursiveTypeContract.depth.invocation(
+    const invocation = RecursiveTypeContract.v0_1.depth.invocation(
       contractAddress(new Uint8Array(32)),
       gasAmount(1n),
       { tree },

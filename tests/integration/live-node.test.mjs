@@ -26,8 +26,8 @@ import {
 import {
   DefaultWallet,
   ERC20,
-  ERC20TransferEvent,
   decodeERC20Event,
+  groundhog_erc20_if,
 } from "@groundhogchain/client/contracts";
 import { loadLocalDevAccount } from "@groundhogchain/client/local-dev";
 import {
@@ -130,7 +130,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         assert.deepEqual(airdrop.recipient, account.address);
       }
       const balance = () =>
-        ERC20.getBalanceOf.view({
+        ERC20.v0_1.getBalanceOf.view({
           client: wallet,
           contract: HOG_ADDRESS,
           caller: sender.address,
@@ -145,7 +145,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       } = await wallet.executeCallsAndWait(
         {
           calls: [
-            ERC20.transfer.call({
+            ERC20.v0_1.transfer.call({
               contract: HOG_ADDRESS,
               gasLimit: gasAmount(500_000n),
               args: {
@@ -162,12 +162,17 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       assert.deepEqual(values, [undefined]);
       assert.deepEqual(receipt.txHash, hash);
       assert.equal(receipt.execResult, ExecResult.ExecResultOK);
-      assert.deepEqual(DefaultWallet.execute.decodeReceipt(receipt).value, [
-        new Uint8Array(),
-      ]);
-      const receiptEvent = ERC20TransferEvent.singleFromReceipt(receipt, {
-        contractAddress: HOG_ADDRESS,
-      });
+      assert.deepEqual(
+        DefaultWallet.v0_1.execute.decodeReceipt(receipt).value,
+        [new Uint8Array()],
+      );
+      const receiptEvent =
+        groundhog_erc20_if.v0_1.events.TransferEvent.singleFromReceipt(
+          receipt,
+          {
+            contractAddress: HOG_ADDRESS,
+          },
+        );
       assert.deepEqual(receiptEvent.topics, {
         from: sender.address,
         to: recipient.address,
@@ -197,7 +202,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       // transfer, so the filter must match exactly one event.
       const query = {
         filters: [
-          ERC20TransferEvent.filter({
+          groundhog_erc20_if.v0_1.events.TransferEvent.filter({
             contractAddresses: [HOG_ADDRESS],
             topics: { from: sender.address },
           }),
@@ -233,11 +238,14 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       assert.equal(identified.blockHeight, receipt.height);
       assert.equal(typeof identified.sequenceNumber, "number");
       assert.deepEqual(identified.event.contractAddress, HOG_ADDRESS);
-      assert.deepEqual(ERC20TransferEvent.decode(identified.event), {
-        name: "TransferEvent",
-        topics: { from: sender.address, to: recipient.address },
-        fields: { amount },
-      });
+      assert.deepEqual(
+        groundhog_erc20_if.v0_1.events.TransferEvent.decode(identified.event),
+        {
+          name: "TransferEvent",
+          topics: { from: sender.address, to: recipient.address },
+          fields: { amount },
+        },
+      );
     },
   );
 
@@ -250,7 +258,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       const secondAmount = 2_000n;
       const second = await wallet.executeAndWait(
         {
-          invocation: ERC20.transfer.invocation(
+          invocation: ERC20.v0_1.transfer.invocation(
             HOG_ADDRESS,
             gasAmount(500_000n),
             {
@@ -263,7 +271,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         { timeoutMs: receiptTimeoutMs },
       );
       const query = {
-        event: ERC20TransferEvent,
+        event: groundhog_erc20_if.v0_1.events.TransferEvent,
         contractAddresses: [HOG_ADDRESS],
         topics: { from: sender.address },
         order: "ascending",
@@ -301,7 +309,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       const found = [];
       let pageCount = 0;
       for await (const page of client.iterateEventPages({
-        filters: [ERC20TransferEvent.filter(query)],
+        filters: [groundhog_erc20_if.v0_1.events.TransferEvent.filter(query)],
         order: query.order,
         anchor: query.anchor,
         limit: 1,
@@ -335,7 +343,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       const rootGas = gasAmount(10_000_000n);
       await wallet.executeAndWait(
         {
-          invocation: ERC20.transfer.invocation(
+          invocation: ERC20.v0_1.transfer.invocation(
             HOG_ADDRESS,
             gasAmount(500_000n),
             { receiver: deployment.address, amount: 10_000_000n },
@@ -359,11 +367,13 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         specCodec.ContractSpec,
       );
       const iface = spec.interfaces.find((entry) => entry.name === "Counter");
-      const event = spec.events.find((entry) => entry.name === "PingEvent");
+      const event = spec.events.find(
+        (entry) => entry.name.declared === "PingEvent",
+      );
       assert.ok(iface);
       assert.ok(event);
       const ping = defineContractEvent({
-        name: event.name,
+        name: event.name.declared,
         signature: event.signature,
         topics: event.topics.map((field) => ({
           name: field.name,
@@ -453,7 +463,7 @@ test(
     const fundedRecipient = freshAccount();
     const send = (wallet, receiver, amount) =>
       wallet.execute({
-        invocation: ERC20.transfer.invocation(
+        invocation: ERC20.v0_1.transfer.invocation(
           HOG_ADDRESS,
           gasAmount(500_000n),
           { receiver, amount },

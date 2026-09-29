@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { PingEvent } from "../../examples/generated/counter.js";
+import { counter } from "../../examples/generated/counter.js";
 import {
   CxsWriter,
   contractAddress,
@@ -10,6 +10,8 @@ import type { EmittedEvent } from "../types/rpc.js";
 import { createContractCodecContext } from "./codec.js";
 import { ContractDecodeError } from "./errors.js";
 import { defineContractEvent, type ContractEventDefinition } from "./event.js";
+
+const { PingEvent } = counter.v0_1.implementation;
 
 const signature = new Uint8Array(32).fill(0x11);
 const emitterA = contractAddress(new Uint8Array(32).fill(0xaa));

@@ -57,7 +57,7 @@ if (senderAirdrop.rawAmount < amount) {
   );
 }
 
-const transfer = ERC20.transfer.invocation(HOG_ADDRESS, callGasLimit, {
+const transfer = ERC20.v0_1.transfer.invocation(HOG_ADDRESS, callGasLimit, {
   receiver: recipient.address,
   amount,
 });
@@ -87,7 +87,7 @@ console.log({
 });
 
 async function readHogBalance(address: typeof sender.address): Promise<bigint> {
-  const response = await ERC20.getBalanceOf.view({
+  const response = await ERC20.v0_1.getBalanceOf.view({
     client: wallet,
     contract: HOG_ADDRESS,
     caller: sender.address,

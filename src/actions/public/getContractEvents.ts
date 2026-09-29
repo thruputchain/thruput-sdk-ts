@@ -54,7 +54,7 @@ export type ContractEventPage<TName extends string, TTopics, TFields> = Omit<
  * @example
  * ```ts
  * const page = await getContractEvents(transport, {
- *   event: ERC20TransferEvent,
+ *   event: groundhog_erc20_if.v0_1.events.TransferEvent,
  *   contractAddresses: [tokenAddress],
  *   topics: { to: accountAddress },
  *   limit: 20,

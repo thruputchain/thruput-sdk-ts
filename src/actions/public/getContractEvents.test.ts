@@ -1,13 +1,14 @@
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import { contractAddress, CxsWriter } from "@groundhogchain/protocol";
 import { createGroundhogClient } from "../../client.js";
-import { ERC20TransferEvent } from "../../contracts/index.js";
+import { groundhog_erc20_if } from "../../contracts/index.js";
 import { ContractDecodeError } from "../../contract/errors.js";
 import { HttpTransport, JsonRpcError } from "../../transport/http.js";
 import type { Transport } from "../../transport/types.js";
 import { hashFromHex, toHex0x } from "../hex.js";
 import { getContractEvents } from "./getContractEvents.js";
 
+const { TransferEvent: ERC20TransferEvent } = groundhog_erc20_if.v0_1.events;
 const token = contractAddress(new Uint8Array(32).fill(1));
 const sender = contractAddress(new Uint8Array(32).fill(2));
 const receiver = contractAddress(new Uint8Array(32).fill(3));

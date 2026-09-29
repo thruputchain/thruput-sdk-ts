@@ -229,14 +229,14 @@ describe("contract argument decoding", () => {
   });
 
   it("returns undefined only for valid no-argument calldata", () => {
-    expect(ERC20.getBalance.decodeArgs(new Uint8Array())).toBeUndefined();
-    expect(() => ERC20.getBalance.decodeArgs(new Uint8Array([0]))).toThrow(
+    expect(ERC20.v0_1.getBalance.decodeArgs(new Uint8Array())).toBeUndefined();
+    expect(() => ERC20.v0_1.getBalance.decodeArgs(new Uint8Array([0]))).toThrow(
       ContractDecodeError,
     );
   });
 
   it("decodes generated compound wallet arguments through a bound descriptor", () => {
-    const transfer = ERC20.transfer.invocation(contract, gasAmount(100n), {
+    const transfer = ERC20.v0_1.transfer.invocation(contract, gasAmount(100n), {
       receiver: caller,
       amount: 42n,
     });
@@ -248,11 +248,15 @@ describe("contract argument decoding", () => {
         calldata: transfer.calldata,
       },
     ];
-    const root = DefaultWallet.execute.invocation(contract, gasAmount(200n), {
-      calls,
-    });
+    const root = DefaultWallet.v0_1.execute.invocation(
+      contract,
+      gasAmount(200n),
+      {
+        calls,
+      },
+    );
     const wallet = getContract({
-      binding: DefaultWallet,
+      binding: DefaultWallet.v0_1,
       address: contract,
       client: clientReturning({
         output: { result: "fault" },
@@ -261,7 +265,7 @@ describe("contract argument decoding", () => {
       }),
     });
     expect(wallet.execute.decodeArgs(root.calldata)).toEqual({ calls });
-    expect(ERC20.transfer.decodeArgs(transfer.calldata)).toEqual({
+    expect(ERC20.v0_1.transfer.decodeArgs(transfer.calldata)).toEqual({
       receiver: caller,
       amount: 42n,
     });
