@@ -325,6 +325,33 @@ without another balance-item deposit. It uses 500,000 child gas and 1,000,000 ro
 gas. Verified locally with CLI 0.19.0-pre.2 and hog-devnode 0.1.29-rc.3; storage
 costs depend on runtime configuration.
 
+A deployed contract's storage needs HOG at its address too. With DefaultWallet
+(every pubkey account), set `funding` on the deployment and the deploying
+transaction transfers it before the code lands, so no separate prefunding
+transaction is needed. An optional `initializer` calls the new contract in the
+same transaction, with the wallet as caller; a failure in any step rolls back
+all three. Build the initializer against the predicted address:
+
+```ts
+const planned = prepareContractDeployment({
+  deployer: account.address,
+  contract: artifact,
+  funding: 10_000_000n,
+});
+const { address } = await wallet.deployContractAndWait(
+  {
+    ...planned,
+    initializer: Counter.v0_1.initialize.invocation(planned.address, initGas, {
+      initialValue: 7n,
+    }),
+  },
+  rootGas, // must also cover the initializer's gas
+);
+```
+
+DevWallet's deploy takes neither; with it, prefund the address and initialize in a
+later call.
+
 The standard ERC20 binding uses `adjustAllowance` with `{ spender, diff }`, not `approve`.
 `diff` is signed: positive increases the allowance, negative reduces it. Reading
 the current allowance and submitting a delta cannot guarantee an exact target
