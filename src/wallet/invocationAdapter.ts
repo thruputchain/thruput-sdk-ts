@@ -38,7 +38,7 @@ export function createDefaultWalletBatchInvocation(
     request.invocations.length > MAX_DEFAULT_WALLET_CALLS
   )
     throw new RangeError("DefaultWallet requires 1 to 16 calls");
-  return DefaultWallet.execute.invocation(
+  return DefaultWallet.v0_1.execute.invocation(
     contractAddress(new Uint8Array(accountAddress)),
     request.gasLimit,
     {
@@ -92,15 +92,15 @@ export function defineWalletInvocationAdapter<
 export const defaultWalletAdapter = defineWalletInvocationAdapter({
   createBatchRootInvocation: createDefaultWalletBatchInvocation,
   decodeExecutionReturns: (receipt) =>
-    DefaultWallet.execute.decodeReceipt(receipt).value,
+    DefaultWallet.v0_1.execute.decodeReceipt(receipt).value,
   createDeploymentInvocation(account, gasLimit, deployment) {
-    return DefaultWallet.deploy.invocation(account, gasLimit, {
+    return DefaultWallet.v0_1.deploy.invocation(account, gasLimit, {
       nonce: fixedBytes(deployment.deploymentNonce, 32),
       contractHash: fixedBytes(deployment.contractHash, 32),
     });
   },
   decodeDeploymentReceipt: (receipt) =>
-    DefaultWallet.deploy.decodeReceipt(receipt).value,
+    DefaultWallet.v0_1.deploy.decodeReceipt(receipt).value,
   createRootInvocation(
     accountAddress: ContractAddress,
     request: WalletExecutionRequest,
@@ -116,18 +116,18 @@ export const defaultWalletAdapter = defineWalletInvocationAdapter({
 export const devWalletAdapter = defineWalletInvocationAdapter({
   decodeExecutionReturns: () => null,
   createDeploymentInvocation(account, gasLimit, deployment) {
-    return DevWallet.deploy.invocation(account, gasLimit, {
+    return DevWallet.v0_1.deploy.invocation(account, gasLimit, {
       nonce: fixedBytes(deployment.deploymentNonce, 32),
       contractHash: fixedBytes(deployment.contractHash, 32),
     });
   },
   decodeDeploymentReceipt: (receipt) =>
-    DevWallet.deploy.decodeReceipt(receipt).value,
+    DevWallet.v0_1.deploy.decodeReceipt(receipt).value,
   createRootInvocation(
     accountAddress: ContractAddress,
     request: WalletExecutionRequest,
   ): Invocation {
-    return DevWallet.doAction.invocation(
+    return DevWallet.v0_1.doAction.invocation(
       contractAddress(new Uint8Array(accountAddress)),
       request.gasLimit,
       {

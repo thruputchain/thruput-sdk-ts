@@ -17,7 +17,7 @@ const client = await createGroundhogClient({
 });
 
 // Simulate the read-only ERC20 call and decode its typed result.
-const response = await ERC20.getBalanceOf.view({
+const response = await ERC20.v0_1.getBalanceOf.view({
   client,
   contract: HOG_ADDRESS,
   caller: account.address,

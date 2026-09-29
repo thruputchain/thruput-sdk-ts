@@ -111,18 +111,22 @@ XDR API remains available from `@groundhogchain/protocol`.
 import { gasAmount, type ContractAddress } from "@groundhogchain/client";
 ```
 
-Generated contract bindings are exported separately:
+Generated contract bindings are exported separately. Each interface nests its
+methods and their argument, result, and exception types under the major version
+its entrypoints hash (`ERC20.v0_1.transfer`, `ERC20.v0_1.TransferArgs`); named
+types, enum values, and event descriptors nest under the declaring crate and
+major (`groundhog_erc20_if.v0_1.events.TransferEvent`).
 
 ```ts
 import { ERC20 } from "@groundhogchain/client/contracts";
 
-const balance = await ERC20.getBalanceOf.view({
+const balance = await ERC20.v0_1.getBalanceOf.view({
   client,
   contract: tokenAddress,
   args: { addr: accountAddress },
 });
 
-const transfer = ERC20.transfer.invocation(tokenAddress, gasLimit, {
+const transfer = ERC20.v0_1.transfer.invocation(tokenAddress, gasLimit, {
   receiver: recipientAddress,
   amount: 1_000n,
 });
@@ -133,10 +137,11 @@ const transfer = ERC20.transfer.invocation(tokenAddress, gasLimit, {
 Use a generated event descriptor to fetch one page with typed topics and fields:
 
 ```ts
-import { ERC20TransferEvent } from "@groundhogchain/client/contracts";
+import { groundhog_erc20_if } from "@groundhogchain/client/contracts";
 
+const { TransferEvent } = groundhog_erc20_if.v0_1.events;
 const page = await client.getContractEvents({
-  event: ERC20TransferEvent,
+  event: TransferEvent,
   contractAddresses: [tokenAddress],
   topics: { to: accountAddress },
   limit: 20,
@@ -155,7 +160,7 @@ For a background scan, the raw-page iterator handles cursor advancement:
 
 ```ts
 const query = {
-  filters: [ERC20TransferEvent.filter({ contractAddresses: [tokenAddress] })],
+  filters: [TransferEvent.filter({ contractAddresses: [tokenAddress] })],
   limit: 200,
 };
 for await (const page of client.iterateEventPages(query, { signal })) {
@@ -284,10 +289,14 @@ changing the SDK:
 ```ts
 const customWalletAdapter = defineWalletInvocationAdapter({
   createRootInvocation(accountAddress, request: CustomWalletRequest) {
-    return CustomWallet.execute.invocation(accountAddress, request.gasLimit, {
-      call: request.invocation,
-      policy: request.policy,
-    });
+    return CustomWallet.v0_1.execute.invocation(
+      accountAddress,
+      request.gasLimit,
+      {
+        call: request.invocation,
+        policy: request.policy,
+      },
+    );
   },
 });
 ```
@@ -434,7 +443,7 @@ before asynchronous work. Each call has its own gas limit; the root budget must
 cover the calls and wallet overhead.
 
 Use the existing sign, persist, and submit sequence for the resulting transaction.
-Decode the root receipt with `DefaultWallet.execute.decodeReceipt(receipt)`;
+Decode the root receipt with `DefaultWallet.v0_1.execute.decodeReceipt(receipt)`;
 its `value` contains one return payload per call, in order. Decode each payload
 with that call's generated `decodeReturn` method. A failed inner call rolls back
 the batch. A successfully enqueued request can still fail during later queue

@@ -10,10 +10,12 @@ import { buildNamedCodecs } from "../contract/codegen.js";
 import { decodeCalldata } from "../contract/encode.js";
 import {
   DefaultWallet,
-  WalletError,
+  default_wallet,
   spec as defaultWalletSpec,
 } from "./default_wallet.js";
 import { DevWallet } from "./dev_wallet.js";
+
+const { WalletError } = default_wallet.v0_1.$interface;
 
 describe("generated wallet contract bindings", () => {
   it("preserves the canonical entrypoint IDs", () => {
@@ -21,7 +23,7 @@ describe("generated wallet contract bindings", () => {
 
     expect(
       toHex(
-        DefaultWallet.deploy.invocation(address, gasAmount(1n), {
+        DefaultWallet.v0_1.deploy.invocation(address, gasAmount(1n), {
           nonce: fixedBytes(new Uint8Array(32), 32),
           contractHash: fixedBytes(new Uint8Array(32), 32),
         }).entrypoint,
@@ -29,14 +31,14 @@ describe("generated wallet contract bindings", () => {
     ).toBe("6be0cb0f6de0917a");
     expect(
       toHex(
-        DefaultWallet.execute.invocation(address, gasAmount(1n), {
+        DefaultWallet.v0_1.execute.invocation(address, gasAmount(1n), {
           calls: [],
         }).entrypoint,
       ),
     ).toBe("c3edb11fdd6d5d58");
     expect(
       toHex(
-        DevWallet.doAction.invocation(address, gasAmount(1n), {
+        DevWallet.v0_1.doAction.invocation(address, gasAmount(1n), {
           invocationBytes: new Uint8Array(),
         }).entrypoint,
       ),
@@ -45,7 +47,7 @@ describe("generated wallet contract bindings", () => {
 
   it("encodes DefaultWallet calls and decodes declared errors", () => {
     const address = contractAddress(new Uint8Array(32).fill(0x11));
-    const invocation = DefaultWallet.execute.invocation(
+    const invocation = DefaultWallet.v0_1.execute.invocation(
       address,
       gasAmount(10n),
       {
@@ -79,12 +81,14 @@ describe("generated wallet contract bindings", () => {
     const writer = new CxsWriter();
     writer.writeUint64(0x931d3297d37d1bdfn);
     writer.writeInt32(WalletError.EmptyCallList);
-    expect(DefaultWallet.execute.decodeException(writer.finish())).toEqual({
-      kind: "declared",
-      name: "WalletError",
-      variant: "EmptyCallList",
-      selector: 0x931d3297d37d1bdfn,
-      value: WalletError.EmptyCallList,
-    });
+    expect(DefaultWallet.v0_1.execute.decodeException(writer.finish())).toEqual(
+      {
+        kind: "declared",
+        name: "WalletError",
+        variant: "EmptyCallList",
+        selector: 0x931d3297d37d1bdfn,
+        value: WalletError.EmptyCallList,
+      },
+    );
   });
 });

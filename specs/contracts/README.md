@@ -2,7 +2,10 @@
 
 These canonical `.spec.xdr` files are the complete inputs to
 `scripts/regenerate-contract-bindings.sh`. CI and publishing use
-`groundhog-cli` 0.19.0-pre.1 to check every generated output against them.
+`groundhog-cli` 0.19.0-pre.2 to check every generated output against them. From
+that release the generator nests each interface under its major and each named
+type, enum, and event under its spec id's crate and major
+([groundhog-rpc #451](https://github.com/groundhogchain/groundhog-rpc/pull/451)).
 
 Every named type in these specs is identified by a structured spec id (crate,
 major version, module path, declared name), the format introduced by SDK 0.38.0

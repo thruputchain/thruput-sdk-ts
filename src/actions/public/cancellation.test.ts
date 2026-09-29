@@ -11,7 +11,7 @@ import { HttpTransport } from "../../transport/http.js";
 
 const address = contractAddress(new Uint8Array(32));
 const hash = sha256Hash(new Uint8Array(32));
-const invocation = ERC20.getBalance.invocation(address, gasAmount(1n));
+const invocation = ERC20.v0_1.getBalance.invocation(address, gasAmount(1n));
 const reads: Record<
   string,
   (client: GroundhogClient, signal: AbortSignal) => Promise<unknown>
@@ -39,15 +39,19 @@ const reads: Record<
       { signal },
     ),
   descriptor: (client, signal) =>
-    ERC20.getBalance.view({ client, contract: address, signal }),
+    ERC20.v0_1.getBalance.view({ client, contract: address, signal }),
   outcome: (client, signal) =>
-    ERC20.getBalance.viewOutcome({ client, contract: address, signal }),
+    ERC20.v0_1.getBalance.viewOutcome({ client, contract: address, signal }),
   bound: (client, signal) =>
-    getContract({ binding: ERC20, address, client }).getBalance.view({
+    getContract({ binding: ERC20.v0_1, address, client }).getBalance.view({
       signal,
     }),
   boundOutcome: (client, signal) =>
-    getContract({ binding: ERC20, address, client }).getBalance.viewOutcome({
+    getContract({
+      binding: ERC20.v0_1,
+      address,
+      client,
+    }).getBalance.viewOutcome({
       signal,
     }),
 };

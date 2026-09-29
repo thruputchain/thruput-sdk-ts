@@ -19,7 +19,7 @@ jobs:
       CARGO_REGISTRIES_GROUNDHOG_INDEX: "sparse+https://crates.thruput.network/api/v1/crates/"
       CARGO_REGISTRIES_GROUNDHOG_TOKEN: ${{ secrets.GROUNDHOG_REGISTRY_TOKEN }}
       CARGO_REGISTRY_GLOBAL_CREDENTIAL_PROVIDERS: cargo:token
-      GROUNDHOG_CLI_VERSION: "0.19.0-pre.1"
+      GROUNDHOG_CLI_VERSION: "0.19.0-pre.2"
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 

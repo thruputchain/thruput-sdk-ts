@@ -262,7 +262,7 @@ export interface ContractMethod<TArgs, TResult, TDeclaredException> {
    *
    * @example
    * ```ts
-   * const { receiver, amount } = ERC20.transfer.decodeArgs(invocation.calldata);
+   * const { receiver, amount } = ERC20.v0_1.transfer.decodeArgs(invocation.calldata);
    * ```
    */
   decodeArgs(data: Uint8Array): TArgs;
