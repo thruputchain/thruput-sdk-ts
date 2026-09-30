@@ -262,23 +262,22 @@ test("built SDK against a real local node", { timeout }, async (t) => {
   );
 
   await t.test(
-    "reads typed event pages and lazily follows a real continuation cursor",
+    "reads typed pages, resumes within a block, and starts a fresh walk for new blocks",
     async () => {
       assert.ok(transfer, "requires the transfer subtest to have passed");
       const { sender, recipient, amount, hash, receipt } = transfer;
       const wallet = createWalletClient({ client, account: sender });
       const secondAmount = 2_000n;
-      const second = await wallet.executeAndWait(
+      const call = ERC20.v0_1.transfer.call({
+        contract: HOG_ADDRESS,
+        gasLimit: gasAmount(500_000n),
+        args: { receiver: recipient.address, amount: secondAmount },
+      });
+      // Two events in one transaction put the continuation inside a block.
+      const second = await wallet.executeCallsAndWait(
         {
-          invocation: ERC20.v0_1.transfer.invocation(
-            HOG_ADDRESS,
-            gasAmount(500_000n),
-            {
-              receiver: recipient.address,
-              amount: secondAmount,
-            },
-          ),
-          gasLimit: gasAmount(1_000_000n),
+          calls: [call, call],
+          gasLimit: gasAmount(3_000_000n),
         },
         { timeoutMs: receiptTimeoutMs },
       );
@@ -317,24 +316,69 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       assert.equal(next.events.length, 1);
       assert.equal(next.events[0].fields.amount, secondAmount);
       assert.deepEqual(next.events[0].txHash, second.txHash);
+      assert.ok(next.cursor.length > 0);
 
-      const found = [];
-      let pageCount = 0;
-      for await (const page of client.iterateEventPages({
+      const rawQuery = {
         filters: [groundhog_erc20_if.v0_1.events.TransferEvent.filter(query)],
         order: query.order,
         anchor: query.anchor,
         limit: 1,
-      })) {
+      };
+      const found = [];
+      let pageCount = 0;
+      for await (const page of client.iterateEventPages(rawQuery)) {
         pageCount++;
         assert.ok(page.events.length <= 1);
         found.push(...page.events);
       }
-      assert.ok(pageCount >= 2);
+      assert.ok(pageCount >= 3);
       assert.deepEqual(
         found.map((event) => event.txHash),
-        [hash, second.txHash],
+        [hash, second.txHash, second.txHash],
       );
+
+      const third = await wallet.executeAndWait(
+        { invocation: call.invocation, gasLimit: gasAmount(1_000_000n) },
+        { timeoutMs: receiptTimeoutMs },
+      );
+      assert.ok(third.receipt.height > second.receipt.height);
+
+      // Wait for indexer readiness before testing either walk. Reusing the old
+      // cursor below must still exclude the now-indexed third transfer.
+      const thirdIndexDeadline = Date.now() + eventsTimeoutMs;
+      for (;;) {
+        const indexed = await client.getContractEvents(query);
+        if (indexed.latestBlock >= third.receipt.height) break;
+        assert.ok(
+          Date.now() < thirdIndexDeadline,
+          "event indexer did not reach the third transfer",
+        );
+        await sleep(250);
+      }
+
+      // A saved cursor finishes its original walk, excluding the later block.
+      const resumed = [];
+      for await (const page of client.iterateEventPages({
+        ...rawQuery,
+        cursor: next.cursor,
+      })) {
+        resumed.push(...page.events);
+      }
+      assert.deepEqual(resumed, [found[2]]);
+
+      // A fresh row-height scan includes the whole saved block and newer rows.
+      const fresh = [];
+      for await (const page of client.iterateEventPages({
+        ...rawQuery,
+        anchor: { height: second.receipt.height },
+      })) {
+        fresh.push(...page.events);
+      }
+      assert.deepEqual(
+        fresh.map((event) => event.txHash),
+        [second.txHash, second.txHash, third.txHash],
+      );
+      assert.deepEqual(fresh.slice(0, 2), found.slice(1));
     },
   );
 

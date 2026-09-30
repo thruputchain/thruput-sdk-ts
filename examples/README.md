@@ -10,12 +10,12 @@ Run examples from the repository root:
 npm run example <name>
 ```
 
-| Example            | Network  | What it demonstrates                                      |
-| ------------------ | -------- | --------------------------------------------------------- |
-| `chain-tip`        | Devnet   | Validated cluster connection and basic RPC actions        |
-| `transfer-hog`     | Devnet   | Airdrops, pubkey accounts, DefaultWallet, and receipts    |
-| `view-hog-balance` | Localnet | Runtime account discovery and typed contract views        |
-| `deploy-counter`   | Localnet | Deployment, explicit roots, wallet adapters, and readback |
+| Example            | Network  | What it demonstrates                                           |
+| ------------------ | -------- | -------------------------------------------------------------- |
+| `chain-tip`        | Devnet   | Validated connection, chain tip, and nullable release identity |
+| `transfer-hog`     | Devnet   | Airdrops, pubkey accounts, DefaultWallet, and receipts         |
+| `view-hog-balance` | Localnet | Runtime account discovery and typed contract views             |
+| `deploy-counter`   | Localnet | Deployment helpers, DevWallet, and readback                    |
 
 Set `GROUNDHOG_RPC_URL` to override a cluster's default endpoint. A Localnet
 override must also set `GROUNDHOG_RUNTIME_MANIFEST` to the manifest produced by
@@ -78,25 +78,23 @@ using `GROUNDHOG_RPC_URL`, both overrides must identify the same local node.
 
 ## Contract Deployment
 
-`deploy-counter` demonstrates both wallet submission levels:
-
-- `wallet.sendInvocation()` submits the wallet-specific `DevWallet.v0_1.deploy`
-  root invocation and includes the artifact in `contractsToDeploy`.
-- `wallet.execute()` wraps the normal `Counter.v0_1.increment` invocation through
-  `devWalletAdapter`.
+`deploy-counter` prepares a stable predicted address with
+`prepareContractDeployment`, then uses `deployContractAndWait` to attach the code,
+submit through DevWallet, require successful execution, and verify the returned
+address. It increments the counter through `executeAndWait` and reads it back.
 
 The local DevWallet transfers 100,000,000 base units (10 HOG) to each derived
 contract address before deployment so that address can pay the storage charge.
-This is wallet policy, not part of the protocol deployment mechanism. See
-[Gas and storage funding](../README.md#gas-and-storage-funding) for the funding
-model and the generated API docs (`npm run docs`) for address derivation.
+This is wallet policy, not part of the protocol deployment mechanism. The wallet
+must hold enough for that transfer as well as its own scheduling and storage
+requirements. DefaultWallet instead accepts explicit deployment funding and an
+optional same-transaction initializer. See [gas and storage funding](../README.md#gas-and-storage-funding).
+The generated API docs (`npm run docs`) describe address derivation.
 
-The Counter fixture and pinned spec come from
-[`groundhog-examples/contracts/counter`](https://github.com/groundhogchain/groundhog-examples/tree/56208548187a653af650b6c6b1708bac1b93b5e7/contracts/counter).
-Its raw SHA-256 is
-`3ce9c1f3257a080679ac95aa9597c00cc39f66f1c89fa1cac27c6a4c9ddb3903`;
-its canonical Groundhog contract hash is
-`4eb0b279d37ff9ff0d73a94ec26102cc5d0b9ea7f726ba63bdf123a876d2c2ef`.
+The Counter artifact's source revision, SDK, compiler, and SHA-256 are recorded in
+[`fixtures/README.md`](fixtures/README.md). The example prints the canonical
+Groundhog contract hash computed from the actual artifact. The fixture's build
+provenance is distinct from the current SDK used to generate new projects.
 Wallet binding provenance and all canonical input hashes are recorded in
 [`specs/contracts/README.md`](../specs/contracts/README.md).
 

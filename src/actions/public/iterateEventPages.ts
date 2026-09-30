@@ -16,7 +16,11 @@ import { getEvents } from "./getEvents.js";
  *
  * Page bounds describe the indexer, not a durable application checkpoint. The
  * caller owns persistence, retention checks, and recovery from rejected cursors.
- * This is a cursor walk, not a subscription or a fixed-height snapshot.
+ * The cursor bounds a historical walk; it does not subscribe to later blocks.
+ * Response-time indexer bounds can change while the walk continues. For ascending
+ * ingestion, start a new ascending walk with an empty cursor at the last stored
+ * row's height and deduplicate that block. Refresh descending history from
+ * anchor "end" with an empty cursor, not its last (oldest) row.
  *
  * @example
  * ```ts

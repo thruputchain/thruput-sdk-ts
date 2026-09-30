@@ -64,6 +64,11 @@ function parseTransactionRef(value: unknown): TransactionRef {
  *
  * Use `cursor` from the returned page to request the next page with the same
  * address and ordering.
+ * An empty cursor ends the walk, not an empty refs array. A cursor continues the
+ * original historical walk, not new blocks. For ascending ingestion, start a new
+ * ascending walk with an empty cursor at the last stored height and deduplicate
+ * by transaction hash. Refresh descending history from anchor "end" with an empty
+ * cursor. Commit rows and progress together; latestBlock is not a checkpoint.
  */
 export async function getTransactionsByAddress(
   transport: Transport,
