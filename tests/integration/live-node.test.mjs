@@ -383,7 +383,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
   );
 
   await t.test(
-    "prefunds and deploys a contract, then decodes and filters its scalar event",
+    "atomically funds, deploys and initializes a contract, then reads its state and scalar event",
     async () => {
       const sender = createPubkeyAccount({
         signer: new PrivateKeySigner(randomBytes(32)),
@@ -396,25 +396,6 @@ test("built SDK against a real local node", { timeout }, async (t) => {
           new URL("../../examples/fixtures/counter.rv32a", import.meta.url),
         ),
       });
-      const rootGas = gasAmount(10_000_000n);
-      await wallet.executeAndWait(
-        {
-          invocation: ERC20.v0_1.transfer.invocation(
-            HOG_ADDRESS,
-            gasAmount(500_000n),
-            { receiver: deployment.address, amount: 10_000_000n },
-          ),
-          gasLimit: rootGas,
-        },
-        { timeoutMs: receiptTimeoutMs },
-      );
-      const result = await wallet.deployContractAndWait(deployment, rootGas, {
-        timeoutMs: receiptTimeoutMs,
-      });
-      assert.deepEqual(result.address, deployment.address);
-      assert.equal(result.receipt.execResult, ExecResult.ExecResultOK);
-      assert.equal("account" in client, false);
-
       // Read the pinned ABI rather than importing SDK source into this built-package test.
       const spec = deserialize(
         await readFile(
@@ -428,6 +409,52 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       );
       assert.ok(iface);
       assert.ok(event);
+      const rootGas = gasAmount(10_000_000n);
+      const result = await wallet.deployContractAndWait(
+        deployment,
+        {
+          gasLimit: rootGas,
+          amount: 50_000_000n,
+          initializer: {
+            invoked_address: deployment.address,
+            entrypoint: deriveEntrypointID(
+              iface.name,
+              iface.vers,
+              "initialize",
+            ),
+            gas_limit: gasAmount(500_000n),
+            calldata: encodeCalldata(spec, iface.name, "initialize", [42n], {}),
+          },
+        },
+        { timeoutMs: receiptTimeoutMs },
+      );
+      assert.deepEqual(result.address, deployment.address);
+      assert.equal(result.receipt.execResult, ExecResult.ExecResultOK);
+      assert.equal("account" in client, false);
+      const initialized = await wallet.executeAndWait(
+        {
+          invocation: {
+            invoked_address: result.address,
+            entrypoint: deriveEntrypointID(iface.name, iface.vers, "get"),
+            gas_limit: gasAmount(500_000n),
+            calldata: encodeCalldata(spec, iface.name, "get", [], {}),
+          },
+          gasLimit: rootGas,
+        },
+        { timeoutMs: receiptTimeoutMs },
+      );
+      assert.deepEqual(
+        DefaultWallet.v0_1.execute.decodeReceipt(initialized.receipt).value,
+        [new Uint8Array([42])],
+      );
+      const view = await client.view({
+        contract: result.address,
+        entrypoint: deriveEntrypointID(iface.name, iface.vers, "get"),
+        calldata: encodeCalldata(spec, iface.name, "get", [], {}),
+        caller: sender.address,
+      });
+      assert.equal(view.output.result, "return");
+      assert.equal(deserializeCxs(view.output.returnData, Uint64Codec), 42n);
       const ping = defineContractEvent({
         name: event.name.declared,
         signature: event.signature,
@@ -471,58 +498,6 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       );
       assert.ok(raw);
       assert.deepEqual(filter.topics.topic1[0], raw.topics[1]);
-    },
-  );
-
-  await t.test(
-    "funds, deploys, and initializes a contract in one DefaultWallet transaction",
-    async () => {
-      const sender = createPubkeyAccount({
-        signer: new PrivateKeySigner(randomBytes(32)),
-      });
-      const wallet = createWalletClient({ client, account: sender });
-      await wallet.requestAirdrop({ timeoutMs: airdropTimeoutMs });
-      const spec = deserialize(
-        await readFile(
-          new URL("../../specs/contracts/counter.spec.xdr", import.meta.url),
-        ),
-        specCodec.ContractSpec,
-      );
-      const iface = spec.interfaces.find((entry) => entry.name === "Counter");
-      assert.ok(iface);
-      const planned = prepareContractDeployment({
-        deployer: sender.address,
-        contract: await readFile(
-          new URL("../../examples/fixtures/counter.rv32a", import.meta.url),
-        ),
-        funding: 10_000_000n,
-      });
-      const deployment = {
-        ...planned,
-        initializer: {
-          invoked_address: planned.address,
-          entrypoint: deriveEntrypointID(iface.name, iface.vers, "initialize"),
-          gas_limit: gasAmount(500_000n),
-          calldata: encodeCalldata(spec, iface.name, "initialize", [7n], {}),
-        },
-      };
-      // No prefunding transfer: the deploy itself funds the address.
-      const result = await wallet.deployContractAndWait(
-        deployment,
-        gasAmount(10_000_000n),
-        { timeoutMs: receiptTimeoutMs },
-      );
-      assert.deepEqual(result.address, planned.address);
-      assert.equal(result.receipt.execResult, ExecResult.ExecResultOK);
-
-      const view = await client.view({
-        contract: result.address,
-        entrypoint: deriveEntrypointID(iface.name, iface.vers, "get"),
-        calldata: encodeCalldata(spec, iface.name, "get", [], {}),
-        caller: sender.address,
-      });
-      assert.equal(view.output.result, "return");
-      assert.equal(deserializeCxs(view.output.returnData, Uint64Codec), 7n);
     },
   );
 

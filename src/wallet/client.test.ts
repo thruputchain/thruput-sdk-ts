@@ -21,6 +21,9 @@ import { PrivateKeySigner } from "../signers/privateKey.js";
 import type { Transport } from "../transport/types.js";
 import { createPubkeyAccount, createSourceAddressAccount } from "./account.js";
 import { createWalletClient } from "./client.js";
+import { prepareContractDeployment } from "./deployment.js";
+import { DefaultWallet } from "../contracts/default_wallet.js";
+import { Counter } from "../../examples/generated/counter.js";
 import { transactionSignaturePreimage } from "../transaction/preimage.js";
 import {
   defineWalletInvocationAdapter,
@@ -56,6 +59,56 @@ function invocation(invokedAddress = address): Invocation {
 }
 
 describe("wallet account defaults", () => {
+  it("prepares explicit atomic deployment through the native wallet", async () => {
+    const client = await createGroundhogClient({
+      transport: new MockTransport(),
+    });
+    const wallet = createWalletClient({
+      client,
+      account: createPubkeyAccount({ signer: signer() }),
+      networkHash: testNetworkHash,
+    });
+    const plan = prepareContractDeployment({
+      deployer: wallet.account.address,
+      contract: new Uint8Array([1, 2, 3]),
+    });
+    const initializer = Counter.v0_1.initialize.invocation(
+      plan.address,
+      gasAmount(100n),
+      { initialValue: 42n },
+    );
+    const tx = await wallet.prepareDeployment(plan, {
+      gasLimit: gasAmount(1000n),
+      amount: 123n,
+      initializer,
+    });
+    expect(tx.auth_claim).toEqual(wallet.account.authClaim);
+    expect(tx.contracts_to_deploy).toEqual([plan.contract]);
+    expect(
+      DefaultWallet.v0_1.deploy.decodeArgs(tx.invocation.calldata),
+    ).toMatchObject({
+      amount: 123n,
+      initializer: {
+        entrypoint: initializer.entrypoint,
+        calldata: initializer.calldata,
+      },
+    });
+    const legacy = createWalletClient({
+      client,
+      account: account(),
+      invocationAdapter: devWalletAdapter,
+      networkHash: testNetworkHash,
+    });
+    expect(() =>
+      legacy.prepareDeployment(
+        prepareContractDeployment({
+          deployer: address,
+          contract: new Uint8Array([1]),
+        }),
+        { gasLimit: gasAmount(1000n), amount: 0n },
+      ),
+    ).toThrow(/does not support deployment/);
+  });
   it("binds independent wallets without consuming the public client", async () => {
     const client = await createGroundhogClient({
       transport: new MockTransport(),

@@ -15,7 +15,7 @@ npm run example <name>
 | `chain-tip`        | Devnet   | Validated connection, chain tip, and nullable release identity |
 | `transfer-hog`     | Devnet   | Airdrops, pubkey accounts, DefaultWallet, and receipts         |
 | `view-hog-balance` | Localnet | Runtime account discovery and typed contract views             |
-| `deploy-counter`   | Localnet | Deployment helpers, DevWallet, and readback                    |
+| `deploy-counter`   | Localnet | Native wallet funding, atomic initialization, and readback     |
 
 Set `GROUNDHOG_RPC_URL` to override a cluster's default endpoint. A Localnet
 override must also set `GROUNDHOG_RUNTIME_MANIFEST` to the manifest produced by
@@ -66,8 +66,8 @@ Read `dev-1`'s HOG balance through the generated ERC-20 binding:
 npm run example view-hog-balance
 ```
 
-Deploy the included Counter contract through DevWallet, increment it through a
-wallet adapter, and read the committed value:
+Create a native wallet, fund it explicitly, deploy and initialize the included
+Counter contract, increment it, and read the committed value:
 
 ```bash
 npm run example deploy-counter
@@ -78,18 +78,16 @@ using `GROUNDHOG_RPC_URL`, both overrides must identify the same local node.
 
 ## Contract Deployment
 
-`deploy-counter` prepares a stable predicted address with
-`prepareContractDeployment`, then uses `deployContractAndWait` to attach the code,
-submit through DevWallet, require successful execution, and verify the returned
-address. It increments the counter through `executeAndWait` and reads it back.
+`deploy-counter` creates an ephemeral pubkey account and explicitly funds it with
+an airdrop. `prepareContractDeployment()` predicts the contract address, then
+`wallet.deployContractAndWait()` transfers 50,000,000 raw HOG units (5 HOG),
+deploys the code, and initializes the counter to 42 in one transaction. Funding
+and gas budgets are calibrated for the bundled fixture and local runtime; they
+are not deployment cost estimates.
 
-The local DevWallet transfers 100,000,000 base units (10 HOG) to each derived
-contract address before deployment so that address can pay the storage charge.
-This is wallet policy, not part of the protocol deployment mechanism. The wallet
-must hold enough for that transfer as well as its own scheduling and storage
-requirements. DefaultWallet instead accepts explicit deployment funding and an
-optional same-transaction initializer. See [gas and storage funding](../README.md#gas-and-storage-funding).
-The generated API docs (`npm run docs`) describe address derivation.
+`wallet.executeAndWait()` increments the counter through DefaultWallet, and a
+typed view verifies the value is 47. The private key is never printed or saved;
+any remaining funds become inaccessible when the process exits.
 
 The Counter artifact's source revision, SDK, compiler, and SHA-256 are recorded in
 [`fixtures/README.md`](fixtures/README.md). The example prints the canonical
@@ -99,7 +97,7 @@ Wallet binding provenance and all canonical input hashes are recorded in
 [`specs/contracts/README.md`](../specs/contracts/README.md).
 
 To build a contract and generate TypeScript bindings with the CLI version pinned
-in `scripts/integration-versions.json`:
+in [`scripts/integration-versions.json`](../scripts/integration-versions.json):
 
 ```bash
 groundhog build -p counter --bindings ts

@@ -332,6 +332,40 @@ Use `prepareExecution` to inspect the wrapped transaction before signing. Both
 execution methods accept `nonce`, `blockExpiryHeight`, `expiryBlocks`, and
 `contractsToDeploy` overrides.
 
+Native wallets deploy through one atomic operation with an explicit funding
+amount and an optional initializer. Prepare the deployment identity first, then
+compose an initializer using the generated contract binding:
+
+```ts
+import { prepareContractDeployment } from "@groundhogchain/client/wallet";
+import { Counter } from "./generated/counter.js";
+
+const deployment = prepareContractDeployment({
+  deployer: wallet.account.address,
+  contract: rv32Artifact,
+});
+const result = await wallet.deployContractAndWait(deployment, {
+  gasLimit: deploymentGas,
+  amount: authorizedFunding,
+  initializer: Counter.v0_1.initialize.invocation(deployment.address, initGas, {
+    initialValue: 42n,
+  }),
+});
+```
+
+`amount` is raw HOG, chosen by the caller; `0n` skips the transfer. The target's
+existing balance plus this amount must cover deployment and initialized storage.
+There is no automatic cost estimate or prefunding transaction. The initializer
+must target the predicted address, sees the wallet as its caller, and returns no
+value to the deployment client. An abort or fault rolls back all three steps.
+Omit `initializer` when no call is required.
+
+This API requires the unified native `DefaultWallet.v0_1.deploy` runtime ABI; older
+nodes are unsupported and there is no two-transaction fallback. The legacy
+DevWallet adapter supports calls, but rejects this deployment API. Provider
+wallets accept the same deployment options and retain their explicit signing
+and approval-persistence boundary.
+
 The explicit root-invocation APIs remain available for advanced workflows:
 
 ```ts
@@ -394,34 +428,10 @@ without another balance-item deposit. It uses 500,000 child gas and 1,000,000 ro
 gas. Verified locally with CLI 0.19.0 and hog-devnode 0.1.29-rc.4; storage
 costs depend on runtime configuration.
 
-A deployed contract's storage needs HOG at its address too. With DefaultWallet
-(every pubkey account), set `funding` on the deployment and the deploying
-transaction transfers it before the code lands, so no separate prefunding
-transaction is needed. An optional `initializer` calls the new contract in the
-same transaction, with the wallet as caller; a failure in any step rolls back
-all three. Build the initializer against the predicted address:
-
-```ts
-const planned = prepareContractDeployment({
-  deployer: account.address,
-  contract: artifact,
-  funding: 10_000_000n,
-});
-const { address } = await wallet.deployContractAndWait(
-  {
-    ...planned,
-    initializer: Counter.v0_1.initialize.invocation(planned.address, initGas, {
-      initialValue: 7n,
-    }),
-  },
-  rootGas, // must also cover the initializer's gas
-);
-```
-
-The pinned local DevWallet accepts neither option. Its deploy implementation
-transfers 100,000,000 base units (10 HOG) from the wallet to the predicted address
-before deploying. That is local wallet policy, not a universal storage price.
-Initialize in a later call; that two-transaction flow is not atomic setup.
+A deployed contract's storage needs HOG at its address too. The native deployment
+API above transfers the explicit `amount` before deploying and optionally
+initializing the contract in the same transaction. Size that amount for the code
+and initialized storage, and budget root gas for the complete operation.
 
 The standard ERC20 binding uses `adjustAllowance` with
 `{ spender, difference, exclusive }`, not `approve`. `difference` is signed:
@@ -646,8 +656,8 @@ npm run test:integration
 GROUNDHOG_CLI=/path/to/groundhog npm run test:integration
 ```
 
-The harness downloads the checksum-verified devnode version from the same pin
-file, checks that its executable runs, and starts a fresh node on an OS-assigned
+The harness installs the pinned devnode through the CLI’s checksum-verified
+runtime catalog. It checks that the executable runs and starts a fresh node on an OS-assigned
 loopback port. The host must provide the devnode's native runtime libraries;
 CI uses the same Ubuntu 26.04 Namespace profile as the RPC repository. Tests
 import the built package and check connection, local funding, a HOG transfer, receipts,
@@ -657,3 +667,17 @@ The harness isolates configuration and state, stops its child processes, and
 retains logs and node state on failure at the printed temporary path. Set
 `GROUNDHOG_INTEGRATION_LOG_DIR` to retain logs at a chosen location; CI uploads
 them as `live-node-logs`.
+
+The pinned devnode supports unified native deployment. The standard integration
+run requires atomic funding, deployment, initialization and state readback to
+pass. To qualify another matching runtime, start a disposable node and run the
+built package tests against its reported URL and manifest:
+
+```sh
+npm run build
+GROUNDHOG_RPC_URL=http://127.0.0.1:9545 \
+GROUNDHOG_RUNTIME_MANIFEST=/absolute/path/to/runtime-manifest.json \
+node --test --test-concurrency=1 tests/integration/live-node.test.mjs
+```
+
+The tests do not perform capability discovery or fall back on unsupported runtimes.

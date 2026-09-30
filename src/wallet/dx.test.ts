@@ -9,7 +9,6 @@ import {
 import { CxsWriter, Uint64Codec } from "@groundhogchain/xdr";
 import { Counter } from "../../examples/generated/counter.js";
 import { DefaultWallet, default_wallet } from "../contracts/default_wallet.js";
-import { DevWallet } from "../contracts/dev_wallet.js";
 import { getContract } from "../contract/instance.js";
 import {
   decodeExecution,
@@ -157,118 +156,82 @@ describe("contract execution DX", () => {
 });
 
 describe("deployment descriptions", () => {
-  const artifact = new Uint8Array([1, 2, 3]);
-  const initGas = gasAmount(40n);
-
-  it("funds and initializes the contract through DefaultWallet deploy", () => {
-    const planned = prepareContractDeployment({
+  it("encodes explicit funding and a typed initializer only at the predicted target", () => {
+    const plan = prepareContractDeployment({
       deployer: address,
-      contract: artifact,
-      funding: 10_000_000n,
+      contract: new Uint8Array([1]),
     });
-    const initializer = Counter.v0_1.initialize.invocation(
-      planned.address,
-      initGas,
-      { initialValue: 7n },
-    );
-    const deployment = { ...planned, initializer };
+    const initializer = Counter.v0_1.initialize.invocation(plan.address, gas, {
+      initialValue: 42n,
+    });
     const request = deploymentRequest(
-      deployment,
+      plan,
       address,
-      gas,
+      { gasLimit: gas, amount: 123n, initializer },
       defaultWalletAdapter,
     );
     expect(
       DefaultWallet.v0_1.deploy.decodeArgs(request.invocation.calldata),
     ).toEqual({
-      nonce: planned.deploymentNonce,
-      contractHash: planned.contractHash,
-      amount: 10_000_000n,
+      nonce: plan.deploymentNonce,
+      contractHash: plan.contractHash,
+      amount: 123n,
       initializer: {
-        entrypoint: Counter.v0_1.initialize.entrypoint,
-        gas_limit: 40n,
+        entrypoint: initializer.entrypoint,
+        gas_limit: gas,
         calldata: initializer.calldata,
       },
     });
-
-    // A plan holds its own copy of the initializer, so editing the
-    // invocation after preparing cannot change what the plan deploys.
-    const copied = prepareContractDeployment({ ...deployment });
-    const original = initializer.calldata.slice();
     initializer.calldata.fill(0);
-    const later = deploymentRequest(copied, address, gas, defaultWalletAdapter);
     expect(
-      DefaultWallet.v0_1.deploy.decodeArgs(later.invocation.calldata)
+      DefaultWallet.v0_1.deploy.decodeArgs(request.invocation.calldata)
         .initializer?.calldata,
-    ).toEqual(original);
-  });
-
-  it("rejects funding outside u128 and an initializer aimed elsewhere", () => {
-    expect(() =>
-      prepareContractDeployment({
-        deployer: address,
-        contract: artifact,
-        funding: -1n,
-      }),
-    ).toThrow(RangeError);
-    expect(() =>
-      prepareContractDeployment({
-        deployer: address,
-        contract: artifact,
-        funding: 1n << 128n,
-      }),
-    ).toThrow(RangeError);
-    const planned = prepareContractDeployment({
-      deployer: address,
-      contract: artifact,
+    ).not.toEqual(initializer.calldata);
+    const wrongTarget = Counter.v0_1.initialize.invocation(address, gas, {
+      initialValue: 42n,
     });
     expect(() =>
-      deploymentRequest(
-        {
-          ...planned,
-          initializer: Counter.v0_1.initialize.invocation(address, initGas, {
-            initialValue: 7n,
-          }),
-        },
-        address,
-        gas,
-        defaultWalletAdapter,
-      ),
-    ).toThrow(/initializer targets/);
+      defaultWalletAdapter.createDeploymentInvocation!(address, plan, {
+        gasLimit: gas,
+        amount: 0n,
+        initializer: wrongTarget,
+      }),
+    ).toThrow(/predicted deployment address/);
   });
 
-  it("refuses funding or an initializer through DevWallet", () => {
-    const planned = prepareContractDeployment({
+  it("requires an explicit valid amount and encodes zero without an initializer", () => {
+    const plan = prepareContractDeployment({
       deployer: address,
-      contract: artifact,
+      contract: new Uint8Array([1]),
     });
+    const request = deploymentRequest(
+      plan,
+      address,
+      { gasLimit: gas, amount: 0n },
+      defaultWalletAdapter,
+    );
+    // Two fixed hashes, zero u128 high/low limbs, then the absent Option tag.
+    expect(request.invocation.calldata).toEqual(
+      new Uint8Array([...plan.deploymentNonce, ...plan.contractHash, 0, 0, 0]),
+    );
+    for (const amount of [-1n, 1n << 128n]) {
+      expect(() =>
+        deploymentRequest(
+          plan,
+          address,
+          { gasLimit: gas, amount },
+          defaultWalletAdapter,
+        ),
+      ).toThrow();
+    }
     expect(() =>
       deploymentRequest(
-        { ...planned, funding: 1n },
+        plan,
         address,
-        gas,
+        { gasLimit: gas, amount: 0n },
         devWalletAdapter,
       ),
-    ).toThrow(/DevWallet deploy cannot fund or initialize/);
-    expect(() =>
-      deploymentRequest(
-        {
-          ...planned,
-          initializer: Counter.v0_1.initialize.invocation(
-            planned.address,
-            initGas,
-            { initialValue: 7n },
-          ),
-        },
-        address,
-        gas,
-        devWalletAdapter,
-      ),
-    ).toThrow(/DevWallet deploy cannot fund or initialize/);
-    expect(
-      deploymentRequest(planned, address, gas, devWalletAdapter).invocation
-        .entrypoint,
-    ).toEqual(DevWallet.v0_1.deploy.entrypoint);
+    ).toThrow(/does not support deployment/);
   });
 
   it("snapshots inputs and attaches canonical code at the wallet root", () => {
@@ -285,7 +248,12 @@ describe("deployment descriptions", () => {
       contract_type: ContractType.kRv32,
       rv32_contract: { data: new Uint8Array([1, 2, 3]) },
     });
-    const request = deploymentRequest(plan, address, gas, defaultWalletAdapter);
+    const request = deploymentRequest(
+      plan,
+      address,
+      { gasLimit: gas, amount: 0n },
+      defaultWalletAdapter,
+    );
     expect(request.contractsToDeploy).toEqual([plan.contract]);
     expect(request.invocation.entrypoint).toEqual(
       DefaultWallet.v0_1.deploy.entrypoint,
@@ -314,7 +282,12 @@ describe("deployment descriptions", () => {
     ).toThrow(/expected/);
     plan.deploymentNonce.fill(1);
     expect(() =>
-      deploymentRequest(plan, address, gas, defaultWalletAdapter),
+      deploymentRequest(
+        plan,
+        address,
+        { gasLimit: gas, amount: 0n },
+        defaultWalletAdapter,
+      ),
     ).toThrow(/no longer match/);
   });
 });
