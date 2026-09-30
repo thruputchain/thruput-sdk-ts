@@ -1,25 +1,16 @@
-import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import {
-  ContractType,
-  bitMap,
-  gasAmount,
-  sha256Hash,
-  weight,
-  type Contract,
-} from "@groundhogchain/protocol";
+import { bitMap, weight } from "@groundhogchain/protocol";
+// Repository-local imports; applications use the published client entrypoints.
 import {
   createGroundhogClient,
   createSourceAddressAccount,
   createWalletClient,
-  deriveContractAddress,
   devWalletAdapter,
-  fixedBytes,
-  hashContract,
+  gasAmount,
   localnet,
+  prepareContractDeployment,
   toHex0x,
 } from "../src/index.js";
-import { DevWallet } from "../src/contracts/index.js";
 import { loadLocalDevAccount } from "../src/local-dev/index.js";
 import { Counter } from "./generated/counter.js";
 
@@ -30,10 +21,8 @@ if (rpcUrl && !process.env.GROUNDHOG_RUNTIME_MANIFEST) {
   );
 }
 const local = await loadLocalDevAccount();
-const deploymentNonce = sha256Hash(randomBytes(32));
 const walletGasLimit = gasAmount(10_000_000n);
 const counterGasLimit = gasAmount(500_000n);
-
 const client = await createGroundhogClient({
   cluster: localnet(rpcUrl ? { rpcUrl } : {}),
 });
@@ -48,76 +37,41 @@ const wallet = createWalletClient({
   account,
   invocationAdapter: devWalletAdapter,
 });
-
-// Load the compiled contract and derive the address before deploying it.
 const artifact = await readFile(
   new URL("./fixtures/counter.rv32a", import.meta.url),
 );
-const contract: Contract = {
-  contract_type: ContractType.kRv32,
-  rv32_contract: { data: artifact },
-};
-const contractHash = hashContract(contract);
-const deployedAddress = deriveContractAddress(
-  account.address,
-  deploymentNonce,
-  contractHash,
-);
-
-// Deployment is a wallet-specific root operation, so use the explicit escape
-// hatch and include the artifact in this transaction.
-const deployInvocation = DevWallet.v0_1.deploy.invocation(
-  account.address,
-  walletGasLimit,
-  {
-    nonce: fixedBytes(deploymentNonce, 32),
-    contractHash: fixedBytes(contractHash, 32),
-  },
-);
-const deployHash = await wallet.sendInvocation({
-  invocation: deployInvocation,
-  contractsToDeploy: [contract],
+const deployment = prepareContractDeployment({
+  deployer: account.address,
+  contract: artifact,
 });
-const { value: returnedAddress } = DevWallet.v0_1.deploy.decodeReceipt(
-  await wallet.waitForTransactionReceipt(deployHash),
-);
-if (toHex0x(returnedAddress) !== toHex0x(deployedAddress)) {
-  throw new Error(
-    `Deployment returned ${toHex0x(returnedAddress)}, predicted ${toHex0x(deployedAddress)}`,
-  );
-}
 
-// Normal contract calls are inner invocations wrapped by the configured
-// DevWallet adapter.
-const increment = Counter.v0_1.increment.invocation(
-  deployedAddress,
+// This local DevWallet transfers 10 HOG to the predicted address during deploy.
+// It has no initializer option. This example's later increment is a separate transaction.
+const deployed = await wallet.deployContractAndWait(deployment, walletGasLimit);
+const invocation = Counter.v0_1.increment.invocation(
+  deployed.address,
   counterGasLimit,
   { amount: 5n },
 );
-const callHash = await wallet.execute({
-  invocation: increment,
+const executed = await wallet.executeAndWait({
+  invocation,
   gasLimit: walletGasLimit,
 });
-DevWallet.v0_1.doAction.decodeReceipt(
-  await wallet.waitForTransactionReceipt(callHash),
-);
-
 const view = await Counter.v0_1.get.view({
-  client: wallet,
-  contract: deployedAddress,
+  client,
+  contract: deployed.address,
   caller: account.address,
 });
-if (view.value !== 5n) {
+if (view.value !== 5n)
   throw new Error(`Counter value is ${view.value}, expected 5`);
-}
 
 console.log({
   rpcUrl: client.cluster.rpcUrl,
   accountName: local.keyName,
-  contractHash: toHex0x(contractHash),
-  deploymentNonce: toHex0x(deploymentNonce),
-  contractAddress: toHex0x(deployedAddress),
-  deployTxHash: toHex0x(deployHash),
-  callTxHash: toHex0x(callHash),
+  contractHash: toHex0x(deployment.contractHash),
+  deploymentNonce: toHex0x(deployment.deploymentNonce),
+  contractAddress: toHex0x(deployed.address),
+  deployTxHash: toHex0x(deployed.txHash),
+  callTxHash: toHex0x(executed.txHash),
   value: view.value.toString(),
 });

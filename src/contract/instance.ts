@@ -30,6 +30,12 @@ export type ContractInstance<T> = {
  * Views preserve heights and events and accept per-read cancellation signals.
  * Independent views may use different heights or lag a newly indexed receipt;
  * applications must check freshness for coherent multi-read results.
+ *
+ * @example
+ * ```ts
+ * const token = getContract({ binding: ERC20.v0_1, address, client });
+ * const balance = await token.getBalanceOf.view({ args: { addr: owner }, signal });
+ * ```
  */
 export function getContract<
   // The binding contains different argument types; ContractInstance preserves each one.

@@ -1,6 +1,11 @@
 import { HOG_ADDRESS } from "@groundhogchain/protocol";
 // Repository-local imports; applications use the published client entrypoints.
-import { createGroundhogClient, localnet, toHex0x } from "../src/index.js";
+import {
+  createGroundhogClient,
+  formatUnits,
+  localnet,
+  toHex0x,
+} from "../src/index.js";
 import { ERC20 } from "../src/contracts/index.js";
 import { loadLocalDevAccount } from "../src/local-dev/index.js";
 
@@ -30,5 +35,6 @@ console.log({
   hogToken: toHex0x(HOG_ADDRESS),
   account: toHex0x(account.address),
   balance: response.value.toString(),
+  hog: formatUnits(response.value, 7),
   height: response.height.toString(),
 });

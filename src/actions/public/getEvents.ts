@@ -74,6 +74,12 @@ function parseIdentifiedEvent(value: unknown): IdentifiedEvent {
  * Use `cursor` from the returned page to request the next page with the same
  * filters and ordering. The query needs at least one filter, and each filter
  * at least one contract address.
+ * An empty cursor ends this historical walk; an empty events array alone does not.
+ * A cursor does not follow later blocks. For a new scan, start at the last stored
+ * row's block height and deduplicate by transaction hash and event sequence number.
+ * Save rows and progress together. latestBlock is not an application checkpoint.
+ * Raw RPC callers must include order and anchor even on continuation; this action
+ * supplies defaults. Cursor validity and history retention remain backend concerns.
  *
  * @example
  * ```ts

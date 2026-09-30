@@ -7,11 +7,12 @@ import {
   createPubkeyAccount,
   createWalletClient,
   devnet,
+  parseUnits,
   toHex0x,
 } from "../src/index.js";
 import { ERC20 } from "../src/contracts/index.js";
 
-const amount = 1_000n;
+const amount = parseUnits("0.0001", 7); // HOG has seven decimal places.
 // These budgets pass the live native-transfer test. Calibrate other workloads:
 // declared root gas reserves scheduling capacity against the sender's free HOG.
 const walletGasLimit = gasAmount(1_000_000n);

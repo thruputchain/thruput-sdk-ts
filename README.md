@@ -132,6 +132,77 @@ const transfer = ERC20.v0_1.transfer.invocation(tokenAddress, gasLimit, {
 });
 ```
 
+### Exact amounts
+
+Convert user input without floating-point arithmetic:
+
+```ts
+import {
+  parseUnits,
+  formatUnits,
+  ParseUnitsError,
+} from "@groundhogchain/client";
+
+const amount = parseUnits("12.05", 2); // 1205n
+console.log(formatUnits(amount, 2)); // "12.05"
+```
+
+Both helpers accept 0–255 decimals. Parsing rejects whitespace, exponent notation,
+and excess fractional digits, including trailing zeroes, with `ParseUnitsError`
+(`code: "malformed"` or `"precision"`). Invalid decimal counts throw `RangeError`.
+Signed amounts are supported; applications must separately check token positivity
+and ABI bounds. Formatting is exact, without display rounding.
+
+### Cancellable reads
+
+Pass request options to public actions and put `signal` inside generated view options:
+
+```ts
+import { classifyReadError } from "@groundhogchain/client";
+
+const controller = new AbortController();
+const { signal } = controller;
+try {
+  const balance = await ERC20.v0_1.getBalanceOf.view({
+    client,
+    contract: tokenAddress,
+    args: { addr: accountAddress },
+    signal,
+  });
+  console.log(balance.value);
+} catch (error) {
+  console.error(classifyReadError(error, { signal }), error);
+}
+// Call controller.abort() from the application's cancel or cleanup handler.
+```
+
+Ordinary reads use forms such as `client.getChainTip({ signal })` and
+`client.getBalance(accountAddress, { signal })`. Bound views support the same signal.
+Classification returns `transient`, `permanent`, `cancelled`, or `unknown` without
+replacing the error. Pass the same signal to distinguish caller cancellation from
+a transport timeout. A plain `TypeError` is not proof of a network failure.
+Applications own retry budgets; classification never authorizes transaction
+resubmission. Cancellation of receipt observation does not cancel the transaction.
+
+### Inspect arguments and release identity
+
+Use the descriptor for the known method to decode calldata:
+
+```ts
+const { receiver, amount } = ERC20.v0_1.transfer.decodeArgs(transfer.calldata);
+const version = await client.getVersion();
+console.log(
+  version.wireFormat,
+  version.releaseVersion,
+  version.bundleManifestDigest,
+);
+```
+
+`decodeArgs` uses generated public names, rejects incomplete/trailing bytes, and
+returns `undefined` for methods without arguments. Decoding does not verify the
+target contract's behavior. Release identity and bundle digest can be `null`;
+they help diagnose installations. Use `wireFormat` for RPC compatibility decisions.
+
 ### Event pages
 
 Use a generated event descriptor to fetch one page with typed topics and fields:
@@ -174,6 +245,10 @@ and stops at an empty cursor. It rejects repeated cursors and propagates RPC
 errors. It does not prefetch, retry, subscribe, or persist checkpoints. Applications
 own processing and history-coverage checks; `latestBlock` is the indexer's head,
 not proof that the current page has covered every event through that block.
+
+A cursor continues one bounded historical walk, not future blocks. For a new scan,
+restart at the last stored row's height and deduplicate the reread block. Save rows
+and progress together. See the [pagination and restart walkthrough](https://docs.groundhog.dev/tutorials/add-events-to-a-contract/#resume-without-missing-events).
 
 Node.js applications targeting `groundhog node` can load a deterministic local
 signer from its active runtime manifest:
@@ -322,7 +397,7 @@ because its 1,000-unit credit cannot cover a new balance item's deposit.
 The live funding test verifies an excluded 1,000-unit first credit, a successful
 100,000-unit first credit with a deposit deduction, and a later 1,000-unit credit
 without another balance-item deposit. It uses 500,000 child gas and 1,000,000 root
-gas. Verified locally with CLI 0.19.0-pre.2 and hog-devnode 0.1.29-rc.3; storage
+gas. Verified locally with CLI 0.19.0 and hog-devnode 0.1.29-rc.4; storage
 costs depend on runtime configuration.
 
 A deployed contract's storage needs HOG at its address too. With DefaultWallet
@@ -349,8 +424,10 @@ const { address } = await wallet.deployContractAndWait(
 );
 ```
 
-DevWallet's deploy takes neither; with it, prefund the address and initialize in a
-later call.
+The pinned local DevWallet accepts neither option. Its deploy implementation
+transfers 100,000,000 base units (10 HOG) from the wallet to the predicted address
+before deploying. That is local wallet policy, not a universal storage price.
+Initialize in a later call; that two-transaction flow is not atomic setup.
 
 The standard ERC20 binding uses `adjustAllowance` with
 `{ spender, difference, exclusive }`, not `approve`. `difference` is signed:
@@ -358,7 +435,8 @@ positive increases the allowance, negative reduces it. Reading the current
 allowance and submitting a delta cannot guarantee an exact target when
 concurrent transactions also change it; set `exclusive` to `true` to lock the
 allowance entry for the transaction so a concurrent change conflicts instead
-of interleaving. `clearAllowance({ spender })` revokes an allowance and deletes
+of interleaving. That lock does not make an earlier off-chain read current.
+`clearAllowance({ spender })` revokes an allowance and deletes
 its storage entry, and `clearBalance()` deletes the caller's empty balance
 entry. Allowance changes emit `AllowanceChangeEvent` with the signed
 `difference`; the earlier `ApprovalEvent` is gone with interface 0.1.41.
