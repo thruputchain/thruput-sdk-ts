@@ -132,6 +132,69 @@ const transfer = ERC20.v0_1.transfer.invocation(tokenAddress, gasLimit, {
 });
 ```
 
+### Exact amounts
+
+Convert user input without floating-point arithmetic:
+
+```ts
+import { parseUnits, formatUnits } from "@groundhogchain/client";
+
+const amount = parseUnits("12.05", 2); // 1205n
+console.log(formatUnits(amount, 2)); // "12.05"
+```
+
+Parsing rejects malformed input and excess precision rather than rounding.
+Applications still check token positivity and size limits. See the
+[amount guide](https://docs.groundhog.dev/tools/typescript-sdk/#exact-amounts-and-common-types)
+for error handling and supported inputs.
+
+### Cancellable reads
+
+Pass request options to public actions and put `signal` inside generated view options:
+
+```ts
+const controller = new AbortController();
+const { signal } = controller;
+const tip = await client.getChainTip({ signal });
+const balance = await ERC20.v0_1.getBalanceOf.view({
+  client,
+  contract: tokenAddress,
+  args: { addr: accountAddress },
+  signal,
+});
+```
+
+Call `controller.abort()` from the application's cleanup handler. Bound views also
+accept a signal. `classifyReadError(error, { signal })` helps distinguish cancellation
+from infrastructure failures; applications own retry policy. Canceling observation
+does not cancel a transaction. See [read errors](https://docs.groundhog.dev/tools/typescript-sdk/#cancellation-and-read-errors).
+
+### Inspect arguments
+
+Use the descriptor for the known method to decode calldata:
+
+```ts
+const { receiver, amount } = ERC20.v0_1.transfer.decodeArgs(transfer.calldata);
+```
+
+`decodeArgs` returns typed arguments and rejects incomplete or trailing bytes.
+It returns `undefined` for methods without arguments. Decoding does not verify the
+target contract's behavior.
+
+### Release diagnostics
+
+```ts
+const version = await client.getVersion();
+console.log(
+  version.wireFormat,
+  version.releaseVersion,
+  version.bundleManifestDigest,
+);
+```
+
+Release identity and bundle digest can be `null`;
+they help diagnose installations. Use `wireFormat` for RPC compatibility decisions.
+
 ### Event pages
 
 Use a generated event descriptor to fetch one page with typed topics and fields:
@@ -174,6 +237,12 @@ and stops at an empty cursor. It rejects repeated cursors and propagates RPC
 errors. It does not prefetch, retry, subscribe, or persist checkpoints. Applications
 own processing and history-coverage checks; `latestBlock` is the indexer's head,
 not proof that the current page has covered every event through that block.
+
+A cursor continues one bounded historical walk, not future blocks. For ascending
+ingestion, start a new ascending walk with an empty cursor at the last stored
+row's height and deduplicate that block. Save rows and progress together. Refresh
+descending history from `anchor: "end"` with an empty cursor, not its oldest row.
+See the [pagination and restart walkthrough](https://docs.groundhog.dev/tutorials/add-events-to-a-contract/#resume-without-missing-events).
 
 Node.js applications targeting `groundhog node` can load a deterministic local
 signer from its active runtime manifest:
@@ -356,7 +425,7 @@ because its 1,000-unit credit cannot cover a new balance item's deposit.
 The live funding test verifies an excluded 1,000-unit first credit, a successful
 100,000-unit first credit with a deposit deduction, and a later 1,000-unit credit
 without another balance-item deposit. It uses 500,000 child gas and 1,000,000 root
-gas. Verified locally with CLI 0.19.0-pre.2 and hog-devnode 0.1.29-rc.3; storage
+gas. Verified locally with CLI 0.19.0 and hog-devnode 0.1.29-rc.4; storage
 costs depend on runtime configuration.
 
 A deployed contract's storage needs HOG at its address too. The native deployment
@@ -370,7 +439,8 @@ positive increases the allowance, negative reduces it. Reading the current
 allowance and submitting a delta cannot guarantee an exact target when
 concurrent transactions also change it; set `exclusive` to `true` to lock the
 allowance entry for the transaction so a concurrent change conflicts instead
-of interleaving. `clearAllowance({ spender })` revokes an allowance and deletes
+of interleaving. That lock does not make an earlier off-chain read current.
+`clearAllowance({ spender })` revokes an allowance and deletes
 its storage entry, and `clearBalance()` deletes the caller's empty balance
 entry. Allowance changes emit `AllowanceChangeEvent` with the signed
 `difference`; the earlier `ApprovalEvent` is gone with interface 0.1.41.

@@ -10,12 +10,12 @@ Run examples from the repository root:
 npm run example <name>
 ```
 
-| Example            | Network  | What it demonstrates                                       |
-| ------------------ | -------- | ---------------------------------------------------------- |
-| `chain-tip`        | Devnet   | Validated cluster connection and basic RPC actions         |
-| `transfer-hog`     | Devnet   | Airdrops, pubkey accounts, DefaultWallet, and receipts     |
-| `view-hog-balance` | Localnet | Runtime account discovery and typed contract views         |
-| `deploy-counter`   | Localnet | Native wallet funding, atomic initialization, and readback |
+| Example            | Network  | What it demonstrates                                           |
+| ------------------ | -------- | -------------------------------------------------------------- |
+| `chain-tip`        | Devnet   | Validated connection, chain tip, and nullable release identity |
+| `transfer-hog`     | Devnet   | Airdrops, pubkey accounts, DefaultWallet, and receipts         |
+| `view-hog-balance` | Localnet | Runtime account discovery and typed contract views             |
+| `deploy-counter`   | Localnet | Native wallet funding, atomic initialization, and readback     |
 
 Set `GROUNDHOG_RPC_URL` to override a cluster's default endpoint. A Localnet
 override must also set `GROUNDHOG_RUNTIME_MANIFEST` to the manifest produced by
@@ -89,9 +89,11 @@ are not deployment cost estimates.
 typed view verifies the value is 47. The private key is never printed or saved;
 any remaining funds become inaccessible when the process exits.
 
-The Counter fixture's source and artifact provenance are recorded in
-[`examples/fixtures/README.md`](fixtures/README.md). Wallet binding provenance
-and canonical input hashes are recorded in
+The Counter artifact's source revision, SDK, compiler, and SHA-256 are recorded in
+[`fixtures/README.md`](fixtures/README.md). The example prints the canonical
+Groundhog contract hash computed from the actual artifact. The fixture's build
+provenance is distinct from the current SDK used to generate new projects.
+Wallet binding provenance and all canonical input hashes are recorded in
 [`specs/contracts/README.md`](../specs/contracts/README.md).
 
 To build a contract and generate TypeScript bindings with the CLI version pinned

@@ -256,6 +256,11 @@ async function typedExecutionBoundary(
   const noArgs: void = ERC20.v0_1.getBalance.decodeArgs(new Uint8Array());
   void [transferArgs, walletArgs, noArgs];
   const token = getContract({ binding: ERC20.v0_1, address, client });
+  const signal = new AbortController().signal;
+  await token.getBalanceOf.view({ args: { addr: address }, signal });
+  await client.getChainTip({ signal });
+  const readKind: ReadErrorKind = classifyReadError(new Error(), { signal });
+  void readKind;
   const boundArgs: ERC20.v0_1.TransferArgs = token.transfer.decodeArgs(
     transfer.invocation.calldata,
   );
@@ -347,6 +352,10 @@ async function packageBoundaryTypecheck(
     void,
     unknown
   > = ERC20.v0_1.transfer;
+  const version = await client.getVersion();
+  const releaseVersion: string | null = version.releaseVersion;
+  const bundleManifestDigest: string | null = version.bundleManifestDigest;
+  void [releaseVersion, bundleManifestDigest];
   const transferArgs: ERC20.v0_1.TransferArgs = {
     receiver: recipient,
     amount: 1n,
