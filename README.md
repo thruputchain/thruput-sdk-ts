@@ -455,7 +455,8 @@ helpers, generated standard contracts, signers, and standalone actions.
 - `src/local-dev/` — Node.js-only local runtime discovery and deterministic bootstrap signer loading.
 - `src/types/rpc.ts` — typed RPC request/response shapes.
 - `specs/openrpc.json` — pinned Groundhog OpenRPC spec; `scripts/regen-openrpc.sh` refreshes it. After a regen, `npm test` (specifically `src/actions/contract.test.ts`) names any TS action whose serialized request no longer matches the new spec.
-- `docs/` — implementation specifications and generated API documentation.
+- `docs/api/` — generated TypeDoc output from `npm run docs` (ignored by git; see [API docs](#api-docs)).
+- `Caddyfile` and `Staticfile` — configure the private TypeDoc host that serves `docs/api/`; they are not part of the published package.
 
 ## Subpath exports
 

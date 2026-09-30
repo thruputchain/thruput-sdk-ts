@@ -94,7 +94,8 @@ The Counter fixture's source and artifact provenance are recorded in
 and canonical input hashes are recorded in
 [`specs/contracts/README.md`](../specs/contracts/README.md).
 
-To build a contract and generate TypeScript bindings with CLI `0.19.0`:
+To build a contract and generate TypeScript bindings with the CLI version pinned
+in [`scripts/integration-versions.json`](../scripts/integration-versions.json):
 
 ```bash
 groundhog build -p counter --bindings ts
