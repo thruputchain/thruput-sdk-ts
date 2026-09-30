@@ -88,8 +88,8 @@ using `GROUNDHOG_RPC_URL`, both overrides must identify the same local node.
 The local DevWallet transfers 100,000,000 base units (10 HOG) to each derived
 contract address before deployment so that address can pay the storage charge.
 This is wallet policy, not part of the protocol deployment mechanism. See
-[`docs/contract-deployment.md`](../docs/contract-deployment.md) for the full
-model and address derivation rules.
+[Gas and storage funding](../README.md#gas-and-storage-funding) for the funding
+model and the generated API docs (`npm run docs`) for address derivation.
 
 The Counter fixture and pinned spec come from
 [`groundhog-examples/contracts/counter`](https://github.com/groundhogchain/groundhog-examples/tree/56208548187a653af650b6c6b1708bac1b93b5e7/contracts/counter).
@@ -100,7 +100,8 @@ its canonical Groundhog contract hash is
 Wallet binding provenance and all canonical input hashes are recorded in
 [`specs/contracts/README.md`](../specs/contracts/README.md).
 
-To build a contract and generate TypeScript bindings with CLI `0.9.6`:
+To build a contract and generate TypeScript bindings with the CLI version pinned
+in `scripts/integration-versions.json`:
 
 ```bash
 groundhog build -p counter --bindings ts
