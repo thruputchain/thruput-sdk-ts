@@ -238,9 +238,11 @@ errors. It does not prefetch, retry, subscribe, or persist checkpoints. Applicat
 own processing and history-coverage checks; `latestBlock` is the indexer's head,
 not proof that the current page has covered every event through that block.
 
-A cursor continues one bounded historical walk, not future blocks. For a new scan,
-restart at the last stored row's height and deduplicate the reread block. Save rows
-and progress together. See the [pagination and restart walkthrough](https://docs.groundhog.dev/tutorials/add-events-to-a-contract/#resume-without-missing-events).
+A cursor continues one bounded historical walk, not future blocks. For ascending
+ingestion, start a new ascending walk with an empty cursor at the last stored
+row's height and deduplicate that block. Save rows and progress together. Refresh
+descending history from `anchor: "end"` with an empty cursor, not its oldest row.
+See the [pagination and restart walkthrough](https://docs.groundhog.dev/tutorials/add-events-to-a-contract/#resume-without-missing-events).
 
 Node.js applications targeting `groundhog node` can load a deterministic local
 signer from its active runtime manifest:
