@@ -343,6 +343,19 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       );
       assert.ok(third.receipt.height > second.receipt.height);
 
+      // Wait for indexer readiness before testing either walk. Reusing the old
+      // cursor below must still exclude the now-indexed third transfer.
+      const thirdIndexDeadline = Date.now() + eventsTimeoutMs;
+      for (;;) {
+        const indexed = await client.getContractEvents(query);
+        if (indexed.latestBlock >= third.receipt.height) break;
+        assert.ok(
+          Date.now() < thirdIndexDeadline,
+          "event indexer did not reach the third transfer",
+        );
+        await sleep(250);
+      }
+
       // A saved cursor finishes its original walk, excluding the later block.
       const resumed = [];
       for await (const page of client.iterateEventPages({
