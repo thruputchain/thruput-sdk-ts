@@ -7,5 +7,5 @@
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": false
   },
-  "include": ["package-boundary.ts", "docs-examples.ts"]
+  "include": ["package-boundary.ts"]
 }

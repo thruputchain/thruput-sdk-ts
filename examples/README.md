@@ -15,7 +15,7 @@ npm run example <name>
 | `chain-tip`        | Devnet   | Validated connection, chain tip, and nullable release identity |
 | `transfer-hog`     | Devnet   | Airdrops, pubkey accounts, DefaultWallet, and receipts         |
 | `view-hog-balance` | Localnet | Runtime account discovery and typed contract views             |
-| `deploy-counter`   | Localnet | Deployment, explicit roots, wallet adapters, and readback      |
+| `deploy-counter`   | Localnet | Deployment helpers, DevWallet, and readback                    |
 
 Set `GROUNDHOG_RPC_URL` to override a cluster's default endpoint. A Localnet
 override must also set `GROUNDHOG_RUNTIME_MANIFEST` to the manifest produced by
@@ -75,27 +75,6 @@ npm run example deploy-counter
 
 Set `GROUNDHOG_RUNTIME_MANIFEST` to override the active manifest path. When
 using `GROUNDHOG_RPC_URL`, both overrides must identify the same local node.
-
-## Event History
-
-For application-owned event ingestion, see [`event-history.ts`](event-history.ts).
-It is a reusable example function, not an additional CLI command. Supply a store
-scoped to one network and query that commits event upserts and progress together.
-The accompanying in-memory tests exercise restart, empty continuation pages,
-deduplication, and failed persistence; a production store must be durable.
-See the [worked walkthrough](https://docs.groundhog.dev/tutorials/add-events-to-a-contract/#resume-without-missing-events).
-
-With a matching local node running, exercise the example's checkpoint recovery:
-
-```bash
-GROUNDHOG_RPC_URL=http://127.0.0.1:9545 \
-GROUNDHOG_RUNTIME_MANIFEST=/path/to/runtime-manifest.json \
-node --import tsx --test tests/integration/docs-pagination.test.mjs
-```
-
-For a standalone gateway, set `GROUNDHOG_SETUP_RPC_URL` to the paired embedded
-node's RPC URL for local airdrops. The test seeds two events per transaction,
-interrupts persistence, adds a later block, and checks resumption against receipts.
 
 ## Contract Deployment
 

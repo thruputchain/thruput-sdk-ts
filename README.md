@@ -137,59 +137,53 @@ const transfer = ERC20.v0_1.transfer.invocation(tokenAddress, gasLimit, {
 Convert user input without floating-point arithmetic:
 
 ```ts
-import {
-  parseUnits,
-  formatUnits,
-  ParseUnitsError,
-} from "@groundhogchain/client";
+import { parseUnits, formatUnits } from "@groundhogchain/client";
 
 const amount = parseUnits("12.05", 2); // 1205n
 console.log(formatUnits(amount, 2)); // "12.05"
 ```
 
-Both helpers accept 0–255 decimals. Parsing rejects whitespace, exponent notation,
-and excess fractional digits, including trailing zeroes, with `ParseUnitsError`
-(`code: "malformed"` or `"precision"`). Invalid decimal counts throw `RangeError`.
-Signed amounts are supported; applications must separately check token positivity
-and ABI bounds. Formatting is exact, without display rounding.
+Parsing rejects malformed input and excess precision rather than rounding.
+Applications still check token positivity and size limits. See the
+[amount guide](https://docs.groundhog.dev/tools/typescript-sdk/#exact-amounts-and-common-types)
+for error handling and supported inputs.
 
 ### Cancellable reads
 
 Pass request options to public actions and put `signal` inside generated view options:
 
 ```ts
-import { classifyReadError } from "@groundhogchain/client";
-
 const controller = new AbortController();
 const { signal } = controller;
-try {
-  const balance = await ERC20.v0_1.getBalanceOf.view({
-    client,
-    contract: tokenAddress,
-    args: { addr: accountAddress },
-    signal,
-  });
-  console.log(balance.value);
-} catch (error) {
-  console.error(classifyReadError(error, { signal }), error);
-}
-// Call controller.abort() from the application's cancel or cleanup handler.
+const tip = await client.getChainTip({ signal });
+const balance = await ERC20.v0_1.getBalanceOf.view({
+  client,
+  contract: tokenAddress,
+  args: { addr: accountAddress },
+  signal,
+});
 ```
 
-Ordinary reads use forms such as `client.getChainTip({ signal })` and
-`client.getBalance(accountAddress, { signal })`. Bound views support the same signal.
-Classification returns `transient`, `permanent`, `cancelled`, or `unknown` without
-replacing the error. Pass the same signal to distinguish caller cancellation from
-a transport timeout. A plain `TypeError` is not proof of a network failure.
-Applications own retry budgets; classification never authorizes transaction
-resubmission. Cancellation of receipt observation does not cancel the transaction.
+Call `controller.abort()` from the application's cleanup handler. Bound views also
+accept a signal. `classifyReadError(error, { signal })` helps distinguish cancellation
+from infrastructure failures; applications own retry policy. Canceling observation
+does not cancel a transaction. See [read errors](https://docs.groundhog.dev/tools/typescript-sdk/#cancellation-and-read-errors).
 
-### Inspect arguments and release identity
+### Inspect arguments
 
 Use the descriptor for the known method to decode calldata:
 
 ```ts
 const { receiver, amount } = ERC20.v0_1.transfer.decodeArgs(transfer.calldata);
+```
+
+`decodeArgs` returns typed arguments and rejects incomplete or trailing bytes.
+It returns `undefined` for methods without arguments. Decoding does not verify the
+target contract's behavior.
+
+### Release diagnostics
+
+```ts
 const version = await client.getVersion();
 console.log(
   version.wireFormat,
@@ -198,9 +192,7 @@ console.log(
 );
 ```
 
-`decodeArgs` uses generated public names, rejects incomplete/trailing bytes, and
-returns `undefined` for methods without arguments. Decoding does not verify the
-target contract's behavior. Release identity and bundle digest can be `null`;
+Release identity and bundle digest can be `null`;
 they help diagnose installations. Use `wireFormat` for RPC compatibility decisions.
 
 ### Event pages
