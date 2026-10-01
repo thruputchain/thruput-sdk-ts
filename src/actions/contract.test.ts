@@ -350,6 +350,7 @@ describe("contract tests against specs/openrpc.json", () => {
   it("groundhog_view — sends a ViewRequest", async () => {
     const { transport, calls } = spyTransport({
       output: { result: "return", returnData: "0x" },
+      gasUsed: 42,
       events: [],
       height: 0,
     });

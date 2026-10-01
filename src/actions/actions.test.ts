@@ -291,6 +291,60 @@ describe("getPendingTransactionCount", () => {
 });
 
 describe("view", () => {
+  it.each([0, 4242, Number.MAX_SAFE_INTEGER, "18446744073709551615"])(
+    "parses gasUsed %s without losing precision",
+    async (gasUsed) => {
+      const transport: Transport = {
+        request: async <T>() =>
+          ({
+            output: { result: "return", returnData: "0x" },
+            events: [],
+            height: 1,
+            gasUsed,
+          }) as T,
+      };
+      const response = await view(transport, {
+        contract: contractAddress(new Uint8Array(32)),
+        entrypoint: contractEntrypointID(new Uint8Array(8)),
+        calldata: calldata(new Uint8Array()),
+      });
+      expect(response.gasUsed).toBe(BigInt(gasUsed));
+    },
+  );
+
+  it.each([
+    undefined,
+    null,
+    true,
+    "",
+    "-1",
+    "1.5",
+    "0x10",
+    "18446744073709551616",
+    -1,
+    0.5,
+    NaN,
+    Infinity,
+    Number.MAX_SAFE_INTEGER + 1,
+  ])("rejects missing or malformed view gasUsed %s", async (gasUsed) => {
+    const transport: Transport = {
+      request: async <T>() =>
+        ({
+          output: { result: "fault" },
+          events: [],
+          height: 1,
+          gasUsed,
+        }) as T,
+    };
+    await expect(
+      view(transport, {
+        contract: contractAddress(new Uint8Array(32)),
+        entrypoint: contractEntrypointID(new Uint8Array(8)),
+        calldata: calldata(new Uint8Array()),
+      }),
+    ).rejects.toThrow("expected gasUsed to be a u64");
+  });
+
   it("serializes request fields and parses return output with events", async () => {
     const calls: { method: string; params?: unknown[] }[] = [];
     const transport: Transport = {
@@ -298,6 +352,7 @@ describe("view", () => {
         calls.push({ method, params });
         return {
           output: { result: "return", returnData: "0x0102" },
+          gasUsed: 42,
           events: [
             {
               contractAddress: "0x" + "11".repeat(32),
@@ -341,6 +396,7 @@ describe("view", () => {
       },
     ]);
     expect(response.height).toBe(7n);
+    expect(response.gasUsed).toBe(42n);
   });
 
   it("omits caller when not provided and parses abort output", async () => {
@@ -350,6 +406,7 @@ describe("view", () => {
         calls.push({ method, params });
         return {
           output: { result: "abort", abortData: "0x0a0b" },
+          gasUsed: 42,
           events: [],
           height: 8,
         } as T;
@@ -377,6 +434,7 @@ describe("view", () => {
       abortData: new Uint8Array([0x0a, 0x0b]),
     });
     expect(response.height).toBe(8n);
+    expect(response.gasUsed).toBe(42n);
   });
 
   it("parses fault output", async () => {
@@ -384,6 +442,7 @@ describe("view", () => {
       async request<T>(): Promise<T> {
         return {
           output: { result: "fault" },
+          gasUsed: 42,
           events: [],
           height: 9,
         } as T;
@@ -398,6 +457,7 @@ describe("view", () => {
 
     expect(response.output).toEqual({ result: "fault" });
     expect(response.height).toBe(9n);
+    expect(response.gasUsed).toBe(42n);
   });
 
   it("rejects a response without an events array", async () => {
@@ -405,6 +465,7 @@ describe("view", () => {
       async request<T>(): Promise<T> {
         return {
           output: { result: "fault" },
+          gasUsed: 42,
           height: 9,
         } as T;
       },
@@ -437,6 +498,7 @@ describe("view", () => {
       async request<T>(): Promise<T> {
         return {
           output: { result: "fault" },
+          gasUsed: 42,
           events: [event],
           height: 9,
         } as T;

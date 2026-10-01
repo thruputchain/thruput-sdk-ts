@@ -174,11 +174,13 @@ export class MockTransport implements Transport {
     output: { result: "return"; returnData: string };
     events: never[];
     height: number;
+    gasUsed: number;
   } {
     return {
       output: { result: "return", returnData: "0x" },
       events: [],
       height: Number(this.#height),
+      gasUsed: 0,
     };
   }
 

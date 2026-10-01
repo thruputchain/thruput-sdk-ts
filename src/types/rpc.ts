@@ -229,6 +229,9 @@ export interface ViewResponse {
 
   /** Block height of the snapshot used for the view. */
   height: bigint;
+
+  /** Gas consumed by the root and nested frames; equals the budget on out-of-gas. */
+  gasUsed: bigint;
 }
 
 /** Current gateway knowledge of a submitted transaction. */

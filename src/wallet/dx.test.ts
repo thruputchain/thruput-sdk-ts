@@ -116,6 +116,7 @@ describe("contract execution DX", () => {
         view: async () => ({
           output: { result: "return", returnData: writer.finish() },
           height: 9n,
+          gasUsed: 42n,
           events: [],
         }),
       },

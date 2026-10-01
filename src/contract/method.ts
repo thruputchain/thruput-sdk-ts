@@ -37,6 +37,7 @@ export type MethodArgs<TArgs> = [TArgs] extends [void] ? [] : [args: TArgs];
 export interface ContractView<T> {
   value: T;
   height: bigint;
+  gasUsed: bigint;
   events: EmittedEvent[];
 }
 
@@ -61,11 +62,13 @@ export type ContractViewFailure<TException> =
       exception: TException;
       abortData: Uint8Array;
       height: bigint;
+      gasUsed: bigint;
       events: EmittedEvent[];
     }
   | {
       kind: "fault";
       height: bigint;
+      gasUsed: bigint;
       events: EmittedEvent[];
     };
 
@@ -459,7 +462,11 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
     },
 
     decodeView(response) {
-      const metadata = { height: response.height, events: response.events };
+      const metadata = {
+        height: response.height,
+        gasUsed: response.gasUsed,
+        events: response.events,
+      };
       if (response.output.result === "return")
         return {
           ...metadata,
@@ -493,6 +500,7 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
             kind: "return",
             value: method.decodeReturn(response.output.returnData),
             height: response.height,
+            gasUsed: response.gasUsed,
             events: response.events,
           };
         case "abort":
@@ -501,12 +509,14 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
             exception: method.decodeException(response.output.abortData),
             abortData: response.output.abortData,
             height: response.height,
+            gasUsed: response.gasUsed,
             events: response.events,
           };
         case "fault":
           return {
             kind: "fault",
             height: response.height,
+            gasUsed: response.gasUsed,
             events: response.events,
           };
       }
@@ -518,6 +528,7 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
         return {
           value: outcome.value,
           height: outcome.height,
+          gasUsed: outcome.gasUsed,
           events: outcome.events,
         };
       }
