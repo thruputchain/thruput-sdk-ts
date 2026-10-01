@@ -419,8 +419,8 @@ because its 1,000-unit credit cannot cover a new balance item's deposit.
 The live funding test verifies an excluded 1,000-unit first credit, a successful
 100,000-unit first credit with a deposit deduction, and a later 1,000-unit credit
 without another balance-item deposit. It uses 500,000 child gas and 1,000,000 root
-gas. Verified locally with CLI 0.19.0 and hog-devnode 0.1.29-rc.4; storage
-costs depend on runtime configuration.
+gas. Verified in Linux integration with CLI 0.21.0 and hog-devnode 0.1.29-rc.5;
+storage costs depend on runtime configuration.
 
 A deployed contract's storage needs HOG at its address too. The native deployment
 API above transfers the explicit `amount` before deploying and optionally
