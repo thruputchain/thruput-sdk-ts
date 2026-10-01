@@ -279,31 +279,25 @@ await wallet.requestAirdrop();
 const balance = await wallet.getBalance();
 ```
 
-Use `createSourceAddressAccount` for an existing account contract, including
-the wallets created by `groundhog node`:
+The schema-v3 runtime manifest from `groundhog node` identifies nonce-zero
+native pubkey accounts. `loadLocalDevAccount` verifies the derived public key
+and address against that manifest; older manifests are rejected.
 
 ```ts
-import { bitMap, weight } from "@groundhogchain/protocol";
 import {
-  createSourceAddressAccount,
+  createPubkeyAccount,
   createWalletClient,
-  devWalletAdapter,
 } from "@groundhogchain/client";
 import { loadLocalDevAccount } from "@groundhogchain/client/local-dev";
 
 const local = await loadLocalDevAccount();
-const account = createSourceAddressAccount({
-  address: local.address,
-  signers: [{ signer: local.signer, publicKeyId: 0n }],
-  allowedKeys: bitMap(0x01n),
-  requiredWeight: weight(1n),
-});
-const wallet = createWalletClient({
-  client,
-  account,
-  invocationAdapter: devWalletAdapter,
-});
+const account = createPubkeyAccount({ signer: local.signer, nonce: 0n });
+const wallet = createWalletClient({ client, account });
 ```
+
+Use `createSourceAddressAccount` with the appropriate invocation adapter for
+an existing account contract. Saved legacy contract-wallet identities remain
+separate from the native bootstrap accounts.
 
 Wallet clients prepare fresh transaction expiry and replay nonces, sign with
 the account's configured signers, and submit transactions. Pubkey accounts use

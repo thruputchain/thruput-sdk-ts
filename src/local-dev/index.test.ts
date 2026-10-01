@@ -11,6 +11,12 @@ const publicKeys = [
   "f5495b73debe0193757220005043944a3f03ff20cea7c4559db158eb1389e93f",
   "b8c09ac34f6c3ff58ddb549b19751d4e8b52f217fe6138f47322989c55a279a5",
 ] as const;
+// Native nonce-zero addresses emitted by the Rust/C++ bootstrap producers.
+const walletAddresses = [
+  "2cc86904001db73d9c9c3c1f420b2349e39d977d3cb59f90686932ec46aca1d9",
+  "0b849e46c4f956146c19f991cfe6db11169b9a18d382abd1ba1481284a8164d6",
+  "672e1a6065c5003378a87d992e74f946d25522ae20dbeb944555567d29a7d23d",
+] as const;
 const tempDirs: string[] = [];
 
 afterEach(async () => {
@@ -32,7 +38,7 @@ describe("loadLocalDevAccount", () => {
     expect(account.index).toBe(1);
     expect(account.keyName).toBe("dev-1");
     expect(account.role).toBe("local_user");
-    expect(toHex0x(account.address)).toBe(`0x${"01".repeat(32)}`);
+    expect(toHex0x(account.address)).toBe(`0x${walletAddresses[1]}`);
   });
 
   it("selects the faucet account", async () => {
@@ -49,7 +55,7 @@ describe("loadLocalDevAccount", () => {
     expect(account.index).toBe(0);
     expect(account.keyName).toBe("dev-0");
     expect(account.role).toBe("faucet");
-    expect(toHex0x(account.address)).toBe(`0x${"00".repeat(32)}`);
+    expect(toHex0x(account.address)).toBe(`0x${walletAddresses[0]}`);
   });
 
   it("reports when the requested role is unavailable", async () => {
@@ -75,7 +81,7 @@ describe("loadLocalDevAccount", () => {
     });
 
     expect(account.index).toBe(2);
-    expect(toHex0x(account.address)).toBe(`0x${"02".repeat(32)}`);
+    expect(toHex0x(account.address)).toBe(`0x${walletAddresses[2]}`);
   });
 
   it.each([-1, 0.5, Number.MAX_SAFE_INTEGER + 1])(
@@ -162,13 +168,22 @@ describe("loadLocalDevAccount", () => {
     );
   });
 
+  it("rejects a manifest address that is not the derived native identity", async () => {
+    const account = makeAccount(1, "local_user");
+    account.walletAddress = `0x${"ab".repeat(32)}`;
+    const fixture = await writeRuntimeFixture([account]);
+    await expect(loadLocalDevAccount({ env: fixture.env })).rejects.toThrow(
+      "Bootstrap address does not match nonce-zero native account dev-1",
+    );
+  });
+
   it("rejects unsupported manifests and derivation schemes", async () => {
     const fixture = await writeRuntimeFixture([makeAccount(1, "local_user")]);
     const manifest = makeManifest([makeAccount(1, "local_user")]);
 
     await writeFile(
       fixture.manifestPath,
-      JSON.stringify({ ...manifest, schemaVersion: 1 }),
+      JSON.stringify({ ...manifest, schemaVersion: 2 }),
     );
     await expect(loadLocalDevAccount({ env: fixture.env })).rejects.toThrow(
       "Unsupported Groundhog runtime manifest",
@@ -252,7 +267,7 @@ function makeAccount(index: number, role: string): FixtureAccount {
     index,
     role,
     publicKey: `0x${publicKey}`,
-    walletAddress: `0x${index.toString(16).padStart(2, "0").repeat(32)}`,
+    walletAddress: `0x${walletAddresses[index]}`,
   };
 }
 
@@ -261,7 +276,7 @@ const fixtureNetworkHash = "5a".repeat(32);
 
 function makeManifest(accounts: FixtureAccount[]) {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     kind: "hogd-dev-runtime",
     networkHash: fixtureNetworkHash,
     bootstrapAccountDerivation: {

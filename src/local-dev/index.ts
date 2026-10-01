@@ -10,6 +10,7 @@ import { parse } from "smol-toml";
 import { addressFromHex, fromHex, fromHex0x, toHex0x } from "../actions/hex.js";
 import { PrivateKeySigner } from "../signers/index.js";
 import type { Signer } from "../signers/index.js";
+import { createPubkeyAccount } from "../wallet/account.js";
 
 const supportedDerivationScheme = "groundhog-bootstrap-account-v1";
 const maxRuntimeManifestBytes = 1024 * 1024;
@@ -21,6 +22,7 @@ export interface LocalDevAccount {
   index: number;
   keyName: `dev-${number}`;
   role: LocalDevAccountRole;
+  /** Manifest-verified nonce-zero native pubkey account address. */
   address: ContractAddress;
   signer: Signer;
   /**
@@ -88,7 +90,7 @@ export async function loadLocalDevAccount(
     ),
     "Groundhog runtime manifest must be an object",
   );
-  if (manifest.schemaVersion !== 2 || manifest.kind !== "hogd-dev-runtime") {
+  if (manifest.schemaVersion !== 3 || manifest.kind !== "hogd-dev-runtime") {
     throw new Error("Unsupported Groundhog runtime manifest");
   }
   const derivation = requireRecord(
@@ -133,6 +135,19 @@ export async function loadLocalDevAccount(
     throw new Error(`Derived key does not match dev-${index}`);
   }
 
+  const address = addressFromHex(
+    requireString(
+      account.walletAddress,
+      "Bootstrap account is missing walletAddress",
+    ),
+  );
+  const nativeAccount = createPubkeyAccount({ signer, nonce: 0n });
+  if (toHex0x(address) !== toHex0x(nativeAccount.address)) {
+    throw new Error(
+      `Bootstrap address does not match nonce-zero native account dev-${index}`,
+    );
+  }
+
   // The manifest writes networkHash as bare hex, unlike its 0x-prefixed
   // walletAddress and publicKey. The prefix is tolerated so a later
   // normalization of the manifest does not break this reader.
@@ -153,12 +168,7 @@ export async function loadLocalDevAccount(
     index,
     keyName: `dev-${index}`,
     role,
-    address: addressFromHex(
-      requireString(
-        account.walletAddress,
-        "Bootstrap account is missing walletAddress",
-      ),
-    ),
+    address,
     signer,
     networkHash: toNetworkHash(sha256Hash(manifestNetworkHash)),
   };
