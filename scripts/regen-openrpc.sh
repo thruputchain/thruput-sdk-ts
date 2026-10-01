@@ -3,7 +3,7 @@ set -euo pipefail
 
 GENERATOR="${GROUNDHOG_OPENRPC_GENERATOR:-}"
 if [[ -z "$GENERATOR" ]]; then
-  cargo install groundhog-open-rpc-spec@0.19.0 --registry groundhog 2>/dev/null
+  cargo install groundhog-open-rpc-spec@0.21.0 --registry groundhog 2>/dev/null
   GENERATOR="groundhog-open-rpc-spec"
 fi
 SPEC="$(git rev-parse --show-toplevel)/specs/openrpc.json"

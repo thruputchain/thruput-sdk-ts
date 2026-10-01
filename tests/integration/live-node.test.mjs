@@ -8,9 +8,7 @@ import {
   PrivateKeySigner,
   createGroundhogClient,
   createPubkeyAccount,
-  createSourceAddressAccount,
   createWalletClient,
-  devWalletAdapter,
   localnet,
   prepareContractDeployment,
   createContractCodecContext,
@@ -36,8 +34,6 @@ import {
   Uint64Codec,
   deserializeCxs,
   gasAmount,
-  bitMap,
-  weight,
 } from "@groundhogchain/protocol";
 import versions from "../../scripts/integration-versions.json" with { type: "json" };
 import openrpcSpec from "../../specs/openrpc.json" with { type: "json" };
@@ -531,13 +527,7 @@ test(
     const local = await loadLocalDevAccount();
     const funder = createWalletClient({
       client,
-      account: createSourceAddressAccount({
-        address: local.address,
-        signers: [{ signer: local.signer, publicKeyId: 0n }],
-        allowedKeys: bitMap(1n),
-        requiredWeight: weight(1n),
-      }),
-      invocationAdapter: devWalletAdapter,
+      account: createPubkeyAccount({ signer: local.signer, nonce: 0n }),
     });
     const freshAccount = () =>
       createPubkeyAccount({ signer: new PrivateKeySigner(randomBytes(32)) });
@@ -578,8 +568,9 @@ test(
       () => client.getTransactionStatus(smallHash),
       (status) => status.status === "recentFailure",
     );
-    assert.equal(failure.conflict.code, "insufficientFunds");
-    assert.deepEqual(failure.conflict.address, smallRecipient.address);
+    assert.equal(failure.cause.kind, "dbConflict");
+    assert.equal(failure.cause.conflict.code, "insufficientFunds");
+    assert.deepEqual(failure.cause.conflict.address, smallRecipient.address);
     assert.equal((await balance(smallRecipient)).rawBalance, 0n);
 
     // A sufficient first credit can fund its own balance item: a prior faucet

@@ -291,6 +291,60 @@ describe("getPendingTransactionCount", () => {
 });
 
 describe("view", () => {
+  it.each([0, 4242, Number.MAX_SAFE_INTEGER, "18446744073709551615"])(
+    "parses gasUsed %s without losing precision",
+    async (gasUsed) => {
+      const transport: Transport = {
+        request: async <T>() =>
+          ({
+            output: { result: "return", returnData: "0x" },
+            events: [],
+            height: 1,
+            gasUsed,
+          }) as T,
+      };
+      const response = await view(transport, {
+        contract: contractAddress(new Uint8Array(32)),
+        entrypoint: contractEntrypointID(new Uint8Array(8)),
+        calldata: calldata(new Uint8Array()),
+      });
+      expect(response.gasUsed).toBe(BigInt(gasUsed));
+    },
+  );
+
+  it.each([
+    undefined,
+    null,
+    true,
+    "",
+    "-1",
+    "1.5",
+    "0x10",
+    "18446744073709551616",
+    -1,
+    0.5,
+    NaN,
+    Infinity,
+    Number.MAX_SAFE_INTEGER + 1,
+  ])("rejects missing or malformed view gasUsed %s", async (gasUsed) => {
+    const transport: Transport = {
+      request: async <T>() =>
+        ({
+          output: { result: "fault" },
+          events: [],
+          height: 1,
+          gasUsed,
+        }) as T,
+    };
+    await expect(
+      view(transport, {
+        contract: contractAddress(new Uint8Array(32)),
+        entrypoint: contractEntrypointID(new Uint8Array(8)),
+        calldata: calldata(new Uint8Array()),
+      }),
+    ).rejects.toThrow("expected gasUsed to be a u64");
+  });
+
   it("serializes request fields and parses return output with events", async () => {
     const calls: { method: string; params?: unknown[] }[] = [];
     const transport: Transport = {
@@ -298,6 +352,7 @@ describe("view", () => {
         calls.push({ method, params });
         return {
           output: { result: "return", returnData: "0x0102" },
+          gasUsed: 42,
           events: [
             {
               contractAddress: "0x" + "11".repeat(32),
@@ -341,6 +396,7 @@ describe("view", () => {
       },
     ]);
     expect(response.height).toBe(7n);
+    expect(response.gasUsed).toBe(42n);
   });
 
   it("omits caller when not provided and parses abort output", async () => {
@@ -350,6 +406,7 @@ describe("view", () => {
         calls.push({ method, params });
         return {
           output: { result: "abort", abortData: "0x0a0b" },
+          gasUsed: 42,
           events: [],
           height: 8,
         } as T;
@@ -377,6 +434,7 @@ describe("view", () => {
       abortData: new Uint8Array([0x0a, 0x0b]),
     });
     expect(response.height).toBe(8n);
+    expect(response.gasUsed).toBe(42n);
   });
 
   it("parses fault output", async () => {
@@ -384,6 +442,7 @@ describe("view", () => {
       async request<T>(): Promise<T> {
         return {
           output: { result: "fault" },
+          gasUsed: 42,
           events: [],
           height: 9,
         } as T;
@@ -398,6 +457,7 @@ describe("view", () => {
 
     expect(response.output).toEqual({ result: "fault" });
     expect(response.height).toBe(9n);
+    expect(response.gasUsed).toBe(42n);
   });
 
   it("rejects a response without an events array", async () => {
@@ -405,6 +465,7 @@ describe("view", () => {
       async request<T>(): Promise<T> {
         return {
           output: { result: "fault" },
+          gasUsed: 42,
           height: 9,
         } as T;
       },
@@ -437,6 +498,7 @@ describe("view", () => {
       async request<T>(): Promise<T> {
         return {
           output: { result: "fault" },
+          gasUsed: 42,
           events: [event],
           height: 9,
         } as T;
@@ -613,10 +675,13 @@ describe("getTransactionStatus", () => {
           return {
             status: "recentFailure",
             attemptHeight: "42",
-            conflict: {
-              address: "0x" + "ab".repeat(32),
-              key: "0x010203",
-              code,
+            cause: {
+              kind: "dbConflict",
+              conflict: {
+                address: "0x" + "ab".repeat(32),
+                key: "0x010203",
+                code,
+              },
             },
           } as T;
         },
@@ -630,10 +695,13 @@ describe("getTransactionStatus", () => {
       expect(status).toEqual({
         status: "recentFailure",
         attemptHeight: 42n,
-        conflict: {
-          address: contractAddress(new Uint8Array(32).fill(0xab)),
-          key: new Uint8Array([1, 2, 3]),
-          code,
+        cause: {
+          kind: "dbConflict",
+          conflict: {
+            address: contractAddress(new Uint8Array(32).fill(0xab)),
+            key: new Uint8Array([1, 2, 3]),
+            code,
+          },
         },
       });
     },
@@ -645,10 +713,13 @@ describe("getTransactionStatus", () => {
         return {
           status: "recentFailure",
           attemptHeight: 42,
-          conflict: {
-            address: "0x" + "ab".repeat(32),
-            key: "0x",
-            code: "newerConflictCode",
+          cause: {
+            kind: "dbConflict",
+            conflict: {
+              address: "0x" + "ab".repeat(32),
+              key: "0x",
+              code: "newerConflictCode",
+            },
           },
         } as T;
       },
@@ -661,8 +732,95 @@ describe("getTransactionStatus", () => {
 
     expect(status).toMatchObject({
       status: "recentFailure",
-      conflict: { code: "other" },
+      cause: { kind: "dbConflict", conflict: { code: "other" } },
     });
+  });
+
+  it.each([
+    "tooMany",
+    "blobTooLarge",
+    "notDeployable",
+    "duplicate",
+    "malformedArtifact",
+    "unsupportedFormat",
+    "unsupportedAbi",
+    "gasScheduleMismatch",
+    "memoryTooLarge",
+    "codeSizeInvalid",
+    "initialMemoryInvalid",
+    "digestMismatch",
+    "invalidProgram",
+    "other",
+    "futureCode",
+  ])("parses contract rejection code %s", async (code) => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return {
+          status: "recentFailure",
+          attemptHeight: "42",
+          cause: { kind: "contractRejected", contractIndex: 0xffffffff, code },
+        } as T;
+      },
+    };
+    await expect(
+      getTransactionStatus(transport, hashFromHex("0x" + "11".repeat(32))),
+    ).resolves.toEqual({
+      status: "recentFailure",
+      attemptHeight: 42n,
+      cause: {
+        kind: "contractRejected",
+        contractIndex: 0xffffffff,
+        code: code === "futureCode" ? "other" : code,
+      },
+    });
+  });
+
+  it.each(["other", "futureCause"])(
+    "preserves advisory status for %s causes",
+    async (kind) => {
+      const transport: Transport = {
+        async request<T>(): Promise<T> {
+          return {
+            status: "recentFailure",
+            attemptHeight: "42",
+            cause: { kind },
+          } as T;
+        },
+      };
+      await expect(
+        getTransactionStatus(transport, hashFromHex("0x" + "11".repeat(32))),
+      ).resolves.toEqual({
+        status: "recentFailure",
+        attemptHeight: 42n,
+        cause: { kind: "other" },
+      });
+    },
+  );
+
+  it.each([
+    undefined,
+    null,
+    [],
+    {},
+    { kind: 1 },
+    { kind: "dbConflict" },
+    ...[undefined, "0", -1, 0.5, 0x100000000, NaN, Infinity].map(
+      (contractIndex) => ({
+        kind: "contractRejected",
+        contractIndex,
+        code: "duplicate",
+      }),
+    ),
+    { kind: "contractRejected", contractIndex: 0, code: 7 },
+  ])("rejects malformed recent failure cause %j", async (cause) => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return { status: "recentFailure", attemptHeight: "42", cause } as T;
+      },
+    };
+    await expect(
+      getTransactionStatus(transport, hashFromHex("0x" + "11".repeat(32))),
+    ).rejects.toThrow("Invalid transaction status response");
   });
 
   it("returns other for explicit or unknown future statuses", async () => {

@@ -16,6 +16,20 @@ interface RawViewResponse {
   output: unknown;
   events: unknown;
   height: number | string;
+  gasUsed: unknown;
+}
+
+function parseGasUsed(value: unknown): bigint {
+  let parsed: bigint | undefined;
+  if (typeof value === "number" && Number.isSafeInteger(value)) {
+    parsed = BigInt(value);
+  } else if (typeof value === "string" && /^\d+$/.test(value)) {
+    parsed = BigInt(value);
+  }
+  if (parsed === undefined || parsed < 0n || parsed > 0xffff_ffff_ffff_ffffn) {
+    throw new Error("Invalid view response: expected gasUsed to be a u64");
+  }
+  return parsed;
 }
 
 function parseOutput(value: unknown): ViewOutput {
@@ -113,5 +127,6 @@ export async function view(
     output: parseOutput(response.output),
     events: response.events.map(parseEmittedEvent),
     height: BigInt(response.height),
+    gasUsed: parseGasUsed(response.gasUsed),
   };
 }

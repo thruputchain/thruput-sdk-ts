@@ -4,6 +4,8 @@ import type {
   TransportRequestOptions,
 } from "../../transport/types.js";
 import type {
+  ContractRejectCode,
+  TransactionFailureCause,
   ConflictCode,
   ConflictDiagnostic,
   TransactionStatus,
@@ -53,6 +55,65 @@ function parseConflictDiagnostic(value: unknown): ConflictDiagnostic {
     key: fromHex0x(conflict.key),
     code: parseConflictCode(conflict.code),
   };
+}
+
+const contractRejectionCodes = new Set<string>([
+  "tooMany",
+  "blobTooLarge",
+  "notDeployable",
+  "duplicate",
+  "malformedArtifact",
+  "unsupportedFormat",
+  "unsupportedAbi",
+  "gasScheduleMismatch",
+  "memoryTooLarge",
+  "codeSizeInvalid",
+  "initialMemoryInvalid",
+  "digestMismatch",
+  "invalidProgram",
+  "other",
+]);
+
+function parseFailureCause(value: unknown): TransactionFailureCause {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Invalid transaction status response: expected cause");
+  }
+  const cause = value as Record<string, unknown>;
+  if (typeof cause.kind !== "string") {
+    throw new Error("Invalid transaction status response: expected cause.kind");
+  }
+  switch (cause.kind) {
+    case "dbConflict":
+      return {
+        kind: "dbConflict",
+        conflict: parseConflictDiagnostic(cause.conflict),
+      };
+    case "contractRejected":
+      if (
+        typeof cause.contractIndex !== "number" ||
+        !Number.isInteger(cause.contractIndex) ||
+        cause.contractIndex < 0 ||
+        cause.contractIndex > 0xffff_ffff
+      ) {
+        throw new Error(
+          "Invalid transaction status response: expected cause.contractIndex as u32",
+        );
+      }
+      if (typeof cause.code !== "string") {
+        throw new Error(
+          "Invalid transaction status response: expected cause.code",
+        );
+      }
+      return {
+        kind: "contractRejected",
+        contractIndex: cause.contractIndex,
+        code: (contractRejectionCodes.has(cause.code)
+          ? cause.code
+          : "other") as ContractRejectCode,
+      };
+    default:
+      return { kind: "other" };
+  }
 }
 
 /** Return the gateway's current knowledge of a submitted transaction. */
@@ -106,7 +167,7 @@ export async function getTransactionStatus(
       return {
         status: "recentFailure",
         attemptHeight: BigInt(status.attemptHeight),
-        conflict: parseConflictDiagnostic(status.conflict),
+        cause: parseFailureCause(status.cause),
       };
     case "unknown":
       return { status: "unknown" };

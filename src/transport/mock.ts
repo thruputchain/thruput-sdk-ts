@@ -21,6 +21,14 @@ export class MockTransport implements Transport {
     switch (method) {
       case "groundhog_networkInfo":
         return this.#networkInfo() as T;
+      case "groundhog_serverLimits":
+        return {
+          maxViewGas: 100_000_000,
+          maxViewCalldataBytes: 65_536,
+          maxEventsPerPage: 200,
+          maxTransactionsPerPage: 200,
+          maxCursorBytes: 1024,
+        } as T;
       case "groundhog_chainConfig":
         return this.#chainConfig() as T;
       case "groundhog_requestAirdrop":
@@ -166,11 +174,13 @@ export class MockTransport implements Transport {
     output: { result: "return"; returnData: string };
     events: never[];
     height: number;
+    gasUsed: number;
   } {
     return {
       output: { result: "return", returnData: "0x" },
       events: [],
       height: Number(this.#height),
+      gasUsed: 0,
     };
   }
 

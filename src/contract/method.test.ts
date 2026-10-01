@@ -261,6 +261,7 @@ describe("contract argument decoding", () => {
       client: clientReturning({
         output: { result: "fault" },
         height: 0n,
+        gasUsed: 42n,
         events: [],
       }),
     });
@@ -484,6 +485,7 @@ describe("contract method views", () => {
         returnData: encode((writer) => writer.writeInt64(-8n)),
       },
       height: 12n,
+      gasUsed: 42n,
       events,
     });
 
@@ -494,7 +496,13 @@ describe("contract method views", () => {
         caller,
         args: { first: -2n, second: 5n },
       }),
-    ).resolves.toEqual({ kind: "return", value: -8n, height: 12n, events });
+    ).resolves.toEqual({
+      kind: "return",
+      value: -8n,
+      height: 12n,
+      gasUsed: 42n,
+      events,
+    });
     expect(client.view).toHaveBeenCalledWith({
       contract,
       entrypoint,
@@ -510,8 +518,11 @@ describe("contract method views", () => {
         returnData: encode((writer) => writer.writeInt64(17n)),
       },
       height: 13n,
+      gasUsed: 42n,
       events,
     });
+
+    expect(method.decodeView(await client.view()).gasUsed).toBe(42n);
 
     await expect(
       method.view({
@@ -519,7 +530,7 @@ describe("contract method views", () => {
         contract,
         args: { first: 1n, second: 2n },
       }),
-    ).resolves.toEqual({ value: 17n, height: 13n, events });
+    ).resolves.toEqual({ value: 17n, height: 13n, gasUsed: 42n, events });
   });
 
   it("returns declared exceptions and fault outcomes without throwing", async () => {
@@ -530,11 +541,13 @@ describe("contract method views", () => {
     const abortClient = clientReturning({
       output: { result: "abort", abortData },
       height: 20n,
+      gasUsed: 42n,
       events,
     });
     const faultClient = clientReturning({
       output: { result: "fault" },
       height: 21n,
+      gasUsed: 42n,
       events,
     });
     const args = { first: 1n, second: 2n };
@@ -551,11 +564,12 @@ describe("contract method views", () => {
       },
       abortData,
       height: 20n,
+      gasUsed: 42n,
       events,
     });
     await expect(
       method.viewOutcome({ client: faultClient, contract, args }),
-    ).resolves.toEqual({ kind: "fault", height: 21n, events });
+    ).resolves.toEqual({ kind: "fault", height: 21n, gasUsed: 42n, events });
   });
 
   it("returns unknown exceptions in abort outcomes losslessly", async () => {
@@ -563,6 +577,7 @@ describe("contract method views", () => {
     const client = clientReturning({
       output: { result: "abort", abortData },
       height: 30n,
+      gasUsed: 42n,
       events,
     });
 
@@ -585,6 +600,7 @@ describe("contract method views", () => {
       const client = clientReturning({
         output: result === "abort" ? { result, abortData } : { result },
         height: 1n,
+        gasUsed: 42n,
         events,
       });
 
@@ -595,7 +611,7 @@ describe("contract method views", () => {
       });
       await expect(promise).rejects.toBeInstanceOf(ContractViewError);
       await expect(promise).rejects.toMatchObject({
-        outcome: { kind: result },
+        outcome: { kind: result, gasUsed: 42n },
       });
     },
   );

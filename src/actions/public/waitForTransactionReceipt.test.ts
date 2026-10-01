@@ -8,7 +8,10 @@ import {
   JsonRpcError,
 } from "../../transport/http.js";
 import { hashFromHex } from "../hex.js";
-import { waitForTransactionReceipt } from "./waitForTransactionReceipt.js";
+import {
+  TransactionReceiptTimeoutError,
+  waitForTransactionReceipt,
+} from "./waitForTransactionReceipt.js";
 
 const txHash = hashFromHex("0x" + "11".repeat(32));
 const rawReceipt = {
@@ -115,34 +118,48 @@ describe("waitForTransactionReceipt", () => {
     expect(receipt.abortData).toEqual(new Uint8Array([1, 2]));
   });
 
-  it("continues polling after an advisory recent failure", async () => {
-    let receiptQueries = 0;
-    const transport: Transport = {
-      async request<T>(method: string): Promise<T> {
-        if (method === "groundhog_getTransactionReceipt") {
-          receiptQueries += 1;
-          return (receiptQueries === 1 ? null : rawReceipt) as T;
-        }
-        return {
-          status: "recentFailure",
-          attemptHeight: "41",
-          conflict: {
-            address: "0x" + "22".repeat(32),
-            key: "0x0102",
-            code: "exclusiveLock",
-          },
-        } as T;
+  it.each([
+    {
+      kind: "dbConflict",
+      conflict: {
+        address: "0x" + "22".repeat(32),
+        key: "0x0102",
+        code: "exclusiveLock",
       },
-    };
-
-    await expect(
-      waitForTransactionReceipt(transport, txHash, {
-        timeoutMs: 100,
-        pollingIntervalMs: 0,
-      }),
-    ).resolves.toMatchObject({ height: 42n });
-    expect(receiptQueries).toBe(2);
-  });
+    },
+    { kind: "contractRejected", contractIndex: 0, code: "duplicate" },
+    { kind: "other" },
+  ])(
+    "continues polling after advisory $kind and reports progress",
+    async (cause) => {
+      let receiptQueries = 0;
+      const statuses: unknown[] = [];
+      const transport: Transport = {
+        async request<T>(method: string): Promise<T> {
+          if (method === "groundhog_getTransactionReceipt") {
+            receiptQueries += 1;
+            return (receiptQueries === 1 ? null : rawReceipt) as T;
+          }
+          return { status: "recentFailure", attemptHeight: "41", cause } as T;
+        },
+      };
+      await expect(
+        waitForTransactionReceipt(transport, txHash, {
+          timeoutMs: 100,
+          pollingIntervalMs: 0,
+          onStatus: (status) => statuses.push(status),
+        }),
+      ).resolves.toMatchObject({ height: 42n });
+      expect(receiptQueries).toBe(2);
+      expect(statuses).toEqual([
+        expect.objectContaining({
+          status: "recentFailure",
+          attemptHeight: 41n,
+          cause: expect.objectContaining({ kind: cause.kind }),
+        }),
+      ]);
+    },
+  );
 
   it("continues polling when the advisory status query fails", async () => {
     let receiptQueries = 0;
@@ -280,34 +297,53 @@ describe("waitForTransactionReceipt", () => {
     ).rejects.toThrow(`Transaction 0x${"11".repeat(32)} was rejected: expired`);
   });
 
-  it("includes the last advisory failure when polling times out", async () => {
-    const transport: Transport = {
-      async request<T>(method: string): Promise<T> {
-        return (
-          method === "groundhog_getTransactionReceipt"
-            ? null
-            : {
-                status: "recentFailure",
-                attemptHeight: 41,
-                conflict: {
-                  address: "0x" + "22".repeat(32),
-                  key: "0x0102",
-                  code: "exclusiveLock",
-                },
-              }
-        ) as T;
+  it.each([
+    [
+      {
+        kind: "dbConflict",
+        conflict: {
+          address: "0x" + "22".repeat(32),
+          key: "0x0102",
+          code: "exclusiveLock",
+        },
       },
-    };
-
-    await expect(
-      waitForTransactionReceipt(transport, txHash, {
+      "exclusiveLock conflict",
+    ],
+    [
+      { kind: "contractRejected", contractIndex: 2, code: "malformedArtifact" },
+      "malformedArtifact rejection of new contract at index 2",
+    ],
+    [{ kind: "other" }, "unknown failure cause"],
+  ])(
+    "includes advisory failure %j when polling times out",
+    async (cause, message) => {
+      const transport: Transport = {
+        async request<T>(method: string): Promise<T> {
+          return (
+            method === "groundhog_getTransactionReceipt"
+              ? null
+              : {
+                  status: "recentFailure",
+                  attemptHeight: 41,
+                  cause,
+                }
+          ) as T;
+        },
+      };
+      const error = await waitForTransactionReceipt(transport, txHash, {
         timeoutMs: 50,
         pollingIntervalMs: 100,
-      }),
-    ).rejects.toThrow(
-      "Last advisory failure at height 41: exclusiveLock conflict",
-    );
-  });
+      }).catch((error) => error);
+      expect(error).toBeInstanceOf(TransactionReceiptTimeoutError);
+      expect(error.message).toContain(
+        `Last advisory failure at height 41: ${message}`,
+      );
+      expect(error.lastStatus).toMatchObject({
+        status: "recentFailure",
+        cause: { kind: cause.kind },
+      });
+    },
+  );
 
   it("does not query the transport when the timeout is zero", async () => {
     let queries = 0;

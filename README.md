@@ -279,31 +279,25 @@ await wallet.requestAirdrop();
 const balance = await wallet.getBalance();
 ```
 
-Use `createSourceAddressAccount` for an existing account contract, including
-the wallets created by `groundhog node`:
+The schema-v3 runtime manifest from `groundhog node` identifies nonce-zero
+native pubkey accounts. `loadLocalDevAccount` verifies the derived public key
+and address against that manifest; older manifests are rejected.
 
 ```ts
-import { bitMap, weight } from "@groundhogchain/protocol";
 import {
-  createSourceAddressAccount,
+  createPubkeyAccount,
   createWalletClient,
-  devWalletAdapter,
 } from "@groundhogchain/client";
 import { loadLocalDevAccount } from "@groundhogchain/client/local-dev";
 
 const local = await loadLocalDevAccount();
-const account = createSourceAddressAccount({
-  address: local.address,
-  signers: [{ signer: local.signer, publicKeyId: 0n }],
-  allowedKeys: bitMap(0x01n),
-  requiredWeight: weight(1n),
-});
-const wallet = createWalletClient({
-  client,
-  account,
-  invocationAdapter: devWalletAdapter,
-});
+const account = createPubkeyAccount({ signer: local.signer, nonce: 0n });
+const wallet = createWalletClient({ client, account });
 ```
+
+Use `createSourceAddressAccount` with the appropriate invocation adapter for
+an existing account contract. Saved legacy contract-wallet identities remain
+separate from the native bootstrap accounts.
 
 Wallet clients prepare fresh transaction expiry and replay nonces, sign with
 the account's configured signers, and submit transactions. Pubkey accounts use
@@ -425,8 +419,8 @@ because its 1,000-unit credit cannot cover a new balance item's deposit.
 The live funding test verifies an excluded 1,000-unit first credit, a successful
 100,000-unit first credit with a deposit deduction, and a later 1,000-unit credit
 without another balance-item deposit. It uses 500,000 child gas and 1,000,000 root
-gas. Verified locally with CLI 0.19.0 and hog-devnode 0.1.29-rc.4; storage
-costs depend on runtime configuration.
+gas. Verified in Linux integration with CLI 0.21.0 and hog-devnode 0.1.29-rc.5;
+storage costs depend on runtime configuration.
 
 A deployed contract's storage needs HOG at its address too. The native deployment
 API above transfers the explicit `amount` before deploying and optionally

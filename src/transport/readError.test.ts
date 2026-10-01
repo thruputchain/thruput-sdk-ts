@@ -69,7 +69,12 @@ describe("read error classification", () => {
     for (const error of [
       new ContractDecodeError("bad calldata", { cause }),
       new InvalidTransactionReceiptError("bad receipt", { cause }),
-      new ContractViewError({ kind: "fault", height: 1n, events: [] }),
+      new ContractViewError({
+        kind: "fault",
+        height: 1n,
+        gasUsed: 42n,
+        events: [],
+      }),
       new SyntaxError("bad JSON"),
       new Error("Invalid JSON-RPC response"),
     ])
