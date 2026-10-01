@@ -33,3 +33,4 @@ export { iterateEventPages } from "./iterateEventPages.js";
 export { getStorageAt } from "./getStorageAt.js";
 export { getVersion } from "./getVersion.js";
 export { view } from "./view.js";
+export { getServerLimits } from "./getServerLimits.js";

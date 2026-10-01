@@ -34,6 +34,7 @@ import { getBlockByNumber } from "./public/getBlockByNumber.js";
 import { getEvents } from "./public/getEvents.js";
 import { getPendingTransactionCount } from "./public/getPendingTransactionCount.js";
 import { getNetworkInfo } from "./public/getNetworkInfo.js";
+import { getServerLimits } from "./public/getServerLimits.js";
 import { getChainConfig } from "./public/getChainConfig.js";
 import { requestAirdropAttempt } from "./public/requestAirdrop.js";
 import { getStorageAt } from "./public/getStorageAt.js";
@@ -377,6 +378,20 @@ describe("contract tests against specs/openrpc.json", () => {
     expect(config.maxNewContractsPerTx).toBe(4);
     expect(config.maxRv32CodeBytes).toBe(65_536);
     expect(config.maxContractSizeBytes).toBeNull();
+  });
+
+  it("groundhog_serverLimits — sends an empty params array", async () => {
+    const limits = {
+      maxViewGas: 100_000_000,
+      maxViewCalldataBytes: 65_536,
+      maxEventsPerPage: 200,
+      maxTransactionsPerPage: 200,
+      maxCursorBytes: 1024,
+    };
+    const { transport, calls } = spyTransport(limits);
+    await expect(getServerLimits(transport)).resolves.toEqual(limits);
+    expect(calls).toHaveLength(1);
+    assertCapturedParamsMatchSpec("groundhog_serverLimits", calls[0]);
   });
 
   it("covers every method in specs/openrpc.json", () => {

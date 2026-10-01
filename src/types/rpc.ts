@@ -57,6 +57,20 @@ export interface NetworkConfigParams {
   readonly maxSha256Buffers: number | null;
 }
 
+/** Endpoint request bounds, which may vary between servers on the same chain. */
+export interface ServerLimits {
+  /** Maximum view gas, also used when a view omits its gas limit. */
+  readonly maxViewGas: number;
+  /** Maximum view calldata size in bytes. */
+  readonly maxViewCalldataBytes: number;
+  /** Maximum events requested in one page. */
+  readonly maxEventsPerPage: number;
+  /** Maximum transactions requested in one address-history page. */
+  readonly maxTransactionsPerPage: number;
+  /** Maximum opaque cursor size in bytes. */
+  readonly maxCursorBytes: number;
+}
+
 /** One idempotent airdrop attempt. */
 export interface AirdropAttemptRequest {
   /** Address to fund. */

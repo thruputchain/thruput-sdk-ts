@@ -21,6 +21,7 @@ import type {
   StorageItemRead,
   NetworkInfo,
   NetworkConfigParams,
+  ServerLimits,
 } from "./types/rpc.js";
 import type { Cluster, ClusterHasCapability } from "./cluster.js";
 import { assertNetworkMatchesCluster, defineCluster } from "./cluster.js";
@@ -55,6 +56,7 @@ import {
 import { iterateEventPages } from "./actions/public/iterateEventPages.js";
 import { getStorageAt } from "./actions/public/getStorageAt.js";
 import { getVersion } from "./actions/public/getVersion.js";
+import { getServerLimits } from "./actions/public/getServerLimits.js";
 import { getChainConfig } from "./actions/public/getChainConfig.js";
 import { view } from "./actions/public/view.js";
 import { sendTransaction } from "./actions/wallet/sendTransaction.js";
@@ -100,6 +102,9 @@ export interface CoreGroundhogClient {
   getChainConfig(
     options?: TransportRequestOptions,
   ): Promise<NetworkConfigParams>;
+
+  /** Return request bounds configured on this endpoint. */
+  getServerLimits(options?: TransportRequestOptions): Promise<ServerLimits>;
 
   /** Execute a read-only contract invocation without submitting a transaction. */
   view(
@@ -189,6 +194,7 @@ function createCoreGroundhogClient(transport: Transport): CoreGroundhogClient {
     getPendingTransactionCount: (options) =>
       getPendingTransactionCount(transport, options),
     getVersion: (options) => getVersion(transport, options),
+    getServerLimits: (options) => getServerLimits(transport, options),
     getChainConfig: (options) => getChainConfig(transport, options),
     view: (request, options) => view(transport, request, options),
     getTransactionReceipt: (txHash, options) =>
