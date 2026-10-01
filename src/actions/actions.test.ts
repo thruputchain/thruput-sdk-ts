@@ -613,10 +613,13 @@ describe("getTransactionStatus", () => {
           return {
             status: "recentFailure",
             attemptHeight: "42",
-            conflict: {
-              address: "0x" + "ab".repeat(32),
-              key: "0x010203",
-              code,
+            cause: {
+              kind: "dbConflict",
+              conflict: {
+                address: "0x" + "ab".repeat(32),
+                key: "0x010203",
+                code,
+              },
             },
           } as T;
         },
@@ -630,10 +633,13 @@ describe("getTransactionStatus", () => {
       expect(status).toEqual({
         status: "recentFailure",
         attemptHeight: 42n,
-        conflict: {
-          address: contractAddress(new Uint8Array(32).fill(0xab)),
-          key: new Uint8Array([1, 2, 3]),
-          code,
+        cause: {
+          kind: "dbConflict",
+          conflict: {
+            address: contractAddress(new Uint8Array(32).fill(0xab)),
+            key: new Uint8Array([1, 2, 3]),
+            code,
+          },
         },
       });
     },
@@ -645,10 +651,13 @@ describe("getTransactionStatus", () => {
         return {
           status: "recentFailure",
           attemptHeight: 42,
-          conflict: {
-            address: "0x" + "ab".repeat(32),
-            key: "0x",
-            code: "newerConflictCode",
+          cause: {
+            kind: "dbConflict",
+            conflict: {
+              address: "0x" + "ab".repeat(32),
+              key: "0x",
+              code: "newerConflictCode",
+            },
           },
         } as T;
       },
@@ -661,8 +670,95 @@ describe("getTransactionStatus", () => {
 
     expect(status).toMatchObject({
       status: "recentFailure",
-      conflict: { code: "other" },
+      cause: { kind: "dbConflict", conflict: { code: "other" } },
     });
+  });
+
+  it.each([
+    "tooMany",
+    "blobTooLarge",
+    "notDeployable",
+    "duplicate",
+    "malformedArtifact",
+    "unsupportedFormat",
+    "unsupportedAbi",
+    "gasScheduleMismatch",
+    "memoryTooLarge",
+    "codeSizeInvalid",
+    "initialMemoryInvalid",
+    "digestMismatch",
+    "invalidProgram",
+    "other",
+    "futureCode",
+  ])("parses contract rejection code %s", async (code) => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return {
+          status: "recentFailure",
+          attemptHeight: "42",
+          cause: { kind: "contractRejected", contractIndex: 0xffffffff, code },
+        } as T;
+      },
+    };
+    await expect(
+      getTransactionStatus(transport, hashFromHex("0x" + "11".repeat(32))),
+    ).resolves.toEqual({
+      status: "recentFailure",
+      attemptHeight: 42n,
+      cause: {
+        kind: "contractRejected",
+        contractIndex: 0xffffffff,
+        code: code === "futureCode" ? "other" : code,
+      },
+    });
+  });
+
+  it.each(["other", "futureCause"])(
+    "preserves advisory status for %s causes",
+    async (kind) => {
+      const transport: Transport = {
+        async request<T>(): Promise<T> {
+          return {
+            status: "recentFailure",
+            attemptHeight: "42",
+            cause: { kind },
+          } as T;
+        },
+      };
+      await expect(
+        getTransactionStatus(transport, hashFromHex("0x" + "11".repeat(32))),
+      ).resolves.toEqual({
+        status: "recentFailure",
+        attemptHeight: 42n,
+        cause: { kind: "other" },
+      });
+    },
+  );
+
+  it.each([
+    undefined,
+    null,
+    [],
+    {},
+    { kind: 1 },
+    { kind: "dbConflict" },
+    ...[undefined, "0", -1, 0.5, 0x100000000, NaN, Infinity].map(
+      (contractIndex) => ({
+        kind: "contractRejected",
+        contractIndex,
+        code: "duplicate",
+      }),
+    ),
+    { kind: "contractRejected", contractIndex: 0, code: 7 },
+  ])("rejects malformed recent failure cause %j", async (cause) => {
+    const transport: Transport = {
+      async request<T>(): Promise<T> {
+        return { status: "recentFailure", attemptHeight: "42", cause } as T;
+      },
+    };
+    await expect(
+      getTransactionStatus(transport, hashFromHex("0x" + "11".repeat(32))),
+    ).rejects.toThrow("Invalid transaction status response");
   });
 
   it("returns other for explicit or unknown future statuses", async () => {

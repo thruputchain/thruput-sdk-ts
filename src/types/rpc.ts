@@ -225,10 +225,39 @@ export type TransactionStatus =
   | {
       status: "recentFailure";
       attemptHeight: bigint;
-      conflict: ConflictDiagnostic;
+      /** Advisory attempt failure; does not establish a terminal outcome. */
+      cause: TransactionFailureCause;
     }
   | { status: "other" }
   | { status: "unknown" };
+
+/** Cause of a recent failed attempt; the transaction may still commit later. */
+export type TransactionFailureCause =
+  | { kind: "dbConflict"; conflict: ConflictDiagnostic }
+  | {
+      kind: "contractRejected";
+      /** Zero-based index in the transaction's new-contract list. */
+      contractIndex: number;
+      code: ContractRejectCode;
+    }
+  | { kind: "other" };
+
+/** Coarse reason a new contract was rejected during a recent attempt. */
+export type ContractRejectCode =
+  | "tooMany"
+  | "blobTooLarge"
+  | "notDeployable"
+  | "duplicate"
+  | "malformedArtifact"
+  | "unsupportedFormat"
+  | "unsupportedAbi"
+  | "gasScheduleMismatch"
+  | "memoryTooLarge"
+  | "codeSizeInvalid"
+  | "initialMemoryInvalid"
+  | "digestMismatch"
+  | "invalidProgram"
+  | "other";
 
 /** Coarse reason a storage operation conflicted during two-phase commit. */
 export type ConflictCode =

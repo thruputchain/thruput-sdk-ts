@@ -4,7 +4,11 @@ import {
   type NetworkHash,
 } from "@groundhogchain/protocol";
 import type { Transport } from "../../transport/types.js";
-import type { TransactionReceipt, TransactionStatus } from "../../types/rpc.js";
+import type {
+  TransactionReceipt,
+  TransactionStatus,
+  TransactionFailureCause,
+} from "../../types/rpc.js";
 import { GroundhogRpcErrorCode, JsonRpcError } from "../../transport/http.js";
 import { classifyReadError } from "../../transport/readError.js";
 import { getNetworkInfo } from "./getNetworkInfo.js";
@@ -38,7 +42,7 @@ export class TransactionReceiptTimeoutError extends Error {
     super(
       `Timed out waiting for transaction receipt ${toHex0x(txHash)}` +
         (lastStatus?.status === "recentFailure"
-          ? `. Last advisory failure at height ${lastStatus.attemptHeight}: ${lastStatus.conflict.code} conflict at ${toHex0x(lastStatus.conflict.address)} key ${toHex0x(lastStatus.conflict.key)}`
+          ? `. Last advisory failure at height ${lastStatus.attemptHeight}: ${failureMessage(lastStatus.cause)}`
           : "") +
         (cause ? `. Last receipt query failed: ${errorMessage(cause)}` : ""),
       { cause },
@@ -207,4 +211,15 @@ function isRetryableReceiptFailure(cause: unknown): boolean {
 
 function errorMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
+}
+
+function failureMessage(cause: TransactionFailureCause): string {
+  switch (cause.kind) {
+    case "dbConflict":
+      return `${cause.conflict.code} conflict at ${toHex0x(cause.conflict.address)} key ${toHex0x(cause.conflict.key)}`;
+    case "contractRejected":
+      return `${cause.code} rejection of new contract at index ${cause.contractIndex}`;
+    case "other":
+      return "unknown failure cause";
+  }
 }
