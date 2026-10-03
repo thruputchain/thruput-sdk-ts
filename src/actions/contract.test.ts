@@ -52,6 +52,11 @@ import { PrivateKeySigner } from "../signers/privateKey.js";
 import { createInvocation, createTransaction } from "../transaction/build.js";
 import { signTransaction } from "../transaction/sign.js";
 import type { Transport } from "../transport/types.js";
+import {
+  GroundhogRpcErrorCode,
+  HttpTransport,
+  JsonRpcError,
+} from "../transport/http.js";
 import type { SHA256Hash, SignedTransaction } from "@groundhogchain/protocol";
 
 // ---- ajv setup ---------------------------------------------------------
@@ -417,6 +422,43 @@ describe("contract tests against specs/openrpc.json", () => {
     });
     assertCapturedParamsMatchSpec("groundhog_fundAccount", calls[0]);
     expect(result.signedTransaction).toEqual(bytes);
+  });
+
+  it("local funding preserves unresolved transaction evidence from HTTP RPC errors", async () => {
+    const signed = await makeDummySignedTx();
+    const evidence = {
+      txHash: toHex0x(hashSignedTransaction(signed)),
+      signedTransaction: toHex0x(serializeSignedTransaction(signed)),
+    };
+    let requests = 0;
+    const transport = new HttpTransport("http://localhost:8080", {
+      fetch: async (_input, init) => {
+        requests++;
+        const request = JSON.parse(init?.body as string);
+        return Response.json({
+          jsonrpc: "2.0",
+          id: request.id,
+          error: {
+            code: GroundhogRpcErrorCode.LocalFundingUnresolved,
+            message: "Local funding outcome is unresolved",
+            data: evidence,
+          },
+        });
+      },
+    });
+    const result = fundAccount(transport, {
+      recipient: contractAddress(new Uint8Array(32).fill(0x55)),
+      faucet: contractAddress(new Uint8Array(32).fill(0x44)),
+      rawAmount: 1000000000n,
+      clientNonce: new Uint8Array([1, 2, 3]),
+    });
+    await expect(result).rejects.toBeInstanceOf(JsonRpcError);
+    await expect(result).rejects.toMatchObject({
+      code: GroundhogRpcErrorCode.LocalFundingUnresolved,
+      method: "groundhog_fundAccount",
+      data: evidence,
+    });
+    expect(requests).toBe(1);
   });
 
   it("local funding retries preserve the caller request after a lost response", async () => {
