@@ -43,10 +43,12 @@ export interface LoadLocalDevAccountOptions {
 }
 
 /**
- * Load one account from the active `groundhog node` manifest.
+ * Load one deterministic account from a hosted Devnet manifest.
  *
- * This Node.js-only helper is intended for local development. Its deterministic
- * signer must not be used with production networks or funds of value.
+ * @deprecated New local runtimes expose public allocations only. Own a signer and
+ * use `createPubkeyAccount`. This legacy hosted adapter accepts
+ * `GROUNDHOG_RUNTIME_MANIFEST`; use the previous package with old local state.
+ * Deterministic fixture signers must not hold funds of value.
  */
 export async function loadLocalDevAccount(
   options: LoadLocalDevAccountOptions = {},
@@ -90,7 +92,17 @@ export async function loadLocalDevAccount(
     ),
     "Groundhog runtime manifest must be an object",
   );
-  if (manifest.schemaVersion !== 3 || manifest.kind !== "hogd-dev-runtime") {
+  if (manifest.kind === "hogd-dev-runtime") {
+    throw new Error(
+      manifest.schemaVersion === 4
+        ? "Local runtime manifests contain public accounts only. Supply your own PrivateKeySigner and createPubkeyAccount; fund it with an explicit public allocation or local funding request."
+        : "Old local runtimes require their previous tooling. Use a fresh node with ordinary accounts for new development.",
+    );
+  }
+  if (
+    manifest.schemaVersion !== 3 ||
+    manifest.kind !== "hosted-devnet-runtime"
+  ) {
     throw new Error("Unsupported Groundhog runtime manifest");
   }
   const derivation = requireRecord(

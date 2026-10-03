@@ -2,7 +2,7 @@
 
 The `../src/...` imports run these examples against this checkout. Applications
 should install the package and import from `@groundhogchain/client`,
-`@groundhogchain/client/contracts`, and `@groundhogchain/client/local-dev`.
+`@groundhogchain/client/contracts`.
 
 Run examples from the repository root:
 
@@ -14,7 +14,7 @@ npm run example <name>
 | ------------------ | -------- | -------------------------------------------------------------- |
 | `chain-tip`        | Devnet   | Validated connection, chain tip, and nullable release identity |
 | `transfer-hog`     | Devnet   | Airdrops, pubkey accounts, DefaultWallet, and receipts         |
-| `view-hog-balance` | Localnet | Runtime account discovery and typed contract views             |
+| `view-hog-balance` | Localnet | Public account address and typed contract views                |
 | `deploy-counter`   | Localnet | Native wallet funding, atomic initialization, and readback     |
 
 Set `GROUNDHOG_RPC_URL` to override a cluster's default endpoint. A Localnet
@@ -55,16 +55,15 @@ Start a local node before running the Localnet examples:
 groundhog node
 ```
 
-The node records its runtime manifest in the global Groundhog configuration.
-`loadLocalDevAccount()` reads that manifest and loads its first `local_user`,
-normally `dev-1`. These deterministic signers are for local development only.
-Never use them with production networks or funds of value.
-
-Read `dev-1`'s HOG balance through the generated ERC-20 binding:
+Read an ordinary account's HOG balance through the generated ERC-20 binding.
+Supply its public address; this read does not need a signer:
 
 ```bash
-npm run example view-hog-balance
+GROUNDHOG_ADDRESS=0x... npm run example view-hog-balance
 ```
+
+Local manifests contain public accounts only. Each signing example owns its key
+and funds it explicitly. It cannot recover a private key from a manifest.
 
 Create a native wallet, fund it explicitly, deploy and initialize the included
 Counter contract, increment it, and read the committed value:
