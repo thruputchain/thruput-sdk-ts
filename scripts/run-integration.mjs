@@ -266,6 +266,7 @@ async function main() {
       "--test-concurrency=1",
       `--test-timeout=${runnerTimeoutMs}`,
       join(repo, "tests/integration/live-node.test.mjs"),
+      join(repo, "tests/integration/local-funding.test.mjs"),
     ],
     {
       ...env,

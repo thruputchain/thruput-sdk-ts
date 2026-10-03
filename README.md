@@ -76,7 +76,10 @@ console.log(airdrop.txHash, airdrop.rawAmount);
 ```
 
 Remote airdrops retain the faucet's per-recipient cooldown and share the
-gateway's configured aggregate quota. Localnet airdrops are unlimited. Use
+gateway's configured aggregate quota. Localnet has no hosted cooldown, but its
+funding journal retains at most 1024 attempts per chain across `requestAirdrop`
+and `fundAccount`. It rejects new requests at capacity and keeps existing requests
+available for reconciliation. Use
 `requestAirdropAttempt` when an application needs to persist the nonce or
 control polling itself.
 
@@ -661,3 +664,9 @@ node --test --test-concurrency=1 tests/integration/live-node.test.mjs
 ```
 
 The tests do not perform capability discovery or fall back on unsupported runtimes.
+
+For local funding recovery, retain the original request before sending it.
+A `LocalFundingUnresolved` RPC error preserves the original `txHash` and
+`signedTransaction` hex strings in `JsonRpcError.data`. These are transaction
+evidence, not confirmation. Inspect that hash and retry the same request; do not
+replace its nonce or amount while the outcome is uncertain.

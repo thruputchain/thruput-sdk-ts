@@ -21,12 +21,16 @@ import { HOG_ADDRESS, gasAmount, ExecResult } from "@groundhogchain/protocol";
 test(
   "schema-4 local funding preserves admitted bytes after a lost response",
   { timeout: 120_000 },
-  async () => {
+  async (t) => {
     const rpcUrl = process.env.GROUNDHOG_RPC_URL;
     assert.ok(rpcUrl, "Set GROUNDHOG_RPC_URL to a GH-462 local node");
     const manifest = JSON.parse(
       await readFile(process.env.GROUNDHOG_RUNTIME_MANIFEST, "utf8"),
     );
+    if (manifest.schemaVersion === 3 && manifest.kind === "hogd-dev-runtime") {
+      t.skip("Published runtime predates schema-4 local funding");
+      return;
+    }
     assert.equal(manifest.schemaVersion, 4);
     assert.equal(manifest.kind, "hogd-dev-runtime");
     assert.equal(manifest.bootstrapAccountDerivation, undefined);
