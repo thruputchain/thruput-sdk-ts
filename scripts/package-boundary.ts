@@ -62,7 +62,7 @@ import {
   type SignedTransaction,
 } from "@groundhogchain/client";
 import type { Transport } from "@groundhogchain/client/transport";
-import { ERC20 as BatchERC20 } from "@groundhogchain/client/contracts";
+import { ERC20 as BatchERC20Versions } from "@groundhogchain/client/contracts";
 import {
   getContractEvents,
   getChainConfig,
@@ -74,6 +74,7 @@ async function typedSnapshotBoundary(
   transport: Transport,
   address: ContractAddress,
 ) {
+  const BatchERC20 = BatchERC20Versions.v0_1;
   const result = await readViews(transport, {
     calls: [
       BatchERC20.totalSupply.viewRequest({ contract: address }),

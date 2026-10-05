@@ -38,8 +38,8 @@ export interface ReadViewsResponse<
  * @example
  * ```ts
  * const result = await client.readViews({ calls: [
- *   ERC20.totalSupply.viewRequest({ contract: token }),
- *   ERC20.getBalanceOf.viewRequest({ contract: token, args: { addr: owner } }),
+ *   ERC20.v0_1.totalSupply.viewRequest({ contract: token }),
+ *   ERC20.v0_1.getBalanceOf.viewRequest({ contract: token, args: { addr: owner } }),
  * ] });
  * ```
  */

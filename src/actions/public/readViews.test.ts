@@ -4,7 +4,7 @@ import {
   contractAddress,
   contractEntrypointID,
 } from "@groundhogchain/protocol";
-import { ERC20 } from "../../contracts/index.js";
+import { ERC20 as ERC20Versions } from "../../contracts/index.js";
 import { createGroundhogClient } from "../../client.js";
 import { getContract } from "../../contract/instance.js";
 import type { Transport } from "../../transport/types.js";
@@ -14,16 +14,18 @@ import { readViews } from "./readViews.js";
 import { CxsWriter } from "@groundhogchain/xdr";
 import { toHex0x } from "../hex.js";
 
+const ERC20 = ERC20Versions.v0_1;
 const address = contractAddress(new Uint8Array(32).fill(1));
 const call = {
   contract: address,
   entrypoint: contractEntrypointID(new Uint8Array(8)),
   calldata: calldata(new Uint8Array()),
 };
-const fault = { output: { result: "fault" }, events: [] };
+const fault = { output: { result: "fault" }, events: [], gasUsed: 1 };
 const writer = new CxsWriter();
 writer.writeInt128(12n);
 const returned = {
+  gasUsed: 12,
   output: { result: "return", returnData: toHex0x(writer.finish()) },
   events: [],
 };
@@ -45,6 +47,7 @@ describe("shared-snapshot reads", () => {
         returned,
         {
           output: { result: "abort", abortData: toHex0x(exception.finish()) },
+          gasUsed: 7,
           events: [],
         },
         fault,
@@ -69,6 +72,7 @@ describe("shared-snapshot reads", () => {
     if (supply.kind !== "return") throw new Error("Expected return");
     expectTypeOf(supply.value).toEqualTypeOf<bigint>();
     expect(supply.value).toBe(12n);
+    expect(supply.gasUsed).toBe(12n);
     if (transfer.kind === "return")
       expectTypeOf(transfer.value).toEqualTypeOf<void>();
     expect(transfer).toMatchObject({
@@ -155,7 +159,13 @@ describe("shared-snapshot reads", () => {
   it("rejects malformed typed return data with method context", async () => {
     const { transport } = stub({
       height: 42,
-      results: [{ output: { result: "return", returnData: "0x" }, events: [] }],
+      results: [
+        {
+          output: { result: "return", returnData: "0x" },
+          events: [],
+          gasUsed: 1,
+        },
+      ],
     });
     await expect(
       readViews(transport, {

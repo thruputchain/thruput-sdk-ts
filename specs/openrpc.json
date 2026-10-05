@@ -229,6 +229,33 @@
         "message": "Transaction rejected",
         "x-description": "The submitted transaction is well-formed but was rejected by the scheduler or execution backend.",
         "x-name": "TxRejected"
+      },
+      "ViewHeightUnavailable": {
+        "code": -32011,
+        "message": "View height unavailable",
+        "x-data-schema": {
+          "$defs": {
+            "BlockHeight": {
+              "description": "BlockHeight is the height of a block, measured as the number of blocks since the genesis of the chain.\nThe first block of transactions is at height 0.\nIt is signed to prevent overflows in\ncalculations.",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "description": "Requested minimum height and the committed height observed after one refresh.",
+          "properties": {
+            "observed": {
+              "$ref": "#/$defs/BlockHeight"
+            },
+            "requested": {
+              "$ref": "#/$defs/BlockHeight"
+            }
+          },
+          "required": ["requested", "observed"],
+          "title": "ViewHeightUnavailable",
+          "type": "object"
+        },
+        "x-description": "The committed snapshot remains below minHeight after one refresh. Data contains requested and observed heights. No future block is awaited.",
+        "x-name": "ViewHeightUnavailable"
       }
     },
     "schemas": {
@@ -1820,6 +1847,70 @@
         "required": ["wireFormat", "implementation"],
         "type": "object"
       },
+      "ViewBatchRequest": {
+        "additionalProperties": false,
+        "description": "Independent simulations against one committed snapshot, in request order.",
+        "properties": {
+          "calls": {
+            "description": "Between 1 and 16 calls, with at most 64 KiB of aggregate calldata.",
+            "items": {
+              "$ref": "#/components/schemas/ViewRequest"
+            },
+            "type": "array"
+          },
+          "minHeight": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BlockHeight"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Minimum committed height. Refreshes once if behind; does not wait for a future block."
+          }
+        },
+        "required": ["calls"],
+        "type": "object"
+      },
+      "ViewBatchResponse": {
+        "description": "Ordered simulation results from a single committed snapshot.",
+        "properties": {
+          "height": {
+            "$ref": "#/components/schemas/BlockHeight"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/ViewCallResult"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["height", "results"],
+        "type": "object"
+      },
+      "ViewCallResult": {
+        "description": "One independent simulation's output and events; writes never reach another call.",
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/EmittedEvent"
+            },
+            "type": "array"
+          },
+          "gasUsed": {
+            "description": "Gas consumed by this independent simulation.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "output": {
+            "$ref": "#/components/schemas/RootInvocationOutput"
+          }
+        },
+        "required": ["output", "events", "gasUsed"],
+        "type": "object"
+      },
       "ViewRequest": {
         "additionalProperties": false,
         "description": "Request for sandboxed contract simulation against the latest committed state.",
@@ -2459,6 +2550,50 @@
         }
       },
       "summary": "Execute a sandboxed contract simulation against the latest committed state. There is no way to select a past height; `height` in the response names the snapshot the view ran against. `gasLimit` is optional: absent runs under the endpoint's `maxViewGas` (see `serverLimits`); zero or a value above it is rejected as an invalid parameter.",
+      "tags": [
+        {
+          "name": "Core API"
+        }
+      ]
+    },
+    {
+      "errors": [
+        {
+          "$ref": "#/components/errors/InvalidParams"
+        },
+        {
+          "$ref": "#/components/errors/ViewHeightUnavailable"
+        },
+        {
+          "$ref": "#/components/errors/BackendUnavailable"
+        },
+        {
+          "$ref": "#/components/errors/BackendTimeout"
+        },
+        {
+          "$ref": "#/components/errors/Overloaded"
+        },
+        {
+          "$ref": "#/components/errors/NotImplemented"
+        }
+      ],
+      "name": "groundhog_viewBatch",
+      "params": [
+        {
+          "name": "request",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ViewBatchRequest"
+          }
+        }
+      ],
+      "result": {
+        "name": "ViewBatchResponse",
+        "schema": {
+          "$ref": "#/components/schemas/ViewBatchResponse"
+        }
+      },
+      "summary": "Simulate up to 16 independent calls against one committed snapshot. Results preserve input order and include return, abort, or fault with events. Calls do not observe each other's writes. Abandoned snapshots retry the whole group, up to three attempts. There is no partial success or automatic chunking. Aggregate limits: 64 KiB calldata, 160M gas per attempt, 1 MiB XDR result including events. The response deadline is at most 30 seconds; running backend work may outlive it. The returned height is committed H, with execution context H+1.",
       "tags": [
         {
           "name": "Core API"

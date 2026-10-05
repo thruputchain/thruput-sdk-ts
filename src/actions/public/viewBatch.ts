@@ -5,11 +5,11 @@ import type {
 import type { ViewBatchRequest, ViewBatchResponse } from "../../types/rpc.js";
 import { parseEmittedEvent } from "../emittedEvent.js";
 import { toHex0x } from "../hex.js";
-import { parseViewOutput } from "./view.js";
+import { parseGasUsed, parseViewOutput } from "./view.js";
 
 /**
  * Simulate 1–16 independent calls at one committed height, in input order.
- * Requires groundhog_viewBatch (wire format 7.1.0). No fallback or chunking is used.
+ * Requires groundhog_viewBatch (wire format 8.2.0). No fallback or chunking is used.
  * Simulated writes do not pass between calls. The server retries abandoned
  * snapshots as a whole group; aborts and faults remain per-call results.
  * Cancellation ends this client's wait, not necessarily backend execution.
@@ -95,6 +95,7 @@ export async function viewBatch(
         throw new Error("Expected viewBatch events to be an array");
       return {
         output: parseViewOutput(result.output),
+        gasUsed: parseGasUsed(result.gasUsed),
         events: result.events.map(parseEmittedEvent),
       };
     }),

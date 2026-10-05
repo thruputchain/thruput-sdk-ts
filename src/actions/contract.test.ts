@@ -543,19 +543,10 @@ describe("contract tests against specs/openrpc.json", () => {
     expect(result).toEqual({ address, height: 42n, authData: null });
   });
 
-  it("covers every method in specs/openrpc.json", () => {
-    const specMethods = (
-      openrpcSpec as { methods: Array<{ name: string }> }
-    ).methods
-      .map((m) => m.name)
-      .sort();
-    expect([...coveredMethods].sort()).toEqual(specMethods);
-  });
-
   it("groundhog_viewBatch — sends ordered calls and a minimum height", async () => {
     const { transport, calls } = spyTransport({
       height: 42,
-      results: [{ output: { result: "fault" }, events: [] }],
+      results: [{ output: { result: "fault" }, events: [], gasUsed: 1 }],
     });
     await viewBatch(transport, {
       calls: [
@@ -568,6 +559,15 @@ describe("contract tests against specs/openrpc.json", () => {
       minHeight: 42n,
     });
     expect(calls).toHaveLength(1);
-    assertCapturedParamsMatchSpec("groundhog_viewBatch", calls[0]!.params);
+    assertCapturedParamsMatchSpec("groundhog_viewBatch", calls[0]);
+  });
+
+  it("covers every method in specs/openrpc.json", () => {
+    const specMethods = (
+      openrpcSpec as { methods: Array<{ name: string }> }
+    ).methods
+      .map((m) => m.name)
+      .sort();
+    expect([...coveredMethods].sort()).toEqual(specMethods);
   });
 });

@@ -6,9 +6,11 @@ import {
   HttpTransport,
   JsonRpcError,
 } from "@groundhogchain/client";
-import { ERC20 } from "@groundhogchain/client/contracts";
+import { ERC20 as ERC20Versions } from "@groundhogchain/client/contracts";
 import { loadLocalDevAccount } from "@groundhogchain/client/local-dev";
 import { HOG_ADDRESS, contractAddress } from "@groundhogchain/protocol";
+
+const ERC20 = ERC20Versions.v0_1;
 
 test("typed shared-snapshot reads against a matching live node", async () => {
   const rpcUrl = process.env.GROUNDHOG_RPC_URL;
@@ -40,6 +42,8 @@ test("typed shared-snapshot reads against a matching live node", async () => {
   assert.equal(caller.kind, "return");
   assert.equal(explicit.value, caller.value);
   assert.ok(explicit.value > 0n);
+  assert.ok(explicit.gasUsed > 0n);
+  assert.ok(caller.gasUsed > 0n);
   assert.equal(missing.kind, "fault");
   assert.ok(
     snapshot.results.every((result) => result.height === snapshot.height),
