@@ -100,6 +100,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Address },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("deploy"),
@@ -126,6 +127,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Address },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("do_action"),
@@ -142,6 +144,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("initialize"),
@@ -158,6 +161,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
       ],
     },
@@ -172,6 +176,7 @@ const __gh_codecs = __gh_client_contract.createContractCodecContext(
 
 export const DevWallet = {
   v0_1: {
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     createWallet: __gh_client_contract.defineContractMethod<
       DevWallet.v0_1.CreateWalletArgs,
       DevWallet.v0_1.CreateWalletResult,
@@ -182,6 +187,7 @@ export const DevWallet = {
       abiName: "create_wallet",
       publicName: "createWallet",
       entrypoint: __gh_entrypoints.DevWallet.v0_1.createWallet,
+      effect: spec.interfaces[0]!.methods[0]!.effect,
       args: [
         {
           abiName: "nonce",
@@ -203,6 +209,7 @@ export const DevWallet = {
       throws: [],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     deploy: __gh_client_contract.defineContractMethod<
       DevWallet.v0_1.DeployArgs,
       DevWallet.v0_1.DeployResult,
@@ -213,6 +220,7 @@ export const DevWallet = {
       abiName: "deploy",
       publicName: "deploy",
       entrypoint: __gh_entrypoints.DevWallet.v0_1.deploy,
+      effect: spec.interfaces[0]!.methods[1]!.effect,
       args: [
         {
           abiName: "nonce",
@@ -229,6 +237,7 @@ export const DevWallet = {
       throws: [],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     doAction: __gh_client_contract.defineContractMethod<
       DevWallet.v0_1.DoActionArgs,
       DevWallet.v0_1.DoActionResult,
@@ -239,6 +248,7 @@ export const DevWallet = {
       abiName: "do_action",
       publicName: "doAction",
       entrypoint: __gh_entrypoints.DevWallet.v0_1.doAction,
+      effect: spec.interfaces[0]!.methods[2]!.effect,
       args: [
         {
           abiName: "invocation_bytes",
@@ -250,6 +260,7 @@ export const DevWallet = {
       throws: [],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     initialize: __gh_client_contract.defineContractMethod<
       DevWallet.v0_1.InitializeArgs,
       DevWallet.v0_1.InitializeResult,
@@ -260,6 +271,7 @@ export const DevWallet = {
       abiName: "initialize",
       publicName: "initialize",
       entrypoint: __gh_entrypoints.DevWallet.v0_1.initialize,
+      effect: spec.interfaces[0]!.methods[3]!.effect,
       args: [
         {
           abiName: "owner",

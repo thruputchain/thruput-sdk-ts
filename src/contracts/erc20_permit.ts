@@ -140,6 +140,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("increase_allowance_signed"),
@@ -163,6 +164,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("transfer_from_signed"),
@@ -194,6 +196,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
       ],
     },
@@ -280,6 +283,7 @@ const __gh_codecs = __gh_client_contract.createContractCodecContext(
 
 export const ERC20Permit = {
   v0_1: {
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     clearAllowanceSigned: __gh_client_contract.defineContractMethod<
       ERC20Permit.v0_1.ClearAllowanceSignedArgs,
       ERC20Permit.v0_1.ClearAllowanceSignedResult,
@@ -290,6 +294,7 @@ export const ERC20Permit = {
       abiName: "clear_allowance_signed",
       publicName: "clearAllowanceSigned",
       entrypoint: __gh_entrypoints.ERC20Permit.v0_1.clearAllowanceSigned,
+      effect: spec.interfaces[0]!.methods[0]!.effect,
       args: [
         {
           abiName: "grant",
@@ -312,6 +317,7 @@ export const ERC20Permit = {
       ],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     increaseAllowanceSigned: __gh_client_contract.defineContractMethod<
       ERC20Permit.v0_1.IncreaseAllowanceSignedArgs,
       ERC20Permit.v0_1.IncreaseAllowanceSignedResult,
@@ -322,6 +328,7 @@ export const ERC20Permit = {
       abiName: "increase_allowance_signed",
       publicName: "increaseAllowanceSigned",
       entrypoint: __gh_entrypoints.ERC20Permit.v0_1.increaseAllowanceSigned,
+      effect: spec.interfaces[0]!.methods[1]!.effect,
       args: [
         {
           abiName: "grant",
@@ -344,6 +351,7 @@ export const ERC20Permit = {
       ],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     transferFromSigned: __gh_client_contract.defineContractMethod<
       ERC20Permit.v0_1.TransferFromSignedArgs,
       ERC20Permit.v0_1.TransferFromSignedResult,
@@ -354,6 +362,7 @@ export const ERC20Permit = {
       abiName: "transfer_from_signed",
       publicName: "transferFromSigned",
       entrypoint: __gh_entrypoints.ERC20Permit.v0_1.transferFromSigned,
+      effect: spec.interfaces[0]!.methods[2]!.effect,
       args: [
         {
           abiName: "grant",

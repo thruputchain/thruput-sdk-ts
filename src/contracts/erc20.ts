@@ -263,6 +263,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("allowance"),
@@ -277,6 +278,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.U128 },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("burn"),
@@ -291,6 +293,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("clear_allowance"),
@@ -301,16 +304,19 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("clear_balance"),
           args: [],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("get_balance"),
           args: [],
           return_type: { v: __gh_contract_spec.ContractTypeKind.U128 },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("get_balance_of"),
@@ -321,6 +327,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.U128 },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("initialize"),
@@ -331,6 +338,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("mint"),
@@ -345,11 +353,13 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("total_supply"),
           args: [],
           return_type: { v: __gh_contract_spec.ContractTypeKind.U128 },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("transfer"),
@@ -364,6 +374,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("transfer_from"),
@@ -382,6 +393,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
       ],
     },
@@ -397,6 +409,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             v: __gh_contract_spec.ContractTypeKind.Option,
             option_inner: { v: __gh_contract_spec.ContractTypeKind.U32 },
           },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("initialize"),
@@ -428,6 +441,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("name"),
@@ -436,6 +450,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             v: __gh_contract_spec.ContractTypeKind.Option,
             option_inner: { v: __gh_contract_spec.ContractTypeKind.String },
           },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("symbol"),
@@ -444,6 +459,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             v: __gh_contract_spec.ContractTypeKind.Option,
             option_inner: { v: __gh_contract_spec.ContractTypeKind.String },
           },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
       ],
     },
@@ -586,6 +602,7 @@ const __gh_codecs = __gh_client_contract.createContractCodecContext(
 
 export const ERC20 = {
   v0_1: {
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     adjustAllowance: __gh_client_contract.defineContractMethod<
       ERC20.v0_1.AdjustAllowanceArgs,
       ERC20.v0_1.AdjustAllowanceResult,
@@ -596,6 +613,7 @@ export const ERC20 = {
       abiName: "adjust_allowance",
       publicName: "adjustAllowance",
       entrypoint: __gh_entrypoints.ERC20.v0_1.adjustAllowance,
+      effect: spec.interfaces[0]!.methods[0]!.effect,
       args: [
         {
           abiName: "spender",
@@ -623,6 +641,7 @@ export const ERC20 = {
       ],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     allowance: __gh_client_contract.defineContractMethod<
       ERC20.v0_1.AllowanceArgs,
       ERC20.v0_1.AllowanceResult,
@@ -633,6 +652,7 @@ export const ERC20 = {
       abiName: "allowance",
       publicName: "allowance",
       entrypoint: __gh_entrypoints.ERC20.v0_1.allowance,
+      effect: spec.interfaces[0]!.methods[1]!.effect,
       args: [
         {
           abiName: "owner",
@@ -655,6 +675,7 @@ export const ERC20 = {
       ],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     burn: __gh_client_contract.defineContractMethod<
       ERC20.v0_1.BurnArgs,
       ERC20.v0_1.BurnResult,
@@ -665,6 +686,7 @@ export const ERC20 = {
       abiName: "burn",
       publicName: "burn",
       entrypoint: __gh_entrypoints.ERC20.v0_1.burn,
+      effect: spec.interfaces[0]!.methods[2]!.effect,
       args: [
         {
           abiName: "owner",
@@ -687,6 +709,7 @@ export const ERC20 = {
       ],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     clearAllowance: __gh_client_contract.defineContractMethod<
       ERC20.v0_1.ClearAllowanceArgs,
       ERC20.v0_1.ClearAllowanceResult,
@@ -697,6 +720,7 @@ export const ERC20 = {
       abiName: "clear_allowance",
       publicName: "clearAllowance",
       entrypoint: __gh_entrypoints.ERC20.v0_1.clearAllowance,
+      effect: spec.interfaces[0]!.methods[3]!.effect,
       args: [
         {
           abiName: "spender",
@@ -714,6 +738,7 @@ export const ERC20 = {
       ],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     clearBalance: __gh_client_contract.defineContractMethod<
       ERC20.v0_1.ClearBalanceArgs,
       ERC20.v0_1.ClearBalanceResult,
@@ -724,6 +749,7 @@ export const ERC20 = {
       abiName: "clear_balance",
       publicName: "clearBalance",
       entrypoint: __gh_entrypoints.ERC20.v0_1.clearBalance,
+      effect: spec.interfaces[0]!.methods[4]!.effect,
       args: [],
       returnType: spec.interfaces[0]!.methods[4]!.return_type,
       throws: [
@@ -735,6 +761,7 @@ export const ERC20 = {
       ],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     getBalance: __gh_client_contract.defineContractMethod<
       ERC20.v0_1.GetBalanceArgs,
       ERC20.v0_1.GetBalanceResult,
@@ -745,6 +772,7 @@ export const ERC20 = {
       abiName: "get_balance",
       publicName: "getBalance",
       entrypoint: __gh_entrypoints.ERC20.v0_1.getBalance,
+      effect: spec.interfaces[0]!.methods[5]!.effect,
       args: [],
       returnType: spec.interfaces[0]!.methods[5]!.return_type,
       throws: [
@@ -756,6 +784,7 @@ export const ERC20 = {
       ],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     getBalanceOf: __gh_client_contract.defineContractMethod<
       ERC20.v0_1.GetBalanceOfArgs,
       ERC20.v0_1.GetBalanceOfResult,
@@ -766,6 +795,7 @@ export const ERC20 = {
       abiName: "get_balance_of",
       publicName: "getBalanceOf",
       entrypoint: __gh_entrypoints.ERC20.v0_1.getBalanceOf,
+      effect: spec.interfaces[0]!.methods[6]!.effect,
       args: [
         {
           abiName: "addr",
@@ -783,6 +813,7 @@ export const ERC20 = {
       ],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     initialize: __gh_client_contract.defineContractMethod<
       ERC20.v0_1.InitializeArgs,
       ERC20.v0_1.InitializeResult,
@@ -793,6 +824,7 @@ export const ERC20 = {
       abiName: "initialize",
       publicName: "initialize",
       entrypoint: __gh_entrypoints.ERC20.v0_1.initialize,
+      effect: spec.interfaces[0]!.methods[7]!.effect,
       args: [
         {
           abiName: "administrator",
@@ -810,6 +842,7 @@ export const ERC20 = {
       ],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     mint: __gh_client_contract.defineContractMethod<
       ERC20.v0_1.MintArgs,
       ERC20.v0_1.MintResult,
@@ -820,6 +853,7 @@ export const ERC20 = {
       abiName: "mint",
       publicName: "mint",
       entrypoint: __gh_entrypoints.ERC20.v0_1.mint,
+      effect: spec.interfaces[0]!.methods[8]!.effect,
       args: [
         {
           abiName: "receiver",
@@ -842,6 +876,7 @@ export const ERC20 = {
       ],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     totalSupply: __gh_client_contract.defineContractMethod<
       ERC20.v0_1.TotalSupplyArgs,
       ERC20.v0_1.TotalSupplyResult,
@@ -852,6 +887,7 @@ export const ERC20 = {
       abiName: "total_supply",
       publicName: "totalSupply",
       entrypoint: __gh_entrypoints.ERC20.v0_1.totalSupply,
+      effect: spec.interfaces[0]!.methods[9]!.effect,
       args: [],
       returnType: spec.interfaces[0]!.methods[9]!.return_type,
       throws: [
@@ -863,6 +899,7 @@ export const ERC20 = {
       ],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     transfer: __gh_client_contract.defineContractMethod<
       ERC20.v0_1.TransferArgs,
       ERC20.v0_1.TransferResult,
@@ -873,6 +910,7 @@ export const ERC20 = {
       abiName: "transfer",
       publicName: "transfer",
       entrypoint: __gh_entrypoints.ERC20.v0_1.transfer,
+      effect: spec.interfaces[0]!.methods[10]!.effect,
       args: [
         {
           abiName: "receiver",
@@ -895,6 +933,7 @@ export const ERC20 = {
       ],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     transferFrom: __gh_client_contract.defineContractMethod<
       ERC20.v0_1.TransferFromArgs,
       ERC20.v0_1.TransferFromResult,
@@ -905,6 +944,7 @@ export const ERC20 = {
       abiName: "transfer_from",
       publicName: "transferFrom",
       entrypoint: __gh_entrypoints.ERC20.v0_1.transferFrom,
+      effect: spec.interfaces[0]!.methods[11]!.effect,
       args: [
         {
           abiName: "owner",
@@ -937,6 +977,7 @@ export const ERC20 = {
 
 export const ERC20Metadata = {
   v0_1: {
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     decimals: __gh_client_contract.defineContractMethod<
       ERC20Metadata.v0_1.DecimalsArgs,
       ERC20Metadata.v0_1.DecimalsResult,
@@ -947,11 +988,13 @@ export const ERC20Metadata = {
       abiName: "decimals",
       publicName: "decimals",
       entrypoint: __gh_entrypoints.ERC20Metadata.v0_1.decimals,
+      effect: spec.interfaces[1]!.methods[0]!.effect,
       args: [],
       returnType: spec.interfaces[1]!.methods[0]!.return_type,
       throws: [],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     initialize: __gh_client_contract.defineContractMethod<
       ERC20Metadata.v0_1.InitializeArgs,
       ERC20Metadata.v0_1.InitializeResult,
@@ -962,6 +1005,7 @@ export const ERC20Metadata = {
       abiName: "initialize",
       publicName: "initialize",
       entrypoint: __gh_entrypoints.ERC20Metadata.v0_1.initialize,
+      effect: spec.interfaces[1]!.methods[1]!.effect,
       args: [
         {
           abiName: "administrator",
@@ -988,6 +1032,7 @@ export const ERC20Metadata = {
       throws: [],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     name: __gh_client_contract.defineContractMethod<
       ERC20Metadata.v0_1.NameArgs,
       ERC20Metadata.v0_1.NameResult,
@@ -998,11 +1043,13 @@ export const ERC20Metadata = {
       abiName: "name",
       publicName: "name",
       entrypoint: __gh_entrypoints.ERC20Metadata.v0_1.name,
+      effect: spec.interfaces[1]!.methods[2]!.effect,
       args: [],
       returnType: spec.interfaces[1]!.methods[2]!.return_type,
       throws: [],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     symbol: __gh_client_contract.defineContractMethod<
       ERC20Metadata.v0_1.SymbolArgs,
       ERC20Metadata.v0_1.SymbolResult,
@@ -1013,6 +1060,7 @@ export const ERC20Metadata = {
       abiName: "symbol",
       publicName: "symbol",
       entrypoint: __gh_entrypoints.ERC20Metadata.v0_1.symbol,
+      effect: spec.interfaces[1]!.methods[3]!.effect,
       args: [],
       returnType: spec.interfaces[1]!.methods[3]!.return_type,
       throws: [],

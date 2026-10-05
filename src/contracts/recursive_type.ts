@@ -88,6 +88,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.U32 },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("forest_depth"),
@@ -106,6 +107,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.U32 },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("unbox"),
@@ -116,6 +118,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.U32 },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
       ],
     },
@@ -213,6 +216,7 @@ const __gh_codecs = __gh_client_contract.createContractCodecContext(
 
 export const RecursiveTypeContract = {
   v0_1: {
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     depth: __gh_client_contract.defineContractMethod<
       RecursiveTypeContract.v0_1.DepthArgs,
       RecursiveTypeContract.v0_1.DepthResult,
@@ -223,6 +227,7 @@ export const RecursiveTypeContract = {
       abiName: "depth",
       publicName: "depth",
       entrypoint: __gh_entrypoints.RecursiveTypeContract.v0_1.depth,
+      effect: spec.interfaces[0]!.methods[0]!.effect,
       args: [
         {
           abiName: "tree",
@@ -234,6 +239,7 @@ export const RecursiveTypeContract = {
       throws: [],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     forestDepth: __gh_client_contract.defineContractMethod<
       RecursiveTypeContract.v0_1.ForestDepthArgs,
       RecursiveTypeContract.v0_1.ForestDepthResult,
@@ -244,6 +250,7 @@ export const RecursiveTypeContract = {
       abiName: "forest_depth",
       publicName: "forestDepth",
       entrypoint: __gh_entrypoints.RecursiveTypeContract.v0_1.forestDepth,
+      effect: spec.interfaces[0]!.methods[1]!.effect,
       args: [
         {
           abiName: "forest",
@@ -255,6 +262,7 @@ export const RecursiveTypeContract = {
       throws: [],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     unbox: __gh_client_contract.defineContractMethod<
       RecursiveTypeContract.v0_1.UnboxArgs,
       RecursiveTypeContract.v0_1.UnboxResult,
@@ -265,6 +273,7 @@ export const RecursiveTypeContract = {
       abiName: "unbox",
       publicName: "unbox",
       entrypoint: __gh_entrypoints.RecursiveTypeContract.v0_1.unbox,
+      effect: spec.interfaces[0]!.methods[2]!.effect,
       args: [
         {
           abiName: "val",

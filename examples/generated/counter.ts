@@ -119,16 +119,19 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("error"),
           args: [],
           return_type: { v: __gh_contract_spec.ContractTypeKind.U64 },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("get"),
           args: [],
           return_type: { v: __gh_contract_spec.ContractTypeKind.U64 },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("increment"),
@@ -139,6 +142,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("initialize"),
@@ -149,6 +153,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
         {
           name: __gh_s("ping"),
@@ -159,6 +164,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
         },
       ],
     },
@@ -207,6 +213,7 @@ const __gh_codecs = __gh_client_contract.createContractCodecContext(
 
 export const Counter = {
   v0_1: {
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     decrement: __gh_client_contract.defineContractMethod<
       Counter.v0_1.DecrementArgs,
       Counter.v0_1.DecrementResult,
@@ -217,6 +224,7 @@ export const Counter = {
       abiName: "decrement",
       publicName: "decrement",
       entrypoint: __gh_entrypoints.Counter.v0_1.decrement,
+      effect: spec.interfaces[0]!.methods[0]!.effect,
       args: [
         {
           abiName: "amount",
@@ -234,6 +242,7 @@ export const Counter = {
       ],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     error: __gh_client_contract.defineContractMethod<
       Counter.v0_1.ErrorArgs,
       Counter.v0_1.ErrorResult,
@@ -244,6 +253,7 @@ export const Counter = {
       abiName: "error",
       publicName: "error",
       entrypoint: __gh_entrypoints.Counter.v0_1.error,
+      effect: spec.interfaces[0]!.methods[1]!.effect,
       args: [],
       returnType: spec.interfaces[0]!.methods[1]!.return_type,
       throws: [
@@ -255,6 +265,7 @@ export const Counter = {
       ],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     get: __gh_client_contract.defineContractMethod<
       Counter.v0_1.GetArgs,
       Counter.v0_1.GetResult,
@@ -265,6 +276,7 @@ export const Counter = {
       abiName: "get",
       publicName: "get",
       entrypoint: __gh_entrypoints.Counter.v0_1.get,
+      effect: spec.interfaces[0]!.methods[2]!.effect,
       args: [],
       returnType: spec.interfaces[0]!.methods[2]!.return_type,
       throws: [
@@ -276,6 +288,7 @@ export const Counter = {
       ],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     increment: __gh_client_contract.defineContractMethod<
       Counter.v0_1.IncrementArgs,
       Counter.v0_1.IncrementResult,
@@ -286,6 +299,7 @@ export const Counter = {
       abiName: "increment",
       publicName: "increment",
       entrypoint: __gh_entrypoints.Counter.v0_1.increment,
+      effect: spec.interfaces[0]!.methods[3]!.effect,
       args: [
         {
           abiName: "amount",
@@ -303,6 +317,7 @@ export const Counter = {
       ],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     initialize: __gh_client_contract.defineContractMethod<
       Counter.v0_1.InitializeArgs,
       Counter.v0_1.InitializeResult,
@@ -313,6 +328,7 @@ export const Counter = {
       abiName: "initialize",
       publicName: "initialize",
       entrypoint: __gh_entrypoints.Counter.v0_1.initialize,
+      effect: spec.interfaces[0]!.methods[4]!.effect,
       args: [
         {
           abiName: "initial_value",
@@ -330,6 +346,7 @@ export const Counter = {
       ],
       codecs: __gh_codecs,
     }),
+    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     ping: __gh_client_contract.defineContractMethod<
       Counter.v0_1.PingArgs,
       Counter.v0_1.PingResult,
@@ -340,6 +357,7 @@ export const Counter = {
       abiName: "ping",
       publicName: "ping",
       entrypoint: __gh_entrypoints.Counter.v0_1.ping,
+      effect: spec.interfaces[0]!.methods[5]!.effect,
       args: [
         {
           abiName: "tag",

@@ -9,7 +9,10 @@ import {
   kMaxReturnBufferLen,
   sha256Hash,
 } from "@groundhogchain/protocol";
-import { ContractTypeKind } from "@groundhogchain/contract-spec";
+import {
+  ContractMethodEffect,
+  ContractTypeKind,
+} from "@groundhogchain/contract-spec";
 import { DefaultWallet, ERC20 } from "../contracts/index.js";
 import { getContract } from "./instance.js";
 import type { GroundhogClient } from "../client.js";
@@ -91,6 +94,49 @@ function receipt(
 }
 
 describe("contract method invocation", () => {
+  it.each([
+    undefined,
+    ContractMethodEffect.EffectUnknown,
+    ContractMethodEffect.EffectPure,
+    ContractMethodEffect.EffectReadOnly,
+    ContractMethodEffect.EffectStateChanging,
+  ])(
+    "preserves declared effect %s without restricting call or view paths",
+    async (effect) => {
+      const method = defineContractMethod<void, void, never>(
+        definition({
+          ...(effect === undefined ? {} : { effect }),
+          args: [],
+          returnType: { v: ContractTypeKind.Void },
+        }),
+      );
+      expect(method.effect).toBe(effect ?? ContractMethodEffect.EffectUnknown);
+      expect(
+        method.call({ contract, gasLimit: gasAmount(100n) }).invocation
+          .entrypoint,
+      ).toEqual(entrypoint);
+      const client = clientReturning({
+        output: { result: "return", returnData: new Uint8Array() },
+        height: 1n,
+        gasUsed: 1n,
+        events: [],
+      });
+      const bound = getContract({
+        binding: { method },
+        address: contract,
+        client,
+      });
+      expect(bound.method.effect).toBe(method.effect);
+      await bound.method.view({});
+      expect(client.view).toHaveBeenCalledOnce();
+    },
+  );
+
+  it("rejects unsupported effect values rather than treating them as read-only", () => {
+    expect(() =>
+      defineContractMethod(definition({ effect: 99 as ContractMethodEffect })),
+    ).toThrow("Unsupported contract method effect");
+  });
   it("encodes object arguments in ABI metadata order", () => {
     const method = defineContractMethod<
       { first: bigint; second: bigint },

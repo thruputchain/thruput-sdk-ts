@@ -10,6 +10,7 @@ import {
 import {
   contractSpecString,
   ContractTypeKind,
+  ContractMethodEffect,
   ContractTypeDefKind,
   ContractUnionCaseKind,
   type ContractSpecId,
@@ -45,6 +46,7 @@ const erc20Spec: ContractSpec = {
       methods: [
         {
           name: s("transfer"),
+          effect: ContractMethodEffect.EffectUnknown,
           args: [
             { name: s("to"), ty: { v: ContractTypeKind.Address } },
             { name: s("amount"), ty: { v: ContractTypeKind.U128 } },
@@ -53,11 +55,13 @@ const erc20Spec: ContractSpec = {
         },
         {
           name: s("get_balance"),
+          effect: ContractMethodEffect.EffectUnknown,
           args: [],
           return_type: { v: ContractTypeKind.U128 },
         },
         {
           name: s("get_balance_of"),
+          effect: ContractMethodEffect.EffectUnknown,
           args: [{ name: s("addr"), ty: { v: ContractTypeKind.Address } }],
           return_type: { v: ContractTypeKind.U128 },
         },
@@ -221,6 +225,7 @@ const rgbSpec: ContractSpec = {
       methods: [
         {
           name: s("set_pixel"),
+          effect: ContractMethodEffect.EffectUnknown,
           args: [
             { name: s("x"), ty: { v: ContractTypeKind.U32 } },
             { name: s("y"), ty: { v: ContractTypeKind.U32 } },
@@ -232,6 +237,7 @@ const rgbSpec: ContractSpec = {
         },
         {
           name: s("set_pixel_rgba"),
+          effect: ContractMethodEffect.EffectUnknown,
           args: [
             { name: s("x"), ty: { v: ContractTypeKind.U32 } },
             { name: s("y"), ty: { v: ContractTypeKind.U32 } },
@@ -363,6 +369,7 @@ const signedSpec: ContractSpec = {
       methods: [
         {
           name: s("compute"),
+          effect: ContractMethodEffect.EffectUnknown,
           args: [
             { name: s("a"), ty: { v: ContractTypeKind.I32 } },
             { name: s("b"), ty: { v: ContractTypeKind.I128 } },
