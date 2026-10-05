@@ -8,17 +8,18 @@ import type {
   TransactionRefPage,
 } from "../../types/rpc.js";
 import { fromHex0x, hashFromHex, toHex0x } from "../hex.js";
+import { parseHeight, serializeHeight } from "../decimal.js";
 
 interface RawTransactionRef {
   txHash: string;
-  height: number | string;
+  height: string;
 }
 
 interface RawTransactionRefPage {
   refs: unknown[];
   cursor: string;
-  latestBlock: number | string;
-  oldestBlock: number | string;
+  latestBlock: string;
+  oldestBlock: string;
 }
 
 function serializeQuery(query: AddressTransactionQuery): unknown {
@@ -28,7 +29,7 @@ function serializeQuery(query: AddressTransactionQuery): unknown {
       : query.anchor === "end"
         ? { kind: "atEnd" }
         : query.anchor
-          ? { kind: "atHeight", height: Number(query.anchor.height) }
+          ? { kind: "atHeight", height: serializeHeight(query.anchor.height) }
           : { kind: "atBeginning" };
 
   return {
@@ -49,13 +50,9 @@ function parseTransactionRef(value: unknown): TransactionRef {
   if (typeof ref.txHash !== "string") {
     throw new Error("Invalid transaction refs response: expected ref.txHash");
   }
-  if (typeof ref.height !== "string" && typeof ref.height !== "number") {
-    throw new Error("Invalid transaction refs response: expected ref.height");
-  }
-
   return {
     txHash: hashFromHex(ref.txHash),
-    height: BigInt(ref.height),
+    height: parseHeight(ref.height),
   };
 }
 
@@ -93,7 +90,7 @@ export async function getTransactionsByAddress(
   return {
     refs: result.refs.map(parseTransactionRef),
     cursor: fromHex0x(result.cursor),
-    latestBlock: BigInt(result.latestBlock),
-    oldestBlock: BigInt(result.oldestBlock),
+    latestBlock: parseHeight(result.latestBlock, "latestBlock"),
+    oldestBlock: parseHeight(result.oldestBlock, "oldestBlock"),
   };
 }

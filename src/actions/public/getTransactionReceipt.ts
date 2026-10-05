@@ -7,6 +7,7 @@ import type {
 import type { TransactionReceipt, ExecutionStatus } from "../../types/rpc.js";
 import { parseEmittedEvent } from "../emittedEvent.js";
 import { toHex0x, hashFromHex, fromHex0x } from "../hex.js";
+import { parseHeight as parseDecimalHeight, parseU64 } from "../decimal.js";
 
 interface RawExecStatus {
   result: string;
@@ -14,12 +15,12 @@ interface RawExecStatus {
 
 interface RawTransactionReceipt {
   txHash: string;
-  height: number | string;
+  height: string;
   status: unknown;
   events: unknown[];
   returnData?: string | null;
   abortData?: string | null;
-  gasUsed: number | string;
+  gasUsed: string;
 }
 
 const execStatusToResult: Record<string, ExecResult> = {
@@ -93,39 +94,26 @@ function parseOptionalBytes(
   return fromHex0x(value);
 }
 
-const MAX_GAS_USED = 0xffff_ffff_ffff_ffffn;
-
-/**
- * Parse the receipt's `gasUsed`, a u64 on the wire. A JSON number is
- * only accepted while it is exactly representable, so a value the
- * transport already rounded is rejected rather than reported as
- * consensus data; larger values must arrive as a decimal string.
- */
 function parseGasUsed(value: unknown): bigint {
-  let parsed: bigint | undefined;
-  if (typeof value === "number" && Number.isSafeInteger(value)) {
-    parsed = BigInt(value);
-  } else if (typeof value === "string" && /^\d+$/.test(value)) {
-    parsed = BigInt(value);
-  }
-  if (parsed === undefined || parsed < 0n || parsed > MAX_GAS_USED) {
+  try {
+    return parseU64(value, "gasUsed");
+  } catch (cause) {
     throw new InvalidTransactionReceiptError(
       "Invalid transaction receipt response: expected gasUsed to be a u64",
+      { cause },
     );
   }
-  return parsed;
 }
 
 function parseHeight(value: unknown): bigint {
-  if (
-    (typeof value !== "number" && typeof value !== "string") ||
-    value === ""
-  ) {
+  try {
+    return parseDecimalHeight(value);
+  } catch (cause) {
     throw new InvalidTransactionReceiptError(
       "Invalid transaction receipt response: expected height",
+      { cause },
     );
   }
-  return BigInt(value);
 }
 
 /**

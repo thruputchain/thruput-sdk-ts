@@ -63,7 +63,10 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       const account = await loadLocalDevAccount();
       assert.deepEqual(client.network.networkHash, account.networkHash);
       const version = await client.getVersion();
-      assert.equal(version.implementation, versions.cli);
+      assert.equal(
+        version.implementation,
+        process.env.GROUNDHOG_EXPECTED_CLI_VERSION ?? versions.cli,
+      );
       assert.match(version.wireFormat, /^\d+\.\d+\.\d+$/);
       // The pinned spec must describe the wire format the pinned node serves.
       assert.equal(

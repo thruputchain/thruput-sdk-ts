@@ -5,11 +5,12 @@ import type {
 } from "../../transport/types.js";
 import type { BalanceResponse } from "../../types/rpc.js";
 import { addressFromHex, toHex0x } from "../hex.js";
+import { parseDecimal, parseHeight, I128_MAX } from "../decimal.js";
 
 interface RawBalanceResponse {
   address: string;
   rawBalance: string;
-  height: number | string;
+  height: string;
 }
 
 /**
@@ -38,7 +39,7 @@ export async function getBalance(
 
   return {
     address: addressFromHex(balance.address),
-    rawBalance: BigInt(balance.rawBalance),
-    height: BigInt(balance.height),
+    rawBalance: parseDecimal(balance.rawBalance, "rawBalance", 0n, I128_MAX),
+    height: parseHeight(balance.height),
   };
 }

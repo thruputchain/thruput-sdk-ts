@@ -22,14 +22,14 @@ const pending = {
   recipient: "0x" + "11".repeat(32),
   rawAmount: "100000000",
   txHash: "0x" + "33".repeat(32),
-  retryAfterSeconds: 0,
+  retryAfterSeconds: "0",
 };
 const succeeded = {
   attemptStatus: "succeeded",
   recipient: "0x" + "11".repeat(32),
   rawAmount: "100000000",
   txHash: "0x" + "33".repeat(32),
-  height: 42,
+  height: "42",
   status: { result: "ok" },
 };
 
@@ -66,7 +66,7 @@ describe("requestAirdropAttempt", () => {
       recipient,
       rawAmount: 100000000n,
       txHash: hashFromHex("0x" + "33".repeat(32)),
-      retryAfterSeconds: 0,
+      retryAfterSeconds: 0n,
     });
   });
 
@@ -404,7 +404,7 @@ describe("requestAirdrop", () => {
     const abort = new AbortController();
     const transport: Transport = {
       async request<T>(): Promise<T> {
-        return { ...pending, retryAfterSeconds: 5 } as T;
+        return { ...pending, retryAfterSeconds: "5" } as T;
       },
     };
     const result = requestAirdrop(transport, {

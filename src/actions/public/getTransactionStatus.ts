@@ -11,6 +11,7 @@ import type {
   TransactionStatus,
 } from "../../types/rpc.js";
 import { addressFromHex, fromHex0x, toHex0x } from "../hex.js";
+import { parseHeight } from "../decimal.js";
 
 const conflictCodes = new Set<string>([
   "exclusiveLock",
@@ -138,15 +139,7 @@ export async function getTransactionStatus(
   }
   switch (status.status) {
     case "committed":
-      if (
-        typeof status.height !== "string" &&
-        typeof status.height !== "number"
-      ) {
-        throw new Error(
-          "Invalid transaction status response: expected block height",
-        );
-      }
-      return { status: "committed", height: BigInt(status.height) };
+      return { status: "committed", height: parseHeight(status.height) };
     case "pending":
       return { status: "pending" };
     case "invalid": {
@@ -156,17 +149,9 @@ export async function getTransactionStatus(
       return { status: "invalid", reason: status.reason };
     }
     case "recentFailure":
-      if (
-        typeof status.attemptHeight !== "string" &&
-        typeof status.attemptHeight !== "number"
-      ) {
-        throw new Error(
-          "Invalid transaction status response: expected attempt height",
-        );
-      }
       return {
         status: "recentFailure",
-        attemptHeight: BigInt(status.attemptHeight),
+        attemptHeight: parseHeight(status.attemptHeight, "attemptHeight"),
         cause: parseFailureCause(status.cause),
       };
     case "unknown":

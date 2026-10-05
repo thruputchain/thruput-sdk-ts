@@ -163,7 +163,7 @@ describe("wallet account defaults", () => {
       async request<T>(method: string, params?: unknown[]): Promise<T> {
         calls.push({ method, params });
         if (method === "groundhog_getBalance") {
-          return { address: params![0], rawBalance: "7", height: 1 } as T;
+          return { address: params![0], rawBalance: "7", height: "1" } as T;
         }
         if (method === "groundhog_requestAirdrop") {
           const request = params![0] as { recipient: string };
@@ -172,7 +172,7 @@ describe("wallet account defaults", () => {
             recipient: request.recipient,
             rawAmount: "100",
             txHash: "0x" + "22".repeat(32),
-            height: 2,
+            height: "2",
             status: { result: "ok" },
           } as T;
         }
@@ -205,7 +205,7 @@ describe("wallet account defaults", () => {
           recipient: request.recipient,
           rawAmount: "100",
           txHash: "0x" + "22".repeat(32),
-          height: 2,
+          height: "2",
           status: { result: "ok" },
         } as T;
       },

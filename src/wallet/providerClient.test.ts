@@ -791,10 +791,10 @@ describe("external provider wallet", () => {
       .spyOn(transport, "request")
       .mockResolvedValueOnce({
         txHash: signed.hash,
-        height: 1,
+        height: "1",
         status: { result: "ok" },
         events: [],
-        gasUsed: 0,
+        gasUsed: "0",
       });
     const receipt = await client.getTransactionReceipt(
       hashFromHex(signed.hash),
