@@ -21,12 +21,11 @@ export interface NetworkInfo {
 }
 
 /**
- * Execution parameters the chain's network config states, as of the latest
- * tip the RPC server has read.
+ * Execution limits reported by the network.
  *
- * Each field is `null` when the config does not state that parameter; the
- * node alone then decides what is in force. For code size, RV32 code size,
- * and RV32 memory, the protocol fixes the value in force when unstated.
+ * In stated configuration, `null` means the chain did not state the parameter.
+ * In {@link ExecutionConfig.effectiveLimits}, `null` means the effective value
+ * is unavailable. Neither means zero.
  */
 export interface NetworkConfigParams {
   /** Levels of node nesting an auth token may carry. */
@@ -55,6 +54,43 @@ export interface NetworkConfigParams {
 
   /** Concurrently open incremental SHA-256 buffers per invocation frame. */
   readonly maxSha256Buffers: number | null;
+}
+
+/** Stated configuration and optional authoritative execution rules. */
+export interface ChainConfig extends NetworkConfigParams {
+  /** Rules fetched during the request; absent when the backend lacks this capability. */
+  readonly execution?: ExecutionConfig;
+}
+
+/** Rules for execution following the observed tip, not guaranteed at later inclusion. */
+export interface ExecutionConfig {
+  /** Committed snapshot read together with the limits and prices. */
+  readonly observedTip: ChainTip;
+  /** Commitment to the stated chain configuration, including storage prices. */
+  readonly configHash: SHA256Hash;
+  /** Runtime-resolved limits; `null` means unavailable, never zero. */
+  readonly effectiveLimits: NetworkConfigParams;
+  readonly storageCosts: StorageCosts;
+}
+
+/** Storage collateral in native HOG base units (10,000,000 per HOG), not gas prices. */
+export interface StorageCosts {
+  /** Base collateral for an ordinary data item; balance and code use separate bases. */
+  readonly baseDataItemCost: bigint;
+  /** Added to the ordinary base for each byte in a bytestring value. */
+  readonly bytestringCostPerByte: bigint;
+  /** RV32 code-storage base, excluding the address's balance deposit. */
+  readonly baseContractDeploymentCost: bigint;
+  /** Added per byte of the full deployed artifact. */
+  readonly contractDeploymentCostPerByte: bigint;
+  /** Added to the ordinary base for each authorization key. */
+  readonly authPerKeyCost: bigint;
+  /** Added to the ordinary base per live queue entry; an empty queue costs zero. */
+  readonly rcqCostPerEntry: bigint;
+  /** Added to the ordinary base per replay-cache entry, charged to its owner. */
+  readonly replayCacheCostPerEntry: bigint;
+  /** Deposit deducted from the first credit to a new balance item. */
+  readonly balanceCost: bigint;
 }
 
 /** Endpoint request bounds, which may vary between servers on the same chain. */

@@ -20,7 +20,7 @@ import type {
   EventPage,
   StorageItemRead,
   NetworkInfo,
-  NetworkConfigParams,
+  ChainConfig,
   ServerLimits,
 } from "./types/rpc.js";
 import type { Cluster, ClusterHasCapability } from "./cluster.js";
@@ -96,12 +96,11 @@ export interface CoreGroundhogClient {
   getVersion(options?: TransportRequestOptions): Promise<VersionInfo>;
 
   /**
-   * Return the execution parameters the chain's network config states;
-   * unstated parameters are `null`.
+   * Return stated execution limits and, when supported, a fresh `execution`
+   * reading with effective limits, bigint storage prices, and snapshot context.
+   * Unstated top-level limits are `null`; unavailable execution readings are absent.
    */
-  getChainConfig(
-    options?: TransportRequestOptions,
-  ): Promise<NetworkConfigParams>;
+  getChainConfig(options?: TransportRequestOptions): Promise<ChainConfig>;
 
   /** Return request bounds configured on this endpoint. */
   getServerLimits(options?: TransportRequestOptions): Promise<ServerLimits>;

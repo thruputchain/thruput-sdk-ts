@@ -485,6 +485,77 @@
         ],
         "type": "object"
       },
+      "ChainConfig": {
+        "description": "Chain configuration with an optional authoritative execution reading.",
+        "properties": {
+          "execution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExecutionConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Absent when the backend cannot supply authoritative execution rules."
+          },
+          "maxAuthTokenDepth": {
+            "description": "Levels of node nesting an auth token may carry.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": ["integer", "null"]
+          },
+          "maxBytestringLen": {
+            "description": "Bytes one bytestring storage item may hold.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": ["integer", "null"]
+          },
+          "maxContractSizeBytes": {
+            "description": "Bytes one attached contract's code blob may hold. The protocol fixes\n`kDefaultMaxContractSizeBytes` as the value in force when unstated.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": ["integer", "null"]
+          },
+          "maxCrossInvokeDepth": {
+            "description": "Invocation frames one transaction may have open at once.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": ["integer", "null"]
+          },
+          "maxNewContractsPerTx": {
+            "description": "Contracts one transaction may attach in `contractsToDeploy`.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": ["integer", "null"]
+          },
+          "maxRv32CodeBytes": {
+            "description": "Code bytes an RV32 artifact may carry to be attached. The protocol\nfixes `kDefaultMaxRv32CodeBytes` as the value in force when unstated.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": ["integer", "null"]
+          },
+          "maxRv32MemoryBytes": {
+            "description": "Guest data memory bytes an RV32 artifact may declare to be attached.\nThe protocol fixes `kDefaultMaxRv32MemoryBytes` as the value in force\nwhen unstated.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": ["integer", "null"]
+          },
+          "maxSavepointDepth": {
+            "description": "Storage savepoints one transaction may have open at once.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": ["integer", "null"]
+          },
+          "maxSha256Buffers": {
+            "description": "Concurrently open incremental SHA-256 buffers permitted per\ninvocation frame.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": ["integer", "null"]
+          }
+        },
+        "type": "object"
+      },
       "ChainTip": {
         "description": "Current chain tip. Returned by chainTip.",
         "properties": {
@@ -639,7 +710,7 @@
         "x-integer-minimum": "0"
       },
       "EmittedEvent": {
-        "description": "A single emitted event, as stored by the hogd indexer.\n\nThe gateway parses hogd's `TxEmittedEvent.serialized_event` into\nseparate topics and data. The serialized format is:\n`topic0 (32B) || topic1 (32B) || ... || data (remaining bytes)`.\n`num_topics` (0–3) determines the split point. Max total 1024 bytes.\n\nSee `docs/gateway/system-design.md` \"Event Parsing\" for details.",
+        "description": "A single emitted event, as stored by the hogd indexer.\n\nThe gateway parses hogd's `TxEmittedEvent.serialized_event` into\nseparate topics and data. The serialized format is:\n`topic0 (32B) || topic1 (32B) || ... || data (remaining bytes)`.\n`num_topics` (0\u20133) determines the split point. Max total 1024 bytes.\n\nSee `docs/gateway/system-design.md` \"Event Parsing\" for details.",
         "properties": {
           "contractAddress": {
             "$ref": "#/components/schemas/Hex0x_ContractAddress",
@@ -662,7 +733,7 @@
       },
       "EventFilter": {
         "additionalProperties": false,
-        "description": "A single event-filter predicate: events must be emitted by one of\n`contractAddresses` AND match the topic constraints. Required\nnon-empty `contractAddresses` — the indexer has no topic-indexed\ncolumn family and can't efficiently serve \"any contract\" scans.\n(When such an index is added, the gateway relaxes the non-empty\ncheck; the wire contract stays the same.)",
+        "description": "A single event-filter predicate: events must be emitted by one of\n`contractAddresses` AND match the topic constraints. Required\nnon-empty `contractAddresses` \u2014 the indexer has no topic-indexed\ncolumn family and can't efficiently serve \"any contract\" scans.\n(When such an index is added, the gateway relaxes the non-empty\ncheck; the wire contract stays the same.)",
         "properties": {
           "contractAddresses": {
             "$ref": "#/components/schemas/ContractAddressList"
@@ -787,7 +858,7 @@
             "description": "Deterministic execution error: the transaction faulted during\nexecution (out-of-bounds access, out of gas, stack overflow, etc.).",
             "properties": {
               "kind": {
-                "description": "Error kind from the execution engine. `\"fault\"` when the\nnode does not report a finer-grained category (currently\nalways — see `DETERMINISTIC_ERROR_KIND_FAULT`).",
+                "description": "Error kind from the execution engine. `\"fault\"` when the\nnode does not report a finer-grained category (currently\nalways \u2014 see `DETERMINISTIC_ERROR_KIND_FAULT`).",
                 "type": "string"
               },
               "result": {
@@ -832,6 +903,34 @@
             "type": "object"
           }
         ]
+      },
+      "ExecutionConfig": {
+        "description": "Rules fetched during this request, without stale-cache fallback.\nApply to execution following `observedTip`; later inclusion can use newer rules.",
+        "properties": {
+          "configHash": {
+            "$ref": "#/components/schemas/Hex0x_SHA256Hash",
+            "description": "Consensus commitment to the stated configuration and storage model."
+          },
+          "effectiveLimits": {
+            "$ref": "#/components/schemas/NetworkConfigParams",
+            "description": "Runtime-resolved limits; omissions are unavailable, never zero."
+          },
+          "observedTip": {
+            "$ref": "#/components/schemas/ChainTip",
+            "description": "Committed snapshot read together with these rules."
+          },
+          "storageCosts": {
+            "$ref": "#/components/schemas/StorageCosts",
+            "description": "Active storage collateral schedule in native-HOG base units."
+          }
+        },
+        "required": [
+          "observedTip",
+          "configHash",
+          "effectiveLimits",
+          "storageCosts"
+        ],
+        "type": "object"
       },
       "FundAccountRequest": {
         "additionalProperties": false,
@@ -897,7 +996,7 @@
         "type": "string"
       },
       "IdentifiedEvent": {
-        "description": "Event with provenance — includes which tx emitted it.\nReturned by `getEvents`.",
+        "description": "Event with provenance \u2014 includes which tx emitted it.\nReturned by `getEvents`.",
         "properties": {
           "blockHeight": {
             "$ref": "#/components/schemas/DecimalBlockHeight",
@@ -1130,6 +1229,54 @@
         ],
         "type": "object"
       },
+      "StorageCosts": {
+        "description": "Integer native-HOG base units (10,000,000 per HOG), encoded as decimal strings.\nStorage collateral is separate from gas capacity. A first credit pays the\nrecipient's balance deposit; code storage is charged to the deployed address.",
+        "properties": {
+          "authPerKeyCost": {
+            "description": "Added to the ordinary base for each authorization key.",
+            "type": "string"
+          },
+          "balanceCost": {
+            "description": "Entire balance-item deposit, deducted once from the first credit (no ordinary base).",
+            "type": "string"
+          },
+          "baseContractDeploymentCost": {
+            "description": "RV32 deployment base; does not include the new address's balance deposit.",
+            "type": "string"
+          },
+          "baseDataItemCost": {
+            "description": "Base charge for an ordinary data item; balance and deployment have separate bases.",
+            "type": "string"
+          },
+          "bytestringCostPerByte": {
+            "description": "Added to the ordinary base for each byte of a bytestring value (u32).",
+            "type": "string"
+          },
+          "contractDeploymentCostPerByte": {
+            "description": "Added per byte of ContractBlob.data, including the full RV32 artifact.",
+            "type": "string"
+          },
+          "rcqCostPerEntry": {
+            "description": "Added to the ordinary base per live queue entry; an empty queue costs zero.",
+            "type": "string"
+          },
+          "replayCacheCostPerEntry": {
+            "description": "Added to the ordinary base per replay-cache entry, charged to its owner.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "baseDataItemCost",
+          "bytestringCostPerByte",
+          "baseContractDeploymentCost",
+          "contractDeploymentCostPerByte",
+          "authPerKeyCost",
+          "rcqCostPerEntry",
+          "replayCacheCostPerEntry",
+          "balanceCost"
+        ],
+        "type": "object"
+      },
       "StorageItemInfo": {
         "description": "Latest-committed value at a single storage location, presented as\na tagged union so machine consumers can switch on `kind` without\nrunning an XDR codec for the common cases.",
         "oneOf": [
@@ -1164,7 +1311,7 @@
             "type": "object"
           },
           {
-            "description": "Authorization data is registered at this address.  Presence\nindicator only — querying signer details requires a contract\ninvocation.",
+            "description": "Authorization data is registered at this address.  Presence\nindicator only \u2014 querying signer details requires a contract\ninvocation.",
             "properties": {
               "kind": {
                 "const": "authData",
@@ -1175,7 +1322,7 @@
             "type": "object"
           },
           {
-            "description": "A retrocausal queue is registered at this address.  Presence\nindicator only — RCQ data is not held in a single storage\nitem, and per-item structure here would be misleading.\nWallets that need to interpret RCQ contents invoke a\ncontract that exposes them.",
+            "description": "A retrocausal queue is registered at this address.  Presence\nindicator only \u2014 RCQ data is not held in a single storage\nitem, and per-item structure here would be misleading.\nWallets that need to interpret RCQ contents invoke a\ncontract that exposes them.",
             "properties": {
               "kind": {
                 "const": "retrocausalQueue",
@@ -1186,7 +1333,7 @@
             "type": "object"
           },
           {
-            "description": "Replay-cache entry exists at this key.  No payload — the\npresence is the signal.",
+            "description": "Replay-cache entry exists at this key.  No payload \u2014 the\npresence is the signal.",
             "properties": {
               "kind": {
                 "const": "replayCacheEntry",
@@ -1223,7 +1370,7 @@
             "type": "object"
           },
           {
-            "description": "Storage variant unknown to this client.  Indicates the\nprotocol shipped a new variant that this build was not\nregenerated against — clients should treat as\n\"uninterpretable\" and fall back to alternative reads.",
+            "description": "Storage variant unknown to this client.  Indicates the\nprotocol shipped a new variant that this build was not\nregenerated against \u2014 clients should treat as\n\"uninterpretable\" and fall back to alternative reads.",
             "properties": {
               "kind": {
                 "const": "unknown",
@@ -1241,7 +1388,7 @@
         ]
       },
       "StorageItemRead": {
-        "description": "Outcome of reading one storage location at the latest committed\nsnapshot.  `block_height` is always set to the snapshot the read\nwas performed against, even when no item exists at the requested\nkey — that lets callers compare against `chainTip` to gauge\nfreshness.",
+        "description": "Outcome of reading one storage location at the latest committed\nsnapshot.  `block_height` is always set to the snapshot the read\nwas performed against, even when no item exists at the requested\nkey \u2014 that lets callers compare against `chainTip` to gauge\nfreshness.",
         "properties": {
           "blockHeight": {
             "$ref": "#/components/schemas/DecimalBlockHeight",
@@ -1325,7 +1472,7 @@
         ]
       },
       "TransactionReceipt": {
-        "description": "Full transaction receipt. Returned by `getTransactionReceipt`.\n\nDesign notes:\n- `status` maps from `TxEventLog.exec_result` in the indexer.\n  Committed blocks include both successful and deterministically-failed\n  txs (reverts, OOG). If a receipt exists, the tx was committed.\n- No `blockHash`: SCP instant finality, height is sufficient.\n- No `gasPrice`, `transactionIndex`, `logsBloom`.\n- `gasUsed` is committed by consensus as part of the transaction's event\n  log (`TxEventLog.gas_consumed`).\n\n`storage_delta` (net HOG locked/unlocked) is deferred — hogd's\n`TxInfo` doesn't include it. Will be added when indexer support lands.",
+        "description": "Full transaction receipt. Returned by `getTransactionReceipt`.\n\nDesign notes:\n- `status` maps from `TxEventLog.exec_result` in the indexer.\n  Committed blocks include both successful and deterministically-failed\n  txs (reverts, OOG). If a receipt exists, the tx was committed.\n- No `blockHash`: SCP instant finality, height is sufficient.\n- No `gasPrice`, `transactionIndex`, `logsBloom`.\n- `gasUsed` is committed by consensus as part of the transaction's event\n  log (`TxEventLog.gas_consumed`).\n\n`storage_delta` (net HOG locked/unlocked) is deferred \u2014 hogd's\n`TxInfo` doesn't include it. Will be added when indexer support lands.",
         "properties": {
           "abortData": {
             "anyOf": [
@@ -1336,7 +1483,7 @@
                 "type": "null"
               }
             ],
-            "description": "Bytes the contract passed to its `abort` / `revert` syscall\nwhen the transaction reverted deterministically.  Present\nwhen `status` is `reverted` and the chain version that\nexecuted the transaction recorded the revert payload; absent\notherwise.  Returned raw — decode against the contract's\nspec (typically the error variant) to recover a human-\nreadable reason."
+            "description": "Bytes the contract passed to its `abort` / `revert` syscall\nwhen the transaction reverted deterministically.  Present\nwhen `status` is `reverted` and the chain version that\nexecuted the transaction recorded the revert payload; absent\notherwise.  Returned raw \u2014 decode against the contract's\nspec (typically the error variant) to recover a human-\nreadable reason."
           },
           "events": {
             "description": "Events emitted during execution.",
@@ -1362,7 +1509,7 @@
                 "type": "null"
               }
             ],
-            "description": "Bytes returned by the contract's root call on a successful\ntransaction.  Present when `status` is `ok` and the chain\nversion that executed the transaction recorded a return\nvalue; absent otherwise.  Returned raw — decode against the\ncontract's spec to recover typed values."
+            "description": "Bytes returned by the contract's root call on a successful\ntransaction.  Present when `status` is `ok` and the chain\nversion that executed the transaction recorded a return\nvalue; absent otherwise.  Returned raw \u2014 decode against the\ncontract's spec to recover typed values."
           },
           "status": {
             "$ref": "#/components/schemas/ExecStatus",
@@ -1836,12 +1983,12 @@
       "name": "groundhog_chainConfig",
       "params": [],
       "result": {
-        "name": "NetworkConfigParams",
+        "name": "ChainConfig",
         "schema": {
-          "$ref": "#/components/schemas/NetworkConfigParams"
+          "$ref": "#/components/schemas/ChainConfig"
         }
       },
-      "summary": "The execution parameters the chain's network config states. Only stated parameters are reported; an unstated one is absent. Served from a tip reading refreshed at most once per cache window. Fails with `BackendUnavailable` when no reading is available or the config version is unreadable.",
+      "summary": "Stated execution parameters, plus an authoritative `execution` reading when supported. Top-level omissions mean unspecified. `execution` pairs resolved limits and storage prices with the committed tip observed during this request; it is never served from a stale cache. Without that capability, stated fields use the tip cache. Unavailable or unreadable readings fail with `BackendUnavailable`.",
       "tags": [
         {
           "name": "Core API"
@@ -2086,7 +2233,7 @@
           "$ref": "#/components/schemas/StorageItemRead"
         }
       },
-      "summary": "Read the latest committed storage item at an address/key pair. `block_height` in the returned `StorageItemRead` always reflects the snapshot the read was performed against — even when no item is present at the key — so wallets can compare against `chainTip` to gauge freshness.",
+      "summary": "Read the latest committed storage item at an address/key pair. `block_height` in the returned `StorageItemRead` always reflects the snapshot the read was performed against \u2014 even when no item is present at the key \u2014 so wallets can compare against `chainTip` to gauge freshness.",
       "tags": [
         {
           "name": "Core API"

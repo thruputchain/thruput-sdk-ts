@@ -10,7 +10,7 @@ SPEC="$(git rev-parse --show-toplevel)/specs/openrpc.json"
 TEMP_SPEC="$(mktemp)"
 trap 'rm -f "$TEMP_SPEC"' EXIT
 "$GENERATOR" > "$TEMP_SPEC"
-# Reject a stale published generator before it can overwrite the local-funding spec.
+# Reject a stale generator before it can overwrite the wire-9.1 funding/config spec.
 node --input-type=module - "$TEMP_SPEC" <<'JS'
 import { readFileSync } from "node:fs";
 const spec = JSON.parse(readFileSync(process.argv[2], "utf8"));
