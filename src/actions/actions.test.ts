@@ -148,7 +148,7 @@ describe("getVersion", () => {
     const transport = new MockTransport();
     const version = await getVersion(transport);
     expect(version).toEqual({
-      wireFormat: "3.3.0",
+      wireFormat: "9.0.0",
       implementation: "mock",
       commitHash: null,
       platformVersion: null,
@@ -229,16 +229,16 @@ describe("getBlockByNumber", () => {
 
     expect(block).toBeNull();
     expect(calls).toEqual([
-      { method: "groundhog_getBlockByNumber", params: [42] },
+      { method: "groundhog_getBlockByNumber", params: ["42"] },
     ]);
   });
 
-  it.each([-1n, BigInt(Number.MAX_SAFE_INTEGER) + 1n])(
-    "rejects a height that JSON cannot serialize safely: %s",
+  it.each([-1n, 1n << 63n])(
+    "rejects a height outside the protocol range: %s",
     async (height) => {
       await expect(
         getBlockByNumber(new MockTransport(), height),
-      ).rejects.toThrow("height must be a non-negative safe integer");
+      ).rejects.toThrow("height must be a non-negative int64 bigint");
     },
   );
 });
@@ -291,26 +291,29 @@ describe("getPendingTransactionCount", () => {
 });
 
 describe("view", () => {
-  it.each([0, 4242, Number.MAX_SAFE_INTEGER, "18446744073709551615"])(
-    "parses gasUsed %s without losing precision",
-    async (gasUsed) => {
-      const transport: Transport = {
-        request: async <T>() =>
-          ({
-            output: { result: "return", returnData: "0x" },
-            events: [],
-            height: 1,
-            gasUsed,
-          }) as T,
-      };
-      const response = await view(transport, {
-        contract: contractAddress(new Uint8Array(32)),
-        entrypoint: contractEntrypointID(new Uint8Array(8)),
-        calldata: calldata(new Uint8Array()),
-      });
-      expect(response.gasUsed).toBe(BigInt(gasUsed));
-    },
-  );
+  it.each([
+    "0",
+    "4242",
+    "9007199254740991",
+    "9007199254740993",
+    "18446744073709551615",
+  ])("parses gasUsed %s without losing precision", async (gasUsed) => {
+    const transport: Transport = {
+      request: async <T>() =>
+        ({
+          output: { result: "return", returnData: "0x" },
+          events: [],
+          height: "1",
+          gasUsed,
+        }) as T,
+    };
+    const response = await view(transport, {
+      contract: contractAddress(new Uint8Array(32)),
+      entrypoint: contractEntrypointID(new Uint8Array(8)),
+      calldata: calldata(new Uint8Array()),
+    });
+    expect(response.gasUsed).toBe(BigInt(gasUsed));
+  });
 
   it.each([
     undefined,
@@ -332,7 +335,7 @@ describe("view", () => {
         ({
           output: { result: "fault" },
           events: [],
-          height: 1,
+          height: "1",
           gasUsed,
         }) as T,
     };
@@ -342,7 +345,7 @@ describe("view", () => {
         entrypoint: contractEntrypointID(new Uint8Array(8)),
         calldata: calldata(new Uint8Array()),
       }),
-    ).rejects.toThrow("expected gasUsed to be a u64");
+    ).rejects.toThrow("gasUsed");
   });
 
   it("serializes request fields and parses return output with events", async () => {
@@ -352,7 +355,7 @@ describe("view", () => {
         calls.push({ method, params });
         return {
           output: { result: "return", returnData: "0x0102" },
-          gasUsed: 42,
+          gasUsed: "42",
           events: [
             {
               contractAddress: "0x" + "11".repeat(32),
@@ -406,9 +409,9 @@ describe("view", () => {
         calls.push({ method, params });
         return {
           output: { result: "abort", abortData: "0x0a0b" },
-          gasUsed: 42,
+          gasUsed: "42",
           events: [],
-          height: 8,
+          height: "8",
         } as T;
       },
     };
@@ -442,9 +445,9 @@ describe("view", () => {
       async request<T>(): Promise<T> {
         return {
           output: { result: "fault" },
-          gasUsed: 42,
+          gasUsed: "42",
           events: [],
-          height: 9,
+          height: "9",
         } as T;
       },
     };
@@ -465,8 +468,8 @@ describe("view", () => {
       async request<T>(): Promise<T> {
         return {
           output: { result: "fault" },
-          gasUsed: 42,
-          height: 9,
+          gasUsed: "42",
+          height: "9",
         } as T;
       },
     };
@@ -498,9 +501,9 @@ describe("view", () => {
       async request<T>(): Promise<T> {
         return {
           output: { result: "fault" },
-          gasUsed: 42,
+          gasUsed: "42",
           events: [event],
-          height: 9,
+          height: "9",
         } as T;
       },
     };
@@ -542,7 +545,7 @@ describe("getTransactionReceipt", () => {
           txHash: "0x" + "aa".repeat(32),
           height: "42",
           status: { result: "ok" },
-          gasUsed: 7,
+          gasUsed: "7",
           events: [
             {
               contractAddress: "0x" + "11".repeat(32),
@@ -572,7 +575,7 @@ describe("getTransactionReceipt", () => {
         async request<T>(): Promise<T> {
           return {
             txHash: "0x" + "aa".repeat(32),
-            height: 42,
+            height: "42",
             status: { result: "ok" },
             events: [],
             gasUsed,
@@ -582,9 +585,9 @@ describe("getTransactionReceipt", () => {
       return getTransactionReceipt(transport, txHash);
     };
 
-    expect((await receiptFor(4242))?.gasUsed).toBe(4242n);
-    expect((await receiptFor(0))?.gasUsed).toBe(0n);
-    expect((await receiptFor(Number.MAX_SAFE_INTEGER))?.gasUsed).toBe(
+    expect((await receiptFor("4242"))?.gasUsed).toBe(4242n);
+    expect((await receiptFor("0"))?.gasUsed).toBe(0n);
+    expect((await receiptFor(String(Number.MAX_SAFE_INTEGER)))?.gasUsed).toBe(
       BigInt(Number.MAX_SAFE_INTEGER),
     );
     expect((await receiptFor("18446744073709551615"))?.gasUsed).toBe(
@@ -612,7 +615,7 @@ describe("getTransactionReceipt", () => {
         async request<T>(): Promise<T> {
           return {
             txHash: "0x" + "aa".repeat(32),
-            height: 42,
+            height: "42",
             status: { result: "ok" },
             events: [],
             gasUsed,
@@ -631,9 +634,9 @@ describe("getTransactionReceipt", () => {
       async request<T>(): Promise<T> {
         return {
           txHash: "0x" + "aa".repeat(32),
-          height: 42,
+          height: "42",
           status: { result: "ok" },
-          gasUsed: 7,
+          gasUsed: "7",
           events: [
             {
               contractAddress: "0x" + "11".repeat(32),
@@ -712,7 +715,7 @@ describe("getTransactionStatus", () => {
       async request<T>(): Promise<T> {
         return {
           status: "recentFailure",
-          attemptHeight: 42,
+          attemptHeight: "42",
           cause: {
             kind: "dbConflict",
             conflict: {
@@ -866,8 +869,8 @@ describe("getTransactionsByAddress", () => {
         return {
           refs: [],
           cursor: "0x",
-          latestBlock: 0,
-          oldestBlock: 0,
+          latestBlock: "0",
+          oldestBlock: "0",
         } as T;
       },
     };
@@ -888,7 +891,7 @@ describe("getTransactionsByAddress", () => {
           {
             address: "0x" + "ab".repeat(32),
             order: "descending",
-            anchor: { kind: "atHeight", height: 42 },
+            anchor: { kind: "atHeight", height: "42" },
             cursor: "0x010203",
             limit: 10,
           },
@@ -906,7 +909,7 @@ describe("getTransactionsByAddress", () => {
           ],
           cursor: "0x0a0b",
           latestBlock: "9007199254740994",
-          oldestBlock: 7,
+          oldestBlock: "7",
         } as T;
       },
     };
@@ -982,8 +985,8 @@ describe("getEvents", () => {
         return {
           events: [],
           cursor: "0x",
-          latestBlock: 0,
-          oldestBlock: 0,
+          latestBlock: "0",
+          oldestBlock: "0",
         } as T;
       },
     };
@@ -1021,7 +1024,7 @@ describe("getEvents", () => {
             ],
             cursor: "0x010203",
             order: "descending",
-            anchor: { kind: "atHeight", height: 42 },
+            anchor: { kind: "atHeight", height: "42" },
             limit: 10,
           },
         ],
@@ -1047,7 +1050,7 @@ describe("getEvents", () => {
           ],
           cursor: "0x05",
           latestBlock: "50",
-          oldestBlock: 1,
+          oldestBlock: "1",
         } as T;
       },
     };
@@ -1075,7 +1078,7 @@ describe("getEvents", () => {
           events: [
             {
               txHash: "0x" + "aa".repeat(32),
-              blockHeight: 42,
+              blockHeight: "42",
               sequenceNumber: 7,
               event: {
                 contractAddress: "0x" + "11".repeat(32),
@@ -1085,8 +1088,8 @@ describe("getEvents", () => {
             },
           ],
           cursor: "0x",
-          latestBlock: 42,
-          oldestBlock: 1,
+          latestBlock: "42",
+          oldestBlock: "1",
         } as T;
       },
     };
@@ -1103,7 +1106,7 @@ describe("getEvents", () => {
           events: [
             {
               txHash: "0x" + "aa".repeat(32),
-              blockHeight: 42,
+              blockHeight: "42",
               sequenceNumber: 7,
               event: {
                 contractAddress: "0x" + "11".repeat(32),
@@ -1113,8 +1116,8 @@ describe("getEvents", () => {
             },
           ],
           cursor: "0x",
-          latestBlock: 42,
-          oldestBlock: 1,
+          latestBlock: "42",
+          oldestBlock: "1",
         } as T;
       },
     };
@@ -1126,6 +1129,53 @@ describe("getEvents", () => {
 });
 
 describe("getStorageAt", () => {
+  it.each(["0", "170141183460469231731687303715884105727"])(
+    "accepts nonnegativeInt boundary %s",
+    async (value) => {
+      const transport: Transport = {
+        async request<T>() {
+          return {
+            blockHeight: "7",
+            item: { kind: "nonnegativeInt", value },
+          } as T;
+        },
+      };
+
+      await expect(
+        getStorageAt(
+          transport,
+          contractAddress(new Uint8Array(32)),
+          new Uint8Array(32),
+        ),
+      ).resolves.toEqual({
+        blockHeight: 7n,
+        item: { kind: "nonnegativeInt", value: BigInt(value) },
+      });
+    },
+  );
+
+  it.each(["-1", "170141183460469231731687303715884105728"])(
+    "rejects out-of-range nonnegativeInt %s",
+    async (value) => {
+      const transport: Transport = {
+        async request<T>() {
+          return {
+            blockHeight: "7",
+            item: { kind: "nonnegativeInt", value },
+          } as T;
+        },
+      };
+
+      await expect(
+        getStorageAt(
+          transport,
+          contractAddress(new Uint8Array(32)),
+          new Uint8Array(32),
+        ),
+      ).rejects.toThrow("Invalid value: expected an integer from 0 to");
+    },
+  );
+
   it("rejects a non-32-byte key before issuing a request", async () => {
     const transport = new MockTransport();
     await expect(
@@ -1153,16 +1203,16 @@ describe("getStorageAt", () => {
     // can exercise the per-variant demux without committing the mock to
     // a fixed return.
     const responses: unknown[] = [
-      { blockHeight: 7, item: { kind: "nonnegativeInt", value: "12345" } },
+      { blockHeight: "7", item: { kind: "nonnegativeInt", value: "12345" } },
       {
-        blockHeight: 8,
+        blockHeight: "8",
         item: { kind: "bytestring", bytes: "0x0102deadbeef" },
       },
-      { blockHeight: 9, item: { kind: "authData" } },
-      { blockHeight: 10, item: { kind: "retrocausalQueue" } },
-      { blockHeight: 11, item: { kind: "replayCacheEntry" } },
+      { blockHeight: "9", item: { kind: "authData" } },
+      { blockHeight: "10", item: { kind: "retrocausalQueue" } },
+      { blockHeight: "11", item: { kind: "replayCacheEntry" } },
       {
-        blockHeight: 12,
+        blockHeight: "12",
         item: {
           kind: "deployedContract",
           hash: "0x" + "ab".repeat(32),
@@ -1170,7 +1220,7 @@ describe("getStorageAt", () => {
           contractType: 1,
         },
       },
-      { blockHeight: 13, item: { kind: "unknown", typeId: 99 } },
+      { blockHeight: "13", item: { kind: "unknown", typeId: 99 } },
     ];
     let i = 0;
     const transport: Transport = {

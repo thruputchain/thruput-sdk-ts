@@ -4,10 +4,10 @@ import { MockTransport } from "./mock.js";
 describe("MockTransport", () => {
   it("returns chain tip at height 0 when empty", async () => {
     const transport = new MockTransport();
-    const tip = await transport.request<{ height: number; blockHash: string }>(
+    const tip = await transport.request<{ height: string; blockHash: string }>(
       "groundhog_chainTip",
     );
-    expect(tip.height).toBe(0);
+    expect(tip.height).toBe("0");
     expect(tip.blockHash).toMatch(/^0x[0-9a-f]{64}$/);
   });
 
@@ -17,10 +17,10 @@ describe("MockTransport", () => {
     const balance = await transport.request<{
       address: string;
       rawBalance: string;
-      height: number;
+      height: string;
     }>("groundhog_getBalance", [address]);
 
-    expect(balance).toEqual({ address, rawBalance: "0", height: 0 });
+    expect(balance).toEqual({ address, rawBalance: "0", height: "0" });
   });
 
   it("stores a transaction and increments height on sendRawTransaction", async () => {
@@ -31,10 +31,10 @@ describe("MockTransport", () => {
     );
     expect(hash).toMatch(/^0x[0-9a-f]{64}$/);
 
-    const tip = await transport.request<{ height: number }>(
+    const tip = await transport.request<{ height: string }>(
       "groundhog_chainTip",
     );
-    expect(tip.height).toBe(1);
+    expect(tip.height).toBe("1");
   });
 
   it("returns receipt for a committed transaction", async () => {
@@ -45,18 +45,18 @@ describe("MockTransport", () => {
     );
     const receipt = await transport.request<{
       txHash: string;
-      height: number;
+      height: string;
       status: { result: string };
       events: unknown[];
       returnData: null;
       abortData: null;
-      gasUsed: number;
+      gasUsed: string;
     }>("groundhog_getTransactionReceipt", [hash]);
     expect(receipt).not.toBeNull();
     expect(receipt!.txHash).toBe(hash);
     expect(receipt!.status.result).toBe("ok");
     expect(receipt!.events).toEqual([]);
-    expect(receipt!.gasUsed).toBe(0);
+    expect(receipt!.gasUsed).toBe("0");
   });
 
   it("returns null receipt for unknown transaction", async () => {
@@ -75,10 +75,10 @@ describe("MockTransport", () => {
     );
     const status = await transport.request<{
       status: string;
-      height?: number;
+      height?: string;
     }>("groundhog_getTransactionStatus", [hash]);
     expect(status.status).toBe("committed");
-    expect(status.height).toBe(1);
+    expect(status.height).toBe("1");
   });
 
   it("returns unknown status for an unknown transaction", async () => {

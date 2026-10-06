@@ -12,6 +12,7 @@ import type {
   AirdropExecutionStatus,
 } from "../../types/rpc.js";
 import { addressFromHex, hashFromHex, toHex0x } from "../hex.js";
+import { parseDecimal, parseHeight, parseU64, U128_MAX } from "../decimal.js";
 
 const maxTimerDelayMs = 2_147_483_647;
 const defaultTimeoutMs = 60_000;
@@ -111,7 +112,11 @@ export async function requestAirdrop(
 
     if (response.attemptStatus === "succeeded") return response;
     await sleepBeforeDeadline(
-      response.retryAfterSeconds * 1_000,
+      Number(
+        response.retryAfterSeconds > BigInt(Math.floor(maxTimerDelayMs / 1_000))
+          ? BigInt(maxTimerDelayMs)
+          : response.retryAfterSeconds * 1_000n,
+      ),
       deadline,
       options.signal,
       timeoutError,
@@ -139,13 +144,13 @@ function parseResponse(
 
   try {
     const recipient = parseRecipient(raw.recipient, expectedRecipient);
-    const rawAmount = parseUnsignedDecimal(raw.rawAmount, "rawAmount");
+    const rawAmount = parseDecimal(raw.rawAmount, "rawAmount", 0n, U128_MAX);
     if (raw.attemptStatus === "pending") {
       const pending: AirdropPending = {
         attemptStatus: "pending",
         recipient,
         rawAmount,
-        retryAfterSeconds: parseRetryAfter(raw.retryAfterSeconds),
+        retryAfterSeconds: parseU64(raw.retryAfterSeconds, "retryAfterSeconds"),
       };
       if (raw.txHash !== undefined && raw.txHash !== null) {
         pending.txHash = parseHash(raw.txHash, "txHash");
@@ -158,7 +163,7 @@ function parseResponse(
         recipient,
         rawAmount,
         txHash: parseHash(raw.txHash, "txHash"),
-        height: parseInteger(raw.height, "height"),
+        height: parseHeight(raw.height),
         status: parseExecutionStatus(raw.status),
       };
     }
@@ -191,33 +196,6 @@ function parseHash(value: unknown, field: string): SHA256Hash {
     throw new Error(`expected canonical ${field}`);
   }
   return hashFromHex(value);
-}
-
-function parseUnsignedDecimal(value: unknown, field: string): bigint {
-  if (typeof value !== "string" || !/^(0|[1-9][0-9]*)$/.test(value)) {
-    throw new Error(`expected decimal ${field}`);
-  }
-  return BigInt(value);
-}
-
-function parseInteger(value: unknown, field: string): bigint {
-  if (typeof value === "number") {
-    if (!Number.isSafeInteger(value) || value < 0) {
-      throw new Error(`expected non-negative integer ${field}`);
-    }
-    return BigInt(value);
-  }
-  if (typeof value === "string" && /^(0|[1-9][0-9]*)$/.test(value)) {
-    return BigInt(value);
-  }
-  throw new Error(`expected non-negative integer ${field}`);
-}
-
-function parseRetryAfter(value: unknown): number {
-  if (!Number.isSafeInteger(value) || (value as number) < 0) {
-    throw new Error("expected retryAfterSeconds");
-  }
-  return value as number;
 }
 
 function parseExecutionStatus(value: unknown): AirdropExecutionStatus {

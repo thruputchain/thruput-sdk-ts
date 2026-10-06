@@ -64,7 +64,7 @@ describe("iterateEventPages", () => {
             },
           ],
           order: "descending",
-          anchor: { kind: "atHeight", height: 50 },
+          anchor: { kind: "atHeight", height: "50" },
           limit: 20,
           cursor: index === 0 ? "0x" : "0x01",
         },

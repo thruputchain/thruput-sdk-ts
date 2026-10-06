@@ -5,9 +5,10 @@ import type {
 } from "../../transport/types.js";
 import type { StorageItemInfo, StorageItemRead } from "../../types/rpc.js";
 import { fromHex0x, hashFromHex, toHex0x } from "../hex.js";
+import { parseDecimal, parseHeight, I128_MAX } from "../decimal.js";
 
 interface RawStorageItemRead {
-  blockHeight: number | string;
+  blockHeight: string;
   item?: unknown;
 }
 
@@ -43,7 +44,7 @@ export async function getStorageAt(
   const read = result as RawStorageItemRead;
 
   return {
-    blockHeight: BigInt(read.blockHeight),
+    blockHeight: parseHeight(read.blockHeight, "blockHeight"),
     item:
       read.item !== undefined && read.item !== null
         ? parseStorageItemInfo(read.item)
@@ -58,7 +59,10 @@ function parseStorageItemInfo(raw: unknown): StorageItemInfo {
   const r = raw as Record<string, unknown>;
   switch (r.kind) {
     case "nonnegativeInt":
-      return { kind: "nonnegativeInt", value: BigInt(r.value as string) };
+      return {
+        kind: "nonnegativeInt",
+        value: parseDecimal(r.value, "value", 0n, I128_MAX),
+      };
     case "bytestring":
       return { kind: "bytestring", bytes: fromHex0x(r.bytes as string) };
     case "authData":

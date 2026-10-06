@@ -3,21 +3,22 @@ set -euo pipefail
 
 GENERATOR="${GROUNDHOG_OPENRPC_GENERATOR:-}"
 if [[ -z "$GENERATOR" ]]; then
-  cargo install groundhog-open-rpc-spec@0.21.0 --registry groundhog 2>/dev/null
+  cargo install groundhog-open-rpc-spec@0.23.0 --registry groundhog
   GENERATOR="groundhog-open-rpc-spec"
 fi
 SPEC="$(git rev-parse --show-toplevel)/specs/openrpc.json"
-GENERATED="$(mktemp)"
-trap 'rm -f "$GENERATED"' EXIT
-"$GENERATOR" > "$GENERATED"
-node --input-type=module - "$GENERATED" <<'NODE'
+TEMP_SPEC="$(mktemp)"
+trap 'rm -f "$TEMP_SPEC"' EXIT
+"$GENERATOR" > "$TEMP_SPEC"
+# Reject a stale published generator before it can overwrite the local-funding spec.
+node --input-type=module - "$TEMP_SPEC" <<'JS'
 import { readFileSync } from "node:fs";
 const spec = JSON.parse(readFileSync(process.argv[2], "utf8"));
-if (spec.info.version !== "8.2.0") {
-  throw new Error("Select the reviewed GH-462 generator with GROUNDHOG_OPENRPC_GENERATOR; this snapshot requires wire 8.2.0. The published pinned generator predates local funding.");
+if (spec.info.version !== "9.1.0") {
+  throw new Error(`Expected RPC wire 9.1.0, received ${spec.info.version}. Set GROUNDHOG_OPENRPC_GENERATOR to a matching generator.`);
 }
-NODE
-cp "$GENERATED" "$SPEC"
+JS
+cp "$TEMP_SPEC" "$SPEC"
 # Run prettier so the committed snapshot matches the rest of the repo's
 # formatting and `npm run format:check` stays clean across regens.
 npx --no-install prettier --write "$SPEC" >/dev/null

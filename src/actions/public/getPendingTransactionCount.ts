@@ -3,6 +3,8 @@ import type {
   TransportRequestOptions,
 } from "../../transport/types.js";
 
+import { parseU64 } from "../decimal.js";
+
 /** Return the number of transactions currently pending in the mempool. */
 export async function getPendingTransactionCount(
   transport: Transport,
@@ -14,11 +16,5 @@ export async function getPendingTransactionCount(
     undefined,
     options,
   );
-  if (typeof result !== "number" && typeof result !== "string") {
-    throw new Error("Invalid pending transaction count response");
-  }
-
-  const count = BigInt(result);
-  if (count < 0n) throw new Error("Invalid pending transaction count response");
-  return count;
+  return parseU64(result, "pending transaction count");
 }

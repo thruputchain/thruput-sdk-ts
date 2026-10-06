@@ -60,15 +60,15 @@ export interface NetworkConfigParams {
 /** Endpoint request bounds, which may vary between servers on the same chain. */
 export interface ServerLimits {
   /** Maximum view gas, also used when a view omits its gas limit. */
-  readonly maxViewGas: number;
+  readonly maxViewGas: bigint;
   /** Maximum view calldata size in bytes. */
-  readonly maxViewCalldataBytes: number;
+  readonly maxViewCalldataBytes: bigint;
   /** Maximum events requested in one page. */
   readonly maxEventsPerPage: number;
   /** Maximum transactions requested in one address-history page. */
   readonly maxTransactionsPerPage: number;
   /** Maximum opaque cursor size in bytes. */
-  readonly maxCursorBytes: number;
+  readonly maxCursorBytes: bigint;
 }
 
 /** One idempotent airdrop attempt. */
@@ -98,7 +98,7 @@ export interface AirdropPending {
   recipient: ContractAddress;
   rawAmount: bigint;
   txHash?: SHA256Hash;
-  retryAfterSeconds: number;
+  retryAfterSeconds: bigint;
 }
 
 /** Airdrop transaction committed to the network. */
@@ -211,6 +211,9 @@ export interface ViewRequest {
 
   /** Optional caller address to use for the view. */
   caller?: ContractAddress;
+
+  /** Positive u64 gas budget; omitted uses the endpoint's maxViewGas. */
+  gasLimit?: bigint;
 }
 
 /** Tagged output from a read-only contract invocation. */
