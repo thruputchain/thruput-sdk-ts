@@ -655,6 +655,80 @@ describe("getTransactionReceipt", () => {
 });
 
 describe("getTransactionStatus", () => {
+  it.each([
+    [{ status: "committed" }, { status: "committed" }],
+    [{ status: "committed", height: null }, { status: "committed" }],
+    [
+      { status: "committed", height: "0" },
+      { status: "committed", height: 0n },
+    ],
+    [
+      { status: "committed", height: "9007199254740993" },
+      { status: "committed", height: 9007199254740993n },
+    ],
+  ])("parses optional commitment height: %j", async (raw, expected) => {
+    const transport: Transport = {
+      async request<T>() {
+        return raw as T;
+      },
+    };
+    await expect(
+      getTransactionStatus(transport, hashFromHex("0x" + "11".repeat(32))),
+    ).resolves.toEqual(expected);
+  });
+
+  it.each(["retry", "dropped"])(
+    "preserves scheduler outcome %s",
+    async (status) => {
+      const raw = { status, error: { source: "executor", code: -7 } };
+      const transport: Transport = {
+        async request<T>() {
+          return raw as T;
+        },
+      };
+      await expect(
+        getTransactionStatus(transport, hashFromHex("0x" + "11".repeat(32))),
+      ).resolves.toEqual(raw);
+    },
+  );
+
+  it("maps future scheduler sources to other without losing the code", async () => {
+    const transport: Transport = {
+      async request<T>() {
+        return {
+          status: "retry",
+          error: { source: "future", code: -2147483648 },
+        } as T;
+      },
+    };
+    await expect(
+      getTransactionStatus(transport, hashFromHex("0x" + "11".repeat(32))),
+    ).resolves.toEqual({
+      status: "retry",
+      error: { source: "other", code: -2147483648 },
+    });
+  });
+
+  it.each([
+    undefined,
+    null,
+    [],
+    { source: 1, code: 1 },
+    ...["1", 0.5, NaN, Infinity, -2147483649, 2147483648].map((code) => ({
+      source: "auth",
+      code,
+    })),
+  ])("rejects malformed scheduler error %j", async (error) => {
+    const transport: Transport = {
+      async request<T>() {
+        return { status: "dropped", error } as T;
+      },
+    };
+    await expect(
+      getTransactionStatus(transport, hashFromHex("0x" + "11".repeat(32))),
+    ).rejects.toThrow(/expected error/);
+  });
+
   it("returns committed for submitted tx", async () => {
     const transport = new MockTransport();
     const signedTx = await makeDummySignedTx();
