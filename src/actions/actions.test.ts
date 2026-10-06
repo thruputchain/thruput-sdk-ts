@@ -1129,6 +1129,53 @@ describe("getEvents", () => {
 });
 
 describe("getStorageAt", () => {
+  it.each(["0", "170141183460469231731687303715884105727"])(
+    "accepts nonnegativeInt boundary %s",
+    async (value) => {
+      const transport: Transport = {
+        async request<T>() {
+          return {
+            blockHeight: "7",
+            item: { kind: "nonnegativeInt", value },
+          } as T;
+        },
+      };
+
+      await expect(
+        getStorageAt(
+          transport,
+          contractAddress(new Uint8Array(32)),
+          new Uint8Array(32),
+        ),
+      ).resolves.toEqual({
+        blockHeight: 7n,
+        item: { kind: "nonnegativeInt", value: BigInt(value) },
+      });
+    },
+  );
+
+  it.each(["-1", "170141183460469231731687303715884105728"])(
+    "rejects out-of-range nonnegativeInt %s",
+    async (value) => {
+      const transport: Transport = {
+        async request<T>() {
+          return {
+            blockHeight: "7",
+            item: { kind: "nonnegativeInt", value },
+          } as T;
+        },
+      };
+
+      await expect(
+        getStorageAt(
+          transport,
+          contractAddress(new Uint8Array(32)),
+          new Uint8Array(32),
+        ),
+      ).rejects.toThrow("Invalid value: expected an integer from 0 to");
+    },
+  );
+
   it("rejects a non-32-byte key before issuing a request", async () => {
     const transport = new MockTransport();
     await expect(

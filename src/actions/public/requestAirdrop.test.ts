@@ -372,6 +372,37 @@ describe("requestAirdrop", () => {
     expect(transportAborted).toBe(true);
   });
 
+  it.each(["2147483", "2147484", "18446744073709551615"])(
+    "times out without polling again for retryAfterSeconds %s",
+    async (retryAfterSeconds) => {
+      vi.useFakeTimers();
+      let calls = 0;
+      const transport: Transport = {
+        async request<T>(): Promise<T> {
+          calls += 1;
+          return { ...pending, retryAfterSeconds } as T;
+        },
+      };
+      const result = requestAirdrop(transport, {
+        recipient,
+        clientNonce,
+        timeoutMs: 1_000,
+      });
+      const rejection = expect(result).rejects.toThrow(
+        "Timed out waiting for airdrop",
+      );
+
+      await vi.advanceTimersByTimeAsync(999);
+      expect(calls).toBe(1);
+      expect(vi.getTimerCount()).toBe(1);
+
+      await vi.advanceTimersByTimeAsync(1);
+      await rejection;
+      expect(calls).toBe(1);
+      expect(vi.getTimerCount()).toBe(0);
+    },
+  );
+
   it("does not query when timeout is zero", async () => {
     const request = vi.fn();
 

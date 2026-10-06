@@ -5,7 +5,7 @@ import type {
 } from "../../transport/types.js";
 import type { StorageItemInfo, StorageItemRead } from "../../types/rpc.js";
 import { fromHex0x, hashFromHex, toHex0x } from "../hex.js";
-import { parseDecimal, parseHeight, I128_MIN, I128_MAX } from "../decimal.js";
+import { parseDecimal, parseHeight, I128_MAX } from "../decimal.js";
 
 interface RawStorageItemRead {
   blockHeight: string;
@@ -61,7 +61,7 @@ function parseStorageItemInfo(raw: unknown): StorageItemInfo {
     case "nonnegativeInt":
       return {
         kind: "nonnegativeInt",
-        value: parseDecimal(r.value, "value", I128_MIN, I128_MAX),
+        value: parseDecimal(r.value, "value", 0n, I128_MAX),
       };
     case "bytestring":
       return { kind: "bytestring", bytes: fromHex0x(r.bytes as string) };
