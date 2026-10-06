@@ -3,11 +3,12 @@ import type {
   TransportRequestOptions,
 } from "../../transport/types.js";
 import type { ServerLimits } from "../../types/rpc.js";
+import { parseU64 } from "../decimal.js";
 
 /**
  * Return the request bounds configured on this endpoint. These may change when
  * the operator reconfigures the server and are separate from consensus limits.
- * Reject numeric bounds outside JavaScript's safe integer range.
+ * Wide bounds are parsed losslessly from decimal strings into bigint.
  */
 export async function getServerLimits(
   transport: Transport,
@@ -41,10 +42,13 @@ export async function getServerLimits(
     return value;
   };
   return {
-    maxViewGas: bound("maxViewGas"),
-    maxViewCalldataBytes: bound("maxViewCalldataBytes"),
+    maxViewGas: parseU64(limits.maxViewGas, "maxViewGas"),
+    maxViewCalldataBytes: parseU64(
+      limits.maxViewCalldataBytes,
+      "maxViewCalldataBytes",
+    ),
     maxEventsPerPage: bound("maxEventsPerPage", 0xffff_ffff),
     maxTransactionsPerPage: bound("maxTransactionsPerPage", 0xffff_ffff),
-    maxCursorBytes: bound("maxCursorBytes"),
+    maxCursorBytes: parseU64(limits.maxCursorBytes, "maxCursorBytes"),
   };
 }

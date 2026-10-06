@@ -5,11 +5,11 @@ import { MockTransport } from "../../transport/mock.js";
 import type { Transport } from "../../transport/types.js";
 
 const limits = {
-  maxViewGas: 100_000_000,
-  maxViewCalldataBytes: 65_536,
+  maxViewGas: "100000000",
+  maxViewCalldataBytes: "65536",
   maxEventsPerPage: 200,
   maxTransactionsPerPage: 200,
-  maxCursorBytes: 1024,
+  maxCursorBytes: "1024",
 };
 function returning(result: unknown): Transport {
   return { request: async <T>() => result as T };
@@ -20,20 +20,29 @@ describe("getServerLimits", () => {
     const client = await createGroundhogClient({
       transport: new MockTransport(),
     });
-    await expect(client.getServerLimits()).resolves.toEqual(limits);
-    await expect(getServerLimits(returning(limits))).resolves.toEqual(limits);
+    const expected = {
+      ...limits,
+      maxViewGas: 100_000_000n,
+      maxViewCalldataBytes: 65_536n,
+      maxCursorBytes: 1024n,
+    };
+    await expect(client.getServerLimits()).resolves.toEqual(expected);
+    await expect(getServerLimits(returning(limits))).resolves.toEqual(expected);
   });
 
-  it("preserves zero and safe integer bounds", async () => {
+  it("preserves zero and the full u64 range", async () => {
     const response = {
       ...limits,
-      maxViewGas: Number.MAX_SAFE_INTEGER,
+      maxViewGas: "18446744073709551615",
       maxEventsPerPage: 0xffff_ffff,
-      maxCursorBytes: 0,
+      maxCursorBytes: "0",
     };
-    await expect(getServerLimits(returning(response))).resolves.toEqual(
-      response,
-    );
+    await expect(getServerLimits(returning(response))).resolves.toEqual({
+      ...response,
+      maxViewGas: 18446744073709551615n,
+      maxViewCalldataBytes: 65_536n,
+      maxCursorBytes: 0n,
+    });
   });
 
   it.each([
@@ -41,16 +50,16 @@ describe("getServerLimits", () => {
     [],
     1,
     {},
-    { ...limits, maxViewGas: "1" },
+    { ...limits, maxViewGas: 1 },
+    { ...limits, maxViewGas: "18446744073709551616" },
+    { ...limits, maxViewGas: "01" },
     { ...limits, maxViewGas: Number.MAX_SAFE_INTEGER + 1 },
     { ...limits, maxCursorBytes: -1 },
     { ...limits, maxViewCalldataBytes: 0.5 },
     { ...limits, maxEventsPerPage: 2 ** 32 },
     { ...limits, maxTransactionsPerPage: 2 ** 32 },
   ])("rejects malformed bounds %j", async (result) => {
-    await expect(getServerLimits(returning(result))).rejects.toThrow(
-      "Invalid server limits response",
-    );
+    await expect(getServerLimits(returning(result))).rejects.toThrow("Invalid");
   });
 
   it("forwards cancellation and avoids requests after cancellation", async () => {

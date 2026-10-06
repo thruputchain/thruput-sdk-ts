@@ -19,6 +19,18 @@ token with `read:packages`. See [Registry auth](#registry-auth-one-time-setup).
 
 ## Usage
 
+This checkout targets RPC wire format **9.0.0**. All 64-bit and wider integers
+are canonical decimal strings in JSON and `bigint` in the client API, including
+heights, nanosecond timestamps, gas, mempool counts, wide server limits, and
+airdrop retry intervals. Smaller bounded fields, such as page limits and event
+sequence numbers, remain JSON numbers. Numeric JSON for wide fields is rejected,
+even when the value is small; older RPC wire formats are not supported.
+
+Pass heights as `bigint` (for example, `42n`). The actions serialize them as
+decimal strings and validate protocol bounds. When persisting client results,
+convert bigint fields explicitly to decimal strings; `JSON.stringify` does not
+serialize bigint values by itself.
+
 ```ts
 import { createGroundhogClient, HttpTransport } from "@groundhogchain/client";
 
@@ -646,8 +658,10 @@ On Linux with Node 24, install the CLI version pinned in
 
 ```sh
 npm run test:integration
-# Or select an explicit CLI executable:
-GROUNDHOG_CLI=/path/to/groundhog npm run test:integration
+# Or qualify matching source builds:
+GROUNDHOG_CLI=/absolute/path/to/groundhog \
+GROUNDHOG_DEVNODE_BINARY=/absolute/path/to/hog-devnode \
+npm run test:integration
 ```
 
 The harness installs the pinned devnode through the CLI’s checksum-verified
@@ -656,6 +670,13 @@ loopback port. The host must provide the devnode's native runtime libraries;
 CI uses the same Ubuntu 26.04 Namespace profile as the RPC repository. Tests
 import the built package and check connection, local funding, a HOG transfer, receipts,
 events, contract views, and RPC errors. `npm test` remains node-independent.
+
+An explicit CLI overrides the release pin; tests verify that the RPC server
+reports that executable's version and matches the pinned OpenRPC wire major.
+An explicit devnode skips runtime installation. Set `HOGD_PROTOCOL_OVERRIDE`
+only when qualifying a compatible runtime with a different handshake token.
+Wire-9 source builds must be tested together until a matching CLI release is
+published and the default integration and OpenRPC-generator pins are updated.
 
 The harness isolates configuration and state, stops its child processes, and
 retains logs and node state on failure at the printed temporary path. Set

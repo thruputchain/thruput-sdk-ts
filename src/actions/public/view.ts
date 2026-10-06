@@ -5,6 +5,7 @@ import type {
 import type { ViewOutput, ViewRequest, ViewResponse } from "../../types/rpc.js";
 import { parseEmittedEvent } from "../emittedEvent.js";
 import { fromHex0x, toHex0x } from "../hex.js";
+import { parseHeight, parseU64, serializeU64 } from "../decimal.js";
 
 interface RawViewOutput {
   result: string;
@@ -15,21 +16,8 @@ interface RawViewOutput {
 interface RawViewResponse {
   output: unknown;
   events: unknown;
-  height: number | string;
+  height: string;
   gasUsed: unknown;
-}
-
-function parseGasUsed(value: unknown): bigint {
-  let parsed: bigint | undefined;
-  if (typeof value === "number" && Number.isSafeInteger(value)) {
-    parsed = BigInt(value);
-  } else if (typeof value === "string" && /^\d+$/.test(value)) {
-    parsed = BigInt(value);
-  }
-  if (parsed === undefined || parsed < 0n || parsed > 0xffff_ffff_ffff_ffffn) {
-    throw new Error("Invalid view response: expected gasUsed to be a u64");
-  }
-  return parsed;
 }
 
 function parseOutput(value: unknown): ViewOutput {
@@ -88,6 +76,9 @@ export async function view(
   options?: TransportRequestOptions,
 ): Promise<ViewResponse> {
   options?.signal?.throwIfAborted();
+  if (request.gasLimit === 0n) {
+    throw new RangeError("gasLimit must be positive");
+  }
   if (request.entrypoint.length !== 8) {
     throw new Error(
       `view: entrypoint must be exactly 8 bytes, got ${request.entrypoint.length}`,
@@ -102,6 +93,9 @@ export async function view(
         entrypoint: toHex0x(request.entrypoint),
         calldata: toHex0x(request.calldata),
         ...(request.caller ? { caller: toHex0x(request.caller) } : {}),
+        ...(request.gasLimit === undefined
+          ? {}
+          : { gasLimit: serializeU64(request.gasLimit, "gasLimit") }),
       },
     ],
     options,
@@ -116,17 +110,10 @@ export async function view(
     throw new Error("Expected view response events to be an array");
   }
 
-  if (
-    typeof response.height !== "string" &&
-    typeof response.height !== "number"
-  ) {
-    throw new Error("Expected view height to be a string or number");
-  }
-
   return {
     output: parseOutput(response.output),
     events: response.events.map(parseEmittedEvent),
-    height: BigInt(response.height),
-    gasUsed: parseGasUsed(response.gasUsed),
+    height: parseHeight(response.height),
+    gasUsed: parseU64(response.gasUsed, "gasUsed"),
   };
 }

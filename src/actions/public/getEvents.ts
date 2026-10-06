@@ -9,10 +9,11 @@ import type {
 } from "../../types/rpc.js";
 import { parseEmittedEvent } from "../emittedEvent.js";
 import { toHex0x, fromHex0x, hashFromHex } from "../hex.js";
+import { parseHeight, serializeHeight } from "../decimal.js";
 
 interface RawIdentifiedEvent {
   txHash: string;
-  blockHeight: number | string;
+  blockHeight: string;
   sequenceNumber: number;
   event: unknown;
 }
@@ -20,8 +21,8 @@ interface RawIdentifiedEvent {
 interface RawEventPage {
   events: unknown[];
   cursor: string;
-  latestBlock: number | string;
-  oldestBlock: number | string;
+  latestBlock: string;
+  oldestBlock: string;
 }
 
 function serializeQuery(query: EventQuery): unknown {
@@ -31,7 +32,7 @@ function serializeQuery(query: EventQuery): unknown {
       : query.anchor === "end"
         ? { kind: "atEnd" }
         : query.anchor
-          ? { kind: "atHeight", height: Number(query.anchor.height) }
+          ? { kind: "atHeight", height: serializeHeight(query.anchor.height) }
           : { kind: "atBeginning" };
 
   return {
@@ -62,7 +63,7 @@ function parseIdentifiedEvent(value: unknown): IdentifiedEvent {
 
   return {
     txHash: hashFromHex(entry.txHash),
-    blockHeight: BigInt(entry.blockHeight),
+    blockHeight: parseHeight(entry.blockHeight, "blockHeight"),
     sequenceNumber: entry.sequenceNumber,
     event: parseEmittedEvent(entry.event),
   };
@@ -123,7 +124,7 @@ export async function getEvents(
   return {
     events: result.events.map(parseIdentifiedEvent),
     cursor: fromHex0x(result.cursor),
-    latestBlock: BigInt(result.latestBlock),
-    oldestBlock: BigInt(result.oldestBlock),
+    latestBlock: parseHeight(result.latestBlock, "latestBlock"),
+    oldestBlock: parseHeight(result.oldestBlock, "oldestBlock"),
   };
 }

@@ -83,7 +83,7 @@ describe("getContractEvents", () => {
             },
           ],
           order: "descending",
-          anchor: { kind: "atHeight", height: 42 },
+          anchor: { kind: "atHeight", height: "42" },
           cursor: "0x04",
           limit: 20,
         },

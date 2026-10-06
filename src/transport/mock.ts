@@ -1,5 +1,6 @@
 import type { Transport } from "./types.js";
 import { sha256Hash, toHex } from "@groundhogchain/protocol";
+import { parseHeight } from "../actions/decimal.js";
 
 /**
  * In-memory transport for tests and examples.
@@ -23,11 +24,11 @@ export class MockTransport implements Transport {
         return this.#networkInfo() as T;
       case "groundhog_serverLimits":
         return {
-          maxViewGas: 100_000_000,
-          maxViewCalldataBytes: 65_536,
+          maxViewGas: "100000000",
+          maxViewCalldataBytes: "65536",
           maxEventsPerPage: 200,
           maxTransactionsPerPage: 200,
-          maxCursorBytes: 1024,
+          maxCursorBytes: "1024",
         } as T;
       case "groundhog_chainConfig":
         return this.#chainConfig() as T;
@@ -77,7 +78,7 @@ export class MockTransport implements Transport {
     recipient: string;
     rawAmount: string;
     txHash: string;
-    height: number;
+    height: string;
     status: { result: "ok" };
   } {
     const request = (params?.[0] ?? {}) as { recipient?: unknown };
@@ -86,14 +87,14 @@ export class MockTransport implements Transport {
       recipient: String(request.recipient ?? "0x"),
       rawAmount: "100000000",
       txHash: this.#blockHash(this.#height),
-      height: Number(this.#height),
+      height: this.#height.toString(),
       status: { result: "ok" },
     };
   }
 
-  #chainTip(): { height: number; blockHash: string } {
+  #chainTip(): { height: string; blockHash: string } {
     return {
-      height: Number(this.#height),
+      height: this.#height.toString(),
       blockHash: this.#blockHash(this.#height),
     };
   }
@@ -110,8 +111,8 @@ export class MockTransport implements Transport {
     protocol: number;
     networkHash: string;
     proposer: string;
-    blockTimepoint: number;
-    blockHeight: number;
+    blockTimepoint: string;
+    blockHeight: string;
     txsHash: string;
     storageHash: string;
     eventsHash: string;
@@ -120,15 +121,15 @@ export class MockTransport implements Transport {
     proposalTxsHash: string;
     upgrades: string[];
   } | null {
-    const height = BigInt(params && params.length > 0 ? String(params[0]) : 0);
+    const height = parseHeight(params?.[0]);
     if (height < 0n || height > this.#height) return null;
     return {
       blockHash: this.#blockHash(height),
       protocol: 0,
       networkHash: "0x" + "00".repeat(32),
       proposer: "0x" + "00".repeat(32),
-      blockTimepoint: 0,
-      blockHeight: Number(height),
+      blockTimepoint: "0",
+      blockHeight: height.toString(),
       txsHash: this.#blockHash(height),
       storageHash: this.#blockHash(height),
       eventsHash: this.#blockHash(height),
@@ -139,8 +140,8 @@ export class MockTransport implements Transport {
     };
   }
 
-  #pendingTransactionCount(): number {
-    return 0;
+  #pendingTransactionCount(): string {
+    return "0";
   }
 
   #version(): {
@@ -150,7 +151,7 @@ export class MockTransport implements Transport {
     platformVersion: null;
   } {
     return {
-      wireFormat: "3.3.0",
+      wireFormat: "9.0.0",
       implementation: "mock",
       commitHash: null,
       platformVersion: null,
@@ -160,27 +161,27 @@ export class MockTransport implements Transport {
   #getBalance(params?: unknown[]): {
     address: string;
     rawBalance: string;
-    height: number;
+    height: string;
   } {
     const address = params && params.length > 0 ? String(params[0]) : "0x";
     return {
       address,
       rawBalance: "0",
-      height: Number(this.#height),
+      height: this.#height.toString(),
     };
   }
 
   #view(): {
     output: { result: "return"; returnData: string };
     events: never[];
-    height: number;
-    gasUsed: number;
+    height: string;
+    gasUsed: string;
   } {
     return {
       output: { result: "return", returnData: "0x" },
       events: [],
-      height: Number(this.#height),
-      gasUsed: 0,
+      height: this.#height.toString(),
+      gasUsed: "0",
     };
   }
 
@@ -205,43 +206,43 @@ export class MockTransport implements Transport {
 
   #getTransactionReceipt(params?: unknown[]): {
     txHash: string;
-    height: number;
+    height: string;
     status: { result: string };
     events: never[];
     returnData: null;
     abortData: null;
-    gasUsed: number;
+    gasUsed: string;
   } | null {
     const txHash = params && params.length > 0 ? String(params[0]) : "";
     const tx = this.#transactions.get(txHash);
     if (!tx) return null;
     return {
       txHash: tx.hash,
-      height: Number(tx.height),
+      height: tx.height.toString(),
       status: { result: "ok" },
       events: [],
       returnData: null,
       abortData: null,
-      gasUsed: 0,
+      gasUsed: "0",
     };
   }
 
   #getTransactionStatus(params?: unknown[]): {
     status: string;
-    height?: number;
+    height?: string;
   } {
     const txHash = params && params.length > 0 ? String(params[0]) : "";
     const tx = this.#transactions.get(txHash);
     if (!tx) return { status: "unknown" };
-    return { status: "committed", height: Number(tx.height) };
+    return { status: "committed", height: tx.height.toString() };
   }
 
   #getTransactionsByAddress() {
     return {
       refs: [],
       cursor: "0x",
-      latestBlock: Number(this.#height),
-      oldestBlock: 0,
+      latestBlock: this.#height.toString(),
+      oldestBlock: "0",
     };
   }
 
@@ -249,18 +250,18 @@ export class MockTransport implements Transport {
     return {
       events: [],
       cursor: "0x",
-      latestBlock: Number(this.#height),
-      oldestBlock: 0,
+      latestBlock: this.#height.toString(),
+      oldestBlock: "0",
     };
   }
 
-  #getStorageAt(): { blockHeight: number; item: null } {
+  #getStorageAt(): { blockHeight: string; item: null } {
     // The mock has no committed storage state — every key probe returns
     // `item: null` against the current snapshot height.  Tests that need
     // a concrete StorageItemInfo shape should drive the action under a
     // test-local Transport rather than this default mock.
     return {
-      blockHeight: Number(this.#height),
+      blockHeight: this.#height.toString(),
       item: null,
     };
   }

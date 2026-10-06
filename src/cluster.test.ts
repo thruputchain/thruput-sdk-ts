@@ -26,7 +26,7 @@ function networkTransport(networkByte: string): Transport {
       }
       if (method === "groundhog_chainTip") {
         return {
-          height: 0,
+          height: "0",
           blockHash: "0x" + "00".repeat(32),
         } as T;
       }
