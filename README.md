@@ -19,7 +19,7 @@ token with `read:packages`. See [Registry auth](#registry-auth-one-time-setup).
 
 ## Usage
 
-This checkout targets RPC wire format **9.1.0**. All 64-bit and wider integers
+This checkout targets RPC wire format **10.0.1**. All 64-bit and wider integers
 are canonical decimal strings in JSON and `bigint` in the client API, including
 heights, nanosecond timestamps, gas, mempool counts, wide server limits, and
 airdrop retry intervals. Smaller bounded fields, such as page limits and event
