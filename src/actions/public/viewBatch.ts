@@ -5,11 +5,29 @@ import type {
 import type { ViewBatchRequest, ViewBatchResponse } from "../../types/rpc.js";
 import { parseEmittedEvent } from "../emittedEvent.js";
 import { toHex0x } from "../hex.js";
-import { parseGasUsed, parseViewOutput } from "./view.js";
+import {
+  parseHeight,
+  parseU64,
+  serializeHeight,
+  serializeU64,
+} from "../decimal.js";
+import { parseViewOutput } from "./view.js";
+
+/** Identifies a malformed per-call response without changing transport errors. */
+export class ViewBatchResultError extends Error {
+  override readonly name = "ViewBatchResultError";
+
+  constructor(
+    readonly index: number,
+    cause: unknown,
+  ) {
+    super(`Failed to parse viewBatch result ${index}`, { cause });
+  }
+}
 
 /**
  * Simulate 1–16 independent calls at one committed height, in input order.
- * Requires groundhog_viewBatch (wire format 8.2.0). No fallback or chunking is used.
+ * Requires groundhog_viewBatch (wire format 9.1.0). No fallback or chunking is used.
  * Simulated writes do not pass between calls. The server retries abandoned
  * snapshots as a whole group; aborts and faults remain per-call results.
  * Cancellation ends this client's wait, not necessarily backend execution.
@@ -24,16 +42,11 @@ export async function viewBatch(
     throw new RangeError("viewBatch requires between 1 and 16 calls");
   }
   const minHeight = request.minHeight;
-  if (
-    minHeight !== undefined &&
-    (typeof minHeight !== "bigint" ||
-      minHeight < 0n ||
-      minHeight > BigInt(Number.MAX_SAFE_INTEGER))
-  ) {
-    throw new RangeError("minHeight must be a non-negative safe integer");
-  }
+  const serializedMinHeight =
+    minHeight === undefined ? undefined : serializeHeight(minHeight);
   let remaining = 65_536;
   const calls = request.calls.map((call) => {
+    if (call.gasLimit === 0n) throw new RangeError("gasLimit must be positive");
     if (call.entrypoint.length !== 8)
       throw new RangeError("view entrypoint must be exactly 8 bytes");
     if (call.calldata.length > remaining)
@@ -44,6 +57,9 @@ export async function viewBatch(
       entrypoint: toHex0x(call.entrypoint),
       calldata: toHex0x(call.calldata),
       ...(call.caller ? { caller: toHex0x(call.caller) } : {}),
+      ...(call.gasLimit === undefined
+        ? {}
+        : { gasLimit: serializeU64(call.gasLimit, "gasLimit") }),
     };
   });
   const raw = await transport.request<unknown>(
@@ -51,7 +67,9 @@ export async function viewBatch(
     [
       {
         calls,
-        ...(minHeight === undefined ? {} : { minHeight: Number(minHeight) }),
+        ...(serializedMinHeight === undefined
+          ? {}
+          : { minHeight: serializedMinHeight }),
       },
     ],
     options,
@@ -60,22 +78,8 @@ export async function viewBatch(
     throw new Error("Expected viewBatch response to be an object");
   }
   const response = raw as Record<string, unknown>;
-  const rawHeight = response.height;
-  if (
-    !(
-      typeof rawHeight === "number" &&
-      Number.isSafeInteger(rawHeight) &&
-      rawHeight >= 0
-    ) &&
-    !(typeof rawHeight === "string" && /^(0|[1-9][0-9]*)$/.test(rawHeight))
-  ) {
-    throw new Error("Expected a non-negative integer viewBatch height");
-  }
-  const height = BigInt(rawHeight);
-  if (
-    height > 0x7fff_ffff_ffff_ffffn ||
-    (minHeight !== undefined && height < minHeight)
-  ) {
+  const height = parseHeight(response.height);
+  if (height < 0n || (minHeight !== undefined && height < minHeight)) {
     throw new Error("viewBatch returned an invalid or stale height");
   }
   if (
@@ -86,18 +90,22 @@ export async function viewBatch(
   }
   return {
     height,
-    results: response.results.map((item: unknown) => {
-      if (!item || typeof item !== "object" || Array.isArray(item)) {
-        throw new Error("Expected a viewBatch call result object");
+    results: response.results.map((item: unknown, index: number) => {
+      try {
+        if (!item || typeof item !== "object" || Array.isArray(item)) {
+          throw new Error("Expected a viewBatch call result object");
+        }
+        const result = item as Record<string, unknown>;
+        if (!Array.isArray(result.events))
+          throw new Error("Expected viewBatch events to be an array");
+        return {
+          output: parseViewOutput(result.output),
+          gasUsed: parseU64(result.gasUsed, "gasUsed"),
+          events: result.events.map(parseEmittedEvent),
+        };
+      } catch (cause) {
+        throw new ViewBatchResultError(index, cause);
       }
-      const result = item as Record<string, unknown>;
-      if (!Array.isArray(result.events))
-        throw new Error("Expected viewBatch events to be an array");
-      return {
-        output: parseViewOutput(result.output),
-        gasUsed: parseGasUsed(result.gasUsed),
-        events: result.events.map(parseEmittedEvent),
-      };
     }),
   };
 }

@@ -7,7 +7,7 @@ import type {
   Transport,
   TransportRequestOptions,
 } from "../../transport/types.js";
-import { viewBatch } from "./viewBatch.js";
+import { viewBatch, ViewBatchResultError } from "./viewBatch.js";
 import { ContractDecodeError } from "../../contract/errors.js";
 
 /** Typed calls and an optional minimum committed height for one snapshot read. */
@@ -67,7 +67,15 @@ export async function readViews<
         : { minHeight: request.minHeight }),
     },
     options,
-  );
+  ).catch((cause: unknown) => {
+    if (cause instanceof ViewBatchResultError) {
+      throw new ContractDecodeError(
+        `Failed to decode readViews result ${cause.index} (${calls[cause.index]!.name})`,
+        { cause },
+      );
+    }
+    throw cause;
+  });
   const results = calls.map((call, index) => {
     try {
       return call.decode({

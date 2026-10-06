@@ -235,19 +235,22 @@
         "message": "View height unavailable",
         "x-data-schema": {
           "$defs": {
-            "BlockHeight": {
-              "description": "BlockHeight is the height of a block, measured as the number of blocks since the genesis of the chain.\nThe first block of transactions is at height 0.\nIt is signed to prevent overflows in\ncalculations.",
-              "format": "int64",
-              "type": "integer"
+            "DecimalBlockHeight": {
+              "description": "Canonical decimal integer in the inclusive range -9223372036854775808 to 9223372036854775807.",
+              "maxLength": 20,
+              "pattern": "^(0|-?[1-9][0-9]*)(?![\\s\\S])",
+              "type": "string",
+              "x-integer-maximum": "9223372036854775807",
+              "x-integer-minimum": "-9223372036854775808"
             }
           },
           "description": "Requested minimum height and the committed height observed after one refresh.",
           "properties": {
             "observed": {
-              "$ref": "#/$defs/BlockHeight"
+              "$ref": "#/$defs/DecimalBlockHeight"
             },
             "requested": {
-              "$ref": "#/$defs/BlockHeight"
+              "$ref": "#/$defs/DecimalBlockHeight"
             }
           },
           "required": ["requested", "observed"],
@@ -1861,7 +1864,7 @@
           "minHeight": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/BlockHeight"
+                "$ref": "#/components/schemas/DecimalBlockHeight"
               },
               {
                 "type": "null"
@@ -1877,7 +1880,7 @@
         "description": "Ordered simulation results from a single committed snapshot.",
         "properties": {
           "height": {
-            "$ref": "#/components/schemas/BlockHeight"
+            "$ref": "#/components/schemas/DecimalBlockHeight"
           },
           "results": {
             "items": {
@@ -1899,10 +1902,8 @@
             "type": "array"
           },
           "gasUsed": {
-            "description": "Gas consumed by this independent simulation.",
-            "format": "uint64",
-            "minimum": 0,
-            "type": "integer"
+            "$ref": "#/components/schemas/DecimalU64",
+            "description": "Gas consumed by this independent simulation."
           },
           "output": {
             "$ref": "#/components/schemas/RootInvocationOutput"

@@ -9,7 +9,8 @@ import { createGroundhogClient } from "../../client.js";
 import { getContract } from "../../contract/instance.js";
 import type { Transport } from "../../transport/types.js";
 import { JsonRpcError } from "../../transport/http.js";
-import { viewBatch } from "./viewBatch.js";
+import { viewBatch, ViewBatchResultError } from "./viewBatch.js";
+import { ContractDecodeError } from "../../contract/errors.js";
 import { readViews } from "./readViews.js";
 import { CxsWriter } from "@groundhogchain/xdr";
 import { toHex0x } from "../hex.js";
@@ -21,11 +22,11 @@ const call = {
   entrypoint: contractEntrypointID(new Uint8Array(8)),
   calldata: calldata(new Uint8Array()),
 };
-const fault = { output: { result: "fault" }, events: [], gasUsed: 1 };
+const fault = { output: { result: "fault" }, events: [], gasUsed: "1" };
 const writer = new CxsWriter();
 writer.writeInt128(12n);
 const returned = {
-  gasUsed: 12,
+  gasUsed: "12",
   output: { result: "return", returnData: toHex0x(writer.finish()) },
   events: [],
 };
@@ -40,14 +41,47 @@ function stub(response: unknown) {
 }
 
 describe("shared-snapshot reads", () => {
+  it("serializes full-width heights and per-call gas budgets without rounding", async () => {
+    const { transport, request } = stub({
+      height: "9007199254740993",
+      results: [fault],
+    });
+    const result = await viewBatch(transport, {
+      calls: [{ ...call, gasLimit: 123n }],
+      minHeight: 9007199254740993n,
+    });
+    expect(result.height).toBe(9007199254740993n);
+    expect(request).toHaveBeenCalledWith(
+      "groundhog_viewBatch",
+      [
+        {
+          calls: [expect.objectContaining({ gasLimit: "123" })],
+          minHeight: "9007199254740993",
+        },
+      ],
+      undefined,
+    );
+  });
+
+  it.each([0n, -1n, 1n << 64n])(
+    "rejects invalid gas budgets before I/O: %s",
+    async (gasLimit) => {
+      const { transport, request } = stub(null);
+      await expect(
+        viewBatch(transport, { calls: [{ ...call, gasLimit }] }),
+      ).rejects.toThrow();
+      expect(request).not.toHaveBeenCalled();
+    },
+  );
+
   it("retains tuple return types and ordered return, abort, and fault outcomes", async () => {
     const { transport, request } = stub({
-      height: 42,
+      height: "42",
       results: [
         returned,
         {
           output: { result: "abort", abortData: toHex0x(exception.finish()) },
-          gasUsed: 7,
+          gasUsed: "7",
           events: [],
         },
         fault,
@@ -86,7 +120,7 @@ describe("shared-snapshot reads", () => {
     const contract = contractAddress(address.slice());
     const caller = contractAddress(address.slice());
     const owner = contractAddress(address.slice());
-    const { transport } = stub({ height: 1, results: [returned] });
+    const { transport } = stub({ height: "1", results: [returned] });
     const client = await createGroundhogClient({ transport });
     const bound = getContract({ binding: ERC20, address: contract, client });
     const prepared = bound.getBalanceOf.viewRequest({
@@ -117,7 +151,7 @@ describe("shared-snapshot reads", () => {
     },
   );
 
-  it("rejects oversized input and unsafe minimum heights before I/O", async () => {
+  it("rejects oversized input and out-of-range minimum heights before I/O", async () => {
     const { transport, request } = stub(null);
     await expect(
       viewBatch(transport, {
@@ -125,19 +159,22 @@ describe("shared-snapshot reads", () => {
       }),
     ).rejects.toThrow("64 KiB");
     await expect(
-      viewBatch(transport, { calls: [call], minHeight: 9007199254740992n }),
-    ).rejects.toThrow("safe integer");
+      viewBatch(transport, { calls: [call], minHeight: 1n << 63n }),
+    ).rejects.toThrow("non-negative int64");
     expect(request).not.toHaveBeenCalled();
   });
 
   it.each([
-    { height: 42, results: [] },
-    { height: 42, results: [fault, fault] },
-    { height: 41, results: [fault] },
-    { height: -1, results: [fault] },
+    { height: "42", results: [] },
+    { height: "42", results: [fault, fault] },
+    { height: "41", results: [fault] },
+    { height: "-1", results: [fault] },
+    { height: "042", results: [fault] },
+    { height: "9223372036854775808", results: [fault] },
+    { height: 42, results: [fault] },
     { height: 9007199254740992, results: [fault] },
-    { height: 42, results: [{ output: { result: "other" }, events: [] }] },
-    { height: 42, results: [{ output: { result: "fault" }, events: null }] },
+    { height: "42", results: [{ output: { result: "other" }, events: [] }] },
+    { height: "42", results: [{ output: { result: "fault" }, events: null }] },
   ])("rejects malformed or stale group responses", async (raw) => {
     await expect(
       viewBatch(stub(raw).transport, { calls: [call], minHeight: 42n }),
@@ -158,12 +195,12 @@ describe("shared-snapshot reads", () => {
 
   it("rejects malformed typed return data with method context", async () => {
     const { transport } = stub({
-      height: 42,
+      height: "42",
       results: [
         {
           output: { result: "return", returnData: "0x" },
           events: [],
-          gasUsed: 1,
+          gasUsed: "1",
         },
       ],
     });
@@ -175,7 +212,7 @@ describe("shared-snapshot reads", () => {
   });
 
   it("honors cancellation before I/O and forwards the group signal", async () => {
-    const { transport, request } = stub({ height: 1, results: [fault] });
+    const { transport, request } = stub({ height: "1", results: [fault] });
     const controller = new AbortController();
     await viewBatch(
       transport,
@@ -192,5 +229,66 @@ describe("shared-snapshot reads", () => {
       viewBatch(transport, { calls: [call] }, { signal: controller.signal }),
     ).rejects.toThrow();
     expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    null,
+    { ...fault, output: { result: "other" } },
+    { ...fault, output: { result: "return", returnData: "0xgg" } },
+    { ...fault, gasUsed: 1 },
+    { ...fault, gasUsed: "01" },
+    { ...fault, events: null },
+    { ...fault, events: [{}] },
+  ])(
+    "identifies malformed results by index and retained method name: %j",
+    async (malformed) => {
+      const response = { height: "42", results: [returned, malformed] };
+      await expect(
+        viewBatch(stub(response).transport, { calls: [call, call] }),
+      ).rejects.toMatchObject({
+        name: "ViewBatchResultError",
+        index: 1,
+        cause: expect.any(Error),
+      });
+      const calls = [
+        ERC20.totalSupply.viewRequest({ contract: address }),
+        ERC20.getBalance.viewRequest({ contract: address }),
+      ];
+      let finish!: (response: unknown) => void;
+      const transport: Transport = {
+        request: vi.fn().mockImplementation(
+          () =>
+            new Promise((resolve) => {
+              finish = resolve;
+            }),
+        ),
+      };
+      const pending = readViews(transport, { calls });
+      calls.reverse();
+      finish(response);
+      await expect(pending).rejects.toMatchObject({
+        message: "Failed to decode readViews result 1 (ERC20.getBalance)",
+        cause: expect.any(ViewBatchResultError),
+      });
+      await expect(pending).rejects.toBeInstanceOf(ContractDecodeError);
+    },
+  );
+
+  it.each([
+    new JsonRpcError(-32011, "View height unavailable", {
+      requested: "42",
+      observed: "41",
+    }),
+    new DOMException("Aborted", "AbortError"),
+    new Error("Connection lost"),
+  ])("preserves transport and cancellation errors: %s", async (error) => {
+    await expect(
+      readViews(
+        { request: vi.fn().mockRejectedValue(error) },
+        {
+          calls: [ERC20.totalSupply.viewRequest({ contract: address })],
+        },
+      ),
+    ).rejects.toBe(error);
   });
 });

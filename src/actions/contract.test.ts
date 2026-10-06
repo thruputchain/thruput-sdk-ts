@@ -545,8 +545,8 @@ describe("contract tests against specs/openrpc.json", () => {
 
   it("groundhog_viewBatch — sends ordered calls and a minimum height", async () => {
     const { transport, calls } = spyTransport({
-      height: 42,
-      results: [{ output: { result: "fault" }, events: [], gasUsed: 1 }],
+      height: "42",
+      results: [{ output: { result: "fault" }, events: [], gasUsed: "1" }],
     });
     await viewBatch(transport, {
       calls: [
@@ -554,6 +554,7 @@ describe("contract tests against specs/openrpc.json", () => {
           contract: contractAddress(new Uint8Array(32)),
           entrypoint: contractEntrypointID(new Uint8Array(8)),
           calldata: calldata(new Uint8Array()),
+          gasLimit: 123n,
         },
       ],
       minHeight: 42n,
