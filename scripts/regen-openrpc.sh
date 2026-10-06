@@ -3,7 +3,7 @@ set -euo pipefail
 
 GENERATOR="${GROUNDHOG_OPENRPC_GENERATOR:-}"
 if [[ -z "$GENERATOR" ]]; then
-  cargo install groundhog-open-rpc-spec@0.21.0 --registry groundhog 2>/dev/null
+  cargo install groundhog-open-rpc-spec@0.23.0 --registry groundhog
   GENERATOR="groundhog-open-rpc-spec"
 fi
 SPEC="$(git rev-parse --show-toplevel)/specs/openrpc.json"
@@ -15,7 +15,7 @@ node --input-type=module - "$TEMP_SPEC" <<'JS'
 import { readFileSync } from "node:fs";
 const spec = JSON.parse(readFileSync(process.argv[2], "utf8"));
 if (spec.info.version !== "9.0.0") {
-  throw new Error(`Expected RPC wire 9.0.0, received ${spec.info.version}. Set GROUNDHOG_OPENRPC_GENERATOR to the matching source-built generator.`);
+  throw new Error(`Expected RPC wire 9.0.0, received ${spec.info.version}. Set GROUNDHOG_OPENRPC_GENERATOR to a matching generator.`);
 }
 JS
 cp "$TEMP_SPEC" "$SPEC"
