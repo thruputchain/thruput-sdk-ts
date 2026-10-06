@@ -88,7 +88,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.U32 },
-          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
+          effect: null,
         },
         {
           name: __gh_s("forest_depth"),
@@ -107,7 +107,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.U32 },
-          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
+          effect: null,
         },
         {
           name: __gh_s("unbox"),
@@ -118,7 +118,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.U32 },
-          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
+          effect: null,
         },
       ],
     },
@@ -216,7 +216,6 @@ const __gh_codecs = __gh_client_contract.createContractCodecContext(
 
 export const RecursiveTypeContract = {
   v0_1: {
-    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     depth: __gh_client_contract.defineContractMethod<
       RecursiveTypeContract.v0_1.DepthArgs,
       RecursiveTypeContract.v0_1.DepthResult,
@@ -239,7 +238,6 @@ export const RecursiveTypeContract = {
       throws: [],
       codecs: __gh_codecs,
     }),
-    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     forestDepth: __gh_client_contract.defineContractMethod<
       RecursiveTypeContract.v0_1.ForestDepthArgs,
       RecursiveTypeContract.v0_1.ForestDepthResult,
@@ -262,7 +260,6 @@ export const RecursiveTypeContract = {
       throws: [],
       codecs: __gh_codecs,
     }),
-    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     unbox: __gh_client_contract.defineContractMethod<
       RecursiveTypeContract.v0_1.UnboxArgs,
       RecursiveTypeContract.v0_1.UnboxResult,

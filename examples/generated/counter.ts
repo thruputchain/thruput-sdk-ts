@@ -119,19 +119,19 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
-          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
+          effect: null,
         },
         {
           name: __gh_s("error"),
           args: [],
           return_type: { v: __gh_contract_spec.ContractTypeKind.U64 },
-          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
+          effect: null,
         },
         {
           name: __gh_s("get"),
           args: [],
           return_type: { v: __gh_contract_spec.ContractTypeKind.U64 },
-          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
+          effect: null,
         },
         {
           name: __gh_s("increment"),
@@ -142,7 +142,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
-          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
+          effect: null,
         },
         {
           name: __gh_s("initialize"),
@@ -153,7 +153,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
-          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
+          effect: null,
         },
         {
           name: __gh_s("ping"),
@@ -164,7 +164,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
-          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
+          effect: null,
         },
       ],
     },
@@ -213,7 +213,6 @@ const __gh_codecs = __gh_client_contract.createContractCodecContext(
 
 export const Counter = {
   v0_1: {
-    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     decrement: __gh_client_contract.defineContractMethod<
       Counter.v0_1.DecrementArgs,
       Counter.v0_1.DecrementResult,
@@ -242,7 +241,6 @@ export const Counter = {
       ],
       codecs: __gh_codecs,
     }),
-    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     error: __gh_client_contract.defineContractMethod<
       Counter.v0_1.ErrorArgs,
       Counter.v0_1.ErrorResult,
@@ -265,7 +263,6 @@ export const Counter = {
       ],
       codecs: __gh_codecs,
     }),
-    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     get: __gh_client_contract.defineContractMethod<
       Counter.v0_1.GetArgs,
       Counter.v0_1.GetResult,
@@ -288,7 +285,6 @@ export const Counter = {
       ],
       codecs: __gh_codecs,
     }),
-    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     increment: __gh_client_contract.defineContractMethod<
       Counter.v0_1.IncrementArgs,
       Counter.v0_1.IncrementResult,
@@ -317,7 +313,6 @@ export const Counter = {
       ],
       codecs: __gh_codecs,
     }),
-    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     initialize: __gh_client_contract.defineContractMethod<
       Counter.v0_1.InitializeArgs,
       Counter.v0_1.InitializeResult,
@@ -346,7 +341,6 @@ export const Counter = {
       ],
       codecs: __gh_codecs,
     }),
-    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     ping: __gh_client_contract.defineContractMethod<
       Counter.v0_1.PingArgs,
       Counter.v0_1.PingResult,

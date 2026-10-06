@@ -19,7 +19,6 @@ import { hashSignedTransaction } from "./derivation/transactionHash.js";
 import {
   contractSpecString,
   ContractTypeKind,
-  ContractMethodEffect,
   ContractTypeDefKind,
   type ContractSpecId,
 } from "@groundhogchain/contract-spec";
@@ -64,7 +63,7 @@ const erc20Spec: ContractSpec = {
       methods: [
         {
           name: s("transfer"),
-          effect: ContractMethodEffect.EffectUnknown,
+          effect: null,
           args: [
             { name: s("to"), ty: { v: ContractTypeKind.Address } },
             { name: s("amount"), ty: { v: ContractTypeKind.U128 } },

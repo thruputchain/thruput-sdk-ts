@@ -205,8 +205,8 @@ export interface ContractExceptionMetadata {
 
 /** Runtime definition consumed by a generated method descriptor. */
 export interface ContractMethodDefinition {
-  /** Author-declared whole-invocation effects; omission means unknown. */
-  effect?: ContractMethodEffect;
+  /** Author-declared whole-invocation effects; null or omission means unannotated. */
+  effect?: ContractMethodEffect | null;
   /** Canonical interface name for diagnostics. */
   interfaceName?: string;
   /** Interface ABI version, not a deployed-code verification. */
@@ -251,10 +251,11 @@ export interface ContractMethod<TArgs, TResult, TDeclaredException> {
   /**
    * Author-declared effects, including nested calls. Pure excludes state/context
    * reads; read-only excludes application effects (including events); state-changing
-   * permits effects. Unknown gives no read-only assurance. These declarations are
-   * not compiler/runtime enforced and never restrict invocation or view APIs.
+   * means effects may occur. Null means unannotated and gives no read-only assurance.
+   * These declarations are not compiler/runtime enforced and never restrict
+   * invocation or view APIs.
    */
-  readonly effect: ContractMethodEffect;
+  readonly effect: ContractMethodEffect | null;
   /** Qualified method name, or entrypoint when generated identity is absent. */
   readonly name: string;
   /** Build an unsubmitted call retaining typed decoding context. */
@@ -317,10 +318,10 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
   definition: ContractMethodDefinition,
 ): ContractMethod<TArgs, TResult, TDeclaredException> {
   const entrypoint = copyEntrypoint(definition.entrypoint);
-  const effect = definition.effect ?? ContractMethodEffect.EffectUnknown;
+  const effect = definition.effect ?? null;
   if (
+    effect !== null &&
     ![
-      ContractMethodEffect.EffectUnknown,
       ContractMethodEffect.EffectPure,
       ContractMethodEffect.EffectReadOnly,
       ContractMethodEffect.EffectStateChanging,

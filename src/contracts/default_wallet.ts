@@ -132,7 +132,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Address },
-          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
+          effect: null,
         },
         {
           name: __gh_s("execute"),
@@ -169,7 +169,7 @@ export const spec: __gh_client_contract.ContractSpec = {
               max_len: 4294967295n,
             },
           },
-          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
+          effect: null,
         },
       ],
     },
@@ -283,7 +283,6 @@ const __gh_codecs = __gh_client_contract.createContractCodecContext(
 
 export const DefaultWallet = {
   v0_1: {
-    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     deploy: __gh_client_contract.defineContractMethod<
       DefaultWallet.v0_1.DeployArgs,
       DefaultWallet.v0_1.DeployResult,
@@ -327,7 +326,6 @@ export const DefaultWallet = {
       ],
       codecs: __gh_codecs,
     }),
-    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     execute: __gh_client_contract.defineContractMethod<
       DefaultWallet.v0_1.ExecuteArgs,
       DefaultWallet.v0_1.ExecuteResult,

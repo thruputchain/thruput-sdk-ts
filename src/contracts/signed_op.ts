@@ -101,7 +101,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             v: __gh_contract_spec.ContractTypeKind.SignedToken,
             signed_token_preimage: { preimage_type: null },
           },
-          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
+          effect: null,
         },
       ],
     },
@@ -166,7 +166,6 @@ const __gh_codecs = __gh_client_contract.createContractCodecContext(
 
 export const SignedOp = {
   v0_1: {
-    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     executeSignedOp: __gh_client_contract.defineContractMethod<
       SignedOp.v0_1.ExecuteSignedOpArgs,
       SignedOp.v0_1.ExecuteSignedOpResult,

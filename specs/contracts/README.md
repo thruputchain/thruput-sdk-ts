@@ -28,7 +28,7 @@ before, so the regenerated bindings address the same on-chain ABI.
 | `erc20_permit.spec.xdr`   | `src/contracts/erc20_permit.ts`   | `7fee20cfe1710de2ea4898737f3047c0e9fef04b146cfd3857585b0aaa291add` |
 
 For GH-446 these fixtures were re-encoded with the canonical effect-enabled
-codec, setting every undeclared effect to unknown. Removing that field and
+codec, leaving every undeclared effect absent. Removing that field and
 re-encoding with the previous codec reproduced each original input byte for
 byte. No effect was inferred from a method name or receiver. The provenance
 below describes the original inputs, before that metadata-only regeneration.

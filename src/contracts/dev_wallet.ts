@@ -100,7 +100,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Address },
-          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
+          effect: null,
         },
         {
           name: __gh_s("deploy"),
@@ -127,7 +127,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Address },
-          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
+          effect: null,
         },
         {
           name: __gh_s("do_action"),
@@ -144,7 +144,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
-          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
+          effect: null,
         },
         {
           name: __gh_s("initialize"),
@@ -161,7 +161,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
-          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
+          effect: null,
         },
       ],
     },
@@ -176,7 +176,6 @@ const __gh_codecs = __gh_client_contract.createContractCodecContext(
 
 export const DevWallet = {
   v0_1: {
-    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     createWallet: __gh_client_contract.defineContractMethod<
       DevWallet.v0_1.CreateWalletArgs,
       DevWallet.v0_1.CreateWalletResult,
@@ -209,7 +208,6 @@ export const DevWallet = {
       throws: [],
       codecs: __gh_codecs,
     }),
-    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     deploy: __gh_client_contract.defineContractMethod<
       DevWallet.v0_1.DeployArgs,
       DevWallet.v0_1.DeployResult,
@@ -237,7 +235,6 @@ export const DevWallet = {
       throws: [],
       codecs: __gh_codecs,
     }),
-    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     doAction: __gh_client_contract.defineContractMethod<
       DevWallet.v0_1.DoActionArgs,
       DevWallet.v0_1.DoActionResult,
@@ -260,7 +257,6 @@ export const DevWallet = {
       throws: [],
       codecs: __gh_codecs,
     }),
-    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     initialize: __gh_client_contract.defineContractMethod<
       DevWallet.v0_1.InitializeArgs,
       DevWallet.v0_1.InitializeResult,

@@ -96,7 +96,7 @@ function receipt(
 describe("contract method invocation", () => {
   it.each([
     undefined,
-    ContractMethodEffect.EffectUnknown,
+    null,
     ContractMethodEffect.EffectPure,
     ContractMethodEffect.EffectReadOnly,
     ContractMethodEffect.EffectStateChanging,
@@ -110,7 +110,7 @@ describe("contract method invocation", () => {
           returnType: { v: ContractTypeKind.Void },
         }),
       );
-      expect(method.effect).toBe(effect ?? ContractMethodEffect.EffectUnknown);
+      expect(method.effect).toBe(effect ?? null);
       expect(
         method.call({ contract, gasLimit: gasAmount(100n) }).invocation
           .entrypoint,

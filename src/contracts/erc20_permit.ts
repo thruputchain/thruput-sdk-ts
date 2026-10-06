@@ -140,7 +140,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
-          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
+          effect: null,
         },
         {
           name: __gh_s("increase_allowance_signed"),
@@ -164,7 +164,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
-          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
+          effect: null,
         },
         {
           name: __gh_s("transfer_from_signed"),
@@ -196,7 +196,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
-          effect: __gh_client_contract.ContractMethodEffect.EffectUnknown,
+          effect: null,
         },
       ],
     },
@@ -283,7 +283,6 @@ const __gh_codecs = __gh_client_contract.createContractCodecContext(
 
 export const ERC20Permit = {
   v0_1: {
-    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     clearAllowanceSigned: __gh_client_contract.defineContractMethod<
       ERC20Permit.v0_1.ClearAllowanceSignedArgs,
       ERC20Permit.v0_1.ClearAllowanceSignedResult,
@@ -317,7 +316,6 @@ export const ERC20Permit = {
       ],
       codecs: __gh_codecs,
     }),
-    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     increaseAllowanceSigned: __gh_client_contract.defineContractMethod<
       ERC20Permit.v0_1.IncreaseAllowanceSignedArgs,
       ERC20Permit.v0_1.IncreaseAllowanceSignedResult,
@@ -351,7 +349,6 @@ export const ERC20Permit = {
       ],
       codecs: __gh_codecs,
     }),
-    /** Declared effect: unknown. Author declaration; not compiler/runtime enforced. */
     transferFromSigned: __gh_client_contract.defineContractMethod<
       ERC20Permit.v0_1.TransferFromSignedArgs,
       ERC20Permit.v0_1.TransferFromSignedResult,
