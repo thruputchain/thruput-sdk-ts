@@ -19,7 +19,7 @@ token with `read:packages`. See [Registry auth](#registry-auth-one-time-setup).
 
 ## Usage
 
-This checkout targets RPC wire format **9.0.0**. All 64-bit and wider integers
+This checkout targets RPC wire format **9.1.0**. All 64-bit and wider integers
 are canonical decimal strings in JSON and `bigint` in the client API, including
 heights, nanosecond timestamps, gas, mempool counts, wide server limits, and
 airdrop retry intervals. Smaller bounded fields, such as page limits and event
@@ -88,7 +88,10 @@ console.log(airdrop.txHash, airdrop.rawAmount);
 ```
 
 Remote airdrops retain the faucet's per-recipient cooldown and share the
-gateway's configured aggregate quota. Localnet airdrops are unlimited. Use
+gateway's configured aggregate quota. Localnet has no hosted cooldown, but its
+funding journal retains at most 1024 attempts per chain across `requestAirdrop`
+and `fundAccount`. It rejects new requests at capacity and keeps existing requests
+available for reconciliation. Use
 `requestAirdropAttempt` when an application needs to persist the nonce or
 control polling itself.
 
@@ -256,18 +259,14 @@ row's height and deduplicate that block. Save rows and progress together. Refres
 descending history from `anchor: "end"` with an empty cursor, not its oldest row.
 See the [pagination and restart walkthrough](https://docs.groundhog.dev/tutorials/add-events-to-a-contract/#resume-without-missing-events).
 
-Node.js applications targeting `groundhog node` can load a deterministic local
-signer from its active runtime manifest:
+Local applications own their signing keys. A schema-4 local manifest contains
+public allocations and a public faucet address; it cannot produce a signer.
+Use `PrivateKeySigner` with `createPubkeyAccount`, then request an airdrop or
+supply its public key in the node's initial allocations. Stored CLI keys can be
+exported explicitly through `groundhog keys export`; never log that output.
 
-```ts
-import { loadLocalDevAccount } from "@groundhogchain/client/local-dev";
-
-const { address, signer } = await loadLocalDevAccount();
-const faucet = await loadLocalDevAccount({ role: "faucet" });
-```
-
-The `local-dev` entrypoint is for local development only. Its deterministic
-signers must never be used with production networks or funds of value.
+`loadLocalDevAccount` is deprecated and only retains the hosted schema-3
+bootstrap adapter. Old local state requires its previous runtime and tooling.
 
 ## Wallet clients
 
@@ -291,21 +290,11 @@ await wallet.requestAirdrop();
 const balance = await wallet.getBalance();
 ```
 
-The schema-v3 runtime manifest from `groundhog node` identifies nonce-zero
-native pubkey accounts. `loadLocalDevAccount` verifies the derived public key
-and address against that manifest; older manifests are rejected.
-
-```ts
-import {
-  createPubkeyAccount,
-  createWalletClient,
-} from "@groundhogchain/client";
-import { loadLocalDevAccount } from "@groundhogchain/client/local-dev";
-
-const local = await loadLocalDevAccount();
-const account = createPubkeyAccount({ signer: local.signer, nonce: 0n });
-const wallet = createWalletClient({ client, account });
-```
+For local funding with an explicit raw amount, use the standalone `fundAccount`
+action. Persist the request, network hash and public faucet address before
+sending; retry the same nonce after an uncertain response. The response carries
+the admitted hash and exact signed bytes. Wait for a receipt to learn execution.
+`requestAirdrop` retains its fixed amount and hosted behavior.
 
 Use `createSourceAddressAccount` with the appropriate invocation adapter for
 an existing account contract. Saved legacy contract-wallet identities remain
@@ -507,7 +496,7 @@ signers this package does not drive.
 
 - [`chain-tip.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/chain-tip.ts) connects to Devnet and reads its latest block.
 - [`transfer-hog.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/transfer-hog.ts) funds two pubkey accounts and transfers HOG on Devnet.
-- [`view-hog-balance.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/view-hog-balance.ts) reads local `dev-1`'s HOG balance.
+- [`view-hog-balance.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/view-hog-balance.ts) reads an explicitly supplied public account’s HOG balance.
 - [`deploy-counter.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/deploy-counter.ts) deploys and calls a Counter contract through DevWallet.
 
 See the [examples guide](https://github.com/groundhogchain/client-ts/blob/main/examples/README.md) for local-node setup and configuration.
@@ -528,7 +517,7 @@ helpers, generated standard contracts, signers, and standalone actions.
 - `src/transport/` — `HttpTransport` (JSON-RPC over HTTP) and `MockTransport` for tests.
 - `src/signers/` — `Signer` interface and `PrivateKeySigner` (ed25519 via `@noble/ed25519`).
 - `src/signedOp/` — off-chain signing of `SignedOp` operations: preimage construction and payload binding, plus the generated `SignedOp` binding re-exported from `src/contracts/signed_op.ts`.
-- `src/local-dev/` — Node.js-only local runtime discovery and deterministic bootstrap signer loading.
+- `src/local-dev/` — deprecated Node.js-only hosted bootstrap signer loading.
 - `src/types/rpc.ts` — typed RPC request/response shapes.
 - `specs/openrpc.json` — pinned Groundhog OpenRPC spec; `scripts/regen-openrpc.sh` refreshes it. After a regen, `npm test` (specifically `src/actions/contract.test.ts`) names any TS action whose serialized request no longer matches the new spec.
 - `docs/api/` — generated TypeDoc output from `npm run docs` (ignored by git; see [API docs](#api-docs)).
@@ -696,3 +685,9 @@ node --test --test-concurrency=1 tests/integration/live-node.test.mjs
 ```
 
 The tests do not perform capability discovery or fall back on unsupported runtimes.
+
+For local funding recovery, retain the original request before sending it.
+A `LocalFundingUnresolved` RPC error preserves the original `txHash` and
+`signedTransaction` hex strings in `JsonRpcError.data`. These are transaction
+evidence, not confirmation. Inspect that hash and retry the same request; do not
+replace its nonce or amount while the outcome is uncertain.

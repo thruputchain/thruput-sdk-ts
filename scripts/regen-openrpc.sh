@@ -10,12 +10,12 @@ SPEC="$(git rev-parse --show-toplevel)/specs/openrpc.json"
 TEMP_SPEC="$(mktemp)"
 trap 'rm -f "$TEMP_SPEC"' EXIT
 "$GENERATOR" > "$TEMP_SPEC"
-# Reject a stale published generator before it can overwrite the wire-9 spec.
+# Reject a stale published generator before it can overwrite the local-funding spec.
 node --input-type=module - "$TEMP_SPEC" <<'JS'
 import { readFileSync } from "node:fs";
 const spec = JSON.parse(readFileSync(process.argv[2], "utf8"));
-if (spec.info.version !== "9.0.0") {
-  throw new Error(`Expected RPC wire 9.0.0, received ${spec.info.version}. Set GROUNDHOG_OPENRPC_GENERATOR to a matching generator.`);
+if (spec.info.version !== "9.1.0") {
+  throw new Error(`Expected RPC wire 9.1.0, received ${spec.info.version}. Set GROUNDHOG_OPENRPC_GENERATOR to a matching generator.`);
 }
 JS
 cp "$TEMP_SPEC" "$SPEC"

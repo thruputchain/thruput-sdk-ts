@@ -33,7 +33,7 @@ export interface SignerEntry {
  * `networkHash` identifies the network the transaction is for. It is part of
  * what gets signed, so a transaction signed for one chain will be rejected by
  * another — see {@link transactionSignaturePreimage}. Local development can
- * read it from the runtime manifest via `loadLocalDevAccount`; elsewhere it
+ * read it from the public `getNetworkInfo` response; elsewhere it
  * comes from whoever operates the network.
  *
  * @example

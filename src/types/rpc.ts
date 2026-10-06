@@ -487,3 +487,20 @@ export interface StorageItemRead {
   /** Storage item at the key, or `null` when the key is absent. */
   item: StorageItemInfo | null;
 }
+
+/** Explicit amount-bound request for a local supervisor's funding service. */
+export interface FundAccountRequest {
+  readonly recipient: ContractAddress;
+  readonly rawAmount: bigint;
+  /** Caller-owned 1-32 byte idempotency nonce. Persist before sending. */
+  readonly clientNonce: Uint8Array;
+  /** Public faucet address from the local schema-4 manifest, identifying the chain. */
+  readonly faucet: ContractAddress;
+}
+/** Admission response. The exact signed bytes remain valid for manual block production. */
+export interface FundAccountResponse {
+  readonly recipient: ContractAddress;
+  readonly rawAmount: bigint;
+  readonly txHash: SHA256Hash;
+  readonly signedTransaction: Uint8Array;
+}

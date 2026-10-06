@@ -26,7 +26,26 @@ afterEach(async () => {
 });
 
 describe("loadLocalDevAccount", () => {
-  it("selects the lowest-index account marked as a local user", async () => {
+  it.each([3, 4])(
+    "rejects local schema %s before deriving a signer",
+    async (schemaVersion) => {
+      const fixture = await writeRuntimeFixture([makeAccount(1, "local_user")]);
+      const manifest = JSON.parse(
+        await import("node:fs/promises").then((fs) =>
+          fs.readFile(fixture.manifestPath, "utf8"),
+        ),
+      );
+      manifest.schemaVersion = schemaVersion;
+      manifest.kind = "hogd-dev-runtime";
+      delete manifest.bootstrapAccountDerivation;
+      await writeFile(fixture.manifestPath, JSON.stringify(manifest));
+      await expect(loadLocalDevAccount({ env: fixture.env })).rejects.toThrow(
+        schemaVersion === 4 ? "public accounts only" : "previous tooling",
+      );
+    },
+  );
+
+  it("selects an explicitly supplied hosted bootstrap account", async () => {
     const fixture = await writeRuntimeFixture([
       makeAccount(2, "local_user"),
       makeAccount(0, "faucet"),
@@ -277,7 +296,7 @@ const fixtureNetworkHash = "5a".repeat(32);
 function makeManifest(accounts: FixtureAccount[]) {
   return {
     schemaVersion: 3,
-    kind: "hogd-dev-runtime",
+    kind: "hosted-devnet-runtime",
     networkHash: fixtureNetworkHash,
     bootstrapAccountDerivation: {
       scheme: "groundhog-bootstrap-account-v1",

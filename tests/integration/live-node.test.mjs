@@ -27,7 +27,6 @@ import {
   decodeERC20Event,
   groundhog_erc20_if,
 } from "@groundhogchain/client/contracts";
-import { loadLocalDevAccount } from "@groundhogchain/client/local-dev";
 import {
   ExecResult,
   HOG_ADDRESS,
@@ -60,8 +59,13 @@ test("built SDK against a real local node", { timeout }, async (t) => {
   await t.test(
     "connects and decodes network, version, and chain tip",
     async () => {
-      const account = await loadLocalDevAccount();
-      assert.deepEqual(client.network.networkHash, account.networkHash);
+      const manifest = JSON.parse(
+        await readFile(process.env.GROUNDHOG_RUNTIME_MANIFEST, "utf8"),
+      );
+      assert.equal(
+        Buffer.from(client.network.networkHash).toString("hex"),
+        manifest.networkHash.replace(/^0x/, ""),
+      );
       const version = await client.getVersion();
       assert.equal(
         version.implementation,
@@ -527,11 +531,17 @@ test(
         timeoutMs: rpcTimeoutMs,
       }),
     });
-    const local = await loadLocalDevAccount();
     const funder = createWalletClient({
       client,
-      account: createPubkeyAccount({ signer: local.signer, nonce: 0n }),
+      account: createPubkeyAccount({
+        signer: new PrivateKeySigner(randomBytes(32)),
+        nonce: 0n,
+      }),
     });
+    const funding = await funder.requestAirdrop({
+      timeoutMs: airdropTimeoutMs,
+    });
+    assert.equal(funding.status.result, "ok");
     const freshAccount = () =>
       createPubkeyAccount({ signer: new PrivateKeySigner(randomBytes(32)) });
     const sender = freshAccount();
@@ -560,7 +570,8 @@ test(
       }
     }
 
-    await send(funder, sender.address, 100_000_000n);
+    // Leave room for the funder's first-credit storage deposit.
+    await send(funder, sender.address, 90_000_000n);
     await until(
       () => balance(sender),
       ({ rawBalance }) => rawBalance > 1_000_000n,

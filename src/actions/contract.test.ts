@@ -36,6 +36,10 @@ import { getPendingTransactionCount } from "./public/getPendingTransactionCount.
 import { getNetworkInfo } from "./public/getNetworkInfo.js";
 import { getServerLimits } from "./public/getServerLimits.js";
 import { getChainConfig } from "./public/getChainConfig.js";
+import { fundAccount } from "./public/fundAccount.js";
+import { hashSignedTransaction } from "../derivation/transactionHash.js";
+import { serializeSignedTransaction } from "../transaction/serialize.js";
+import { toHex0x } from "./hex.js";
 import { requestAirdropAttempt } from "./public/requestAirdrop.js";
 import { getStorageAt } from "./public/getStorageAt.js";
 import { getTransactionReceipt } from "./public/getTransactionReceipt.js";
@@ -48,6 +52,11 @@ import { PrivateKeySigner } from "../signers/privateKey.js";
 import { createInvocation, createTransaction } from "../transaction/build.js";
 import { signTransaction } from "../transaction/sign.js";
 import type { Transport } from "../transport/types.js";
+import {
+  GroundhogRpcErrorCode,
+  HttpTransport,
+  JsonRpcError,
+} from "../transport/http.js";
 import type { SHA256Hash, SignedTransaction } from "@groundhogchain/protocol";
 
 // ---- ajv setup ---------------------------------------------------------
@@ -405,6 +414,119 @@ describe("contract tests against specs/openrpc.json", () => {
     });
     expect(calls).toHaveLength(1);
     assertCapturedParamsMatchSpec("groundhog_serverLimits", calls[0]);
+  });
+
+  it("groundhog_fundAccount — sends the retained amount-bound local request", async () => {
+    const signed = await makeDummySignedTx();
+    const recipient = contractAddress(new Uint8Array(32).fill(0x55));
+    const bytes = serializeSignedTransaction(signed);
+    const { transport, calls } = spyTransport({
+      recipient: toHex0x(recipient),
+      rawAmount: "1000000000",
+      txHash: toHex0x(hashSignedTransaction(signed)),
+      signedTransaction: toHex0x(bytes),
+    });
+    const result = await fundAccount(transport, {
+      recipient,
+      faucet: contractAddress(new Uint8Array(32).fill(0x44)),
+      rawAmount: 1000000000n,
+      clientNonce: new Uint8Array([1, 2, 3]),
+    });
+    assertCapturedParamsMatchSpec("groundhog_fundAccount", calls[0]);
+    expect(result.signedTransaction).toEqual(bytes);
+  });
+
+  it("local funding preserves unresolved transaction evidence from HTTP RPC errors", async () => {
+    const signed = await makeDummySignedTx();
+    const evidence = {
+      txHash: toHex0x(hashSignedTransaction(signed)),
+      signedTransaction: toHex0x(serializeSignedTransaction(signed)),
+    };
+    let requests = 0;
+    const transport = new HttpTransport("http://localhost:8080", {
+      fetch: async (_input, init) => {
+        requests++;
+        const request = JSON.parse(init?.body as string);
+        return Response.json({
+          jsonrpc: "2.0",
+          id: request.id,
+          error: {
+            code: GroundhogRpcErrorCode.LocalFundingUnresolved,
+            message: "Local funding outcome is unresolved",
+            data: evidence,
+          },
+        });
+      },
+    });
+    const result = fundAccount(transport, {
+      recipient: contractAddress(new Uint8Array(32).fill(0x55)),
+      faucet: contractAddress(new Uint8Array(32).fill(0x44)),
+      rawAmount: 1000000000n,
+      clientNonce: new Uint8Array([1, 2, 3]),
+    });
+    await expect(result).rejects.toBeInstanceOf(JsonRpcError);
+    await expect(result).rejects.toMatchObject({
+      code: GroundhogRpcErrorCode.LocalFundingUnresolved,
+      method: "groundhog_fundAccount",
+      data: evidence,
+    });
+    expect(requests).toBe(1);
+  });
+
+  it("local funding retries preserve the caller request after a lost response", async () => {
+    const signed = await makeDummySignedTx();
+    const request = {
+      recipient: contractAddress(new Uint8Array(32).fill(0x55)),
+      faucet: contractAddress(new Uint8Array(32).fill(0x44)),
+      rawAmount: 1000000000n,
+      clientNonce: new Uint8Array([1, 2, 3]),
+    };
+    const response = {
+      recipient: toHex0x(request.recipient),
+      rawAmount: "1000000000",
+      txHash: toHex0x(hashSignedTransaction(signed)),
+      signedTransaction: toHex0x(serializeSignedTransaction(signed)),
+    };
+    const calls: unknown[] = [];
+    const transport: Transport = {
+      async request<T>(_method: string, params?: unknown[]): Promise<T> {
+        calls.push(params);
+        if (calls.length === 1) throw new Error("lost response");
+        return response as T;
+      },
+    };
+    await expect(fundAccount(transport, request)).rejects.toThrow(
+      "lost response",
+    );
+    await expect(fundAccount(transport, request)).resolves.toMatchObject({
+      rawAmount: request.rawAmount,
+    });
+    expect(calls[1]).toEqual(calls[0]);
+    for (const patch of [
+      { recipient: "0x" + "66".repeat(32) },
+      { rawAmount: "1" },
+      { txHash: "0x" + "77".repeat(32) },
+      { signedTransaction: "0xBAD" },
+    ]) {
+      await expect(
+        fundAccount(spyTransport({ ...response, ...patch }).transport, request),
+      ).rejects.toThrow();
+    }
+    const spy = spyTransport(response);
+    for (const rawAmount of [0n, -1n, 1n << 128n]) {
+      await expect(
+        fundAccount(spy.transport, { ...request, rawAmount }),
+      ).rejects.toThrow("positive u128");
+    }
+    for (const count of [0, 33]) {
+      await expect(
+        fundAccount(spy.transport, {
+          ...request,
+          clientNonce: new Uint8Array(count),
+        }),
+      ).rejects.toThrow("1 and 32");
+    }
+    expect(spy.calls).toHaveLength(0);
   });
 
   it("covers every method in specs/openrpc.json", () => {
