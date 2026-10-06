@@ -17,6 +17,11 @@ const spec = JSON.parse(readFileSync(process.argv[2], "utf8"));
 if (spec.info.version !== "11.1.0") {
   throw new Error(`Expected RPC wire 11.1.0, received ${spec.info.version}. Set GROUNDHOG_OPENRPC_GENERATOR to a matching generator.`);
 }
+for (const name of ["groundhog_fundAccount", "groundhog_viewBatch"]) {
+  if (!spec.methods.some((method) => method.name === name)) {
+    throw new Error(`Generator is missing ${name}. Set GROUNDHOG_OPENRPC_GENERATOR to a matching generator.`);
+  }
+}
 JS
 cp "$TEMP_SPEC" "$SPEC"
 # Run prettier so the committed snapshot matches the rest of the repo's

@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import {
   createGroundhogClient,
+  addressFromHex,
   GroundhogRpcErrorCode,
   HttpTransport,
   JsonRpcError,
 } from "@groundhogchain/client";
 import { ERC20 as ERC20Versions } from "@groundhogchain/client/contracts";
-import { loadLocalDevAccount } from "@groundhogchain/client/local-dev";
 import { HOG_ADDRESS, contractAddress } from "@groundhogchain/protocol";
 
 const ERC20 = ERC20Versions.v0_1;
@@ -15,7 +16,17 @@ const ERC20 = ERC20Versions.v0_1;
 test("typed shared-snapshot reads against a matching live node", async () => {
   const rpcUrl = process.env.GROUNDHOG_RPC_URL;
   assert.ok(rpcUrl, "Set GROUNDHOG_RPC_URL to a server with viewBatch support");
-  const account = await loadLocalDevAccount();
+  const manifestPath = process.env.GROUNDHOG_RUNTIME_MANIFEST;
+  assert.ok(
+    manifestPath,
+    "Set GROUNDHOG_RUNTIME_MANIFEST to the node manifest",
+  );
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  const faucet = manifest.bootstrapAccounts.find(
+    (account) => account.role === "faucet",
+  );
+  assert.ok(faucet, "The node must have a funded faucet account");
+  const address = addressFromHex(faucet.walletAddress);
   const client = await createGroundhogClient({
     transport: new HttpTransport(rpcUrl),
   });
@@ -24,11 +35,11 @@ test("typed shared-snapshot reads against a matching live node", async () => {
     calls: [
       ERC20.getBalanceOf.viewRequest({
         contract: HOG_ADDRESS,
-        args: { addr: account.address },
+        args: { addr: address },
       }),
       ERC20.getBalance.viewRequest({
         contract: HOG_ADDRESS,
-        caller: account.address,
+        caller: address,
       }),
       ERC20.totalSupply.viewRequest({
         contract: contractAddress(new Uint8Array(32)),
@@ -53,7 +64,7 @@ test("typed shared-snapshot reads against a matching live node", async () => {
       calls: [
         ERC20.getBalance.viewRequest({
           contract: HOG_ADDRESS,
-          caller: account.address,
+          caller: address,
         }),
       ],
       minHeight: snapshot.height + 100_000n,
