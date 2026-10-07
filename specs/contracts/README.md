@@ -1,12 +1,15 @@
 # Contract Binding Inputs
 
 These canonical `.spec.xdr` files are the complete inputs to
-`scripts/regenerate-contract-bindings.sh`. The GH-446 effect-enabled format
-requires the matching CLI generator and `@groundhogchain/contract-spec` build;
-the previously pinned CLI 0.19.0 cannot decode these inputs. Release pins must
-advance together before publishing this change. The generator nests each
-interface under its major and each named type, enum, and event under its spec
-id's crate and major
+`scripts/regenerate-contract-bindings.sh`. They use the optional method-effect
+schema in `@groundhogchain/contract-spec` 0.13.0. Regeneration requires the
+generator from [groundhog-rpc #505](https://github.com/groundhogchain/groundhog-rpc/pull/505).
+Until that CLI is released, use a reviewed source build through `GROUNDHOG_CLI`.
+The CI and publish workflows still pin CLI 0.21.0, which cannot decode these
+inputs. Update both pins to the compatible release before merging this change.
+
+The generator nests each interface under its major and each named type, enum,
+and event under its spec id's crate and major
 ([groundhog-rpc #451](https://github.com/groundhogchain/groundhog-rpc/pull/451)).
 
 Every named type in these specs is identified by a structured spec id (crate,
