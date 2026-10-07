@@ -12,6 +12,7 @@ import {
   serializeU64,
 } from "../decimal.js";
 import { parseViewOutput } from "./view.js";
+import { assertViewFreshness } from "../viewFreshness.js";
 
 /** Identifies a malformed per-call response without changing transport errors. */
 export class ViewBatchResultError extends Error {
@@ -27,7 +28,7 @@ export class ViewBatchResultError extends Error {
 
 /**
  * Simulate independent calls at one committed height, in input order.
- * Requires groundhog_viewBatch (wire format 9.1.0). No fallback or chunking is used.
+ * Requires groundhog_viewBatch (wire format 10.1.0). No fallback or chunking is used.
  * Simulated writes do not pass between calls. The server retries abandoned
  * snapshots as a whole group; aborts and faults remain per-call results.
  * Cancellation ends this client's wait, not necessarily backend execution.
@@ -46,6 +47,11 @@ export async function viewBatch(
   const serializedMinHeight =
     minHeight === undefined ? undefined : serializeHeight(minHeight);
   const calls = request.calls.map((call) => {
+    if ("minHeight" in call) {
+      throw new TypeError(
+        "Set minHeight on the batch request, not on an individual call",
+      );
+    }
     if (call.gasLimit === 0n) throw new RangeError("gasLimit must be positive");
     if (call.entrypoint.length !== 8)
       throw new RangeError("view entrypoint must be exactly 8 bytes");
@@ -76,9 +82,10 @@ export async function viewBatch(
   }
   const response = raw as Record<string, unknown>;
   const height = parseHeight(response.height);
-  if (height < 0n || (minHeight !== undefined && height < minHeight)) {
+  if (height < 0n) {
     throw new Error("viewBatch returned an invalid or stale height");
   }
+  assertViewFreshness(height, minHeight);
   if (
     !Array.isArray(response.results) ||
     response.results.length !== calls.length

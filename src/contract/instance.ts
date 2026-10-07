@@ -33,9 +33,9 @@ export type ContractInstance<T> = {
 
 /**
  * Bind a generated interface to an address and public client.
- * Views preserve heights and events and accept per-read cancellation signals.
- * Independent views may use different heights or lag a newly indexed receipt;
- * applications must check freshness for coherent multi-read results.
+ * Views preserve heights and events and accept cancellation and minimum-height
+ * constraints. A minimum height is a freshness floor; use readViews when several
+ * results must come from the same snapshot.
  *
  * @example
  * ```ts

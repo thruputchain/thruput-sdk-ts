@@ -75,6 +75,43 @@ async function typedSnapshotBoundary(
   address: ContractAddress,
 ) {
   const BatchERC20 = BatchERC20Versions.v0_1;
+  const client = await createGroundhogClient({ transport });
+  const bound = getContract({ binding: BatchERC20, address, client });
+  const single = await BatchERC20.totalSupply.view({
+    client,
+    contract: address,
+    minHeight: 42n,
+  });
+  const singleValue: bigint = single.value;
+  void singleValue;
+  const boundOutcome = await bound.totalSupply.viewOutcome({ minHeight: 42n });
+  if (boundOutcome.kind === "return") {
+    const value: bigint = boundOutcome.value;
+    void value;
+  }
+  await bound.totalSupply.view({ minHeight: 42n });
+  const prepared = BatchERC20.totalSupply.viewRequest({ contract: address });
+  const constrainedEntry = { ...prepared, minHeight: 42n };
+  // @ts-expect-error a prepared entry cannot carry a group constraint
+  await client.readViews({ calls: [constrainedEntry] });
+  await client.view({ ...prepared.request, minHeight: 42n });
+  const singleInput = { contract: address, minHeight: 42n };
+  // @ts-expect-error prepared calls cannot carry a freshness floor, including through variables
+  BatchERC20.totalSupply.viewRequest(singleInput);
+  // @ts-expect-error bound prepared calls cannot carry a freshness floor
+  bound.totalSupply.viewRequest({ minHeight: 42n });
+  const transactionInput = { ...singleInput, gasLimit: gasAmount(123n) };
+  // @ts-expect-error read freshness cannot leak into transaction options
+  BatchERC20.totalSupply.call(transactionInput);
+  const singleRequest = { ...prepared.request, minHeight: 42n };
+  // @ts-expect-error batch entries cannot carry individual minimum heights
+  await client.viewBatch({ calls: [singleRequest] });
+  await BatchERC20.totalSupply.view({
+    client,
+    contract: address,
+    // @ts-expect-error heights are bigint, never JSON numbers at the public client boundary
+    minHeight: 42,
+  });
   const result = await readViews(transport, {
     calls: [
       BatchERC20.totalSupply.viewRequest({ contract: address }),

@@ -38,6 +38,7 @@ export {
   type ContractArgumentMetadata,
   type ContractExceptionMetadata,
   type ContractMethod,
+  type ContractMethodInputs,
   type ContractCall,
   type ContractCallOptions,
   type ContractMethodDefinition,

@@ -386,6 +386,30 @@ describe("contract tests against specs/openrpc.json", () => {
     },
   );
 
+  it.each([0n, 9007199254740993n, 9223372036854775807n])(
+    "groundhog_view — serializes a lossless minimum height %s",
+    async (minHeight) => {
+      const { transport, calls } = spyTransport({
+        output: { result: "fault" },
+        gasUsed: "1",
+        events: [],
+        height: minHeight.toString(),
+      });
+      await view(transport, {
+        contract: contractAddress(new Uint8Array(32)),
+        entrypoint: contractEntrypointID(new Uint8Array(8)),
+        calldata: calldata(new Uint8Array()),
+        minHeight,
+      });
+      assertCapturedParamsMatchSpec("groundhog_view", calls[0]);
+      expect(calls[0]?.params?.[0]).toMatchObject({
+        minHeight: minHeight.toString(),
+      });
+      const batch = paramValidator("groundhog_viewBatch", 0)!;
+      expect(batch({ calls: [calls[0]?.params?.[0]] })).toBe(false);
+    },
+  );
+
   it("groundhog_chainConfig — sends an empty params array and reads stated parameters", async () => {
     const { transport, calls } = spyTransport({
       maxNewContractsPerTx: 4,

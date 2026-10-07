@@ -53,11 +53,16 @@ export async function readViews<
   options?.signal?.throwIfAborted();
   // Retain the decoder order across the asynchronous request even if the caller
   // later edits its array. viewBatch serializes the byte inputs before yielding.
-  const calls = request.calls.map((call) => ({
-    request: call.request,
-    name: call.method.name,
-    decode: call.method.decodeViewOutcome,
-  }));
+  const calls = request.calls.map((call) => {
+    if ("minHeight" in call) {
+      throw new TypeError("Set minHeight on readViews, not on a prepared call");
+    }
+    return {
+      request: call.request,
+      name: call.method.name,
+      decode: call.method.decodeViewOutcome,
+    };
+  });
   const response = await viewBatch(
     transport,
     {

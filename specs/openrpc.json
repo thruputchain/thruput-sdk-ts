@@ -1738,7 +1738,7 @@
                 "type": "string"
               }
             },
-            "required": ["status", "height"],
+            "required": ["status"],
             "type": "object"
           },
           {
@@ -1904,7 +1904,7 @@
           "calls": {
             "description": "Nonempty calls bounded by the endpoint's advertised batch limits.",
             "items": {
-              "$ref": "#/components/schemas/ViewRequest"
+              "$ref": "#/components/schemas/ViewCall"
             },
             "type": "array"
           },
@@ -1937,6 +1937,45 @@
           }
         },
         "required": ["height", "results"],
+        "type": "object"
+      },
+      "ViewCall": {
+        "additionalProperties": false,
+        "description": "One batch entry. Freshness belongs to the group, never to an individual call.",
+        "properties": {
+          "calldata": {
+            "$ref": "#/components/schemas/HexBytes"
+          },
+          "caller": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Hex0x_ContractAddress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contract": {
+            "$ref": "#/components/schemas/Hex0x_ContractAddress"
+          },
+          "entrypoint": {
+            "$ref": "#/components/schemas/HexBytes",
+            "description": "Contract entrypoint id. Must be exactly 8 bytes."
+          },
+          "gasLimit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DecimalU64"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional per-call gas budget. The endpoint's per-call and aggregate limits apply."
+          }
+        },
+        "required": ["contract", "entrypoint", "calldata"],
         "type": "object"
       },
       "ViewCallResult": {
@@ -1996,6 +2035,17 @@
               }
             ],
             "description": "Optional gas budget for the root invocation. Absent selects the\nserver's `maxViewGas` (see `serverLimits`); a value above it, or zero,\nis rejected as an invalid parameter. No gas is charged for a view."
+          },
+          "minHeight": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DecimalBlockHeight"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Minimum committed snapshot height. Does not wait or force a refresh."
           }
         },
         "required": ["contract", "entrypoint", "calldata"],
@@ -2528,6 +2578,9 @@
           "$ref": "#/components/errors/InvalidParams"
         },
         {
+          "$ref": "#/components/errors/ViewHeightUnavailable"
+        },
+        {
           "$ref": "#/components/errors/BackendUnavailable"
         },
         {
@@ -2597,7 +2650,7 @@
           "$ref": "#/components/schemas/ViewResponse"
         }
       },
-      "summary": "Execute a sandboxed contract simulation against the latest committed state. There is no way to select a past height; `height` in the response names the snapshot the view ran against. `gasLimit` is optional: absent runs under the endpoint's `maxViewGas` (see `serverLimits`); zero or a value above it is rejected as an invalid parameter.",
+      "summary": "Execute a sandboxed contract simulation against the latest committed state. There is no way to select a past height; `height` in the response names the snapshot the view ran against. `gasLimit` is optional: absent runs under the endpoint's `maxViewGas` (see `serverLimits`); zero or a value above it is rejected as an invalid parameter. Optional `minHeight` requires that execution snapshot to be at least the requested committed height. An older result returns `ViewHeightUnavailable`. This is a freshness floor, not a historical selector, wait, or refresh request.",
       "tags": [
         {
           "name": "Core API"

@@ -274,7 +274,7 @@ export interface VersionInfo {
 }
 
 /** Request for a read-only contract invocation. */
-export interface ViewRequest {
+export interface ViewCall {
   /** Contract address to invoke. */
   contract: ContractAddress;
 
@@ -291,10 +291,16 @@ export interface ViewRequest {
   gasLimit?: bigint;
 }
 
+/** A single simulation with an optional minimum committed snapshot height. */
+export interface ViewRequest extends ViewCall {
+  /** Freshness floor only. Does not wait or force a snapshot refresh. */
+  minHeight?: bigint;
+}
+
 /** Independent calls evaluated against one committed snapshot. */
 export interface ViewBatchRequest {
   /** Nonempty group bounded by the endpoint's advertised limits. */
-  calls: readonly ViewRequest[];
+  calls: readonly (ViewCall & { minHeight?: never })[];
   /** Freshness floor on the snapshot. Does not wait or request a refresh. */
   minHeight?: bigint;
 }
