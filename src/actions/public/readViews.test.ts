@@ -140,28 +140,38 @@ describe("shared-snapshot reads", () => {
     ).toBe("return");
   });
 
-  it.each([{ calls: [] }, { calls: Array.from({ length: 17 }, () => call) }])(
+  it.each([{ calls: [] }])(
     "rejects invalid call counts before I/O",
     async ({ calls }) => {
       const { transport, request } = stub(null);
       await expect(viewBatch(transport, { calls })).rejects.toThrow(
-        "between 1 and 16",
+        "at least one",
       );
       expect(request).not.toHaveBeenCalled();
     },
   );
 
-  it("rejects oversized input and out-of-range minimum heights before I/O", async () => {
+  it("rejects out-of-range minimum heights before I/O", async () => {
     const { transport, request } = stub(null);
-    await expect(
-      viewBatch(transport, {
-        calls: [{ ...call, calldata: calldata(new Uint8Array(65_537)) }],
-      }),
-    ).rejects.toThrow("64 KiB");
     await expect(
       viewBatch(transport, { calls: [call], minHeight: 1n << 63n }),
     ).rejects.toThrow("non-negative int64");
     expect(request).not.toHaveBeenCalled();
+  });
+
+  it("leaves count and calldata policy to the endpoint without splitting", async () => {
+    const { transport, request } = stub({
+      height: "42",
+      results: Array(17).fill(fault),
+    });
+    await viewBatch(transport, {
+      calls: Array.from({ length: 17 }, () => ({
+        ...call,
+        calldata: calldata(new Uint8Array(4096)),
+      })),
+    });
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request.mock.calls[0]?.[0]).toBe("groundhog_viewBatch");
   });
 
   it.each([

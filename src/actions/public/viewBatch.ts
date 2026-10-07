@@ -26,11 +26,12 @@ export class ViewBatchResultError extends Error {
 }
 
 /**
- * Simulate 1–16 independent calls at one committed height, in input order.
+ * Simulate independent calls at one committed height, in input order.
  * Requires groundhog_viewBatch (wire format 9.1.0). No fallback or chunking is used.
  * Simulated writes do not pass between calls. The server retries abandoned
  * snapshots as a whole group; aborts and faults remain per-call results.
  * Cancellation ends this client's wait, not necessarily backend execution.
+ * The endpoint sets resource limits; inspect getServerLimits().viewBatch when needed.
  */
 export async function viewBatch(
   transport: Transport,
@@ -38,20 +39,16 @@ export async function viewBatch(
   options?: TransportRequestOptions,
 ): Promise<ViewBatchResponse> {
   options?.signal?.throwIfAborted();
-  if (request.calls.length < 1 || request.calls.length > 16) {
-    throw new RangeError("viewBatch requires between 1 and 16 calls");
+  if (request.calls.length === 0) {
+    throw new RangeError("viewBatch requires at least one call");
   }
   const minHeight = request.minHeight;
   const serializedMinHeight =
     minHeight === undefined ? undefined : serializeHeight(minHeight);
-  let remaining = 65_536;
   const calls = request.calls.map((call) => {
     if (call.gasLimit === 0n) throw new RangeError("gasLimit must be positive");
     if (call.entrypoint.length !== 8)
       throw new RangeError("view entrypoint must be exactly 8 bytes");
-    if (call.calldata.length > remaining)
-      throw new RangeError("viewBatch calldata exceeds 64 KiB");
-    remaining -= call.calldata.length;
     return {
       contract: toHex0x(call.contract),
       entrypoint: toHex0x(call.entrypoint),

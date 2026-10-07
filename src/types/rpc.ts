@@ -118,8 +118,22 @@ export interface StorageCosts {
   readonly balanceCost: bigint;
 }
 
+/** Endpoint policy for a shared-snapshot group; per-call view limits also apply. */
+export interface ViewBatchLimits {
+  readonly maxCalls: number;
+  readonly maxCalldataBytes: number;
+  /** Sum of declared gas limits per attempt. */
+  readonly maxGas: bigint;
+  /** Encoded backend result including events, before JSON encoding. */
+  readonly maxResponseBytes: number;
+  /** Upper bound on response wait, not a guarantee that backend work stops. */
+  readonly timeoutMs: bigint;
+}
+
 /** Endpoint request bounds, which may vary between servers on the same chain. */
 export interface ServerLimits {
+  /** Absent when the endpoint does not advertise batch limits. */
+  readonly viewBatch?: ViewBatchLimits;
   /** Maximum view gas, also used when a view omits its gas limit. */
   readonly maxViewGas: bigint;
   /** Maximum view calldata size in bytes. */
@@ -279,9 +293,9 @@ export interface ViewRequest {
 
 /** Independent calls evaluated against one committed snapshot. */
 export interface ViewBatchRequest {
-  /** Between 1 and 16 calls, with at most 64 KiB of aggregate calldata. */
+  /** Nonempty group bounded by the endpoint's advertised limits. */
   calls: readonly ViewRequest[];
-  /** Refresh once if behind this height; do not wait for a future block. */
+  /** Freshness floor on the snapshot. Does not wait or request a refresh. */
   minHeight?: bigint;
 }
 

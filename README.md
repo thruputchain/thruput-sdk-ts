@@ -234,20 +234,22 @@ if (supply.kind === "return" && balance.kind === "return") {
 
 Each tuple position retains its generated return and exception types. Results are
 `return`, `abort`, or `fault`, with events. Simulated writes stay within each call.
-Omit `minHeight` if no freshness floor is needed. If the server is behind, it
-refreshes once and returns `ViewHeightUnavailable` with requested and observed
-heights; it does not wait for a future block.
+Omit `minHeight` if no freshness floor is needed. If the selected snapshot is
+behind, the server returns `ViewHeightUnavailable` with requested and observed
+heights. The request neither waits for a block nor forces a refresh; your
+application decides whether and when to retry.
 
 This requires `groundhog_viewBatch` (RPC wire format 9.1.0). Existing generated
 bindings gain `viewRequest` through the runtime. The low-level API is
 `client.viewBatch({ calls, minHeight })`. Neither API splits calls or falls back
 to separate views. HTTP transport batching alone does not share snapshots.
 
-Limits are 16 calls, 64 KiB of aggregate calldata, 160M gas per attempt, and 1 MiB
-of encoded backend results including events. The server retries an abandoned
-snapshot as a whole group, at most three times. The response deadline is at most
-30 seconds, but running backend work can outlive it. Pass `{ signal }` as the
-second argument to cancel the client's wait.
+Operators set batch limits; inspect `(await client.getServerLimits()).viewBatch`
+when you need the endpoint's policy. Per-call view and transport limits also
+apply. The server retries an abandoned snapshot as a whole group, at most three
+times. Its configured deadline bounds the response wait, but running backend
+work can outlive it. Pass `{ signal }` as the second argument to cancel the
+client's wait.
 
 To test this path against a matching local RPC build, set `GROUNDHOG_RPC_URL`
 and `GROUNDHOG_RUNTIME_MANIFEST`, build the package, then run
