@@ -179,10 +179,12 @@ async function main() {
   const requestedCli = process.env.GROUNDHOG_CLI ?? "groundhog";
   const cli = requestedCli.includes("/") ? resolve(requestedCli) : requestedCli;
   const { stdout } = await exec(cli, ["--version"], { timeout: 10_000 });
+  const cliVersion = /^groundhog (\d+\.\d+\.\d+(?:-[^\s]+)?)(?:\s|$)/.exec(
+    stdout,
+  )?.[1];
   if (
-    !new RegExp(
-      `^groundhog ${versions.cli.replaceAll(".", "\\.")}(?:\\s|$)`,
-    ).test(stdout)
+    !cliVersion ||
+    (!process.env.GROUNDHOG_CLI && cliVersion !== versions.cli)
   ) {
     throw new Error(
       `Expected Groundhog CLI ${versions.cli}, received ${stdout.trim()}`,
@@ -203,30 +205,37 @@ async function main() {
   env.XDG_CONFIG_HOME = join(work, "config");
   env.XDG_CACHE_HOME = join(work, "cache");
 
-  const install = launch(
-    cli,
-    ["--json", "toolchain", "install", versions.devnode],
-    env,
-    "install",
-  );
-  requireSuccess(
-    install,
-    await bounded(install.done, 300_000, "Devnode installation"),
-  );
-  const installed = JSON.parse(
-    await readFile(join(logs, "install.stdout.log"), "utf8"),
-  );
-  if (
-    !installed.ok ||
-    typeof installed.data?.path !== "string" ||
-    !isAbsolute(installed.data.path)
-  ) {
-    throw new Error("Devnode installation did not report an executable path");
+  let devnodeBinary = process.env.GROUNDHOG_DEVNODE_BINARY;
+  if (devnodeBinary !== undefined && !isAbsolute(devnodeBinary)) {
+    throw new Error("GROUNDHOG_DEVNODE_BINARY must be an absolute path");
+  }
+  if (devnodeBinary === undefined) {
+    const install = launch(
+      cli,
+      ["--json", "toolchain", "install", versions.devnode],
+      env,
+      "install",
+    );
+    requireSuccess(
+      install,
+      await bounded(install.done, 300_000, "Devnode installation"),
+    );
+    const installed = JSON.parse(
+      await readFile(join(logs, "install.stdout.log"), "utf8"),
+    );
+    if (
+      !installed.ok ||
+      typeof installed.data?.path !== "string" ||
+      !isAbsolute(installed.data.path)
+    ) {
+      throw new Error("Devnode installation did not report an executable path");
+    }
+    devnodeBinary = installed.data.path;
   }
   // Run directly so dynamic-loader failures reach our logs rather than being
   // reduced to an exit code by the node supervisor.
   const preflight = launch(
-    installed.data.path,
+    devnodeBinary,
     ["--version"],
     env,
     "devnode-version",
@@ -244,8 +253,12 @@ async function main() {
       "127.0.0.1",
       "--port",
       "0",
-      "--hog-devnode-version",
-      versions.devnode,
+      ...(process.env.GROUNDHOG_DEVNODE_BINARY
+        ? ["--hog-devnode-binary", devnodeBinary]
+        : ["--hog-devnode-version", versions.devnode]),
+      ...(process.env.HOGD_PROTOCOL_OVERRIDE
+        ? ["--hogd-protocol", process.env.HOGD_PROTOCOL_OVERRIDE]
+        : []),
       "--offline",
       "--block-driver",
       "instant",
@@ -257,7 +270,7 @@ async function main() {
   );
   const ready = await startup(node);
   console.log(
-    `Testing CLI ${versions.cli} / devnode ${versions.devnode} at ${ready.rpc_url}`,
+    `Testing CLI ${cliVersion} / devnode ${devnodeBinary} at ${ready.rpc_url}`,
   );
   const tests = launch(
     process.execPath,
@@ -266,11 +279,13 @@ async function main() {
       "--test-concurrency=1",
       `--test-timeout=${runnerTimeoutMs}`,
       join(repo, "tests/integration/live-node.test.mjs"),
+      join(repo, "tests/integration/local-funding.test.mjs"),
     ],
     {
       ...env,
       GROUNDHOG_RPC_URL: ready.rpc_url,
       GROUNDHOG_RUNTIME_MANIFEST: ready.runtime_manifest.path,
+      GROUNDHOG_EXPECTED_CLI_VERSION: cliVersion,
     },
     "tests",
     true,

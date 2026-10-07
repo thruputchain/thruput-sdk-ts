@@ -4,9 +4,10 @@ import type {
 } from "../../transport/types.js";
 import type { ChainTip } from "../../types/rpc.js";
 import { hashFromHex } from "../hex.js";
+import { parseHeight } from "../decimal.js";
 
 interface RawChainTip {
-  height: number | string;
+  height: string;
   blockHash: string;
 }
 
@@ -28,7 +29,7 @@ export async function getChainTip(
   const tip = result as RawChainTip;
 
   return {
-    height: BigInt(tip.height),
+    height: parseHeight(tip.height),
     blockHash: hashFromHex(tip.blockHash),
   };
 }

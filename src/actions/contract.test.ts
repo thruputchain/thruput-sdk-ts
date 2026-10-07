@@ -36,6 +36,10 @@ import { getPendingTransactionCount } from "./public/getPendingTransactionCount.
 import { getNetworkInfo } from "./public/getNetworkInfo.js";
 import { getServerLimits } from "./public/getServerLimits.js";
 import { getChainConfig } from "./public/getChainConfig.js";
+import { fundAccount } from "./public/fundAccount.js";
+import { hashSignedTransaction } from "../derivation/transactionHash.js";
+import { serializeSignedTransaction } from "../transaction/serialize.js";
+import { toHex0x } from "./hex.js";
 import { requestAirdropAttempt } from "./public/requestAirdrop.js";
 import { getStorageAt } from "./public/getStorageAt.js";
 import { getTransactionReceipt } from "./public/getTransactionReceipt.js";
@@ -48,6 +52,11 @@ import { PrivateKeySigner } from "../signers/privateKey.js";
 import { createInvocation, createTransaction } from "../transaction/build.js";
 import { signTransaction } from "../transaction/sign.js";
 import type { Transport } from "../transport/types.js";
+import {
+  GroundhogRpcErrorCode,
+  HttpTransport,
+  JsonRpcError,
+} from "../transport/http.js";
 import type { SHA256Hash, SignedTransaction } from "@groundhogchain/protocol";
 
 // ---- ajv setup ---------------------------------------------------------
@@ -196,7 +205,7 @@ describe("contract tests against specs/openrpc.json", () => {
 
   it("groundhog_chainTip — sends an empty params array", async () => {
     const { transport, calls } = spyTransport({
-      height: 0,
+      height: "0",
       blockHash: "0x" + "00".repeat(32),
     });
     await getChainTip(transport);
@@ -230,7 +239,7 @@ describe("contract tests against specs/openrpc.json", () => {
       attemptStatus: "pending",
       recipient: "0x" + "ab".repeat(32),
       rawAmount: "100000000",
-      retryAfterSeconds: 1,
+      retryAfterSeconds: "1",
     });
     await requestAirdropAttempt(transport, {
       recipient,
@@ -245,7 +254,7 @@ describe("contract tests against specs/openrpc.json", () => {
     const { transport, calls } = spyTransport({
       address: "0x" + "ab".repeat(32),
       rawBalance: "0",
-      height: 0,
+      height: "0",
     });
 
     await getBalance(transport, address);
@@ -262,7 +271,7 @@ describe("contract tests against specs/openrpc.json", () => {
   });
 
   it("groundhog_pendingTransactionCount — sends an empty params array", async () => {
-    const { transport, calls } = spyTransport(0);
+    const { transport, calls } = spyTransport("0");
     await getPendingTransactionCount(transport);
     expect(calls).toHaveLength(1);
     assertCapturedParamsMatchSpec(
@@ -291,8 +300,8 @@ describe("contract tests against specs/openrpc.json", () => {
     const { transport, calls } = spyTransport({
       refs: [],
       cursor: "0x",
-      latestBlock: 0,
-      oldestBlock: 0,
+      latestBlock: "0",
+      oldestBlock: "0",
     });
     const address = contractAddress(new Uint8Array(32).fill(0xab));
 
@@ -312,7 +321,7 @@ describe("contract tests against specs/openrpc.json", () => {
   });
 
   it("groundhog_getStorageAt — sends (Hex0x_ContractAddress, HexBytes)", async () => {
-    const { transport, calls } = spyTransport({ blockHeight: 0, item: null });
+    const { transport, calls } = spyTransport({ blockHeight: "0", item: null });
     const addr = contractAddress(new Uint8Array(32).fill(0xab));
     const key = new Uint8Array(32).fill(0xcd);
     await getStorageAt(transport, addr, key);
@@ -329,8 +338,8 @@ describe("contract tests against specs/openrpc.json", () => {
     const { transport, calls } = spyTransport({
       events: [],
       cursor: "0x",
-      latestBlock: 0,
-      oldestBlock: 0,
+      latestBlock: "0",
+      oldestBlock: "0",
     });
     const addr = contractAddress(new Uint8Array(32).fill(0xab));
     const topic = new Uint8Array(32).fill(0xcd);
@@ -347,26 +356,33 @@ describe("contract tests against specs/openrpc.json", () => {
     expect(page.cursor.length).toBe(0);
   });
 
-  it("groundhog_view — sends a ViewRequest", async () => {
-    const { transport, calls } = spyTransport({
-      output: { result: "return", returnData: "0x" },
-      gasUsed: 42,
-      events: [],
-      height: 0,
-    });
-    const addr = contractAddress(new Uint8Array(32).fill(0xab));
-    const entrypoint = contractEntrypointID(new Uint8Array(8).fill(0xcd));
-    const input = calldata(new Uint8Array([0x01, 0x02]));
+  it.each([1n, 9007199254740991n, 9007199254740993n, 18446744073709551615n])(
+    "groundhog_view — serializes a lossless gasLimit %s",
+    async (gasLimit) => {
+      const { transport, calls } = spyTransport({
+        output: { result: "return", returnData: "0x" },
+        gasUsed: "42",
+        events: [],
+        height: "0",
+      });
+      const addr = contractAddress(new Uint8Array(32).fill(0xab));
+      const entrypoint = contractEntrypointID(new Uint8Array(8).fill(0xcd));
+      const input = calldata(new Uint8Array([0x01, 0x02]));
 
-    await view(transport, {
-      contract: addr,
-      entrypoint,
-      calldata: input,
-    });
+      await view(transport, {
+        contract: addr,
+        entrypoint,
+        calldata: input,
+        gasLimit,
+      });
 
-    expect(calls).toHaveLength(1);
-    assertCapturedParamsMatchSpec("groundhog_view", calls[0]);
-  });
+      expect(calls).toHaveLength(1);
+      assertCapturedParamsMatchSpec("groundhog_view", calls[0]);
+      expect(calls[0]?.params?.[0]).toMatchObject({
+        gasLimit: gasLimit.toString(),
+      });
+    },
+  );
 
   it("groundhog_chainConfig — sends an empty params array and reads stated parameters", async () => {
     const { transport, calls } = spyTransport({
@@ -383,16 +399,134 @@ describe("contract tests against specs/openrpc.json", () => {
 
   it("groundhog_serverLimits — sends an empty params array", async () => {
     const limits = {
-      maxViewGas: 100_000_000,
-      maxViewCalldataBytes: 65_536,
+      maxViewGas: "100000000",
+      maxViewCalldataBytes: "65536",
       maxEventsPerPage: 200,
       maxTransactionsPerPage: 200,
-      maxCursorBytes: 1024,
+      maxCursorBytes: "1024",
     };
     const { transport, calls } = spyTransport(limits);
-    await expect(getServerLimits(transport)).resolves.toEqual(limits);
+    await expect(getServerLimits(transport)).resolves.toEqual({
+      ...limits,
+      maxViewGas: 100_000_000n,
+      maxViewCalldataBytes: 65_536n,
+      maxCursorBytes: 1024n,
+    });
     expect(calls).toHaveLength(1);
     assertCapturedParamsMatchSpec("groundhog_serverLimits", calls[0]);
+  });
+
+  it("groundhog_fundAccount — sends the retained amount-bound local request", async () => {
+    const signed = await makeDummySignedTx();
+    const recipient = contractAddress(new Uint8Array(32).fill(0x55));
+    const bytes = serializeSignedTransaction(signed);
+    const { transport, calls } = spyTransport({
+      recipient: toHex0x(recipient),
+      rawAmount: "1000000000",
+      txHash: toHex0x(hashSignedTransaction(signed)),
+      signedTransaction: toHex0x(bytes),
+    });
+    const result = await fundAccount(transport, {
+      recipient,
+      faucet: contractAddress(new Uint8Array(32).fill(0x44)),
+      rawAmount: 1000000000n,
+      clientNonce: new Uint8Array([1, 2, 3]),
+    });
+    assertCapturedParamsMatchSpec("groundhog_fundAccount", calls[0]);
+    expect(result.signedTransaction).toEqual(bytes);
+  });
+
+  it("local funding preserves unresolved transaction evidence from HTTP RPC errors", async () => {
+    const signed = await makeDummySignedTx();
+    const evidence = {
+      txHash: toHex0x(hashSignedTransaction(signed)),
+      signedTransaction: toHex0x(serializeSignedTransaction(signed)),
+    };
+    let requests = 0;
+    const transport = new HttpTransport("http://localhost:8080", {
+      fetch: async (_input, init) => {
+        requests++;
+        const request = JSON.parse(init?.body as string);
+        return Response.json({
+          jsonrpc: "2.0",
+          id: request.id,
+          error: {
+            code: GroundhogRpcErrorCode.LocalFundingUnresolved,
+            message: "Local funding outcome is unresolved",
+            data: evidence,
+          },
+        });
+      },
+    });
+    const result = fundAccount(transport, {
+      recipient: contractAddress(new Uint8Array(32).fill(0x55)),
+      faucet: contractAddress(new Uint8Array(32).fill(0x44)),
+      rawAmount: 1000000000n,
+      clientNonce: new Uint8Array([1, 2, 3]),
+    });
+    await expect(result).rejects.toBeInstanceOf(JsonRpcError);
+    await expect(result).rejects.toMatchObject({
+      code: GroundhogRpcErrorCode.LocalFundingUnresolved,
+      method: "groundhog_fundAccount",
+      data: evidence,
+    });
+    expect(requests).toBe(1);
+  });
+
+  it("local funding retries preserve the caller request after a lost response", async () => {
+    const signed = await makeDummySignedTx();
+    const request = {
+      recipient: contractAddress(new Uint8Array(32).fill(0x55)),
+      faucet: contractAddress(new Uint8Array(32).fill(0x44)),
+      rawAmount: 1000000000n,
+      clientNonce: new Uint8Array([1, 2, 3]),
+    };
+    const response = {
+      recipient: toHex0x(request.recipient),
+      rawAmount: "1000000000",
+      txHash: toHex0x(hashSignedTransaction(signed)),
+      signedTransaction: toHex0x(serializeSignedTransaction(signed)),
+    };
+    const calls: unknown[] = [];
+    const transport: Transport = {
+      async request<T>(_method: string, params?: unknown[]): Promise<T> {
+        calls.push(params);
+        if (calls.length === 1) throw new Error("lost response");
+        return response as T;
+      },
+    };
+    await expect(fundAccount(transport, request)).rejects.toThrow(
+      "lost response",
+    );
+    await expect(fundAccount(transport, request)).resolves.toMatchObject({
+      rawAmount: request.rawAmount,
+    });
+    expect(calls[1]).toEqual(calls[0]);
+    for (const patch of [
+      { recipient: "0x" + "66".repeat(32) },
+      { rawAmount: "1" },
+      { txHash: "0x" + "77".repeat(32) },
+      { signedTransaction: "0xBAD" },
+    ]) {
+      await expect(
+        fundAccount(spyTransport({ ...response, ...patch }).transport, request),
+      ).rejects.toThrow();
+    }
+    const spy = spyTransport(response);
+    for (const rawAmount of [0n, -1n, 1n << 128n]) {
+      await expect(
+        fundAccount(spy.transport, { ...request, rawAmount }),
+      ).rejects.toThrow("positive u128");
+    }
+    for (const count of [0, 33]) {
+      await expect(
+        fundAccount(spy.transport, {
+          ...request,
+          clientNonce: new Uint8Array(count),
+        }),
+      ).rejects.toThrow("1 and 32");
+    }
+    expect(spy.calls).toHaveLength(0);
   });
 
   it("covers every method in specs/openrpc.json", () => {

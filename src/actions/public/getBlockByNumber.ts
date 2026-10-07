@@ -11,14 +11,15 @@ import {
 } from "@groundhogchain/protocol";
 import type { BlockInfo } from "../../types/rpc.js";
 import { fromHex0x, hashFromHex } from "../hex.js";
+import { parseHeight, parseU64, serializeHeight } from "../decimal.js";
 
 interface RawBlockInfo {
   blockHash: string;
-  protocol: number | string;
+  protocol: number;
   networkHash: string;
   proposer: string;
-  blockTimepoint: number | string;
-  blockHeight: number | string;
+  blockTimepoint: string;
+  blockHeight: string;
   txsHash: string;
   storageHash: string;
   eventsHash: string;
@@ -35,12 +36,9 @@ export async function getBlockByNumber(
   options?: TransportRequestOptions,
 ): Promise<BlockInfo | null> {
   options?.signal?.throwIfAborted();
-  if (height < 0n || height > BigInt(Number.MAX_SAFE_INTEGER)) {
-    throw new RangeError("height must be a non-negative safe integer");
-  }
   const result = await transport.request<unknown>(
     "groundhog_getBlockByNumber",
-    [Number(height)],
+    [serializeHeight(height)],
     options,
   );
   if (result === null) return null;
@@ -55,10 +53,8 @@ export async function getBlockByNumber(
     protocol: protocol(parseInteger(block.protocol, "protocol")),
     networkHash: networkHash(parseHash(block.networkHash, "networkHash")),
     proposer: validatorID(parseFixedBytes(block.proposer, "proposer")),
-    blockTimepoint: timePoint(
-      parseInteger(block.blockTimepoint, "blockTimepoint"),
-    ),
-    blockHeight: blockHeight(parseInteger(block.blockHeight, "blockHeight")),
+    blockTimepoint: timePoint(parseU64(block.blockTimepoint, "blockTimepoint")),
+    blockHeight: blockHeight(parseHeight(block.blockHeight, "blockHeight")),
     txsHash: parseHash(block.txsHash, "txsHash"),
     storageHash: parseHash(block.storageHash, "storageHash"),
     eventsHash: parseHash(block.eventsHash, "eventsHash"),
@@ -94,8 +90,10 @@ function parseCanonicalHex(
 
 function parseInteger(value: unknown, field: string): bigint {
   if (
-    (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) ||
-    (typeof value === "string" && /^(0|[1-9][0-9]*)$/.test(value))
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value <= 0xffff_ffff
   ) {
     return BigInt(value);
   }

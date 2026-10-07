@@ -21,7 +21,7 @@ const rawReceipt = {
   events: [],
   returnData: null,
   abortData: null,
-  gasUsed: 1234,
+  gasUsed: "1234",
 };
 
 describe("waitForTransactionReceipt", () => {
@@ -324,7 +324,7 @@ describe("waitForTransactionReceipt", () => {
               ? null
               : {
                   status: "recentFailure",
-                  attemptHeight: 41,
+                  attemptHeight: "41",
                   cause,
                 }
           ) as T;

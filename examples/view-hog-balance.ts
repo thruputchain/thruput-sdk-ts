@@ -5,17 +5,16 @@ import {
   formatUnits,
   localnet,
   toHex0x,
+  addressFromHex,
 } from "../src/index.js";
 import { ERC20 } from "../src/contracts/index.js";
-import { loadLocalDevAccount } from "../src/local-dev/index.js";
-
 const rpcUrl = process.env.GROUNDHOG_RPC_URL;
-if (rpcUrl && !process.env.GROUNDHOG_RUNTIME_MANIFEST) {
+const addressHex = process.env.GROUNDHOG_ADDRESS;
+if (!addressHex)
   throw new Error(
-    "Set GROUNDHOG_RUNTIME_MANIFEST when overriding the Localnet RPC URL",
+    "Set GROUNDHOG_ADDRESS to the public account address to inspect",
   );
-}
-const account = await loadLocalDevAccount();
+const address = addressFromHex(addressHex);
 
 const client = await createGroundhogClient({
   cluster: localnet(rpcUrl ? { rpcUrl } : {}),
@@ -25,15 +24,14 @@ const client = await createGroundhogClient({
 const response = await ERC20.v0_1.getBalanceOf.view({
   client,
   contract: HOG_ADDRESS,
-  caller: account.address,
-  args: { addr: account.address },
+  caller: address,
+  args: { addr: address },
 });
 
 console.log({
   rpcUrl: client.cluster.rpcUrl,
-  accountName: account.keyName,
   hogToken: toHex0x(HOG_ADDRESS),
-  account: toHex0x(account.address),
+  account: toHex0x(address),
   balance: response.value.toString(),
   hog: formatUnits(response.value, 7),
   height: response.height.toString(),
