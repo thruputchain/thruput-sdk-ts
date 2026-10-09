@@ -9,6 +9,7 @@ import type {
   ConflictCode,
   ConflictDiagnostic,
   TransactionStatus,
+  SchedulerTransactionError,
 } from "../../types/rpc.js";
 import { addressFromHex, fromHex0x, toHex0x } from "../hex.js";
 import { parseHeight } from "../decimal.js";
@@ -117,6 +118,35 @@ function parseFailureCause(value: unknown): TransactionFailureCause {
   }
 }
 
+function parseSchedulerError(value: unknown): SchedulerTransactionError {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Invalid transaction status response: expected error");
+  }
+  const error = value as Record<string, unknown>;
+  if (typeof error.source !== "string") {
+    throw new Error(
+      "Invalid transaction status response: expected error.source",
+    );
+  }
+  if (
+    typeof error.code !== "number" ||
+    !Number.isInteger(error.code) ||
+    error.code < -2_147_483_648 ||
+    error.code > 2_147_483_647
+  ) {
+    throw new Error(
+      "Invalid transaction status response: expected error.code as i32",
+    );
+  }
+  const source =
+    error.source === "auth" ||
+    error.source === "scheduler" ||
+    error.source === "executor"
+      ? error.source
+      : "other";
+  return { source, code: error.code };
+}
+
 /** Return the gateway's current knowledge of a submitted transaction. */
 export async function getTransactionStatus(
   transport: Transport,
@@ -139,7 +169,15 @@ export async function getTransactionStatus(
   }
   switch (status.status) {
     case "committed":
-      return { status: "committed", height: parseHeight(status.height) };
+      return status.height === undefined || status.height === null
+        ? { status: "committed" }
+        : { status: "committed", height: parseHeight(status.height) };
+    case "retry":
+    case "dropped":
+      return {
+        status: status.status,
+        error: parseSchedulerError(status.error),
+      };
     case "pending":
       return { status: "pending" };
     case "invalid": {

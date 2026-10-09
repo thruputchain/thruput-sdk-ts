@@ -36,6 +36,7 @@ export function classifyReadError(
     if (error instanceof JsonRpcError) {
       switch (error.code) {
         case GroundhogRpcErrorCode.BackendUnavailable:
+        case GroundhogRpcErrorCode.ViewHeightUnavailable:
         case GroundhogRpcErrorCode.BackendTimeout:
         case GroundhogRpcErrorCode.Overloaded:
           return "transient";

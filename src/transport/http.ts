@@ -9,6 +9,7 @@ export const GroundhogRpcErrorCode = {
   TxNotFound: -32002,
   LocalFundingUnresolved: -32003,
   BlockNotFound: -32010,
+  ViewHeightUnavailable: -32011,
   BackendUnavailable: -32050,
   BackendTimeout: -32051,
   NotImplemented: -32052,

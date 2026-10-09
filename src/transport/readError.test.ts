@@ -30,6 +30,7 @@ describe("read error classification", () => {
   );
   it.each([
     [GroundhogRpcErrorCode.BackendUnavailable, "transient"],
+    [GroundhogRpcErrorCode.ViewHeightUnavailable, "transient"],
     [GroundhogRpcErrorCode.BackendTimeout, "transient"],
     [GroundhogRpcErrorCode.Overloaded, "transient"],
     [GroundhogRpcErrorCode.InvalidParams, "permanent"],

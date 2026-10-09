@@ -2,7 +2,7 @@ import type {
   Transport,
   TransportRequestOptions,
 } from "../../transport/types.js";
-import type { ServerLimits } from "../../types/rpc.js";
+import type { ServerLimits, ViewBatchLimits } from "../../types/rpc.js";
 import { parseU64 } from "../decimal.js";
 
 /**
@@ -25,10 +25,11 @@ export async function getServerLimits(
   }
   const limits = result as Record<string, unknown>;
   const bound = (
-    field: keyof ServerLimits,
+    field: string,
     maximum = Number.MAX_SAFE_INTEGER,
+    source: Record<string, unknown> = limits,
   ): number => {
-    const value = limits[field];
+    const value = source[field];
     if (
       typeof value !== "number" ||
       !Number.isSafeInteger(value) ||
@@ -41,7 +42,27 @@ export async function getServerLimits(
     }
     return value;
   };
+  let viewBatch: ViewBatchLimits | undefined;
+  if (limits.viewBatch != null) {
+    if (
+      typeof limits.viewBatch !== "object" ||
+      Array.isArray(limits.viewBatch)
+    ) {
+      throw new Error(
+        "Invalid server limits response: expected viewBatch object",
+      );
+    }
+    const batch = limits.viewBatch as Record<string, unknown>;
+    viewBatch = {
+      maxCalls: bound("maxCalls", 0xffff_ffff, batch),
+      maxCalldataBytes: bound("maxCalldataBytes", 0xffff_ffff, batch),
+      maxGas: parseU64(batch.maxGas, "viewBatch.maxGas"),
+      maxResponseBytes: bound("maxResponseBytes", 0xffff_ffff, batch),
+      timeoutMs: parseU64(batch.timeoutMs, "viewBatch.timeoutMs"),
+    };
+  }
   return {
+    ...(viewBatch === undefined ? {} : { viewBatch }),
     maxViewGas: parseU64(limits.maxViewGas, "maxViewGas"),
     maxViewCalldataBytes: parseU64(
       limits.maxViewCalldataBytes,

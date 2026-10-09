@@ -19,7 +19,7 @@ token with `read:packages`. See [Registry auth](#registry-auth-one-time-setup).
 
 ## Usage
 
-This checkout targets RPC wire format **9.1.0**. All 64-bit and wider integers
+This checkout pins RPC wire format **11.1.0**. All 64-bit and wider integers
 are canonical decimal strings in JSON and `bigint` in the client API, including
 heights, nanosecond timestamps, gas, mempool counts, wide server limits, and
 airdrop retry intervals. Smaller bounded fields, such as page limits and event
@@ -209,6 +209,77 @@ console.log(
 
 Release identity and bundle digest can be `null`;
 they help diagnose installations. Use `wireFormat` for RPC compatibility decisions.
+
+### Read after confirmation
+
+Use the height from a successful receipt as a freshness floor for a single read:
+
+```ts
+const balance = await ERC20.v0_1.getBalanceOf.view({
+  client,
+  contract: tokenAddress,
+  args: { addr: accountAddress },
+  minHeight: receipt.height,
+});
+```
+
+This requires RPC wire format 11.1.0 and also works with `.viewOutcome()`, bound
+views, and raw `client.view()`. The result must come from a committed snapshot at
+or above that height. An older snapshot produces `ViewHeightUnavailable`
+(`-32011`) with requested and observed heights. It does not undo transaction
+confirmation. The SDK does not poll, wait, or retry; your application decides how
+to handle a backend that is behind. Omit `minHeight` for an unconstrained read.
+
+### Reads at one snapshot
+
+Use `readViews` when several contract reads must use the same committed state:
+
+```ts
+const snapshot = await client.readViews({
+  calls: [
+    ERC20.v0_1.totalSupply.viewRequest({ contract: tokenAddress }),
+    ERC20.v0_1.getBalanceOf.viewRequest({
+      contract: tokenAddress,
+      args: { addr: accountAddress },
+    }),
+  ],
+  minHeight: receipt.height,
+});
+
+const [supply, balance] = snapshot.results;
+if (supply.kind === "return" && balance.kind === "return") {
+  console.log(snapshot.height, supply.value, balance.value);
+}
+```
+
+Each tuple position retains its generated return and exception types. Results are
+`return`, `abort`, or `fault`, with events. Simulated writes stay within each call.
+Omit `minHeight` if no freshness floor is needed. If the selected snapshot is
+behind, the server returns `ViewHeightUnavailable` with requested and observed
+heights. The request neither waits for a block nor forces a refresh; your
+application decides whether and when to retry.
+
+This requires `groundhog_viewBatch` (RPC wire format 11.1.0). Existing generated
+bindings gain `viewRequest` through the runtime. The low-level API is
+`client.viewBatch({ calls, minHeight })`. Neither API splits calls or falls back
+to separate views. HTTP transport batching alone does not share snapshots.
+
+Operators set batch limits; inspect `(await client.getServerLimits()).viewBatch`
+when you need the endpoint's policy. Per-call view and transport limits also
+apply. The server retries an abandoned snapshot as a whole group, at most three
+times. Its configured deadline bounds the response wait, but running backend
+work can outlive it. Pass `{ signal }` as the second argument to cancel the
+client's wait.
+
+To test this path against a matching local RPC build, set `GROUNDHOG_RPC_URL`
+and `GROUNDHOG_RUNTIME_MANIFEST`, build the package, then run
+`node --test tests/integration/view-batch.test.mjs`.
+
+To qualify single-view freshness after a confirmed transfer, run
+`node --test tests/integration/view-freshness.test.mjs` against a matching RPC
+build. For a standalone gateway backed by a local node, set
+`GROUNDHOG_FUNDING_RPC_URL` to the embedded node's URL and use interval block
+production so gateway submissions are committed independently of embedded RPC.
 
 ### Event pages
 
@@ -413,14 +484,14 @@ the sender's capacity. Use measured budgets for each workload; `walletGasLimit`
 sums explicit child budgets and a calibrated overhead, without estimating gas.
 
 A new native HOG balance item needs a deposit at the recipient address. A large
-enough first credit can fund it; a small credit can be excluded with
-`recentFailure` / `insufficientFunds`. The transfer example funds both accounts first
+enough first credit can fund it; a small credit can be excluded with a scheduler
+`retry` outcome. The transfer example funds both accounts first
 because its 1,000-unit credit cannot cover a new balance item's deposit.
 
 The live funding test verifies an excluded 1,000-unit first credit, a successful
 100,000-unit first credit with a deposit deduction, and a later 1,000-unit credit
 without another balance-item deposit. It uses 500,000 child gas and 1,000,000 root
-gas. Verified in Linux integration with CLI 0.21.0 and hog-devnode 0.1.29-rc.5;
+gas. Verified in Linux integration with CLI 0.25.0 and hog-devnode 0.1.30-rc.5;
 storage costs depend on runtime configuration.
 
 A deployed contract's storage needs HOG at its address too. The native deployment
@@ -440,10 +511,15 @@ its storage entry, and `clearBalance()` deletes the caller's empty balance
 entry. Allowance changes emit `AllowanceChangeEvent` with the signed
 `difference`; the earlier `ApprovalEvent` is gone with interface 0.1.41.
 
-A receipt proves commitment; inspect its execution result. `invalid` reports
-rejection, while `recentFailure` is an advisory scheduling conflict. A timeout or
-cancellation stops observation without proving the outcome. Preserve signed
-evidence and resume observing the original hash instead of automatically re-signing.
+A receipt proves commitment; inspect its execution result. A `committed` status
+may omit `height` until the indexer records it. `invalid` reports rejection,
+while `recentFailure` is an advisory failed attempt. Receipt polling throws
+`TransactionProcessingError` for `retry` or `dropped`, preserving the hash,
+status, and scheduler error. `retry` permits resubmitting the same signed
+transaction; `dropped` requires modifying it. The observer never resubmits.
+A timeout or cancellation stops observation without proving the outcome.
+Preserve signed evidence and resume observing the original hash instead of
+automatically re-signing.
 
 ## Signed operations
 

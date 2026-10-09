@@ -14,6 +14,31 @@ import type {
 /** Execution result enum returned in transaction receipts. */
 export type { ExecResult } from "@groundhogchain/protocol";
 
+/** A registered authorization key, including schemes unknown to the server. */
+export type AuthPublicKey =
+  | { readonly scheme: "ed25519"; readonly key: Uint8Array }
+  | { readonly scheme: "unknown"; readonly schemeId: number };
+
+/** An occupied authorization key slot and its weight. */
+export interface AuthSigner {
+  readonly keyId: number;
+  readonly publicKey: AuthPublicKey;
+  readonly maxWeight: number;
+}
+
+/** Registered signer slots and the weight required to authorize a transaction. */
+export interface AddressAuthDataInfo {
+  readonly signers: readonly AuthSigner[];
+  readonly requiredWeight: number;
+}
+
+/** Authorization configuration at a committed height; null means unregistered. */
+export interface AddressAuthDataResponse {
+  readonly address: ContractAddress;
+  readonly height: bigint;
+  readonly authData: AddressAuthDataInfo | null;
+}
+
 /** Immutable identity configured for a Groundhog RPC endpoint. */
 export interface NetworkInfo {
   /** Protocol network identity bound into every transaction signature. */
@@ -21,12 +46,11 @@ export interface NetworkInfo {
 }
 
 /**
- * Execution parameters the chain's network config states, as of the latest
- * tip the RPC server has read.
+ * Execution limits reported by the network.
  *
- * Each field is `null` when the config does not state that parameter; the
- * node alone then decides what is in force. For code size, RV32 code size,
- * and RV32 memory, the protocol fixes the value in force when unstated.
+ * In stated configuration, `null` means the chain did not state the parameter.
+ * In {@link ExecutionConfig.effectiveLimits}, `null` means the effective value
+ * is unavailable. Neither means zero.
  */
 export interface NetworkConfigParams {
   /** Levels of node nesting an auth token may carry. */
@@ -57,8 +81,59 @@ export interface NetworkConfigParams {
   readonly maxSha256Buffers: number | null;
 }
 
+/** Stated configuration and optional authoritative execution rules. */
+export interface ChainConfig extends NetworkConfigParams {
+  /** Rules fetched during the request; absent when the backend lacks this capability. */
+  readonly execution?: ExecutionConfig;
+}
+
+/** Rules for execution following the observed tip, not guaranteed at later inclusion. */
+export interface ExecutionConfig {
+  /** Committed snapshot read together with the limits and prices. */
+  readonly observedTip: ChainTip;
+  /** Commitment to the stated chain configuration, including storage prices. */
+  readonly configHash: SHA256Hash;
+  /** Runtime-resolved limits; `null` means unavailable, never zero. */
+  readonly effectiveLimits: NetworkConfigParams;
+  readonly storageCosts: StorageCosts;
+}
+
+/** Storage collateral in native HOG base units (10,000,000 per HOG), not gas prices. */
+export interface StorageCosts {
+  /** Base collateral for an ordinary data item; balance and code use separate bases. */
+  readonly baseDataItemCost: bigint;
+  /** Added to the ordinary base for each byte in a bytestring value. */
+  readonly bytestringCostPerByte: bigint;
+  /** RV32 code-storage base, excluding the address's balance deposit. */
+  readonly baseContractDeploymentCost: bigint;
+  /** Added per byte of the full deployed artifact. */
+  readonly contractDeploymentCostPerByte: bigint;
+  /** Added to the ordinary base for each authorization key. */
+  readonly authPerKeyCost: bigint;
+  /** Added to the ordinary base per live queue entry; an empty queue costs zero. */
+  readonly rcqCostPerEntry: bigint;
+  /** Added to the ordinary base per replay-cache entry, charged to its owner. */
+  readonly replayCacheCostPerEntry: bigint;
+  /** Deposit deducted from the first credit to a new balance item. */
+  readonly balanceCost: bigint;
+}
+
+/** Endpoint policy for a shared-snapshot group; per-call view limits also apply. */
+export interface ViewBatchLimits {
+  readonly maxCalls: number;
+  readonly maxCalldataBytes: number;
+  /** Sum of declared gas limits per attempt. */
+  readonly maxGas: bigint;
+  /** Encoded backend result including events, before JSON encoding. */
+  readonly maxResponseBytes: number;
+  /** Upper bound on response wait, not a guarantee that backend work stops. */
+  readonly timeoutMs: bigint;
+}
+
 /** Endpoint request bounds, which may vary between servers on the same chain. */
 export interface ServerLimits {
+  /** Absent when the endpoint does not advertise batch limits. */
+  readonly viewBatch?: ViewBatchLimits;
   /** Maximum view gas, also used when a view omits its gas limit. */
   readonly maxViewGas: bigint;
   /** Maximum view calldata size in bytes. */
@@ -199,7 +274,7 @@ export interface VersionInfo {
 }
 
 /** Request for a read-only contract invocation. */
-export interface ViewRequest {
+export interface ViewCall {
   /** Contract address to invoke. */
   contract: ContractAddress;
 
@@ -214,6 +289,26 @@ export interface ViewRequest {
 
   /** Positive u64 gas budget; omitted uses the endpoint's maxViewGas. */
   gasLimit?: bigint;
+}
+
+/** A single simulation with an optional minimum committed snapshot height. */
+export interface ViewRequest extends ViewCall {
+  /** Freshness floor only. Does not wait or force a snapshot refresh. */
+  minHeight?: bigint;
+}
+
+/** Independent calls evaluated against one committed snapshot. */
+export interface ViewBatchRequest {
+  /** Nonempty group bounded by the endpoint's advertised limits. */
+  calls: readonly (ViewCall & { minHeight?: never })[];
+  /** Freshness floor on the snapshot. Does not wait or request a refresh. */
+  minHeight?: bigint;
+}
+
+/** Ordered outputs and events with the group's committed snapshot height. */
+export interface ViewBatchResponse {
+  height: bigint;
+  results: Omit<ViewResponse, "height">[];
 }
 
 /** Tagged output from a read-only contract invocation. */
@@ -240,7 +335,13 @@ export interface ViewResponse {
 /** Current gateway knowledge of a submitted transaction. */
 export type TransactionStatus =
   | { status: "pending" }
-  | { status: "committed"; height: bigint }
+  | {
+      status: "committed";
+      /** Available when the indexer has recorded the commitment height. */
+      height?: bigint;
+    }
+  | { status: "retry"; error: SchedulerTransactionError }
+  | { status: "dropped"; error: SchedulerTransactionError }
   | { status: "invalid"; reason: string }
   | {
       status: "recentFailure";
@@ -250,6 +351,13 @@ export type TransactionStatus =
     }
   | { status: "other" }
   | { status: "unknown" };
+
+/** Scheduler processing failure; the source identifies the protocol enum of code. */
+export interface SchedulerTransactionError {
+  /** AuthErrorCode, SchedulerErrorCode, or ExecResult supplies the signed i32 code. */
+  source: "auth" | "scheduler" | "executor" | "other";
+  code: number;
+}
 
 /** Cause of a recent failed attempt; the transaction may still commit later. */
 export type TransactionFailureCause =

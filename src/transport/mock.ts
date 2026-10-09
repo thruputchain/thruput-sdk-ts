@@ -38,6 +38,12 @@ export class MockTransport implements Transport {
         return this.#chainTip() as T;
       case "groundhog_getBalance":
         return this.#getBalance(params) as T;
+      case "groundhog_getAddressAuthData":
+        return {
+          address: String(params?.[0]),
+          height: this.#height.toString(),
+          authData: null,
+        } as T;
       case "groundhog_getBlockByNumber":
         return this.#getBlockByNumber(params) as T;
       case "groundhog_pendingTransactionCount":

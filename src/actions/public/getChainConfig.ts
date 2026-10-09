@@ -2,21 +2,29 @@ import type {
   Transport,
   TransportRequestOptions,
 } from "../../transport/types.js";
-import type { NetworkConfigParams } from "../../types/rpc.js";
+import type {
+  ChainConfig,
+  NetworkConfigParams,
+  ExecutionConfig,
+  StorageCosts,
+} from "../../types/rpc.js";
+import { I64_MAX, U64_MAX, parseDecimal } from "../decimal.js";
+import { hashFromHex } from "../hex.js";
 
 const MAX_U32 = 0xffff_ffff;
 
 /**
  * Return the execution parameters the chain's network config states.
  *
- * The server answers from a tip reading it refreshes at most once per cache
- * window, so a config upgrade can take that long to appear. Parameters the
- * config leaves unstated are `null`.
+ * Parameters the config leaves unstated are `null`. When supported, `execution`
+ * pairs runtime-resolved limits and bigint storage prices with a committed tip
+ * fetched during this request. The current RPC reads stated fields from the same
+ * DB snapshot. Older backends may omit execution. Read failures are propagated.
  */
 export async function getChainConfig(
   transport: Transport,
   options?: TransportRequestOptions,
-): Promise<NetworkConfigParams> {
+): Promise<ChainConfig> {
   options?.signal?.throwIfAborted();
   const result = await transport.request<unknown>(
     "groundhog_chainConfig",
@@ -27,6 +35,15 @@ export async function getChainConfig(
     throw new Error("Invalid chain config response");
   }
   const config = result as Record<string, unknown>;
+  return {
+    ...parseLimits(config),
+    ...(config.execution == null
+      ? {}
+      : { execution: parseExecution(config.execution) }),
+  };
+}
+
+function parseLimits(config: Record<string, unknown>): NetworkConfigParams {
   const param = (field: keyof NetworkConfigParams) =>
     parseParam(config[field], field);
   return {
@@ -39,6 +56,56 @@ export async function getChainConfig(
     maxRv32MemoryBytes: param("maxRv32MemoryBytes"),
     maxSavepointDepth: param("maxSavepointDepth"),
     maxSha256Buffers: param("maxSha256Buffers"),
+  };
+}
+
+function object(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Invalid chain config response: expected object");
+  }
+  return value as Record<string, unknown>;
+}
+
+function parseExecution(value: unknown): ExecutionConfig {
+  const config = object(value);
+  const tip = object(config.observedTip);
+  const costs = object(config.storageCosts);
+  const height = parseDecimal(
+    tip.height,
+    "chain config response: observedTip.height",
+    0n,
+    I64_MAX,
+  );
+  const price = (field: keyof StorageCosts, maximum = U64_MAX) =>
+    parseDecimal(
+      costs[field],
+      `chain config response: storageCosts.${field}`,
+      0n,
+      maximum,
+    );
+  if (
+    typeof tip.blockHash !== "string" ||
+    typeof config.configHash !== "string"
+  ) {
+    throw new Error("Invalid chain config response: invalid snapshot hash");
+  }
+  return {
+    observedTip: {
+      height,
+      blockHash: hashFromHex(tip.blockHash),
+    },
+    configHash: hashFromHex(config.configHash),
+    effectiveLimits: parseLimits(object(config.effectiveLimits)),
+    storageCosts: {
+      baseDataItemCost: price("baseDataItemCost"),
+      bytestringCostPerByte: price("bytestringCostPerByte", BigInt(MAX_U32)),
+      baseContractDeploymentCost: price("baseContractDeploymentCost"),
+      contractDeploymentCostPerByte: price("contractDeploymentCostPerByte"),
+      authPerKeyCost: price("authPerKeyCost"),
+      rcqCostPerEntry: price("rcqCostPerEntry"),
+      replayCacheCostPerEntry: price("replayCacheCostPerEntry"),
+      balanceCost: price("balanceCost"),
+    },
   };
 }
 

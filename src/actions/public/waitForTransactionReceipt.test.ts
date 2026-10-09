@@ -10,6 +10,7 @@ import {
 import { hashFromHex } from "../hex.js";
 import {
   TransactionReceiptTimeoutError,
+  TransactionProcessingError,
   waitForTransactionReceipt,
 } from "./waitForTransactionReceipt.js";
 
@@ -25,6 +26,51 @@ const rawReceipt = {
 };
 
 describe("waitForTransactionReceipt", () => {
+  it.each(["retry", "dropped"] as const)(
+    "stops on %s with typed evidence and never submits",
+    async (status) => {
+      const methods: string[] = [];
+      const error = { source: "executor", code: -7 };
+      const onStatus = vi.fn();
+      const transport: Transport = {
+        async request<T>(method: string) {
+          methods.push(method);
+          if (method === "groundhog_getTransactionReceipt") return null as T;
+          return { status, error } as T;
+        },
+      };
+      const failure = await waitForTransactionReceipt(transport, txHash, {
+        onStatus,
+      }).catch((cause) => cause);
+      expect(failure).toBeInstanceOf(TransactionProcessingError);
+      expect(failure).toMatchObject({ txHash, status, error });
+      expect(onStatus).toHaveBeenCalledWith({ status, error });
+      expect(methods).toEqual([
+        "groundhog_getTransactionReceipt",
+        "groundhog_getTransactionStatus",
+      ]);
+    },
+  );
+
+  it("waits for a receipt after commitment without an indexed height", async () => {
+    let receiptQueries = 0;
+    const onStatus = vi.fn();
+    const transport: Transport = {
+      async request<T>(method: string) {
+        if (method === "groundhog_getTransactionReceipt")
+          return (++receiptQueries === 1 ? null : rawReceipt) as T;
+        return { status: "committed" } as T;
+      },
+    };
+    await expect(
+      waitForTransactionReceipt(transport, txHash, {
+        onStatus,
+        pollingIntervalMs: 0,
+      }),
+    ).resolves.toMatchObject({ height: 42n });
+    expect(onStatus).toHaveBeenCalledWith({ status: "committed" });
+  });
+
   it("retries transient identity checks before reading transaction evidence", async () => {
     let attempts = 0;
     const methods: string[] = [];

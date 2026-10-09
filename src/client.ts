@@ -8,10 +8,13 @@ import type {
 import type {
   ChainTip,
   BalanceResponse,
+  AddressAuthDataResponse,
   BlockInfo,
   VersionInfo,
   ViewRequest,
   ViewResponse,
+  ViewBatchRequest,
+  ViewBatchResponse,
   TransactionReceipt,
   TransactionStatus,
   AddressTransactionQuery,
@@ -20,7 +23,7 @@ import type {
   EventPage,
   StorageItemRead,
   NetworkInfo,
-  NetworkConfigParams,
+  ChainConfig,
   ServerLimits,
 } from "./types/rpc.js";
 import type { Cluster, ClusterHasCapability } from "./cluster.js";
@@ -38,6 +41,7 @@ import type {
   AirdropSucceeded,
 } from "./types/rpc.js";
 import { getBalance } from "./actions/public/getBalance.js";
+import { getAddressAuthData } from "./actions/public/getAddressAuthData.js";
 import { getBlockByNumber } from "./actions/public/getBlockByNumber.js";
 import { getPendingTransactionCount } from "./actions/public/getPendingTransactionCount.js";
 import { getTransactionReceipt } from "./actions/public/getTransactionReceipt.js";
@@ -59,6 +63,13 @@ import { getVersion } from "./actions/public/getVersion.js";
 import { getServerLimits } from "./actions/public/getServerLimits.js";
 import { getChainConfig } from "./actions/public/getChainConfig.js";
 import { view } from "./actions/public/view.js";
+import { viewBatch } from "./actions/public/viewBatch.js";
+import {
+  readViews,
+  type ReadViewsRequest,
+  type ReadViewsResponse,
+} from "./actions/public/readViews.js";
+import type { ContractViewRequest } from "./contract/method.js";
 import { sendTransaction } from "./actions/wallet/sendTransaction.js";
 
 /**
@@ -69,6 +80,21 @@ import { sendTransaction } from "./actions/wallet/sendTransaction.js";
  * transport into every action call.
  */
 export interface CoreGroundhogClient {
+  /** Read registered signers, or null auth data for an unregistered address. */
+  getAddressAuthData(
+    address: ContractAddress,
+    options?: TransportRequestOptions,
+  ): Promise<AddressAuthDataResponse>;
+  /** Simulate independent calls against one committed snapshot, in request order. */
+  viewBatch(
+    request: ViewBatchRequest,
+    options?: TransportRequestOptions,
+  ): Promise<ViewBatchResponse>;
+  /** Read generated method requests at one shared committed height. */
+  readViews<const TCalls extends readonly ContractViewRequest[]>(
+    request: ReadViewsRequest<TCalls>,
+    options?: TransportRequestOptions,
+  ): Promise<ReadViewsResponse<TCalls>>;
   /** Return the immutable identity configured for the RPC endpoint. */
   getNetworkInfo(options?: TransportRequestOptions): Promise<NetworkInfo>;
 
@@ -96,12 +122,11 @@ export interface CoreGroundhogClient {
   getVersion(options?: TransportRequestOptions): Promise<VersionInfo>;
 
   /**
-   * Return the execution parameters the chain's network config states;
-   * unstated parameters are `null`.
+   * Return stated execution limits and, when supported, a fresh `execution`
+   * reading with effective limits, bigint storage prices, and snapshot context.
+   * Unstated top-level limits are `null`; unavailable execution readings are absent.
    */
-  getChainConfig(
-    options?: TransportRequestOptions,
-  ): Promise<NetworkConfigParams>;
+  getChainConfig(options?: TransportRequestOptions): Promise<ChainConfig>;
 
   /** Return request bounds configured on this endpoint. */
   getServerLimits(options?: TransportRequestOptions): Promise<ServerLimits>;
@@ -189,6 +214,8 @@ function createCoreGroundhogClient(transport: Transport): CoreGroundhogClient {
     getNetworkInfo: (options) => getNetworkInfo(transport, options),
     getChainTip: (options) => getChainTip(transport, options),
     getBalance: (address, options) => getBalance(transport, address, options),
+    getAddressAuthData: (address, options) =>
+      getAddressAuthData(transport, address, options),
     getBlockByNumber: (height, options) =>
       getBlockByNumber(transport, height, options),
     getPendingTransactionCount: (options) =>
@@ -197,6 +224,8 @@ function createCoreGroundhogClient(transport: Transport): CoreGroundhogClient {
     getServerLimits: (options) => getServerLimits(transport, options),
     getChainConfig: (options) => getChainConfig(transport, options),
     view: (request, options) => view(transport, request, options),
+    viewBatch: (request, options) => viewBatch(transport, request, options),
+    readViews: (request, options) => readViews(transport, request, options),
     getTransactionReceipt: (txHash, options) =>
       getTransactionReceipt(transport, txHash, options),
     getTransactionStatus: (txHash, options) =>
