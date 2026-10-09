@@ -1,6 +1,9 @@
 import type {
   AirdropResponse,
   AirdropSucceeded,
+  ChainConfig,
+  ExecutionConfig,
+  StorageCosts,
   ClusterHasCapability,
   Cluster,
   ConnectedGroundhogClient,
@@ -61,6 +64,7 @@ import {
 import type { Transport } from "@groundhogchain/client/transport";
 import {
   getContractEvents,
+  getChainConfig,
   iterateEventPages,
 } from "@groundhogchain/client/actions";
 import {
@@ -161,6 +165,24 @@ async function eventPagesBoundary(
   void [directPage, amount, receiver, name, height, directPages];
 }
 void eventPagesBoundary;
+
+async function chainConfigBoundary(
+  client: GroundhogClient,
+  transport: Transport,
+) {
+  const config: ChainConfig = await client.getChainConfig();
+  const direct: ChainConfig = await getChainConfig(transport);
+  const execution: ExecutionConfig | undefined = config.execution;
+  if (execution) {
+    const costs: StorageCosts = execution.storageCosts;
+    const balanceDeposit: bigint = costs.balanceCost;
+    const height: bigint = execution.observedTip.height;
+    const limit: number | null = execution.effectiveLimits.maxRv32MemoryBytes;
+    void [balanceDeposit, height, limit];
+  }
+  void direct;
+}
+void chainConfigBoundary;
 
 const units: bigint = parseUnits("12.05", 2);
 const batchOptions: HttpBatchOptions = { maxSize: 100, waitMs: 0 };

@@ -44,6 +44,55 @@ import {
   suiteTimeoutMs as timeout,
 } from "../../scripts/integration-timeouts.mjs";
 
+function assertChainConfig({ execution, ...stated }) {
+  const assertLimits = (limits) => {
+    for (const value of Object.values(limits)) {
+      assert.ok(
+        value === null ||
+          (Number.isInteger(value) && value >= 0 && value <= 0xffff_ffff),
+      );
+    }
+  };
+  assertLimits(stated);
+  if (execution === undefined) return;
+
+  assert.equal(typeof execution.observedTip.height, "bigint");
+  assert.ok(execution.observedTip.height >= 0n);
+  assert.equal(execution.observedTip.blockHash.length, 32);
+  assert.equal(execution.configHash.length, 32);
+  assertLimits(execution.effectiveLimits);
+  for (const value of Object.values(execution.storageCosts)) {
+    assert.equal(typeof value, "bigint");
+    assert.ok(value >= 0n && value <= (1n << 64n) - 1n);
+  }
+  assert.ok(execution.storageCosts.bytestringCostPerByte <= 0xffff_ffffn);
+}
+
+test("chain config integration assertions accept stated and execution readings", async () => {
+  const stated = { maxContractSizeBytes: 524288 };
+  const execution = {
+    observedTip: { height: "42", blockHash: `0x${"11".repeat(32)}` },
+    configHash: `0x${"22".repeat(32)}`,
+    effectiveLimits: { ...stated, maxRv32MemoryBytes: 65536 },
+    storageCosts: {
+      baseDataItemCost: "12000",
+      bytestringCostPerByte: "10",
+      baseContractDeploymentCost: "12000",
+      contractDeploymentCostPerByte: "10",
+      authPerKeyCost: "1111",
+      rcqCostPerEntry: "8",
+      replayCacheCostPerEntry: "7",
+      balanceCost: "1234",
+    },
+  };
+  for (const result of [stated, { ...stated, execution }]) {
+    const client = await createGroundhogClient({
+      transport: { request: async () => result },
+    });
+    assertChainConfig(await client.getChainConfig());
+  }
+});
+
 test("built SDK against a real local node", { timeout }, async (t) => {
   const rpcUrl = process.env.GROUNDHOG_RPC_URL;
   assert.ok(rpcUrl, "Run through npm run test:integration");
@@ -73,18 +122,43 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       );
       assert.match(version.wireFormat, /^\d+\.\d+\.\d+$/);
       // The pinned spec must describe the wire format the pinned node serves.
-      assert.equal(
-        version.wireFormat.split(".")[0],
-        openrpcSpec.info.version.split(".")[0],
-      );
+      assert.equal(version.wireFormat, openrpcSpec.info.version);
       const tip = await client.getChainTip();
       assert.equal(typeof tip.height, "bigint");
       assert.ok(tip.height >= 1n);
       assert.equal(tip.blockHash.length, 32);
       const config = await client.getChainConfig();
-      for (const value of Object.values(config)) {
-        assert.ok(value === null || Number.isInteger(value));
+      assertChainConfig(config);
+      assert.ok(
+        config.execution,
+        "the pinned runtime must return execution rules",
+      );
+      assert.ok(config.execution.observedTip.height >= tip.height);
+      for (const limit of Object.values(config.execution.effectiveLimits)) {
+        assert.notEqual(
+          limit,
+          null,
+          "the pinned runtime must resolve every limit",
+        );
       }
+      for (const [name, price] of Object.entries(
+        config.execution.storageCosts,
+      )) {
+        assert.equal(price, BigInt(manifest.bootstrap.storageCostModel[name]));
+      }
+    },
+  );
+
+  await t.test(
+    "reads absent authorization data at a committed height",
+    async () => {
+      const account = createPubkeyAccount({
+        signer: new PrivateKeySigner(randomBytes(32)),
+      });
+      const result = await client.getAddressAuthData(account.address);
+      assert.deepEqual(result.address, account.address);
+      assert.equal(result.authData, null);
+      assert.ok(result.height >= 1n);
     },
   );
 
@@ -580,11 +654,15 @@ test(
     const smallHash = await send(wallet, smallRecipient.address, 1_000n);
     const failure = await until(
       () => client.getTransactionStatus(smallHash),
-      (status) => status.status === "recentFailure",
+      (status) => status.status !== "pending" && status.status !== "unknown",
     );
-    assert.equal(failure.cause.kind, "dbConflict");
-    assert.equal(failure.cause.conflict.code, "insufficientFunds");
-    assert.deepEqual(failure.cause.conflict.address, smallRecipient.address);
+    assert.deepEqual(failure, {
+      status: "retry",
+      error: {
+        source: "executor",
+        code: ExecResult.ExecResultTxNonDeterministicError,
+      },
+    });
     assert.equal((await balance(smallRecipient)).rawBalance, 0n);
 
     // A sufficient first credit can fund its own balance item: a prior faucet

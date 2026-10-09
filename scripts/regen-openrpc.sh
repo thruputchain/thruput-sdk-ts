@@ -3,19 +3,19 @@ set -euo pipefail
 
 GENERATOR="${GROUNDHOG_OPENRPC_GENERATOR:-}"
 if [[ -z "$GENERATOR" ]]; then
-  cargo install groundhog-open-rpc-spec@0.24.0 --registry groundhog
+  cargo install groundhog-open-rpc-spec@0.25.0 --registry groundhog --locked
   GENERATOR="groundhog-open-rpc-spec"
 fi
 SPEC="$(git rev-parse --show-toplevel)/specs/openrpc.json"
 TEMP_SPEC="$(mktemp)"
 trap 'rm -f "$TEMP_SPEC"' EXIT
 "$GENERATOR" > "$TEMP_SPEC"
-# Reject a stale published generator before it can overwrite the local-funding spec.
+# Reject a stale generator before it can overwrite the pinned wire contract.
 node --input-type=module - "$TEMP_SPEC" <<'JS'
 import { readFileSync } from "node:fs";
 const spec = JSON.parse(readFileSync(process.argv[2], "utf8"));
-if (spec.info.version !== "10.0.1") {
-  throw new Error(`Expected RPC wire 10.0.1, received ${spec.info.version}. Set GROUNDHOG_OPENRPC_GENERATOR to a matching generator.`);
+if (spec.info.version !== "11.1.0") {
+  throw new Error(`Expected RPC wire 11.1.0, received ${spec.info.version}. Set GROUNDHOG_OPENRPC_GENERATOR to a matching generator.`);
 }
 JS
 cp "$TEMP_SPEC" "$SPEC"

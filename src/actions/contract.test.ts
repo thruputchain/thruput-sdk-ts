@@ -30,6 +30,7 @@ import {
 } from "@groundhogchain/protocol";
 import { getChainTip } from "./public/getChainTip.js";
 import { getBalance } from "./public/getBalance.js";
+import { getAddressAuthData } from "./public/getAddressAuthData.js";
 import { getBlockByNumber } from "./public/getBlockByNumber.js";
 import { getEvents } from "./public/getEvents.js";
 import { getPendingTransactionCount } from "./public/getPendingTransactionCount.js";
@@ -527,6 +528,18 @@ describe("contract tests against specs/openrpc.json", () => {
       ).rejects.toThrow("1 and 32");
     }
     expect(spy.calls).toHaveLength(0);
+  });
+
+  it("getAddressAuthData serializes its address and preserves absence", async () => {
+    const address = contractAddress(new Uint8Array(32).fill(7));
+    const spy = spyTransport({
+      address: toHex0x(address),
+      height: "42",
+      authData: null,
+    });
+    const result = await getAddressAuthData(spy.transport, address);
+    assertCapturedParamsMatchSpec("groundhog_getAddressAuthData", spy.calls[0]);
+    expect(result).toEqual({ address, height: 42n, authData: null });
   });
 
   it("covers every method in specs/openrpc.json", () => {

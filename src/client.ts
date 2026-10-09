@@ -8,6 +8,7 @@ import type {
 import type {
   ChainTip,
   BalanceResponse,
+  AddressAuthDataResponse,
   BlockInfo,
   VersionInfo,
   ViewRequest,
@@ -20,7 +21,7 @@ import type {
   EventPage,
   StorageItemRead,
   NetworkInfo,
-  NetworkConfigParams,
+  ChainConfig,
   ServerLimits,
 } from "./types/rpc.js";
 import type { Cluster, ClusterHasCapability } from "./cluster.js";
@@ -38,6 +39,7 @@ import type {
   AirdropSucceeded,
 } from "./types/rpc.js";
 import { getBalance } from "./actions/public/getBalance.js";
+import { getAddressAuthData } from "./actions/public/getAddressAuthData.js";
 import { getBlockByNumber } from "./actions/public/getBlockByNumber.js";
 import { getPendingTransactionCount } from "./actions/public/getPendingTransactionCount.js";
 import { getTransactionReceipt } from "./actions/public/getTransactionReceipt.js";
@@ -69,6 +71,11 @@ import { sendTransaction } from "./actions/wallet/sendTransaction.js";
  * transport into every action call.
  */
 export interface CoreGroundhogClient {
+  /** Read registered signers, or null auth data for an unregistered address. */
+  getAddressAuthData(
+    address: ContractAddress,
+    options?: TransportRequestOptions,
+  ): Promise<AddressAuthDataResponse>;
   /** Return the immutable identity configured for the RPC endpoint. */
   getNetworkInfo(options?: TransportRequestOptions): Promise<NetworkInfo>;
 
@@ -96,12 +103,11 @@ export interface CoreGroundhogClient {
   getVersion(options?: TransportRequestOptions): Promise<VersionInfo>;
 
   /**
-   * Return the execution parameters the chain's network config states;
-   * unstated parameters are `null`.
+   * Return stated execution limits and, when supported, a fresh `execution`
+   * reading with effective limits, bigint storage prices, and snapshot context.
+   * Unstated top-level limits are `null`; unavailable execution readings are absent.
    */
-  getChainConfig(
-    options?: TransportRequestOptions,
-  ): Promise<NetworkConfigParams>;
+  getChainConfig(options?: TransportRequestOptions): Promise<ChainConfig>;
 
   /** Return request bounds configured on this endpoint. */
   getServerLimits(options?: TransportRequestOptions): Promise<ServerLimits>;
@@ -189,6 +195,8 @@ function createCoreGroundhogClient(transport: Transport): CoreGroundhogClient {
     getNetworkInfo: (options) => getNetworkInfo(transport, options),
     getChainTip: (options) => getChainTip(transport, options),
     getBalance: (address, options) => getBalance(transport, address, options),
+    getAddressAuthData: (address, options) =>
+      getAddressAuthData(transport, address, options),
     getBlockByNumber: (height, options) =>
       getBlockByNumber(transport, height, options),
     getPendingTransactionCount: (options) =>

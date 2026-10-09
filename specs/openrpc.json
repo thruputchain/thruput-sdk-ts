@@ -232,6 +232,52 @@
       }
     },
     "schemas": {
+      "AddressAuthDataInfo": {
+        "description": "The signer set and weight threshold registered at an address.",
+        "properties": {
+          "requiredWeight": {
+            "description": "Minimum total signer weight required to authorize a transaction\nfrom this address.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "signers": {
+            "description": "Occupied key slots in ascending `keyId` order. Unoccupied slots are\nomitted, so `keyId` values need not be contiguous.",
+            "items": {
+              "$ref": "#/components/schemas/AuthSigner"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["signers", "requiredWeight"],
+        "type": "object"
+      },
+      "AddressAuthDataResponse": {
+        "description": "Authorization configuration registered at one address, read from the\nlatest committed snapshot.",
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/Hex0x_ContractAddress",
+            "description": "Address whose authorization configuration was read."
+          },
+          "authData": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AddressAuthDataInfo"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The registered configuration, or `null` when the address has none.\n\nThe two cases take different auth claims. An address without auth\ndata accepts only `kPubkeySignature` claims whose preimage derives\nthe address. An address with auth data accepts only\n`kSourceAddressAuthData` claims, signed by keys listed here."
+          },
+          "height": {
+            "$ref": "#/components/schemas/DecimalBlockHeight",
+            "description": "Committed block height used for the read, reported whether or not\nthe address has a registered configuration."
+          }
+        },
+        "required": ["address", "height"],
+        "type": "object"
+      },
       "AddressTransactionQuery": {
         "additionalProperties": false,
         "description": "`getTransactionsByAddress` request: the transaction history of\n`address`, walked in `order` from `anchor`.\n\nA transaction is part of an address's history when its root\ninvocation targets that address; transactions that merely touch the\naddress mid-execution do not match.",
@@ -355,6 +401,65 @@
           }
         },
         "required": ["recipient", "clientNonce"],
+        "type": "object"
+      },
+      "AuthPublicKey": {
+        "description": "A registered public key, tagged by its cryptographic scheme.",
+        "oneOf": [
+          {
+            "description": "An Ed25519 public key.",
+            "properties": {
+              "key": {
+                "$ref": "#/components/schemas/Hex0x_Ed25519PublicKey",
+                "description": "The 32-byte public key."
+              },
+              "scheme": {
+                "const": "ed25519",
+                "type": "string"
+              }
+            },
+            "required": ["scheme", "key"],
+            "type": "object"
+          },
+          {
+            "description": "A scheme unknown to this server build. The key is registered, but\nthis server cannot describe it.",
+            "properties": {
+              "scheme": {
+                "const": "unknown",
+                "type": "string"
+              },
+              "schemeId": {
+                "description": "Raw protocol scheme id of the unrecognized key.",
+                "format": "int32",
+                "type": "integer"
+              }
+            },
+            "required": ["scheme", "schemeId"],
+            "type": "object"
+          }
+        ]
+      },
+      "AuthSigner": {
+        "description": "One registered key slot.",
+        "properties": {
+          "keyId": {
+            "description": "Slot index. A signature by this key names it as `publicKeyId`, and a\nsource-address claim admits it by setting this bit in `allowedKeys`.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "maxWeight": {
+            "description": "Weight this key contributes toward `requiredWeight`.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "publicKey": {
+            "$ref": "#/components/schemas/AuthPublicKey",
+            "description": "The registered public key."
+          }
+        },
+        "required": ["keyId", "publicKey", "maxWeight"],
         "type": "object"
       },
       "BalanceResponse": {
@@ -483,6 +588,77 @@
           "proposalTxsHash",
           "upgrades"
         ],
+        "type": "object"
+      },
+      "ChainConfig": {
+        "description": "Chain configuration with an optional authoritative execution reading.",
+        "properties": {
+          "execution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExecutionConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Absent when the backend cannot supply authoritative execution rules."
+          },
+          "maxAuthTokenDepth": {
+            "description": "Levels of node nesting an auth token may carry.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": ["integer", "null"]
+          },
+          "maxBytestringLen": {
+            "description": "Bytes one bytestring storage item may hold.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": ["integer", "null"]
+          },
+          "maxContractSizeBytes": {
+            "description": "Bytes one attached contract's code blob may hold. The protocol fixes\n`kDefaultMaxContractSizeBytes` as the value in force when unstated.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": ["integer", "null"]
+          },
+          "maxCrossInvokeDepth": {
+            "description": "Invocation frames one transaction may have open at once.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": ["integer", "null"]
+          },
+          "maxNewContractsPerTx": {
+            "description": "Contracts one transaction may attach in `contractsToDeploy`.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": ["integer", "null"]
+          },
+          "maxRv32CodeBytes": {
+            "description": "Code bytes an RV32 artifact may carry to be attached. The protocol\nfixes `kDefaultMaxRv32CodeBytes` as the value in force when unstated.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": ["integer", "null"]
+          },
+          "maxRv32MemoryBytes": {
+            "description": "Guest data memory bytes an RV32 artifact may declare to be attached.\nThe protocol fixes `kDefaultMaxRv32MemoryBytes` as the value in force\nwhen unstated.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": ["integer", "null"]
+          },
+          "maxSavepointDepth": {
+            "description": "Storage savepoints one transaction may have open at once.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": ["integer", "null"]
+          },
+          "maxSha256Buffers": {
+            "description": "Concurrently open incremental SHA-256 buffers permitted per\ninvocation frame.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": ["integer", "null"]
+          }
+        },
         "type": "object"
       },
       "ChainTip": {
@@ -833,6 +1009,34 @@
           }
         ]
       },
+      "ExecutionConfig": {
+        "description": "Rules fetched during this request, without stale-cache fallback.\nApply to execution following `observedTip`; later inclusion can use newer rules.",
+        "properties": {
+          "configHash": {
+            "$ref": "#/components/schemas/Hex0x_SHA256Hash",
+            "description": "Consensus commitment to the stated configuration and storage model."
+          },
+          "effectiveLimits": {
+            "$ref": "#/components/schemas/NetworkConfigParams",
+            "description": "Runtime-resolved limits; omissions are unavailable, never zero."
+          },
+          "observedTip": {
+            "$ref": "#/components/schemas/ChainTip",
+            "description": "Committed snapshot read together with these rules."
+          },
+          "storageCosts": {
+            "$ref": "#/components/schemas/StorageCosts",
+            "description": "Active storage collateral schedule in native-HOG base units."
+          }
+        },
+        "required": [
+          "observedTip",
+          "configHash",
+          "effectiveLimits",
+          "storageCosts"
+        ],
+        "type": "object"
+      },
       "FundAccountRequest": {
         "additionalProperties": false,
         "description": "Public parameters for local-only `groundhog_fundAccount`.",
@@ -881,6 +1085,10 @@
         "type": "object"
       },
       "Hex0x_ContractAddress": {
+        "pattern": "^0x[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "Hex0x_Ed25519PublicKey": {
         "pattern": "^0x[0-9a-f]{64}$",
         "type": "string"
       },
@@ -1130,6 +1338,54 @@
         ],
         "type": "object"
       },
+      "StorageCosts": {
+        "description": "Integer native-HOG base units (10,000,000 per HOG), encoded as decimal strings.\nStorage collateral is separate from gas capacity. A first credit pays the\nrecipient's balance deposit; code storage is charged to the deployed address.",
+        "properties": {
+          "authPerKeyCost": {
+            "description": "Added to the ordinary base for each authorization key.",
+            "type": "string"
+          },
+          "balanceCost": {
+            "description": "Entire balance-item deposit, deducted once from the first credit (no ordinary base).",
+            "type": "string"
+          },
+          "baseContractDeploymentCost": {
+            "description": "RV32 deployment base; does not include the new address's balance deposit.",
+            "type": "string"
+          },
+          "baseDataItemCost": {
+            "description": "Base charge for an ordinary data item; balance and deployment have separate bases.",
+            "type": "string"
+          },
+          "bytestringCostPerByte": {
+            "description": "Added to the ordinary base for each byte of a bytestring value (u32).",
+            "type": "string"
+          },
+          "contractDeploymentCostPerByte": {
+            "description": "Added per byte of ContractBlob.data, including the full RV32 artifact.",
+            "type": "string"
+          },
+          "rcqCostPerEntry": {
+            "description": "Added to the ordinary base per live queue entry; an empty queue costs zero.",
+            "type": "string"
+          },
+          "replayCacheCostPerEntry": {
+            "description": "Added to the ordinary base per replay-cache entry, charged to its owner.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "baseDataItemCost",
+          "bytestringCostPerByte",
+          "baseContractDeploymentCost",
+          "contractDeploymentCostPerByte",
+          "authPerKeyCost",
+          "rcqCostPerEntry",
+          "replayCacheCostPerEntry",
+          "balanceCost"
+        ],
+        "type": "object"
+      },
       "StorageItemInfo": {
         "description": "Latest-committed value at a single storage location, presented as\na tagged union so machine consumers can switch on `kind` without\nrunning an XDR codec for the common cases.",
         "oneOf": [
@@ -1164,7 +1420,7 @@
             "type": "object"
           },
           {
-            "description": "Authorization data is registered at this address.  Presence\nindicator only — querying signer details requires a contract\ninvocation.",
+            "description": "Authorization data is registered at this address.  Presence\nindicator only; `getAddressAuthData` returns the signer set.",
             "properties": {
               "kind": {
                 "const": "authData",
@@ -1433,22 +1689,15 @@
             "description": "Included in a committed block. SCP finality = done.\nNo `block_hash`: SCP instant finality means no forks/reorgs,\nso height alone is sufficient for confirmation.",
             "properties": {
               "height": {
-                "anyOf": [
-                  {
-                    "$ref": "#/components/schemas/DecimalBlockHeight"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Committed block height, omitted until an indexed record supplies it."
+                "$ref": "#/components/schemas/DecimalBlockHeight",
+                "description": "Committed block height supplied by the scheduler or indexer."
               },
               "status": {
                 "const": "committed",
                 "type": "string"
               }
             },
-            "required": ["status"],
+            "required": ["status", "height"],
             "type": "object"
           },
           {
@@ -1643,7 +1892,7 @@
   },
   "info": {
     "title": "Groundhog JSON-RPC",
-    "version": "10.0.1"
+    "version": "11.1.0"
   },
   "methods": [
     {
@@ -1781,7 +2030,7 @@
           "$ref": "#/components/schemas/TransactionStatus"
         }
       },
-      "summary": "Lightweight status check. Any indexer record takes priority and skips the scheduler lookup. Otherwise, return the scheduler's pending, committed, retry, or dropped outcome. Scheduler commitments omit `height`; indexed commitments include the actual block height, including block zero. `unknown` requires successful misses from both backends; failed lookups must not be interpreted as absence.",
+      "summary": "Lightweight status check. Indexed commitment takes priority. Otherwise, return the scheduler's pending, committed, retry, or dropped outcome; an advisory indexer failure is returned only after a scheduler miss. Scheduler and indexed commitments include the actual block height, including block zero. `unknown` requires successful misses from both backends; failed lookups must not be interpreted as absence.",
       "tags": [
         {
           "name": "Core API"
@@ -1836,12 +2085,12 @@
       "name": "groundhog_chainConfig",
       "params": [],
       "result": {
-        "name": "NetworkConfigParams",
+        "name": "ChainConfig",
         "schema": {
-          "$ref": "#/components/schemas/NetworkConfigParams"
+          "$ref": "#/components/schemas/ChainConfig"
         }
       },
-      "summary": "The execution parameters the chain's network config states. Only stated parameters are reported; an unstated one is absent. Served from a tip reading refreshed at most once per cache window. Fails with `BackendUnavailable` when no reading is available or the config version is unreadable.",
+      "summary": "Stated execution parameters, plus an authoritative `execution` reading when supported. Top-level omissions mean unspecified. `execution` pairs resolved limits and storage prices with the committed tip observed during this request; it is never served from a stale cache. Stated fields come from the same fresh DB reading. Unavailable or unreadable readings fail with `BackendUnavailable`.",
       "tags": [
         {
           "name": "Core API"
@@ -2128,6 +2377,47 @@
         }
       },
       "summary": "Native HOG balance for any address at the latest committed snapshot.",
+      "tags": [
+        {
+          "name": "Core API"
+        }
+      ]
+    },
+    {
+      "errors": [
+        {
+          "$ref": "#/components/errors/InvalidParams"
+        },
+        {
+          "$ref": "#/components/errors/BackendUnavailable"
+        },
+        {
+          "$ref": "#/components/errors/BackendTimeout"
+        },
+        {
+          "$ref": "#/components/errors/Overloaded"
+        },
+        {
+          "$ref": "#/components/errors/NotImplemented"
+        }
+      ],
+      "name": "groundhog_getAddressAuthData",
+      "params": [
+        {
+          "name": "address",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/Hex0x_ContractAddress"
+          }
+        }
+      ],
+      "result": {
+        "name": "AddressAuthDataResponse",
+        "schema": {
+          "$ref": "#/components/schemas/AddressAuthDataResponse"
+        }
+      },
+      "summary": "Authorization configuration (signer keys, their weights, and the required weight) registered at any address, at the latest committed snapshot. `authData` is `null` when the address has none; such an address accepts only pubkey-signature claims, and one with auth data only source-address claims.",
       "tags": [
         {
           "name": "Core API"

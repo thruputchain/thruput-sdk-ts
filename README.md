@@ -19,7 +19,7 @@ token with `read:packages`. See [Registry auth](#registry-auth-one-time-setup).
 
 ## Usage
 
-This checkout targets RPC wire format **10.0.1**. All 64-bit and wider integers
+This checkout pins RPC wire format **11.1.0**. All 64-bit and wider integers
 are canonical decimal strings in JSON and `bigint` in the client API, including
 heights, nanosecond timestamps, gas, mempool counts, wide server limits, and
 airdrop retry intervals. Smaller bounded fields, such as page limits and event
@@ -413,14 +413,14 @@ the sender's capacity. Use measured budgets for each workload; `walletGasLimit`
 sums explicit child budgets and a calibrated overhead, without estimating gas.
 
 A new native HOG balance item needs a deposit at the recipient address. A large
-enough first credit can fund it; a small credit can be excluded with
-`recentFailure` / `insufficientFunds`. The transfer example funds both accounts first
+enough first credit can fund it; a small credit can be excluded with a scheduler
+`retry` outcome. The transfer example funds both accounts first
 because its 1,000-unit credit cannot cover a new balance item's deposit.
 
 The live funding test verifies an excluded 1,000-unit first credit, a successful
 100,000-unit first credit with a deposit deduction, and a later 1,000-unit credit
 without another balance-item deposit. It uses 500,000 child gas and 1,000,000 root
-gas. Verified in Linux integration with CLI 0.21.0 and hog-devnode 0.1.29-rc.5;
+gas. Verified in Linux integration with CLI 0.25.0 and hog-devnode 0.1.30-rc.5;
 storage costs depend on runtime configuration.
 
 A deployed contract's storage needs HOG at its address too. The native deployment

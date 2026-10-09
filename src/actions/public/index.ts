@@ -8,6 +8,7 @@ export {
   type RequestAirdropOptions,
 } from "./requestAirdrop.js";
 export { getBalance } from "./getBalance.js";
+export { getAddressAuthData } from "./getAddressAuthData.js";
 export { getBlockByNumber } from "./getBlockByNumber.js";
 export { getPendingTransactionCount } from "./getPendingTransactionCount.js";
 export {
