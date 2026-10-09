@@ -3,7 +3,7 @@
 These canonical `.spec.xdr` files are the complete inputs to
 `scripts/regenerate-contract-bindings.sh`. They use the optional method-effect
 schema in `@groundhogchain/contract-spec` 0.13.0. CI and publishing use
-`groundhog-cli` 0.26.0-pre.1, which includes the method-effect generator from
+`groundhog-cli` 0.26.0, which includes the method-effect generator from
 [groundhog-rpc #505](https://github.com/groundhogchain/groundhog-rpc/pull/505).
 Set `GROUNDHOG_CLI` to that executable when checking or regenerating bindings
 locally.
