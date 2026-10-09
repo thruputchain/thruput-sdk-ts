@@ -10,7 +10,6 @@ export default defineConfig({
     transport: "src/transport/index.ts",
     actions: "src/actions/index.ts",
     "signed-op": "src/signedOp/index.ts",
-    "local-dev": "src/local-dev/index.ts",
     provider: "src/provider/index.ts",
     wallet: "src/wallet/index.ts",
   },

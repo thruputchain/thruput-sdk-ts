@@ -68,11 +68,6 @@
       "types": "./dist/wallet.d.ts",
       "import": "./dist/wallet.js",
       "require": "./dist/wallet.cjs"
-    },
-    "./local-dev": {
-      "types": "./dist/local-dev.d.ts",
-      "import": "./dist/local-dev.js",
-      "require": "./dist/local-dev.cjs"
     }
   },
   "files": [
@@ -113,7 +108,6 @@
     "@groundhogchain/protocol": "0.13.0",
     "@groundhogchain/xdr": "0.13.0",
     "@noble/ed25519": "^3.1.0",
-    "@noble/hashes": "^2.2.0",
-    "smol-toml": "1.8.0"
+    "@noble/hashes": "^2.2.0"
   }
 }

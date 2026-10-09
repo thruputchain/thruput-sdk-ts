@@ -336,9 +336,6 @@ Use `PrivateKeySigner` with `createPubkeyAccount`, then request an airdrop or
 supply its public key in the node's initial allocations. Stored CLI keys can be
 exported explicitly through `groundhog keys export`; never log that output.
 
-`loadLocalDevAccount` is deprecated and only retains the hosted schema-3
-bootstrap adapter. Old local state requires its previous runtime and tooling.
-
 ## Wallet clients
 
 A wallet client binds account authorization and signers to an existing client:
@@ -593,7 +590,6 @@ helpers, generated standard contracts, signers, and standalone actions.
 - `src/transport/` — `HttpTransport` (JSON-RPC over HTTP) and `MockTransport` for tests.
 - `src/signers/` — `Signer` interface and `PrivateKeySigner` (ed25519 via `@noble/ed25519`).
 - `src/signedOp/` — off-chain signing of `SignedOp` operations: preimage construction and payload binding, plus the generated `SignedOp` binding re-exported from `src/contracts/signed_op.ts`.
-- `src/local-dev/` — deprecated Node.js-only hosted bootstrap signer loading.
 - `src/types/rpc.ts` — typed RPC request/response shapes.
 - `specs/openrpc.json` — pinned Groundhog OpenRPC spec; `scripts/regen-openrpc.sh` refreshes it. After a regen, `npm test` (specifically `src/actions/contract.test.ts`) names any TS action whose serialized request no longer matches the new spec.
 - `docs/api/` — generated TypeDoc output from `npm run docs` (ignored by git; see [API docs](#api-docs)).
@@ -603,7 +599,7 @@ helpers, generated standard contracts, signers, and standalone actions.
 
 The package exposes focused entry points alongside the root: `./transaction`,
 `./transport`, `./contract`, `./contracts`, `./signers`, `./actions`,
-`./signed-op`, `./wallet`, `./provider`, and the Node.js-only `./local-dev` helper.
+`./signed-op`, `./wallet`, and `./provider`.
 
 Browser wallets use the framework-neutral [wallet provider contract](https://docs.groundhog.dev/tools/wallet-provider/). See [Wallet Integration](https://docs.groundhog.dev/tools/wallet-integration/) for discovery, connection, and the prepare/sign/persist/submit flow.
 `./provider` exports wire types, strict validation, and multi-wallet discovery.
