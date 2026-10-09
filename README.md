@@ -223,7 +223,7 @@ const balance = await ERC20.v0_1.getBalanceOf.view({
 });
 ```
 
-This requires RPC wire format 10.1.0 and also works with `.viewOutcome()`, bound
+This requires RPC wire format 11.1.0 and also works with `.viewOutcome()`, bound
 views, and raw `client.view()`. The result must come from a committed snapshot at
 or above that height. An older snapshot produces `ViewHeightUnavailable`
 (`-32011`) with requested and observed heights. It does not undo transaction
@@ -259,7 +259,7 @@ behind, the server returns `ViewHeightUnavailable` with requested and observed
 heights. The request neither waits for a block nor forces a refresh; your
 application decides whether and when to retry.
 
-This requires `groundhog_viewBatch` (RPC wire format 10.1.0). Existing generated
+This requires `groundhog_viewBatch` (RPC wire format 11.1.0). Existing generated
 bindings gain `viewRequest` through the runtime. The low-level API is
 `client.viewBatch({ calls, minHeight })`. Neither API splits calls or falls back
 to separate views. HTTP transport batching alone does not share snapshots.

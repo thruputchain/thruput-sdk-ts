@@ -28,7 +28,7 @@ export class ViewBatchResultError extends Error {
 
 /**
  * Simulate independent calls at one committed height, in input order.
- * Requires groundhog_viewBatch (wire format 10.1.0). No fallback or chunking is used.
+ * Requires groundhog_viewBatch (wire format 11.1.0). No fallback or chunking is used.
  * Simulated writes do not pass between calls. The server retries abandoned
  * snapshots as a whole group; aborts and faults remain per-call results.
  * Cancellation ends this client's wait, not necessarily backend execution.
