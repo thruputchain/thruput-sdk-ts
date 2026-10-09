@@ -73,6 +73,7 @@ const requiredExports = {
   "./actions": [
     "InvalidTransactionReceiptError",
     "getChainConfig",
+    "getAddressAuthData",
     "getChainTip",
     "getEvents",
     "getNetworkInfo",

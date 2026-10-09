@@ -18,8 +18,8 @@ const MAX_U32 = 0xffff_ffff;
  *
  * Parameters the config leaves unstated are `null`. When supported, `execution`
  * pairs runtime-resolved limits and bigint storage prices with a committed tip
- * fetched during this request. Backends without that capability return only
- * cached stated fields. Read failures are propagated to the caller.
+ * fetched during this request. The current RPC reads stated fields from the same
+ * DB snapshot. Older backends may omit execution. Read failures are propagated.
  */
 export async function getChainConfig(
   transport: Transport,

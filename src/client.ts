@@ -8,6 +8,7 @@ import type {
 import type {
   ChainTip,
   BalanceResponse,
+  AddressAuthDataResponse,
   BlockInfo,
   VersionInfo,
   ViewRequest,
@@ -38,6 +39,7 @@ import type {
   AirdropSucceeded,
 } from "./types/rpc.js";
 import { getBalance } from "./actions/public/getBalance.js";
+import { getAddressAuthData } from "./actions/public/getAddressAuthData.js";
 import { getBlockByNumber } from "./actions/public/getBlockByNumber.js";
 import { getPendingTransactionCount } from "./actions/public/getPendingTransactionCount.js";
 import { getTransactionReceipt } from "./actions/public/getTransactionReceipt.js";
@@ -69,6 +71,11 @@ import { sendTransaction } from "./actions/wallet/sendTransaction.js";
  * transport into every action call.
  */
 export interface CoreGroundhogClient {
+  /** Read registered signers, or null auth data for an unregistered address. */
+  getAddressAuthData(
+    address: ContractAddress,
+    options?: TransportRequestOptions,
+  ): Promise<AddressAuthDataResponse>;
   /** Return the immutable identity configured for the RPC endpoint. */
   getNetworkInfo(options?: TransportRequestOptions): Promise<NetworkInfo>;
 
@@ -188,6 +195,8 @@ function createCoreGroundhogClient(transport: Transport): CoreGroundhogClient {
     getNetworkInfo: (options) => getNetworkInfo(transport, options),
     getChainTip: (options) => getChainTip(transport, options),
     getBalance: (address, options) => getBalance(transport, address, options),
+    getAddressAuthData: (address, options) =>
+      getAddressAuthData(transport, address, options),
     getBlockByNumber: (height, options) =>
       getBlockByNumber(transport, height, options),
     getPendingTransactionCount: (options) =>

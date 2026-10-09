@@ -122,16 +122,43 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       );
       assert.match(version.wireFormat, /^\d+\.\d+\.\d+$/);
       // The pinned spec must describe the wire format the pinned node serves.
-      assert.equal(
-        version.wireFormat.split(".")[0],
-        openrpcSpec.info.version.split(".")[0],
-      );
+      assert.equal(version.wireFormat, openrpcSpec.info.version);
       const tip = await client.getChainTip();
       assert.equal(typeof tip.height, "bigint");
       assert.ok(tip.height >= 1n);
       assert.equal(tip.blockHash.length, 32);
       const config = await client.getChainConfig();
       assertChainConfig(config);
+      assert.ok(
+        config.execution,
+        "the pinned runtime must return execution rules",
+      );
+      assert.ok(config.execution.observedTip.height >= tip.height);
+      for (const limit of Object.values(config.execution.effectiveLimits)) {
+        assert.notEqual(
+          limit,
+          null,
+          "the pinned runtime must resolve every limit",
+        );
+      }
+      for (const [name, price] of Object.entries(
+        config.execution.storageCosts,
+      )) {
+        assert.equal(price, BigInt(manifest.bootstrap.storageCostModel[name]));
+      }
+    },
+  );
+
+  await t.test(
+    "reads absent authorization data at a committed height",
+    async () => {
+      const account = createPubkeyAccount({
+        signer: new PrivateKeySigner(randomBytes(32)),
+      });
+      const result = await client.getAddressAuthData(account.address);
+      assert.deepEqual(result.address, account.address);
+      assert.equal(result.authData, null);
+      assert.ok(result.height >= 1n);
     },
   );
 

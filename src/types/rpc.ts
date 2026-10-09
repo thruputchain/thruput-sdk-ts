@@ -14,6 +14,31 @@ import type {
 /** Execution result enum returned in transaction receipts. */
 export type { ExecResult } from "@groundhogchain/protocol";
 
+/** A registered authorization key, including schemes unknown to the server. */
+export type AuthPublicKey =
+  | { readonly scheme: "ed25519"; readonly key: Uint8Array }
+  | { readonly scheme: "unknown"; readonly schemeId: number };
+
+/** An occupied authorization key slot and its weight. */
+export interface AuthSigner {
+  readonly keyId: number;
+  readonly publicKey: AuthPublicKey;
+  readonly maxWeight: number;
+}
+
+/** Registered signer slots and the weight required to authorize a transaction. */
+export interface AddressAuthDataInfo {
+  readonly signers: readonly AuthSigner[];
+  readonly requiredWeight: number;
+}
+
+/** Authorization configuration at a committed height; null means unregistered. */
+export interface AddressAuthDataResponse {
+  readonly address: ContractAddress;
+  readonly height: bigint;
+  readonly authData: AddressAuthDataInfo | null;
+}
+
 /** Immutable identity configured for a Groundhog RPC endpoint. */
 export interface NetworkInfo {
   /** Protocol network identity bound into every transaction signature. */
