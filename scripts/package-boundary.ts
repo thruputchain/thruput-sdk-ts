@@ -169,12 +169,6 @@ import type {
   SignedOperationType,
 } from "@groundhogchain/client/signed-op";
 import {
-  loadLocalDevAccount,
-  type LoadLocalDevAccountOptions,
-  type LocalDevAccount,
-  type LocalDevAccountRole,
-} from "@groundhogchain/client/local-dev";
-import {
   discoverWalletProviders,
   registerWalletProvider,
   parseWalletSession,
@@ -555,16 +549,6 @@ async function packageBoundaryTypecheck(
   });
   void attempt;
   void airdrop;
-
-  const localDevRole: LocalDevAccountRole = "faucet";
-  const localDevOptions: LoadLocalDevAccountOptions = {
-    role: localDevRole,
-    roleOffset: 0,
-    env: { GROUNDHOG_RUNTIME_MANIFEST: "/tmp/runtime-manifest.json" },
-  };
-  const localDevAccount: Promise<LocalDevAccount> =
-    loadLocalDevAccount(localDevOptions);
-  void localDevAccount;
 }
 
 function clusterBoundaryTypecheck(

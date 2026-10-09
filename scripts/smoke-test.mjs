@@ -82,7 +82,6 @@ const requiredExports = {
     "sendTransaction",
     "view",
   ],
-  "./local-dev": ["loadLocalDevAccount"],
   "./provider": [
     "MAX_UNSIGNED_TRANSACTION_BYTES",
     "WalletProviderError",
