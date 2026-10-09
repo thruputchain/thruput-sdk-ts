@@ -45,6 +45,7 @@ const erc20Spec: ContractSpec = {
       methods: [
         {
           name: s("transfer"),
+          effect: null,
           args: [
             { name: s("to"), ty: { v: ContractTypeKind.Address } },
             { name: s("amount"), ty: { v: ContractTypeKind.U128 } },
@@ -53,11 +54,13 @@ const erc20Spec: ContractSpec = {
         },
         {
           name: s("get_balance"),
+          effect: null,
           args: [],
           return_type: { v: ContractTypeKind.U128 },
         },
         {
           name: s("get_balance_of"),
+          effect: null,
           args: [{ name: s("addr"), ty: { v: ContractTypeKind.Address } }],
           return_type: { v: ContractTypeKind.U128 },
         },
@@ -221,6 +224,7 @@ const rgbSpec: ContractSpec = {
       methods: [
         {
           name: s("set_pixel"),
+          effect: null,
           args: [
             { name: s("x"), ty: { v: ContractTypeKind.U32 } },
             { name: s("y"), ty: { v: ContractTypeKind.U32 } },
@@ -232,6 +236,7 @@ const rgbSpec: ContractSpec = {
         },
         {
           name: s("set_pixel_rgba"),
+          effect: null,
           args: [
             { name: s("x"), ty: { v: ContractTypeKind.U32 } },
             { name: s("y"), ty: { v: ContractTypeKind.U32 } },
@@ -363,6 +368,7 @@ const signedSpec: ContractSpec = {
       methods: [
         {
           name: s("compute"),
+          effect: null,
           args: [
             { name: s("a"), ty: { v: ContractTypeKind.I32 } },
             { name: s("b"), ty: { v: ContractTypeKind.I128 } },

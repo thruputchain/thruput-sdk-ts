@@ -12,7 +12,10 @@ import {
   contractEntrypointID,
   kMaxReturnBufferLen,
 } from "@groundhogchain/protocol";
-import { ContractTypeKind } from "@groundhogchain/contract-spec";
+import {
+  ContractMethodEffect,
+  ContractTypeKind,
+} from "@groundhogchain/contract-spec";
 import { CxsReader, CxsWriter, type XdrCodec } from "@groundhogchain/xdr";
 import type { GroundhogClient } from "../client.js";
 import type {
@@ -205,6 +208,8 @@ export interface ContractExceptionMetadata {
 
 /** Runtime definition consumed by a generated method descriptor. */
 export interface ContractMethodDefinition {
+  /** Author-declared whole-invocation effects; null or omission means unannotated. */
+  effect?: ContractMethodEffect | null;
   /** Canonical interface name for diagnostics. */
   interfaceName?: string;
   /** Interface ABI version, not a deployed-code verification. */
@@ -268,6 +273,14 @@ export interface ContractCall<TResult = unknown, TException = unknown> {
 
 /** Complete generated method API. */
 export interface ContractMethod<TArgs, TResult, TDeclaredException> {
+  /**
+   * Author-declared effects, including nested calls. Pure excludes state/context
+   * reads; read-only excludes application effects (including events); state-changing
+   * means effects may occur. Null means unannotated and gives no read-only assurance.
+   * These declarations are not compiler/runtime enforced and never restrict
+   * invocation or view APIs.
+   */
+  readonly effect: ContractMethodEffect | null;
   /** Qualified method name, or entrypoint when generated identity is absent. */
   readonly name: string;
   /** Prepare an independent read for readViews without performing I/O. */
@@ -338,6 +351,17 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
   definition: ContractMethodDefinition,
 ): ContractMethod<TArgs, TResult, TDeclaredException> {
   const entrypoint = copyEntrypoint(definition.entrypoint);
+  const effect = definition.effect ?? null;
+  if (
+    effect !== null &&
+    ![
+      ContractMethodEffect.EffectPure,
+      ContractMethodEffect.EffectReadOnly,
+      ContractMethodEffect.EffectStateChanging,
+    ].includes(effect)
+  ) {
+    throw new TypeError(`Unsupported contract method effect ${effect}`);
+  }
   const name =
     definition.interfaceName && definition.publicName
       ? `${definition.interfaceName}.${definition.publicName}`
@@ -378,6 +402,7 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
 
   const method: ContractMethod<TArgs, TResult, TDeclaredException> = {
     name,
+    effect,
     viewRequest(options) {
       if ("minHeight" in options) {
         throw new TypeError(

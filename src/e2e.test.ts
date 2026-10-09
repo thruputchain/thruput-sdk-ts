@@ -63,6 +63,7 @@ const erc20Spec: ContractSpec = {
       methods: [
         {
           name: s("transfer"),
+          effect: null,
           args: [
             { name: s("to"), ty: { v: ContractTypeKind.Address } },
             { name: s("amount"), ty: { v: ContractTypeKind.U128 } },

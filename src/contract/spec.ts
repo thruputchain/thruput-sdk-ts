@@ -23,6 +23,7 @@ export type {
 
 /** Contract spec enum discriminants used when inspecting parsed specs. */
 export {
+  ContractMethodEffect,
   ContractTypeKind,
   ContractTypeDefKind,
   ContractUnionCaseKind,

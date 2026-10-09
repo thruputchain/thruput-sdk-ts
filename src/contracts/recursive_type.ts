@@ -88,6 +88,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.U32 },
+          effect: null,
         },
         {
           name: __gh_s("forest_depth"),
@@ -106,6 +107,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.U32 },
+          effect: null,
         },
         {
           name: __gh_s("unbox"),
@@ -116,6 +118,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.U32 },
+          effect: null,
         },
       ],
     },
@@ -223,6 +226,7 @@ export const RecursiveTypeContract = {
       abiName: "depth",
       publicName: "depth",
       entrypoint: __gh_entrypoints.RecursiveTypeContract.v0_1.depth,
+      effect: spec.interfaces[0]!.methods[0]!.effect,
       args: [
         {
           abiName: "tree",
@@ -244,6 +248,7 @@ export const RecursiveTypeContract = {
       abiName: "forest_depth",
       publicName: "forestDepth",
       entrypoint: __gh_entrypoints.RecursiveTypeContract.v0_1.forestDepth,
+      effect: spec.interfaces[0]!.methods[1]!.effect,
       args: [
         {
           abiName: "forest",
@@ -265,6 +270,7 @@ export const RecursiveTypeContract = {
       abiName: "unbox",
       publicName: "unbox",
       entrypoint: __gh_entrypoints.RecursiveTypeContract.v0_1.unbox,
+      effect: spec.interfaces[0]!.methods[2]!.effect,
       args: [
         {
           abiName: "val",

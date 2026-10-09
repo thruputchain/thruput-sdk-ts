@@ -101,6 +101,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             v: __gh_contract_spec.ContractTypeKind.SignedToken,
             signed_token_preimage: { preimage_type: null },
           },
+          effect: null,
         },
       ],
     },
@@ -175,6 +176,7 @@ export const SignedOp = {
       abiName: "execute_signed_op",
       publicName: "executeSignedOp",
       entrypoint: __gh_entrypoints.SignedOp.v0_1.executeSignedOp,
+      effect: spec.interfaces[0]!.methods[0]!.effect,
       args: [
         {
           abiName: "op",

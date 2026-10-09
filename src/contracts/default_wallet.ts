@@ -132,6 +132,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Address },
+          effect: null,
         },
         {
           name: __gh_s("execute"),
@@ -168,6 +169,7 @@ export const spec: __gh_client_contract.ContractSpec = {
               max_len: 4294967295n,
             },
           },
+          effect: null,
         },
       ],
     },
@@ -291,6 +293,7 @@ export const DefaultWallet = {
       abiName: "deploy",
       publicName: "deploy",
       entrypoint: __gh_entrypoints.DefaultWallet.v0_1.deploy,
+      effect: spec.interfaces[0]!.methods[0]!.effect,
       args: [
         {
           abiName: "nonce",
@@ -333,6 +336,7 @@ export const DefaultWallet = {
       abiName: "execute",
       publicName: "execute",
       entrypoint: __gh_entrypoints.DefaultWallet.v0_1.execute,
+      effect: spec.interfaces[0]!.methods[1]!.effect,
       args: [
         {
           abiName: "calls",

@@ -1,10 +1,15 @@
 # Contract Binding Inputs
 
 These canonical `.spec.xdr` files are the complete inputs to
-`scripts/regenerate-contract-bindings.sh`. CI and publishing use
-`groundhog-cli` 0.19.0 to check every generated output against them. From
-that release the generator nests each interface under its major and each named
-type, enum, and event under its spec id's crate and major
+`scripts/regenerate-contract-bindings.sh`. They use the optional method-effect
+schema in `@groundhogchain/contract-spec` 0.13.0. CI and publishing use
+`groundhog-cli` 0.26.0-pre.1, which includes the method-effect generator from
+[groundhog-rpc #505](https://github.com/groundhogchain/groundhog-rpc/pull/505).
+Set `GROUNDHOG_CLI` to that executable when checking or regenerating bindings
+locally.
+
+The generator nests each interface under its major and each named type, enum,
+and event under its spec id's crate and major
 ([groundhog-rpc #451](https://github.com/groundhogchain/groundhog-rpc/pull/451)).
 
 Every named type in these specs is identified by a structured spec id (crate,
@@ -17,15 +22,21 @@ before, so the regenerated bindings address the same on-chain ABI.
 
 | Input                     | Generated binding                 | SHA-256                                                            |
 | ------------------------- | --------------------------------- | ------------------------------------------------------------------ |
-| `erc20.spec.xdr`          | `src/contracts/erc20.ts`          | `d5762631cc07d8e1368d230a7d4e7a08a1c3b8c88bd310c564f388bb79c1a542` |
-| `recursive_type.spec.xdr` | `src/contracts/recursive_type.ts` | `bb7810e7d6e14f3475cb3a2bc2a80a475ca9dab835ab5c87ac1206f83e6cad78` |
-| `default_wallet.spec.xdr` | `src/contracts/default_wallet.ts` | `a27530845e19e21efc82f544e75775b74549738a968972316d22927c1a2028a6` |
-| `dev_wallet.spec.xdr`     | `src/contracts/dev_wallet.ts`     | `4e3d10d51600ad3b7f686766dd9a87795b32010b0b7665d69f33ef7d8ddd6fec` |
-| `counter.spec.xdr`        | `examples/generated/counter.ts`   | `efaa47be6de159dcd6044806d1ffe48816492a777867d8b6e20e9dd6559a928a` |
-| `signed_op.spec.xdr`      | `src/contracts/signed_op.ts`      | `a740d207885e00b4c6329f13cee388d2028592a4c7171b04a9a75fae2e1a509d` |
-| `erc20_permit.spec.xdr`   | `src/contracts/erc20_permit.ts`   | `aa0fe1df469cf87a739271d5b2c7aedd524625c0ac42212d4d26096fb35139f2` |
+| `erc20.spec.xdr`          | `src/contracts/erc20.ts`          | `b0cdc8758218414aeef32b7d867ad015e1890685572088fe970cf6c030efea0b` |
+| `recursive_type.spec.xdr` | `src/contracts/recursive_type.ts` | `64aa9042721f2c058c67deec49fb832ed8a7066ba7bc01033ffc295991b28aa1` |
+| `default_wallet.spec.xdr` | `src/contracts/default_wallet.ts` | `fd87c2afa964eb2bb773ec174e12c478f65129f29d737b2e3456efb1e7958490` |
+| `dev_wallet.spec.xdr`     | `src/contracts/dev_wallet.ts`     | `a48e5253d576cf73d85686746edbd7c361acc06a7b06d01f5946dc94703228d2` |
+| `counter.spec.xdr`        | `examples/generated/counter.ts`   | `3e9d774763433068bddf1d24ae52505390f2660f0ba154314b41055d53362849` |
+| `signed_op.spec.xdr`      | `src/contracts/signed_op.ts`      | `7b1308d1a879a7c55e9181c915a0616d4c73d3ab473cd786be522b05ba069b6a` |
+| `erc20_permit.spec.xdr`   | `src/contracts/erc20_permit.ts`   | `7fee20cfe1710de2ea4898737f3047c0e9fef04b146cfd3857585b0aaa291add` |
 
-Each spec was extracted with `groundhog build` on the `nightly-2026-07-01`
+For GH-446 these fixtures were re-encoded with the canonical effect-enabled
+codec, leaving every undeclared effect absent. Removing that field and
+re-encoding with the previous codec reproduced each original input byte for
+byte. No effect was inferred from a method name or receiver. The provenance
+below describes the original inputs, before that metadata-only regeneration.
+
+Each original spec was extracted with `groundhog build` on the `nightly-2026-07-01`
 toolchain (the wallets on hogd's `nightly-2026-05-01`), from CLI 0.19.0:
 
 - `signed_op.spec.xdr` is the SignedOp interface of `groundhog-signed-op-if`

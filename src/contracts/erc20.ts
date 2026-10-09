@@ -263,6 +263,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: null,
         },
         {
           name: __gh_s("allowance"),
@@ -277,6 +278,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.U128 },
+          effect: null,
         },
         {
           name: __gh_s("burn"),
@@ -291,6 +293,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: null,
         },
         {
           name: __gh_s("clear_allowance"),
@@ -301,16 +304,19 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: null,
         },
         {
           name: __gh_s("clear_balance"),
           args: [],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: null,
         },
         {
           name: __gh_s("get_balance"),
           args: [],
           return_type: { v: __gh_contract_spec.ContractTypeKind.U128 },
+          effect: null,
         },
         {
           name: __gh_s("get_balance_of"),
@@ -321,6 +327,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.U128 },
+          effect: null,
         },
         {
           name: __gh_s("initialize"),
@@ -331,6 +338,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: null,
         },
         {
           name: __gh_s("mint"),
@@ -345,11 +353,13 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: null,
         },
         {
           name: __gh_s("total_supply"),
           args: [],
           return_type: { v: __gh_contract_spec.ContractTypeKind.U128 },
+          effect: null,
         },
         {
           name: __gh_s("transfer"),
@@ -364,6 +374,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: null,
         },
         {
           name: __gh_s("transfer_from"),
@@ -382,6 +393,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: null,
         },
       ],
     },
@@ -397,6 +409,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             v: __gh_contract_spec.ContractTypeKind.Option,
             option_inner: { v: __gh_contract_spec.ContractTypeKind.U32 },
           },
+          effect: null,
         },
         {
           name: __gh_s("initialize"),
@@ -428,6 +441,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
           ],
           return_type: { v: __gh_contract_spec.ContractTypeKind.Void },
+          effect: null,
         },
         {
           name: __gh_s("name"),
@@ -436,6 +450,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             v: __gh_contract_spec.ContractTypeKind.Option,
             option_inner: { v: __gh_contract_spec.ContractTypeKind.String },
           },
+          effect: null,
         },
         {
           name: __gh_s("symbol"),
@@ -444,6 +459,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             v: __gh_contract_spec.ContractTypeKind.Option,
             option_inner: { v: __gh_contract_spec.ContractTypeKind.String },
           },
+          effect: null,
         },
       ],
     },
@@ -596,6 +612,7 @@ export const ERC20 = {
       abiName: "adjust_allowance",
       publicName: "adjustAllowance",
       entrypoint: __gh_entrypoints.ERC20.v0_1.adjustAllowance,
+      effect: spec.interfaces[0]!.methods[0]!.effect,
       args: [
         {
           abiName: "spender",
@@ -633,6 +650,7 @@ export const ERC20 = {
       abiName: "allowance",
       publicName: "allowance",
       entrypoint: __gh_entrypoints.ERC20.v0_1.allowance,
+      effect: spec.interfaces[0]!.methods[1]!.effect,
       args: [
         {
           abiName: "owner",
@@ -665,6 +683,7 @@ export const ERC20 = {
       abiName: "burn",
       publicName: "burn",
       entrypoint: __gh_entrypoints.ERC20.v0_1.burn,
+      effect: spec.interfaces[0]!.methods[2]!.effect,
       args: [
         {
           abiName: "owner",
@@ -697,6 +716,7 @@ export const ERC20 = {
       abiName: "clear_allowance",
       publicName: "clearAllowance",
       entrypoint: __gh_entrypoints.ERC20.v0_1.clearAllowance,
+      effect: spec.interfaces[0]!.methods[3]!.effect,
       args: [
         {
           abiName: "spender",
@@ -724,6 +744,7 @@ export const ERC20 = {
       abiName: "clear_balance",
       publicName: "clearBalance",
       entrypoint: __gh_entrypoints.ERC20.v0_1.clearBalance,
+      effect: spec.interfaces[0]!.methods[4]!.effect,
       args: [],
       returnType: spec.interfaces[0]!.methods[4]!.return_type,
       throws: [
@@ -745,6 +766,7 @@ export const ERC20 = {
       abiName: "get_balance",
       publicName: "getBalance",
       entrypoint: __gh_entrypoints.ERC20.v0_1.getBalance,
+      effect: spec.interfaces[0]!.methods[5]!.effect,
       args: [],
       returnType: spec.interfaces[0]!.methods[5]!.return_type,
       throws: [
@@ -766,6 +788,7 @@ export const ERC20 = {
       abiName: "get_balance_of",
       publicName: "getBalanceOf",
       entrypoint: __gh_entrypoints.ERC20.v0_1.getBalanceOf,
+      effect: spec.interfaces[0]!.methods[6]!.effect,
       args: [
         {
           abiName: "addr",
@@ -793,6 +816,7 @@ export const ERC20 = {
       abiName: "initialize",
       publicName: "initialize",
       entrypoint: __gh_entrypoints.ERC20.v0_1.initialize,
+      effect: spec.interfaces[0]!.methods[7]!.effect,
       args: [
         {
           abiName: "administrator",
@@ -820,6 +844,7 @@ export const ERC20 = {
       abiName: "mint",
       publicName: "mint",
       entrypoint: __gh_entrypoints.ERC20.v0_1.mint,
+      effect: spec.interfaces[0]!.methods[8]!.effect,
       args: [
         {
           abiName: "receiver",
@@ -852,6 +877,7 @@ export const ERC20 = {
       abiName: "total_supply",
       publicName: "totalSupply",
       entrypoint: __gh_entrypoints.ERC20.v0_1.totalSupply,
+      effect: spec.interfaces[0]!.methods[9]!.effect,
       args: [],
       returnType: spec.interfaces[0]!.methods[9]!.return_type,
       throws: [
@@ -873,6 +899,7 @@ export const ERC20 = {
       abiName: "transfer",
       publicName: "transfer",
       entrypoint: __gh_entrypoints.ERC20.v0_1.transfer,
+      effect: spec.interfaces[0]!.methods[10]!.effect,
       args: [
         {
           abiName: "receiver",
@@ -905,6 +932,7 @@ export const ERC20 = {
       abiName: "transfer_from",
       publicName: "transferFrom",
       entrypoint: __gh_entrypoints.ERC20.v0_1.transferFrom,
+      effect: spec.interfaces[0]!.methods[11]!.effect,
       args: [
         {
           abiName: "owner",
@@ -947,6 +975,7 @@ export const ERC20Metadata = {
       abiName: "decimals",
       publicName: "decimals",
       entrypoint: __gh_entrypoints.ERC20Metadata.v0_1.decimals,
+      effect: spec.interfaces[1]!.methods[0]!.effect,
       args: [],
       returnType: spec.interfaces[1]!.methods[0]!.return_type,
       throws: [],
@@ -962,6 +991,7 @@ export const ERC20Metadata = {
       abiName: "initialize",
       publicName: "initialize",
       entrypoint: __gh_entrypoints.ERC20Metadata.v0_1.initialize,
+      effect: spec.interfaces[1]!.methods[1]!.effect,
       args: [
         {
           abiName: "administrator",
@@ -998,6 +1028,7 @@ export const ERC20Metadata = {
       abiName: "name",
       publicName: "name",
       entrypoint: __gh_entrypoints.ERC20Metadata.v0_1.name,
+      effect: spec.interfaces[1]!.methods[2]!.effect,
       args: [],
       returnType: spec.interfaces[1]!.methods[2]!.return_type,
       throws: [],
@@ -1013,6 +1044,7 @@ export const ERC20Metadata = {
       abiName: "symbol",
       publicName: "symbol",
       entrypoint: __gh_entrypoints.ERC20Metadata.v0_1.symbol,
+      effect: spec.interfaces[1]!.methods[3]!.effect,
       args: [],
       returnType: spec.interfaces[1]!.methods[3]!.return_type,
       throws: [],
