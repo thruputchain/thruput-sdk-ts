@@ -3,6 +3,8 @@ import { contractAddress } from "@groundhogchain/protocol";
 import { getAddressAuthData } from "./getAddressAuthData.js";
 import type { Transport } from "../../transport/types.js";
 import { toHex0x } from "../hex.js";
+import { createGroundhogClient } from "../../client.js";
+import { MockTransport } from "../../transport/mock.js";
 
 const address = contractAddress(new Uint8Array(32).fill(7));
 const key = `0x${"11".repeat(32)}`;
@@ -15,6 +17,15 @@ function transport(authData: unknown, height: unknown = "42"): Transport {
 }
 
 describe("getAddressAuthData", () => {
+  it("is available through the bound client and mock transport", async () => {
+    const client = await createGroundhogClient({
+      transport: new MockTransport(),
+    });
+    await expect(client.getAddressAuthData(address)).resolves.toMatchObject({
+      address,
+      authData: null,
+    });
+  });
   it("decodes noncontiguous slots and preserves unknown schemes", async () => {
     const authData = {
       requiredWeight: 3,

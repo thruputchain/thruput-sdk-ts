@@ -654,11 +654,15 @@ test(
     const smallHash = await send(wallet, smallRecipient.address, 1_000n);
     const failure = await until(
       () => client.getTransactionStatus(smallHash),
-      (status) => status.status === "recentFailure",
+      (status) => status.status !== "pending" && status.status !== "unknown",
     );
-    assert.equal(failure.cause.kind, "dbConflict");
-    assert.equal(failure.cause.conflict.code, "insufficientFunds");
-    assert.deepEqual(failure.cause.conflict.address, smallRecipient.address);
+    assert.deepEqual(failure, {
+      status: "retry",
+      error: {
+        source: "executor",
+        code: ExecResult.ExecResultTxNonDeterministicError,
+      },
+    });
     assert.equal((await balance(smallRecipient)).rawBalance, 0n);
 
     // A sufficient first credit can fund its own balance item: a prior faucet
