@@ -240,7 +240,13 @@ export interface ViewResponse {
 /** Current gateway knowledge of a submitted transaction. */
 export type TransactionStatus =
   | { status: "pending" }
-  | { status: "committed"; height: bigint }
+  | {
+      status: "committed";
+      /** Available when the indexer has recorded the commitment height. */
+      height?: bigint;
+    }
+  | { status: "retry"; error: SchedulerTransactionError }
+  | { status: "dropped"; error: SchedulerTransactionError }
   | { status: "invalid"; reason: string }
   | {
       status: "recentFailure";
@@ -250,6 +256,13 @@ export type TransactionStatus =
     }
   | { status: "other" }
   | { status: "unknown" };
+
+/** Scheduler processing failure; the source identifies the protocol enum of code. */
+export interface SchedulerTransactionError {
+  /** AuthErrorCode, SchedulerErrorCode, or ExecResult supplies the signed i32 code. */
+  source: "auth" | "scheduler" | "executor" | "other";
+  code: number;
+}
 
 /** Cause of a recent failed attempt; the transaction may still commit later. */
 export type TransactionFailureCause =

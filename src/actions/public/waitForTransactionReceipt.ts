@@ -8,6 +8,7 @@ import type {
   TransactionReceipt,
   TransactionStatus,
   TransactionFailureCause,
+  SchedulerTransactionError,
 } from "../../types/rpc.js";
 import { GroundhogRpcErrorCode, JsonRpcError } from "../../transport/http.js";
 import { classifyReadError } from "../../transport/readError.js";
@@ -62,11 +63,28 @@ export class TransactionRejectedError extends Error {
   }
 }
 
+/** Scheduler processing ended without a receipt; this wait never resubmits. */
+export class TransactionProcessingError extends Error {
+  constructor(
+    readonly txHash: SHA256Hash,
+    readonly status: "retry" | "dropped",
+    readonly error: SchedulerTransactionError,
+  ) {
+    super(
+      `Transaction ${toHex0x(txHash)} ${status}: ${error.source} code ${error.code}`,
+    );
+    this.name = "TransactionProcessingError";
+  }
+}
+
 /**
  * Wait for a transaction to commit and return its receipt.
  *
  * A committed execution failure is returned as a receipt. Inspect
  * `receipt.execResult` to determine whether execution succeeded.
+ * A retry or dropped scheduler outcome throws {@link TransactionProcessingError}.
+ * Retry permits resubmitting the same transaction; dropped requires modifying it.
+ * This observer never signs or submits a transaction.
  * A timeout stops this wait but does not prove the transaction failed.
  */
 export async function waitForTransactionReceipt(
@@ -175,6 +193,10 @@ export async function waitForTransactionReceipt(
     }
     if (status?.status === "invalid") {
       throw new TransactionRejectedError(txHash, status.reason);
+    }
+
+    if (status?.status === "retry" || status?.status === "dropped") {
+      throw new TransactionProcessingError(txHash, status.status, status.error);
     }
 
     if (performance.now() >= deadline) {

@@ -19,6 +19,7 @@ export {
   waitForTransactionReceipt,
   TransactionReceiptTimeoutError,
   TransactionRejectedError,
+  TransactionProcessingError,
   type WaitForTransactionReceiptOptions,
 } from "./waitForTransactionReceipt.js";
 export { getTransactionsByAddress } from "./getTransactionsByAddress.js";

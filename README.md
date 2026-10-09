@@ -19,7 +19,7 @@ token with `read:packages`. See [Registry auth](#registry-auth-one-time-setup).
 
 ## Usage
 
-This checkout targets RPC wire format **9.1.0**. All 64-bit and wider integers
+This checkout targets RPC wire format **10.0.1**. All 64-bit and wider integers
 are canonical decimal strings in JSON and `bigint` in the client API, including
 heights, nanosecond timestamps, gas, mempool counts, wide server limits, and
 airdrop retry intervals. Smaller bounded fields, such as page limits and event
@@ -440,10 +440,15 @@ its storage entry, and `clearBalance()` deletes the caller's empty balance
 entry. Allowance changes emit `AllowanceChangeEvent` with the signed
 `difference`; the earlier `ApprovalEvent` is gone with interface 0.1.41.
 
-A receipt proves commitment; inspect its execution result. `invalid` reports
-rejection, while `recentFailure` is an advisory scheduling conflict. A timeout or
-cancellation stops observation without proving the outcome. Preserve signed
-evidence and resume observing the original hash instead of automatically re-signing.
+A receipt proves commitment; inspect its execution result. A `committed` status
+may omit `height` until the indexer records it. `invalid` reports rejection,
+while `recentFailure` is an advisory failed attempt. Receipt polling throws
+`TransactionProcessingError` for `retry` or `dropped`, preserving the hash,
+status, and scheduler error. `retry` permits resubmitting the same signed
+transaction; `dropped` requires modifying it. The observer never resubmits.
+A timeout or cancellation stops observation without proving the outcome.
+Preserve signed evidence and resume observing the original hash instead of
+automatically re-signing.
 
 ## Signed operations
 
