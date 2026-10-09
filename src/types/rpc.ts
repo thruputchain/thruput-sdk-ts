@@ -118,8 +118,22 @@ export interface StorageCosts {
   readonly balanceCost: bigint;
 }
 
+/** Endpoint policy for a shared-snapshot group; per-call view limits also apply. */
+export interface ViewBatchLimits {
+  readonly maxCalls: number;
+  readonly maxCalldataBytes: number;
+  /** Sum of declared gas limits per attempt. */
+  readonly maxGas: bigint;
+  /** Encoded backend result including events, before JSON encoding. */
+  readonly maxResponseBytes: number;
+  /** Upper bound on response wait, not a guarantee that backend work stops. */
+  readonly timeoutMs: bigint;
+}
+
 /** Endpoint request bounds, which may vary between servers on the same chain. */
 export interface ServerLimits {
+  /** Absent when the endpoint does not advertise batch limits. */
+  readonly viewBatch?: ViewBatchLimits;
   /** Maximum view gas, also used when a view omits its gas limit. */
   readonly maxViewGas: bigint;
   /** Maximum view calldata size in bytes. */
@@ -260,7 +274,7 @@ export interface VersionInfo {
 }
 
 /** Request for a read-only contract invocation. */
-export interface ViewRequest {
+export interface ViewCall {
   /** Contract address to invoke. */
   contract: ContractAddress;
 
@@ -275,6 +289,26 @@ export interface ViewRequest {
 
   /** Positive u64 gas budget; omitted uses the endpoint's maxViewGas. */
   gasLimit?: bigint;
+}
+
+/** A single simulation with an optional minimum committed snapshot height. */
+export interface ViewRequest extends ViewCall {
+  /** Freshness floor only. Does not wait or force a snapshot refresh. */
+  minHeight?: bigint;
+}
+
+/** Independent calls evaluated against one committed snapshot. */
+export interface ViewBatchRequest {
+  /** Nonempty group bounded by the endpoint's advertised limits. */
+  calls: readonly (ViewCall & { minHeight?: never })[];
+  /** Freshness floor on the snapshot. Does not wait or request a refresh. */
+  minHeight?: bigint;
+}
+
+/** Ordered outputs and events with the group's committed snapshot height. */
+export interface ViewBatchResponse {
+  height: bigint;
+  results: Omit<ViewResponse, "height">[];
 }
 
 /** Tagged output from a read-only contract invocation. */

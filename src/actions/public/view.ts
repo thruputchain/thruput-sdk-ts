@@ -5,7 +5,13 @@ import type {
 import type { ViewOutput, ViewRequest, ViewResponse } from "../../types/rpc.js";
 import { parseEmittedEvent } from "../emittedEvent.js";
 import { fromHex0x, toHex0x } from "../hex.js";
-import { parseHeight, parseU64, serializeU64 } from "../decimal.js";
+import {
+  parseHeight,
+  parseU64,
+  serializeHeight,
+  serializeU64,
+} from "../decimal.js";
+import { assertViewFreshness } from "../viewFreshness.js";
 
 interface RawViewOutput {
   result: string;
@@ -20,7 +26,7 @@ interface RawViewResponse {
   gasUsed: unknown;
 }
 
-function parseOutput(value: unknown): ViewOutput {
+export function parseViewOutput(value: unknown): ViewOutput {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Expected view output to be an object");
   }
@@ -55,6 +61,8 @@ function parseOutput(value: unknown): ViewOutput {
  *
  * `view` is useful for local reads and UI queries. The invocation is evaluated
  * by the gateway and does not enter the mempool.
+ * `minHeight` requires the actual committed snapshot to be at least that height.
+ * A lagging server returns ViewHeightUnavailable; this action never polls or retries.
  *
  * @example
  * ```ts
@@ -76,6 +84,9 @@ export async function view(
   options?: TransportRequestOptions,
 ): Promise<ViewResponse> {
   options?.signal?.throwIfAborted();
+  const minHeight = request.minHeight;
+  const serializedMinHeight =
+    minHeight === undefined ? undefined : serializeHeight(minHeight);
   if (request.gasLimit === 0n) {
     throw new RangeError("gasLimit must be positive");
   }
@@ -96,6 +107,9 @@ export async function view(
         ...(request.gasLimit === undefined
           ? {}
           : { gasLimit: serializeU64(request.gasLimit, "gasLimit") }),
+        ...(serializedMinHeight === undefined
+          ? {}
+          : { minHeight: serializedMinHeight }),
       },
     ],
     options,
@@ -106,14 +120,16 @@ export async function view(
   }
 
   const response = raw as RawViewResponse;
+  const height = parseHeight(response.height);
+  assertViewFreshness(height, minHeight);
   if (!Array.isArray(response.events)) {
     throw new Error("Expected view response events to be an array");
   }
 
   return {
-    output: parseOutput(response.output),
+    output: parseViewOutput(response.output),
     events: response.events.map(parseEmittedEvent),
-    height: parseHeight(response.height),
+    height,
     gasUsed: parseU64(response.gasUsed, "gasUsed"),
   };
 }

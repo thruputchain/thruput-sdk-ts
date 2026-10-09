@@ -48,6 +48,7 @@ import { getTransactionStatus } from "./public/getTransactionStatus.js";
 import { getTransactionsByAddress } from "./public/getTransactionsByAddress.js";
 import { getVersion } from "./public/getVersion.js";
 import { view } from "./public/view.js";
+import { viewBatch } from "./public/viewBatch.js";
 import { sendTransaction } from "./wallet/sendTransaction.js";
 import { PrivateKeySigner } from "../signers/privateKey.js";
 import { createInvocation, createTransaction } from "../transaction/build.js";
@@ -385,6 +386,30 @@ describe("contract tests against specs/openrpc.json", () => {
     },
   );
 
+  it.each([0n, 9007199254740993n, 9223372036854775807n])(
+    "groundhog_view — serializes a lossless minimum height %s",
+    async (minHeight) => {
+      const { transport, calls } = spyTransport({
+        output: { result: "fault" },
+        gasUsed: "1",
+        events: [],
+        height: minHeight.toString(),
+      });
+      await view(transport, {
+        contract: contractAddress(new Uint8Array(32)),
+        entrypoint: contractEntrypointID(new Uint8Array(8)),
+        calldata: calldata(new Uint8Array()),
+        minHeight,
+      });
+      assertCapturedParamsMatchSpec("groundhog_view", calls[0]);
+      expect(calls[0]?.params?.[0]).toMatchObject({
+        minHeight: minHeight.toString(),
+      });
+      const batch = paramValidator("groundhog_viewBatch", 0)!;
+      expect(batch({ calls: [calls[0]?.params?.[0]] })).toBe(false);
+    },
+  );
+
   it("groundhog_chainConfig — sends an empty params array and reads stated parameters", async () => {
     const { transport, calls } = spyTransport({
       maxNewContractsPerTx: 4,
@@ -540,6 +565,26 @@ describe("contract tests against specs/openrpc.json", () => {
     const result = await getAddressAuthData(spy.transport, address);
     assertCapturedParamsMatchSpec("groundhog_getAddressAuthData", spy.calls[0]);
     expect(result).toEqual({ address, height: 42n, authData: null });
+  });
+
+  it("groundhog_viewBatch — sends ordered calls and a minimum height", async () => {
+    const { transport, calls } = spyTransport({
+      height: "42",
+      results: [{ output: { result: "fault" }, events: [], gasUsed: "1" }],
+    });
+    await viewBatch(transport, {
+      calls: [
+        {
+          contract: contractAddress(new Uint8Array(32)),
+          entrypoint: contractEntrypointID(new Uint8Array(8)),
+          calldata: calldata(new Uint8Array()),
+          gasLimit: 123n,
+        },
+      ],
+      minHeight: 42n,
+    });
+    expect(calls).toHaveLength(1);
+    assertCapturedParamsMatchSpec("groundhog_viewBatch", calls[0]);
   });
 
   it("covers every method in specs/openrpc.json", () => {

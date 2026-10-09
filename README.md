@@ -210,6 +210,77 @@ console.log(
 Release identity and bundle digest can be `null`;
 they help diagnose installations. Use `wireFormat` for RPC compatibility decisions.
 
+### Read after confirmation
+
+Use the height from a successful receipt as a freshness floor for a single read:
+
+```ts
+const balance = await ERC20.v0_1.getBalanceOf.view({
+  client,
+  contract: tokenAddress,
+  args: { addr: accountAddress },
+  minHeight: receipt.height,
+});
+```
+
+This requires RPC wire format 11.1.0 and also works with `.viewOutcome()`, bound
+views, and raw `client.view()`. The result must come from a committed snapshot at
+or above that height. An older snapshot produces `ViewHeightUnavailable`
+(`-32011`) with requested and observed heights. It does not undo transaction
+confirmation. The SDK does not poll, wait, or retry; your application decides how
+to handle a backend that is behind. Omit `minHeight` for an unconstrained read.
+
+### Reads at one snapshot
+
+Use `readViews` when several contract reads must use the same committed state:
+
+```ts
+const snapshot = await client.readViews({
+  calls: [
+    ERC20.v0_1.totalSupply.viewRequest({ contract: tokenAddress }),
+    ERC20.v0_1.getBalanceOf.viewRequest({
+      contract: tokenAddress,
+      args: { addr: accountAddress },
+    }),
+  ],
+  minHeight: receipt.height,
+});
+
+const [supply, balance] = snapshot.results;
+if (supply.kind === "return" && balance.kind === "return") {
+  console.log(snapshot.height, supply.value, balance.value);
+}
+```
+
+Each tuple position retains its generated return and exception types. Results are
+`return`, `abort`, or `fault`, with events. Simulated writes stay within each call.
+Omit `minHeight` if no freshness floor is needed. If the selected snapshot is
+behind, the server returns `ViewHeightUnavailable` with requested and observed
+heights. The request neither waits for a block nor forces a refresh; your
+application decides whether and when to retry.
+
+This requires `groundhog_viewBatch` (RPC wire format 11.1.0). Existing generated
+bindings gain `viewRequest` through the runtime. The low-level API is
+`client.viewBatch({ calls, minHeight })`. Neither API splits calls or falls back
+to separate views. HTTP transport batching alone does not share snapshots.
+
+Operators set batch limits; inspect `(await client.getServerLimits()).viewBatch`
+when you need the endpoint's policy. Per-call view and transport limits also
+apply. The server retries an abandoned snapshot as a whole group, at most three
+times. Its configured deadline bounds the response wait, but running backend
+work can outlive it. Pass `{ signal }` as the second argument to cancel the
+client's wait.
+
+To test this path against a matching local RPC build, set `GROUNDHOG_RPC_URL`
+and `GROUNDHOG_RUNTIME_MANIFEST`, build the package, then run
+`node --test tests/integration/view-batch.test.mjs`.
+
+To qualify single-view freshness after a confirmed transfer, run
+`node --test tests/integration/view-freshness.test.mjs` against a matching RPC
+build. For a standalone gateway backed by a local node, set
+`GROUNDHOG_FUNDING_RPC_URL` to the embedded node's URL and use interval block
+production so gateway submissions are committed independently of embedded RPC.
+
 ### Event pages
 
 Use a generated event descriptor to fetch one page with typed topics and fields:

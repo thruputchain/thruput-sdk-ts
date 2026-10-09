@@ -13,6 +13,8 @@ import type {
   VersionInfo,
   ViewRequest,
   ViewResponse,
+  ViewBatchRequest,
+  ViewBatchResponse,
   TransactionReceipt,
   TransactionStatus,
   AddressTransactionQuery,
@@ -61,6 +63,13 @@ import { getVersion } from "./actions/public/getVersion.js";
 import { getServerLimits } from "./actions/public/getServerLimits.js";
 import { getChainConfig } from "./actions/public/getChainConfig.js";
 import { view } from "./actions/public/view.js";
+import { viewBatch } from "./actions/public/viewBatch.js";
+import {
+  readViews,
+  type ReadViewsRequest,
+  type ReadViewsResponse,
+} from "./actions/public/readViews.js";
+import type { ContractViewRequest } from "./contract/method.js";
 import { sendTransaction } from "./actions/wallet/sendTransaction.js";
 
 /**
@@ -76,6 +85,16 @@ export interface CoreGroundhogClient {
     address: ContractAddress,
     options?: TransportRequestOptions,
   ): Promise<AddressAuthDataResponse>;
+  /** Simulate independent calls against one committed snapshot, in request order. */
+  viewBatch(
+    request: ViewBatchRequest,
+    options?: TransportRequestOptions,
+  ): Promise<ViewBatchResponse>;
+  /** Read generated method requests at one shared committed height. */
+  readViews<const TCalls extends readonly ContractViewRequest[]>(
+    request: ReadViewsRequest<TCalls>,
+    options?: TransportRequestOptions,
+  ): Promise<ReadViewsResponse<TCalls>>;
   /** Return the immutable identity configured for the RPC endpoint. */
   getNetworkInfo(options?: TransportRequestOptions): Promise<NetworkInfo>;
 
@@ -205,6 +224,8 @@ function createCoreGroundhogClient(transport: Transport): CoreGroundhogClient {
     getServerLimits: (options) => getServerLimits(transport, options),
     getChainConfig: (options) => getChainConfig(transport, options),
     view: (request, options) => view(transport, request, options),
+    viewBatch: (request, options) => viewBatch(transport, request, options),
+    readViews: (request, options) => readViews(transport, request, options),
     getTransactionReceipt: (txHash, options) =>
       getTransactionReceipt(transport, txHash, options),
     getTransactionStatus: (txHash, options) =>

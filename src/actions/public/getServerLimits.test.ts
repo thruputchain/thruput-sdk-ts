@@ -11,11 +11,45 @@ const limits = {
   maxTransactionsPerPage: 200,
   maxCursorBytes: "1024",
 };
+const batchLimits = {
+  maxCalls: 32,
+  maxCalldataBytes: 131072,
+  maxGas: "18446744073709551615",
+  maxResponseBytes: 2097152,
+  timeoutMs: "60000",
+};
 function returning(result: unknown): Transport {
   return { request: async <T>() => result as T };
 }
 
 describe("getServerLimits", () => {
+  it("decodes operator batch limits without truncating wide values", async () => {
+    const result = await getServerLimits(
+      returning({ ...limits, viewBatch: batchLimits }),
+    );
+    expect(result.viewBatch).toEqual({
+      ...batchLimits,
+      maxGas: 18446744073709551615n,
+      timeoutMs: 60000n,
+    });
+  });
+
+  it.each([
+    { maxCalls: -1 },
+    { maxCalls: 2 ** 32 },
+    { maxCalldataBytes: 0.5 },
+    { maxResponseBytes: "100" },
+    { maxGas: 1 },
+    { maxGas: "01" },
+    { timeoutMs: 60000 },
+    { timeoutMs: "18446744073709551616" },
+  ])("rejects malformed advertised batch limits: %j", async (viewBatch) => {
+    await expect(
+      getServerLimits(
+        returning({ ...limits, viewBatch: { ...batchLimits, ...viewBatch } }),
+      ),
+    ).rejects.toThrow();
+  });
   it("binds the action on the client and exposes the standalone action", async () => {
     const client = await createGroundhogClient({
       transport: new MockTransport(),

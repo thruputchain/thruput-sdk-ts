@@ -19,6 +19,7 @@ import type {
   EmittedEvent,
   TransactionReceipt,
   ViewResponse,
+  ViewCall,
 } from "../types/rpc.js";
 import type { ContractCodecContext } from "./codec.js";
 import {
@@ -28,6 +29,8 @@ import {
 } from "./codec.js";
 import { ContractDecodeError } from "./errors.js";
 import { toHex0x } from "../actions/hex.js";
+import { serializeHeight } from "../actions/decimal.js";
+import { assertViewFreshness } from "../actions/viewFreshness.js";
 import type { ContractType } from "./spec.js";
 
 /** Omit the argument position entirely for methods without arguments. */
@@ -217,20 +220,42 @@ export interface ContractMethodDefinition {
   codecs: ContractCodecContext;
 }
 
-/** View options with an argument object only when the method requires one. */
-export type ContractViewOptions<TArgs> = {
-  client: Pick<GroundhogClient, "view">;
+/** Contract address and arguments shared by reads and transaction calls. */
+export type ContractMethodInputs<TArgs> = {
   contract: ContractAddress;
-  caller?: ContractAddress;
-  /** Cancel this read without affecting other requests on the same client. */
-  signal?: AbortSignal;
 } & ([TArgs] extends [void] ? { args?: never } : { args: TArgs });
 
+/** View options with an argument object only when the method requires one. */
+export type ContractViewOptions<TArgs> = ContractMethodInputs<TArgs> & {
+  client: Pick<GroundhogClient, "view">;
+  caller?: ContractAddress;
+  /** Minimum committed snapshot height. No waiting or request-driven refresh. */
+  minHeight?: bigint;
+  /** Cancel this read without affecting other requests on the same client. */
+  signal?: AbortSignal;
+};
+
 /** Inputs to a typed, unsubmitted contract call. */
-export type ContractCallOptions<TArgs> = Omit<
-  ContractViewOptions<TArgs>,
-  "client" | "caller" | "signal"
-> & { gasLimit: GasAmount };
+export type ContractCallOptions<TArgs> = ContractMethodInputs<TArgs> & {
+  gasLimit: GasAmount;
+  minHeight?: never;
+};
+
+/** Inputs for an unsubmitted view, with arguments checked by the generated method. */
+export type ContractViewRequestOptions<TArgs> = ContractMethodInputs<TArgs> & {
+  caller?: ContractAddress;
+  minHeight?: never;
+};
+
+/** Encoded view request retaining its generated outcome decoder. */
+export interface ContractViewRequest<TResult = unknown, TException = unknown> {
+  readonly minHeight?: never;
+  readonly request: ViewCall & { minHeight?: never };
+  readonly method: Pick<
+    ContractMethod<never, TResult, TException>,
+    "name" | "decodeViewOutcome"
+  >;
+}
 
 /** An invocation retaining its return and exception decoders. */
 export interface ContractCall<TResult = unknown, TException = unknown> {
@@ -245,6 +270,10 @@ export interface ContractCall<TResult = unknown, TException = unknown> {
 export interface ContractMethod<TArgs, TResult, TDeclaredException> {
   /** Qualified method name, or entrypoint when generated identity is absent. */
   readonly name: string;
+  /** Prepare an independent read for readViews without performing I/O. */
+  viewRequest(
+    options: ContractViewRequestOptions<TArgs>,
+  ): ContractViewRequest<TResult, TDeclaredException>;
   /** Build an unsubmitted call retaining typed decoding context. */
   call(
     options: ContractCallOptions<TArgs>,
@@ -273,6 +302,10 @@ export interface ContractMethod<TArgs, TResult, TDeclaredException> {
   decodeException(data: Uint8Array): ContractException<TDeclaredException>;
   /** Decode a view response with the same semantics as view(). */
   decodeView(response: ViewResponse): ContractView<TResult>;
+  /** Decode return, abort, or fault without throwing for a contract failure. */
+  decodeViewOutcome(
+    response: ViewResponse,
+  ): ContractViewOutcome<TResult, ContractException<TDeclaredException>>;
 
   /** Decode a receipt whose root invocation called this method; nested invocation results are not inspected. */
   decodeReceipt(receipt: TransactionReceipt): ContractReceipt<TResult>;
@@ -345,7 +378,30 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
 
   const method: ContractMethod<TArgs, TResult, TDeclaredException> = {
     name,
+    viewRequest(options) {
+      if ("minHeight" in options) {
+        throw new TypeError(
+          "Set minHeight on readViews, not on a prepared call",
+        );
+      }
+      return {
+        request: {
+          contract: contractAddress(new Uint8Array(options.contract)),
+          entrypoint: copyEntrypoint(entrypoint),
+          calldata: encode("args" in options ? options.args : undefined),
+          ...(options.caller
+            ? { caller: contractAddress(new Uint8Array(options.caller)) }
+            : {}),
+        },
+        method,
+      };
+    },
     call(options) {
+      if ("minHeight" in options) {
+        throw new TypeError(
+          "minHeight is a read constraint, not a transaction option",
+        );
+      }
       return {
         invocation: {
           invoked_address: contractAddress(new Uint8Array(options.contract)),
@@ -484,16 +540,24 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
 
     async viewOutcome(options) {
       options.signal?.throwIfAborted();
+      const minHeight = options.minHeight;
+      if (minHeight !== undefined) serializeHeight(minHeight);
       const request = {
         contract: options.contract,
         entrypoint: copyEntrypoint(entrypoint),
         calldata: encode("args" in options ? options.args : undefined),
         ...(options.caller ? { caller: options.caller } : {}),
+        ...(minHeight === undefined ? {} : { minHeight }),
       };
       const response = await (options.signal
         ? options.client.view(request, { signal: options.signal })
         : options.client.view(request));
 
+      assertViewFreshness(response.height, minHeight);
+      return method.decodeViewOutcome(response);
+    },
+
+    decodeViewOutcome(response) {
       switch (response.output.result) {
         case "return":
           return {
