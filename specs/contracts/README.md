@@ -2,11 +2,11 @@
 
 These canonical `.spec.xdr` files are the complete inputs to
 `scripts/regenerate-contract-bindings.sh`. They use the optional method-effect
-schema in `@groundhogchain/contract-spec` 0.13.0. Regeneration requires the
-generator from [groundhog-rpc #505](https://github.com/groundhogchain/groundhog-rpc/pull/505).
-Until that CLI is released, use a reviewed source build through `GROUNDHOG_CLI`.
-The CI and publish workflows still pin CLI 0.21.0, which cannot decode these
-inputs. Update both pins to the compatible release before merging this change.
+schema in `@groundhogchain/contract-spec` 0.13.0. CI and publishing use
+`groundhog-cli` 0.26.0-pre.1, which includes the method-effect generator from
+[groundhog-rpc #505](https://github.com/groundhogchain/groundhog-rpc/pull/505).
+Set `GROUNDHOG_CLI` to that executable when checking or regenerating bindings
+locally.
 
 The generator nests each interface under its major and each named type, enum,
 and event under its spec id's crate and major
