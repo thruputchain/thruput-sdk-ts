@@ -13,6 +13,7 @@ import {
 } from "../decimal.js";
 import { parseViewOutput } from "./view.js";
 import { assertViewFreshness } from "../viewFreshness.js";
+import { serializeViewAuthClaim } from "../viewAuthClaim.js";
 
 /** Identifies a malformed per-call response without changing transport errors. */
 export class ViewBatchResultError extends Error {
@@ -29,6 +30,8 @@ export class ViewBatchResultError extends Error {
 /**
  * Simulate independent calls at one committed height, in input order.
  * Requires groundhog_viewBatch (wire format 11.1.0). No fallback or chunking is used.
+ * Each call may supply an optional authClaim (RPC wire 11.2.0); it is an
+ * assumption for simulation, not verified authorization.
  * Simulated writes do not pass between calls. The server retries abandoned
  * snapshots as a whole group; aborts and faults remain per-call results.
  * Cancellation ends this client's wait, not necessarily backend execution.
@@ -60,6 +63,9 @@ export async function viewBatch(
       entrypoint: toHex0x(call.entrypoint),
       calldata: toHex0x(call.calldata),
       ...(call.caller ? { caller: toHex0x(call.caller) } : {}),
+      ...(call.authClaim === undefined
+        ? {}
+        : { authClaim: serializeViewAuthClaim(call.authClaim) }),
       ...(call.gasLimit === undefined
         ? {}
         : { gasLimit: serializeU64(call.gasLimit, "gasLimit") }),

@@ -230,6 +230,23 @@ or above that height. An older snapshot produces `ViewHeightUnavailable`
 confirmation. The SDK does not poll, wait, or retry; your application decides how
 to handle a backend that is behind. Omit `minHeight` for an unconstrained read.
 
+### Simulated authorization
+
+Views accept an optional protocol `authClaim`, including `account.authClaim` from
+an SDK account. It is an assumption for simulation, not verified authorization;
+no signature is needed and no writes persist. The invoked contract still runs
+its normal permission checks. Omitting the claim keeps the current default.
+
+Pass `authClaim` to `client.view`, generated or bound `.view()` / `.viewOutcome()`,
+or `.viewRequest()` for a grouped read. Each `viewBatch` entry has its own claim.
+This requires RPC wire 11.2.0 and a backend that preserves claims; unsupported
+backends return an error instead of silently ignoring them.
+
+`caller` is separate: it supplies a parent-contract address. To simulate a root
+invocation such as `DefaultWallet.execute`, use the account address as `contract`,
+pass its matching `authClaim`, and omit `caller`. Its child calls share state
+through normal execution. Different `viewBatch` entries remain independent.
+
 ### Reads at one snapshot
 
 Use `readViews` when several contract reads must use the same committed state:

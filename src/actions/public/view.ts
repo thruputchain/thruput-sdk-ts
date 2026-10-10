@@ -12,6 +12,7 @@ import {
   serializeU64,
 } from "../decimal.js";
 import { assertViewFreshness } from "../viewFreshness.js";
+import { serializeViewAuthClaim } from "../viewAuthClaim.js";
 
 interface RawViewOutput {
   result: string;
@@ -61,6 +62,8 @@ export function parseViewOutput(value: unknown): ViewOutput {
  *
  * `view` is useful for local reads and UI queries. The invocation is evaluated
  * by the gateway and does not enter the mempool.
+ * Optional `authClaim` assumes authorization without signatures (RPC wire 11.2.0).
+ * Contracts still run their normal checks. Older backends reject explicit claims.
  * `minHeight` requires the actual committed snapshot to be at least that height.
  * A lagging server returns ViewHeightUnavailable; this action never polls or retries.
  *
@@ -104,6 +107,9 @@ export async function view(
         entrypoint: toHex0x(request.entrypoint),
         calldata: toHex0x(request.calldata),
         ...(request.caller ? { caller: toHex0x(request.caller) } : {}),
+        ...(request.authClaim === undefined
+          ? {}
+          : { authClaim: serializeViewAuthClaim(request.authClaim) }),
         ...(request.gasLimit === undefined
           ? {}
           : { gasLimit: serializeU64(request.gasLimit, "gasLimit") }),

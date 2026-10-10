@@ -1,4 +1,5 @@
 import type {
+  AuthClaim,
   NetworkHash,
   SHA256Hash,
   BlockHeight,
@@ -275,6 +276,8 @@ export interface VersionInfo {
 
 /** Request for a read-only contract invocation. */
 export interface ViewCall {
+  /** Optional assumed authorization. Signatures are not verified; writes never commit. */
+  authClaim?: AuthClaim;
   /** Contract address to invoke. */
   contract: ContractAddress;
 
