@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
+import { setTimeout as sleep } from "node:timers/promises";
 import {
   addressFromHex,
   createGroundhogClient,
@@ -18,6 +19,10 @@ import {
 } from "@groundhogchain/client";
 import { fundAccount } from "@groundhogchain/client/actions";
 import { DefaultWallet, ERC20 } from "@groundhogchain/client/contracts";
+import {
+  GroundhogRpcErrorCode,
+  JsonRpcError,
+} from "@groundhogchain/client/transport";
 import {
   AuthClaimType,
   bitMap,
@@ -88,7 +93,6 @@ test(
       { timeoutMs: 30_000 },
     );
     assert.equal(deployed.receipt.execResult, ExecResult.ExecResultOK);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
     const spec = JSON.parse(
       await readFile(join(fixtures, "authclaim_test_spec.json"), "utf8"),
     );
@@ -113,7 +117,27 @@ test(
         required_weight: weight(3n),
       },
     };
-    assert.equal((await client.view(ordinary)).output.result, "return");
+    const freshnessDeadline = AbortSignal.timeout(30_000);
+    while (true) {
+      let result;
+      try {
+        result = await client.view(
+          { ...ordinary, minHeight: deployed.receipt.height },
+          { signal: freshnessDeadline },
+        );
+      } catch (error) {
+        if (
+          !(error instanceof JsonRpcError) ||
+          error.code !== GroundhogRpcErrorCode.ViewHeightUnavailable
+        ) {
+          throw error;
+        }
+        await sleep(100, undefined, { signal: freshnessDeadline });
+        continue;
+      }
+      assert.equal(result.output.result, "return");
+      break;
+    }
     assert.equal(
       (await client.view({ ...ordinary, authClaim: nonzero })).output.result,
       "fault",
