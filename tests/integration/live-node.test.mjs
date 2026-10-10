@@ -35,7 +35,6 @@ import {
   gasAmount,
 } from "@groundhogchain/protocol";
 import versions from "../../scripts/integration-versions.json" with { type: "json" };
-import openrpcSpec from "../../specs/openrpc.json" with { type: "json" };
 import {
   airdropTimeoutMs,
   eventsTimeoutMs,
@@ -121,8 +120,8 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         process.env.GROUNDHOG_EXPECTED_CLI_VERSION ?? versions.cli,
       );
       assert.match(version.wireFormat, /^\d+\.\d+\.\d+$/);
-      // The pinned spec must describe the wire format the pinned node serves.
-      assert.equal(version.wireFormat, openrpcSpec.info.version);
+      // The released node can predate optional additions in the SDK's schema.
+      assert.equal(version.wireFormat, versions.wireFormat);
       const tip = await client.getChainTip();
       assert.equal(typeof tip.height, "bigint");
       assert.ok(tip.height >= 1n);

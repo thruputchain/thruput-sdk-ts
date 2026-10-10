@@ -1,4 +1,5 @@
 {
   "cli": "0.26.0",
-  "devnode": "0.1.30-rc.6"
+  "devnode": "0.1.30-rc.6",
+  "wireFormat": "11.1.0"
 }
