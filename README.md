@@ -739,6 +739,7 @@ npm run test:integration
 # Or qualify matching source builds:
 GROUNDHOG_CLI=/absolute/path/to/groundhog \
 GROUNDHOG_DEVNODE_BINARY=/absolute/path/to/hog-devnode \
+GROUNDHOG_EXPECTED_WIRE_FORMAT=11.2.0 \
 npm run test:integration
 ```
 
@@ -750,11 +751,11 @@ import the built package and check connection, local funding, a HOG transfer, re
 events, contract views, and RPC errors. `npm test` remains node-independent.
 
 An explicit CLI overrides the release pin; tests verify that the RPC server
-reports that executable's version and matches the pinned OpenRPC wire major.
+reports that executable's version. The expected wire version defaults to
+`scripts/integration-versions.json`; set `GROUNDHOG_EXPECTED_WIRE_FORMAT` when
+testing a source build with a different wire version.
 An explicit devnode skips runtime installation. Set `HOGD_PROTOCOL_OVERRIDE`
 only when qualifying a compatible runtime with a different handshake token.
-Wire-9 source builds must be tested together until a matching CLI release is
-published and the default integration and OpenRPC-generator pins are updated.
 
 The harness isolates configuration and state, stops its child processes, and
 retains logs and node state on failure at the printed temporary path. Set

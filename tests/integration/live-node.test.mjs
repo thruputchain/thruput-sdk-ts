@@ -121,7 +121,10 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       );
       assert.match(version.wireFormat, /^\d+\.\d+\.\d+$/);
       // The released node can predate optional additions in the SDK's schema.
-      assert.equal(version.wireFormat, versions.wireFormat);
+      assert.equal(
+        version.wireFormat,
+        process.env.GROUNDHOG_EXPECTED_WIRE_FORMAT ?? versions.wireFormat,
+      );
       const tip = await client.getChainTip();
       assert.equal(typeof tip.height, "bigint");
       assert.ok(tip.height >= 1n);

@@ -286,6 +286,8 @@ async function main() {
       GROUNDHOG_RPC_URL: ready.rpc_url,
       GROUNDHOG_RUNTIME_MANIFEST: ready.runtime_manifest.path,
       GROUNDHOG_EXPECTED_CLI_VERSION: cliVersion,
+      GROUNDHOG_EXPECTED_WIRE_FORMAT:
+        process.env.GROUNDHOG_EXPECTED_WIRE_FORMAT ?? versions.wireFormat,
     },
     "tests",
     true,
