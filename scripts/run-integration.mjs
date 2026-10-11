@@ -176,22 +176,22 @@ async function main() {
   if (process.platform !== "linux") {
     throw new Error("The live-node harness currently supports Linux only");
   }
-  const requestedCli = process.env.GROUNDHOG_CLI ?? "groundhog";
+  const requestedCli = process.env.THRUPUT_CLI ?? "thruput";
   const cli = requestedCli.includes("/") ? resolve(requestedCli) : requestedCli;
   const { stdout } = await exec(cli, ["--version"], { timeout: 10_000 });
-  const cliVersion = /^groundhog (\d+\.\d+\.\d+(?:-[^\s]+)?)(?:\s|$)/.exec(
+  const cliVersion = /^thruput (\d+\.\d+\.\d+(?:-[^\s]+)?)(?:\s|$)/.exec(
     stdout,
   )?.[1];
   if (
     !cliVersion ||
-    (!process.env.GROUNDHOG_CLI && cliVersion !== versions.cli)
+    (!process.env.THRUPUT_CLI && cliVersion !== versions.cli)
   ) {
     throw new Error(
-      `Expected Groundhog CLI ${versions.cli}, received ${stdout.trim()}`,
+      `Expected Thruput CLI ${versions.cli}, received ${stdout.trim()}`,
     );
   }
 
-  work = await mkdtemp(join(tmpdir(), "groundhog-client-integration-"));
+  work = await mkdtemp(join(tmpdir(), "thruput-client-integration-"));
   logs = resolve(
     process.env.GROUNDHOG_INTEGRATION_LOG_DIR ?? join(work, "logs"),
   );
@@ -199,15 +199,20 @@ async function main() {
   console.log(`Integration logs: ${logs}`);
   const env = { ...process.env };
   for (const key of Object.keys(env)) {
-    if (key.startsWith("GROUNDHOG_") || key === "HOGD_PROTOCOL_OVERRIDE")
+    if (
+      key.startsWith("GROUNDHOG_") ||
+      key.startsWith("THRUPUT_") ||
+      key === "HOGD_PROTOCOL_OVERRIDE"
+    )
       delete env[key];
   }
   env.XDG_CONFIG_HOME = join(work, "config");
   env.XDG_CACHE_HOME = join(work, "cache");
+  env.XDG_DATA_HOME = join(work, "data");
 
-  let devnodeBinary = process.env.GROUNDHOG_DEVNODE_BINARY;
+  let devnodeBinary = process.env.THRUPUT_DEVNODE_BINARY;
   if (devnodeBinary !== undefined && !isAbsolute(devnodeBinary)) {
-    throw new Error("GROUNDHOG_DEVNODE_BINARY must be an absolute path");
+    throw new Error("THRUPUT_DEVNODE_BINARY must be an absolute path");
   }
   if (devnodeBinary === undefined) {
     const install = launch(
@@ -253,7 +258,7 @@ async function main() {
       "127.0.0.1",
       "--port",
       "0",
-      ...(process.env.GROUNDHOG_DEVNODE_BINARY
+      ...(process.env.THRUPUT_DEVNODE_BINARY
         ? ["--hog-devnode-binary", devnodeBinary]
         : ["--hog-devnode-version", versions.devnode]),
       ...(process.env.HOGD_PROTOCOL_OVERRIDE
@@ -285,7 +290,7 @@ async function main() {
       ...env,
       GROUNDHOG_RPC_URL: ready.rpc_url,
       GROUNDHOG_RUNTIME_MANIFEST: ready.runtime_manifest.path,
-      GROUNDHOG_EXPECTED_CLI_VERSION: cliVersion,
+      THRUPUT_EXPECTED_CLI_VERSION: cliVersion,
       GROUNDHOG_EXPECTED_WIRE_FORMAT:
         process.env.GROUNDHOG_EXPECTED_WIRE_FORMAT ?? versions.wireFormat,
     },

@@ -19,11 +19,17 @@ import { ERC20 } from "@groundhogchain/client/contracts";
 import { HOG_ADDRESS, gasAmount, ExecResult } from "@groundhogchain/protocol";
 
 test(
-  "schema-4 local funding preserves admitted bytes after a lost response",
+  "local funding preserves admitted bytes after a lost response",
   { timeout: 120_000 },
   async (t) => {
     const rpcUrl = process.env.GROUNDHOG_RPC_URL;
     assert.ok(rpcUrl, "Set GROUNDHOG_RPC_URL to a GH-462 local node");
+    const transport = new HttpTransport(rpcUrl, { timeoutMs: 30_000 });
+    const version = await transport.request("groundhog_version", []);
+    if (version.wireFormat === "11.1.0") {
+      t.skip("Published CLI 0.27.0 predates wire-11.2 local funding");
+      return;
+    }
     const manifest = JSON.parse(
       await readFile(process.env.GROUNDHOG_RUNTIME_MANIFEST, "utf8"),
     );
@@ -31,7 +37,7 @@ test(
       t.skip("Published runtime predates schema-4 local funding");
       return;
     }
-    assert.equal(manifest.schemaVersion, 4);
+    assert.ok([4, 5].includes(manifest.schemaVersion));
     assert.equal(manifest.kind, "hogd-dev-runtime");
     assert.equal(manifest.bootstrapAccountDerivation, undefined);
     const faucets = manifest.bootstrapAccounts.filter(
@@ -65,7 +71,6 @@ test(
       const directory = await open(work, "r");
       await directory.sync();
       await directory.close();
-      const transport = new HttpTransport(rpcUrl, { timeoutMs: 30_000 });
       let admitted;
       const lostResponse = {
         async request(method, params, options) {

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-groundhog_cli="${GROUNDHOG_CLI:?Set GROUNDHOG_CLI to the reviewed groundhog executable}"
+thruput_cli="${THRUPUT_CLI:?Set THRUPUT_CLI to the reviewed thruput executable}"
 mode="${1:-write}"
 
 if [[ "$mode" != "write" && "$mode" != "--check" ]]; then
@@ -18,9 +18,10 @@ generate() {
   local spec="$1"
   local output="$2"
   local import_path="$3"
-  local generated="$tmp_dir/$(basename "$output")"
+  local generated
+  generated="$tmp_dir/$(basename "$output")"
 
-  "$groundhog_cli" codegen ts "$spec" -o "$generated"
+  "$thruput_cli" codegen ts "$spec" -o "$generated"
   node --input-type=module - "$generated" "$import_path" <<'NODE'
 import { readFileSync, writeFileSync } from "node:fs";
 
@@ -43,7 +44,8 @@ NODE
 
 update() {
   local output="$1"
-  local generated="$tmp_dir/$(basename "$output")"
+  local generated
+  generated="$tmp_dir/$(basename "$output")"
   if [[ "$mode" == "--check" ]]; then
     if ! cmp -s "$generated" "$output"; then
       printf '%s is not up to date; run npm run contracts:generate\n' "$output" >&2
