@@ -282,6 +282,22 @@ test("built SDK against a real local node", { timeout }, async (t) => {
             ERC20.v0_1.getBalanceOf.decodeReturn(values[1]),
             before.value + amount,
           );
+          const { minHeight, ...call } = root;
+          const batch = await client.viewBatch({
+            minHeight,
+            calls: [
+              { ...call, authClaim: sender.authClaim },
+              { ...call, authClaim: recipient.authClaim },
+              { ...call, authClaim: sender.authClaim },
+            ],
+          });
+          assert.deepEqual(
+            batch.results.map(({ output }) => output.result),
+            ["return", "abort", "return"],
+          );
+          for (const index of [0, 2]) {
+            assert.deepEqual(batch.results[index].output, simulated.output);
+          }
           assert.equal((await balance(before.height)).value, before.value);
         },
       );
