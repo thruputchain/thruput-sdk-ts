@@ -230,6 +230,22 @@ or above that height. An older snapshot produces `ViewHeightUnavailable`
 confirmation. The SDK does not poll, wait, or retry; your application decides how
 to handle a backend that is behind. Omit `minHeight` for an unconstrained read.
 
+### Simulated authorization
+
+Views accept an optional protocol `authClaim`, including `account.authClaim` from
+an SDK account. It is an assumption for simulation, not verified authorization;
+no signature is needed and no writes persist. The invoked contract still runs
+its normal permission checks. Omitting the claim keeps the current default.
+
+Pass `authClaim` to `client.view`, generated or bound `.view()` / `.viewOutcome()`,
+or `.viewRequest()` for a grouped read. Each `viewBatch` entry has its own claim.
+This requires matching RPC (wire 11.2.0) and hogd builds with view auth support.
+
+`caller` is separate: it supplies a parent-contract address. To simulate a root
+invocation such as `DefaultWallet.execute`, use the account address as `contract`,
+pass its matching `authClaim`, and omit `caller`. Its child calls share state
+through normal execution. Different `viewBatch` entries remain independent.
+
 ### Reads at one snapshot
 
 Use `readViews` when several contract reads must use the same committed state:
@@ -270,16 +286,6 @@ apply. The server retries an abandoned snapshot as a whole group, at most three
 times. Its configured deadline bounds the response wait, but running backend
 work can outlive it. Pass `{ signal }` as the second argument to cancel the
 client's wait.
-
-To test this path against a matching local RPC build, set `GROUNDHOG_RPC_URL`
-and `GROUNDHOG_RUNTIME_MANIFEST`, build the package, then run
-`node --test tests/integration/view-batch.test.mjs`.
-
-To qualify single-view freshness after a confirmed transfer, run
-`node --test tests/integration/view-freshness.test.mjs` against a matching RPC
-build. For a standalone gateway backed by a local node, set
-`GROUNDHOG_FUNDING_RPC_URL` to the embedded node's URL and use interval block
-production so gateway submissions are committed independently of embedded RPC.
 
 ### Event pages
 
@@ -722,6 +728,7 @@ npm run test:integration
 # Or qualify matching source builds:
 GROUNDHOG_CLI=/absolute/path/to/groundhog \
 GROUNDHOG_DEVNODE_BINARY=/absolute/path/to/hog-devnode \
+GROUNDHOG_EXPECTED_WIRE_FORMAT=11.2.0 \
 npm run test:integration
 ```
 
@@ -732,12 +739,16 @@ CI uses the same Ubuntu 26.04 Namespace profile as the RPC repository. Tests
 import the built package and check connection, local funding, a HOG transfer, receipts,
 events, contract views, and RPC errors. `npm test` remains node-independent.
 
+The transfer workflow also checks grouped reads and view freshness. Matching
+wire-11.2.0 source builds additionally test an authenticated wallet simulation;
+the pinned wire-11.1.0 node skips that subtest.
+
 An explicit CLI overrides the release pin; tests verify that the RPC server
-reports that executable's version and matches the pinned OpenRPC wire major.
+reports that executable's version. The expected wire version defaults to
+`scripts/integration-versions.json`; set `GROUNDHOG_EXPECTED_WIRE_FORMAT` when
+testing a source build with a different wire version.
 An explicit devnode skips runtime installation. Set `HOGD_PROTOCOL_OVERRIDE`
 only when qualifying a compatible runtime with a different handshake token.
-Wire-9 source builds must be tested together until a matching CLI release is
-published and the default integration and OpenRPC-generator pins are updated.
 
 The harness isolates configuration and state, stops its child processes, and
 retains logs and node state on failure at the printed temporary path. Set

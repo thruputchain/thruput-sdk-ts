@@ -73,11 +73,13 @@ import {
 async function typedSnapshotBoundary(
   transport: Transport,
   address: ContractAddress,
+  authClaim: import("@groundhogchain/protocol").AuthClaim,
 ) {
   const BatchERC20 = BatchERC20Versions.v0_1;
   const client = await createGroundhogClient({ transport });
   const bound = getContract({ binding: BatchERC20, address, client });
   const single = await BatchERC20.totalSupply.view({
+    authClaim,
     client,
     contract: address,
     minHeight: 42n,
@@ -90,7 +92,10 @@ async function typedSnapshotBoundary(
     void value;
   }
   await bound.totalSupply.view({ minHeight: 42n });
-  const prepared = BatchERC20.totalSupply.viewRequest({ contract: address });
+  const prepared = BatchERC20.totalSupply.viewRequest({
+    contract: address,
+    authClaim,
+  });
   const constrainedEntry = { ...prepared, minHeight: 42n };
   // @ts-expect-error a prepared entry cannot carry a group constraint
   await client.readViews({ calls: [constrainedEntry] });

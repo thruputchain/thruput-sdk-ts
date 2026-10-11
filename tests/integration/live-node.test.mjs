@@ -9,6 +9,7 @@ import {
   createGroundhogClient,
   createPubkeyAccount,
   createWalletClient,
+  defaultWalletAdapter,
   localnet,
   prepareContractDeployment,
   createContractCodecContext,
@@ -35,7 +36,6 @@ import {
   gasAmount,
 } from "@groundhogchain/protocol";
 import versions from "../../scripts/integration-versions.json" with { type: "json" };
-import openrpcSpec from "../../specs/openrpc.json" with { type: "json" };
 import {
   airdropTimeoutMs,
   eventsTimeoutMs,
@@ -121,8 +121,11 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         process.env.GROUNDHOG_EXPECTED_CLI_VERSION ?? versions.cli,
       );
       assert.match(version.wireFormat, /^\d+\.\d+\.\d+$/);
-      // The pinned spec must describe the wire format the pinned node serves.
-      assert.equal(version.wireFormat, openrpcSpec.info.version);
+      // The released node can predate optional additions in the SDK's schema.
+      assert.equal(
+        version.wireFormat,
+        process.env.GROUNDHOG_EXPECTED_WIRE_FORMAT ?? versions.wireFormat,
+      );
       const tip = await client.getChainTip();
       assert.equal(typeof tip.height, "bigint");
       assert.ok(tip.height >= 1n);
@@ -201,7 +204,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
 
   await t.test(
     "funds pubkey wallets, transfers HOG, and decodes receipt, event, and view",
-    async () => {
+    async (t) => {
       const sender = createPubkeyAccount({
         signer: new PrivateKeySigner(randomBytes(32)),
       });
@@ -218,15 +221,86 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         assert.ok(airdrop.rawAmount > 0n);
         assert.deepEqual(airdrop.recipient, account.address);
       }
-      const balance = () =>
+      const balance = (minHeight, signal) =>
         ERC20.v0_1.getBalanceOf.view({
           client: wallet,
           contract: HOG_ADDRESS,
           caller: sender.address,
           args: { addr: recipient.address },
+          minHeight,
+          signal,
         });
       const before = await balance();
       const amount = 1_000n;
+      await t.test(
+        "simulates an authenticated wallet transfer and reads its temporary balance",
+        {
+          skip:
+            (process.env.GROUNDHOG_EXPECTED_WIRE_FORMAT ??
+              versions.wireFormat) === "11.1.0"
+              ? "The pinned node predates view auth; use matching source builds with wire 11.2.0"
+              : false,
+        },
+        async () => {
+          const invocation = defaultWalletAdapter.createBatchRootInvocation(
+            sender.address,
+            {
+              gasLimit: gasAmount(2_000_000n),
+              invocations: [
+                ERC20.v0_1.transfer.invocation(
+                  HOG_ADDRESS,
+                  gasAmount(500_000n),
+                  {
+                    receiver: recipient.address,
+                    amount,
+                  },
+                ),
+                ERC20.v0_1.getBalanceOf.invocation(
+                  HOG_ADDRESS,
+                  gasAmount(500_000n),
+                  {
+                    addr: recipient.address,
+                  },
+                ),
+              ],
+            },
+          );
+          const root = {
+            contract: sender.address,
+            entrypoint: invocation.entrypoint,
+            calldata: invocation.calldata,
+            gasLimit: invocation.gas_limit,
+            minHeight: before.height,
+          };
+          assert.equal((await client.view(root)).output.result, "abort");
+          const simulated = await client.view({
+            ...root,
+            authClaim: sender.authClaim,
+          });
+          const values = DefaultWallet.v0_1.execute.decodeView(simulated).value;
+          assert.equal(
+            ERC20.v0_1.getBalanceOf.decodeReturn(values[1]),
+            before.value + amount,
+          );
+          const { minHeight, ...call } = root;
+          const batch = await client.viewBatch({
+            minHeight,
+            calls: [
+              { ...call, authClaim: sender.authClaim },
+              { ...call, authClaim: recipient.authClaim },
+              { ...call, authClaim: sender.authClaim },
+            ],
+          });
+          assert.deepEqual(
+            batch.results.map(({ output }) => output.result),
+            ["return", "abort", "return"],
+          );
+          for (const index of [0, 2]) {
+            assert.deepEqual(batch.results[index].output, simulated.output);
+          }
+          assert.equal((await balance(before.height)).value, before.value);
+        },
+      );
       const {
         txHash: hash,
         receipt,
@@ -272,9 +346,40 @@ test("built SDK against a real local node", { timeout }, async (t) => {
           (event) => decodeERC20Event(event)?.name === "TransferEvent",
         ),
       );
-      const after = await balance();
+      const freshnessDeadline = AbortSignal.timeout(receiptTimeoutMs);
+      let after;
+      for (;;) {
+        try {
+          after = await balance(receipt.height, freshnessDeadline);
+          break;
+        } catch (error) {
+          if (
+            !(error instanceof JsonRpcError) ||
+            error.code !== GroundhogRpcErrorCode.ViewHeightUnavailable
+          ) {
+            throw error;
+          }
+          await sleep(100, undefined, { signal: freshnessDeadline });
+        }
+      }
       assert.ok(after.height >= receipt.height);
       assert.equal(after.value - before.value, amount);
+      const snapshot = await client.readViews({
+        calls: [sender, recipient].map(({ address }) =>
+          ERC20.v0_1.getBalanceOf.viewRequest({
+            contract: HOG_ADDRESS,
+            args: { addr: address },
+          }),
+        ),
+        minHeight: receipt.height,
+      });
+      assert.ok(
+        snapshot.results.every(
+          (result) =>
+            result.kind === "return" && result.height === snapshot.height,
+        ),
+      );
+      assert.equal(snapshot.results[1].value, after.value);
       transfer = { sender, recipient, amount, hash, receipt };
     },
   );

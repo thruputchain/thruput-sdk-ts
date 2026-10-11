@@ -1,4 +1,5 @@
 import type {
+  AuthClaim,
   ContractAddress,
   ContractEntrypointID,
   GasAmount,
@@ -34,6 +35,7 @@ import { ContractDecodeError } from "./errors.js";
 import { toHex0x } from "../actions/hex.js";
 import { serializeHeight } from "../actions/decimal.js";
 import { assertViewFreshness } from "../actions/viewFreshness.js";
+import { copyViewAuthClaim } from "../actions/viewAuthClaim.js";
 import type { ContractType } from "./spec.js";
 
 /** Omit the argument position entirely for methods without arguments. */
@@ -232,6 +234,8 @@ export type ContractMethodInputs<TArgs> = {
 
 /** View options with an argument object only when the method requires one. */
 export type ContractViewOptions<TArgs> = ContractMethodInputs<TArgs> & {
+  /** Optional authorization assumed by the simulator, without signatures. */
+  authClaim?: AuthClaim;
   client: Pick<GroundhogClient, "view">;
   caller?: ContractAddress;
   /** Minimum committed snapshot height. No waiting or request-driven refresh. */
@@ -248,6 +252,7 @@ export type ContractCallOptions<TArgs> = ContractMethodInputs<TArgs> & {
 
 /** Inputs for an unsubmitted view, with arguments checked by the generated method. */
 export type ContractViewRequestOptions<TArgs> = ContractMethodInputs<TArgs> & {
+  authClaim?: AuthClaim;
   caller?: ContractAddress;
   minHeight?: never;
 };
@@ -414,6 +419,9 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
           contract: contractAddress(new Uint8Array(options.contract)),
           entrypoint: copyEntrypoint(entrypoint),
           calldata: encode("args" in options ? options.args : undefined),
+          ...(options.authClaim === undefined
+            ? {}
+            : { authClaim: copyViewAuthClaim(options.authClaim) }),
           ...(options.caller
             ? { caller: contractAddress(new Uint8Array(options.caller)) }
             : {}),
@@ -568,6 +576,9 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
       const minHeight = options.minHeight;
       if (minHeight !== undefined) serializeHeight(minHeight);
       const request = {
+        ...(options.authClaim === undefined
+          ? {}
+          : { authClaim: copyViewAuthClaim(options.authClaim) }),
         contract: options.contract,
         entrypoint: copyEntrypoint(entrypoint),
         calldata: encode("args" in options ? options.args : undefined),
