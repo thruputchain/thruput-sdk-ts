@@ -10,10 +10,10 @@ jobs:
       packages: write
     runs-on: ubuntu-latest
     env:
-      CARGO_REGISTRIES_GROUNDHOG_INDEX: "sparse+https://crates.thruput.network/api/v1/crates/"
-      CARGO_REGISTRIES_GROUNDHOG_TOKEN: ${{ secrets.GROUNDHOG_REGISTRY_TOKEN }}
+      CARGO_REGISTRIES_THRUPUT_INDEX: "sparse+https://crates.thruput.network/api/v1/crates/"
+      CARGO_REGISTRIES_THRUPUT_TOKEN: ${{ secrets.GROUNDHOG_REGISTRY_TOKEN }}
       CARGO_REGISTRY_GLOBAL_CREDENTIAL_PROVIDERS: cargo:token
-      GROUNDHOG_CLI_VERSION: "0.26.0"
+      THRUPUT_CLI_VERSION: "0.27.0"
 
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -34,8 +34,8 @@ jobs:
 
       - name: Install contract binding generator
         run: |
-          cargo install "groundhog-cli@${GROUNDHOG_CLI_VERSION}" --registry groundhog --locked
-          echo "GROUNDHOG_CLI=$(command -v groundhog)" >> "$GITHUB_ENV"
+          cargo install "thruput-cli@${THRUPUT_CLI_VERSION}" --registry thruput --locked
+          echo "THRUPUT_CLI=$(command -v thruput)" >> "$GITHUB_ENV"
 
       - name: Read version
         run: |

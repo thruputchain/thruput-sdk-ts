@@ -340,7 +340,7 @@ Local applications own their signing keys. A schema-4 local manifest contains
 public allocations and a public faucet address; it cannot produce a signer.
 Use `PrivateKeySigner` with `createPubkeyAccount`, then request an airdrop or
 supply its public key in the node's initial allocations. Stored CLI keys can be
-exported explicitly through `groundhog keys export`; never log that output.
+exported explicitly through `thruput keys export`; never log that output.
 
 ## Wallet clients
 
@@ -726,8 +726,8 @@ On Linux with Node 24, install the CLI version pinned in
 ```sh
 npm run test:integration
 # Or qualify matching source builds:
-GROUNDHOG_CLI=/absolute/path/to/groundhog \
-GROUNDHOG_DEVNODE_BINARY=/absolute/path/to/hog-devnode \
+THRUPUT_CLI=/absolute/path/to/thruput \
+THRUPUT_DEVNODE_BINARY=/absolute/path/to/hog-devnode \
 GROUNDHOG_EXPECTED_WIRE_FORMAT=11.2.0 \
 npm run test:integration
 ```
@@ -740,8 +740,9 @@ import the built package and check connection, local funding, a HOG transfer, re
 events, contract views, and RPC errors. `npm test` remains node-independent.
 
 The transfer workflow also checks grouped reads and view freshness. Matching
-wire-11.2.0 source builds additionally test an authenticated wallet simulation;
-the pinned wire-11.1.0 node skips that subtest.
+wire-11.2.0 source builds additionally test an authenticated wallet simulation
+and recovery of admitted local-funding bytes after a lost response. The pinned
+CLI 0.27.0 uses wire 11.1.0 and skips those two probes explicitly.
 
 An explicit CLI overrides the release pin; tests verify that the RPC server
 reports that executable's version. The expected wire version defaults to

@@ -118,7 +118,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       const version = await client.getVersion();
       assert.equal(
         version.implementation,
-        process.env.GROUNDHOG_EXPECTED_CLI_VERSION ?? versions.cli,
+        process.env.THRUPUT_EXPECTED_CLI_VERSION ?? versions.cli,
       );
       assert.match(version.wireFormat, /^\d+\.\d+\.\d+$/);
       // The released node can predate optional additions in the SDK's schema.

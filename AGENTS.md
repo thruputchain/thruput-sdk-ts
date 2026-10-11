@@ -10,7 +10,7 @@
 
 - Before a PR, run `npm run format:check`, `npm run docs:check`, `npm run typecheck`, `npm test`, `npm run build`, `npm run test:package-boundary`, and `npm run test:smoke`.
 - `test:package-boundary` and `test:smoke` inspect `dist/`; run `npm run build` first.
-- `npm run test:integration` builds and tests the package against a real local node on Linux / Node 24. CLI/devnode pins are in `scripts/integration-versions.json`; set `GROUNDHOG_CLI` to select the CLI executable. CI runs this separately from Vitest.
+- `npm run test:integration` builds and tests the package against a real local node on Linux / Node 24. CLI/devnode pins are in `scripts/integration-versions.json`; set `THRUPUT_CLI` to select the CLI executable. CI runs this separately from Vitest.
 - Focused tests: `npm test -- src/actions/actions.test.ts` or `npm test -- src/actions/actions.test.ts -t "getEvents"`.
 - `tsdown.config.ts` builds ESM, CJS, source maps, and declarations for every package entrypoint.
 - There is no lint script; formatting is Prettier via `npm run format` / `npm run format:check`.
@@ -30,14 +30,14 @@
 ## Generated And Spec Files
 
 - `src/contracts/erc20.ts`, `src/contracts/recursive_type.ts`, `src/contracts/default_wallet.ts`, `src/contracts/dev_wallet.ts`, `src/contracts/signed_op.ts`, `src/contracts/erc20_permit.ts`, and the example-local bindings under `examples/generated/` are generated; do not hand-edit. Only standard bindings are exported from `src/contracts/index.ts`.
-- TypeScript binding codegen lives in `groundhog-rpc`. Regenerate every checked-in binding with `scripts/regenerate-contract-bindings.sh`, setting `GROUNDHOG_CLI` to a reviewed generator build; use `--check` to verify checked-in output. The script always uses the pinned inputs in `specs/contracts/`.
+- TypeScript binding codegen lives in `groundhog-rpc`. Regenerate every checked-in binding with `scripts/regenerate-contract-bindings.sh`, setting `THRUPUT_CLI` to a reviewed generator build; use `--check` to verify checked-in output. The script always uses the pinned inputs in `specs/contracts/`.
 - The regeneration script rewrites only the generated self-import to a repository-relative import. Generated output must compile for strict consumers, including `noUncheckedIndexedAccess`.
-- `specs/openrpc.json` is the pinned Groundhog OpenRPC spec. Regenerate with `scripts/regen-openrpc.sh`, which installs a pinned `groundhog-open-rpc-spec@x.y.z` from the Cargo `groundhog` registry and formats the JSON; bump the hardcoded script version when syncing to a newer RPC spec release.
+- `specs/openrpc.json` is the pinned Groundhog OpenRPC spec. Regenerate with `scripts/regen-openrpc.sh`, which installs a pinned `groundhog-open-rpc-spec@x.y.z` from the Cargo `thruput` registry and formats the JSON; bump the hardcoded script version when syncing to a newer RPC spec release.
 - After changing `specs/openrpc.json` or action request serialization, run `npm test`; `src/actions/contract.test.ts` should cover every supported OpenRPC method and validates emitted JSON-RPC params against the OpenRPC schemas.
 
 ## Examples
 
-- Examples run through `npm run example <name>` and expect a local `groundhog node` unless `GROUNDHOG_RPC_URL` is set.
+- Examples run through `npm run example <name>` and expect a local `thruput node` unless `GROUNDHOG_RPC_URL` is set.
 - Examples are curated onboarding paths, not one file per RPC method. Keep them focused on helping new users get running with the SDK quickly.
 - Repository examples intentionally import `../src/...` to exercise the checkout. Consumer-facing documentation must use `@groundhogchain/client` package imports.
 

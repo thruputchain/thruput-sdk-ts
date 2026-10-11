@@ -9,7 +9,7 @@ import { toHex0x } from "./actions/hex.js";
 /** Public Groundhog Devnet JSON-RPC endpoint. */
 export const DEVNET_RPC_URL = "https://rpc.thruput.network";
 
-/** Default JSON-RPC endpoint for `groundhog node`. */
+/** Default JSON-RPC endpoint for `thruput node`. */
 export const LOCALNET_RPC_URL = "http://127.0.0.1:9545";
 
 /** Optional feature exposed by a Groundhog cluster. */
@@ -104,7 +104,7 @@ export function devnet(
   });
 }
 
-/** Define a local `groundhog node` development network. */
+/** Define a local `thruput node` development network. */
 export function localnet(
   options: PredefinedClusterOptions = {},
 ): Cluster<readonly ["airdrop"]> & { readonly name: "localnet" } {

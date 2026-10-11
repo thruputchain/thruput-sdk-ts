@@ -52,7 +52,7 @@ These examples require an RPC deployment that supports
 Start a local node before running the Localnet examples:
 
 ```bash
-groundhog node
+thruput node
 ```
 
 Read an ordinary account's HOG balance through the generated ERC-20 binding.
@@ -99,7 +99,7 @@ To build a contract and generate TypeScript bindings with the CLI version pinned
 in [`scripts/integration-versions.json`](../scripts/integration-versions.json):
 
 ```bash
-groundhog build -p counter --bindings ts
+thruput build -p counter --bindings ts
 ```
 
 In a single-package project, omit `-p counter`. The build writes the RV32
