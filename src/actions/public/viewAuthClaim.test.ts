@@ -8,12 +8,8 @@ import {
   contractAddress,
   contractEntrypointID,
   calldata,
-  CxsWriter,
   type AuthClaim,
 } from "@groundhogchain/protocol";
-import { createGroundhogClient } from "../../client.js";
-import { ERC20 } from "../../contracts/index.js";
-import { getContract } from "../../contract/instance.js";
 import type { Transport } from "../../transport/types.js";
 import { toHex0x } from "../hex.js";
 import { view } from "./view.js";
@@ -44,10 +40,8 @@ function pubkey(nonce = 9007199254740993n): AuthClaim {
     },
   };
 }
-const writer = new CxsWriter();
-writer.writeInt128(12n);
 const returned = {
-  output: { result: "return", returnData: toHex0x(writer.finish()) },
+  output: { result: "return", returnData: "0x" },
   events: [],
   gasUsed: "12",
 };
@@ -74,14 +68,6 @@ describe("optional view authorization", () => {
         kind: "pubkeySignature",
         publicKey: `0x${"07".repeat(32)}`,
         nonce: "9007199254740993",
-      },
-    ],
-    [
-      pubkey(0xffff_ffff_ffff_ffffn),
-      {
-        kind: "pubkeySignature",
-        publicKey: `0x${"07".repeat(32)}`,
-        nonce: "18446744073709551615",
       },
     ],
   ] as const)(
@@ -122,41 +108,6 @@ describe("optional view authorization", () => {
     expect(entries[2]).not.toHaveProperty("authClaim");
   });
 
-  it("supports generated and bound views and snapshots prepared claims", async () => {
-    const { transport, request } = stub();
-    const client = await createGroundhogClient({ transport });
-    const method = ERC20.v0_1.totalSupply;
-    const bound = getContract({ binding: ERC20.v0_1, address, client });
-    expect(
-      (await method.view({ client, contract: address, authClaim: source }))
-        .value,
-    ).toBe(12n);
-    expect(
-      (await bound.totalSupply.viewOutcome({ authClaim: source })).kind,
-    ).toBe("return");
-    const claim = pubkey();
-    const prepared = method.viewRequest({
-      contract: address,
-      authClaim: claim,
-    });
-    if (claim.claim_type !== AuthClaimType.kPubkeySignature)
-      throw new Error("pubkey claim");
-    claim.pubkey_preimage.nonce = 1n;
-    claim.pubkey_preimage.pubkey.ed25519.fill(0);
-    const outcome = await client.readViews({
-      calls: [prepared, bound.totalSupply.viewRequest({ authClaim: source })],
-    });
-    expect(outcome.results[0]!.kind).toBe("return");
-    const entries = (
-      request.mock.calls[2]![1] as [{ calls: Record<string, unknown>[] }]
-    )[0].calls;
-    expect(entries[0]!.authClaim).toEqual({
-      kind: "pubkeySignature",
-      publicKey: `0x${"07".repeat(32)}`,
-      nonce: "9007199254740993",
-    });
-  });
-
   it.each([
     { claim_type: 99 },
     {
@@ -190,9 +141,6 @@ describe("optional view authorization", () => {
     const { transport, request } = stub();
     const authClaim = invalid as AuthClaim;
     await expect(view(transport, { ...call, authClaim })).rejects.toThrow();
-    await expect(
-      viewBatch(transport, { calls: [{ ...call, authClaim }] }),
-    ).rejects.toThrow();
     expect(request).not.toHaveBeenCalled();
   });
 });

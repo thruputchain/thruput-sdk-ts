@@ -287,16 +287,6 @@ times. Its configured deadline bounds the response wait, but running backend
 work can outlive it. Pass `{ signal }` as the second argument to cancel the
 client's wait.
 
-To test this path against a matching local RPC build, set `GROUNDHOG_RPC_URL`
-and `GROUNDHOG_RUNTIME_MANIFEST`, build the package, then run
-`node --test tests/integration/view-batch.test.mjs`.
-
-To qualify single-view freshness after a confirmed transfer, run
-`node --test tests/integration/view-freshness.test.mjs` against a matching RPC
-build. For a standalone gateway backed by a local node, set
-`GROUNDHOG_FUNDING_RPC_URL` to the embedded node's URL and use interval block
-production so gateway submissions are committed independently of embedded RPC.
-
 ### Event pages
 
 Use a generated event descriptor to fetch one page with typed topics and fields:
@@ -748,6 +738,10 @@ loopback port. The host must provide the devnode's native runtime libraries;
 CI uses the same Ubuntu 26.04 Namespace profile as the RPC repository. Tests
 import the built package and check connection, local funding, a HOG transfer, receipts,
 events, contract views, and RPC errors. `npm test` remains node-independent.
+
+The transfer workflow also checks grouped reads and view freshness. Matching
+wire-11.2.0 source builds additionally test an authenticated wallet simulation;
+the pinned wire-11.1.0 node skips that subtest.
 
 An explicit CLI overrides the release pin; tests verify that the RPC server
 reports that executable's version. The expected wire version defaults to

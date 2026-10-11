@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  AuthClaimType,
+  CryptographicScheme,
+  bitMap,
+  weight,
+  ed25519PublicKey,
+  type AuthClaim,
   CxsReader,
   CxsWriter,
   ExecResult,
@@ -524,7 +530,14 @@ describe("contract method views", () => {
     unknown
   >(definition());
 
-  it("returns decoded values and forwards arguments and caller", async () => {
+  it("returns decoded values and forwards arguments, caller, and auth", async () => {
+    const authClaim: AuthClaim = {
+      claim_type: AuthClaimType.kSourceAddressAuthData,
+      source_address_claim: {
+        allowed_keys: bitMap(5n),
+        required_weight: weight(3n),
+      },
+    };
     const client = clientReturning({
       output: {
         result: "return",
@@ -540,6 +553,7 @@ describe("contract method views", () => {
         client,
         contract,
         caller,
+        authClaim,
         args: { first: -2n, second: 5n },
       }),
     ).resolves.toEqual({
@@ -553,8 +567,31 @@ describe("contract method views", () => {
       contract,
       entrypoint,
       caller,
+      authClaim,
       calldata: expect.any(Uint8Array),
     });
+  });
+
+  it("snapshots authorization when preparing a view", () => {
+    const authClaim: AuthClaim = {
+      claim_type: AuthClaimType.kPubkeySignature,
+      pubkey_preimage: {
+        pubkey: {
+          scheme: CryptographicScheme.Ed25519,
+          ed25519: ed25519PublicKey(new Uint8Array(32).fill(7)),
+        },
+        nonce: 9007199254740993n,
+      },
+    };
+    const expected = structuredClone(authClaim);
+    const prepared = method.viewRequest({
+      contract,
+      args: { first: 1n, second: 2n },
+      authClaim,
+    });
+    authClaim.pubkey_preimage.nonce = 1n;
+    authClaim.pubkey_preimage.pubkey.ed25519.fill(0);
+    expect(prepared.request.authClaim).toEqual(expected);
   });
 
   it("the ergonomic view resolves successful return metadata", async () => {
