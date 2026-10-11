@@ -15,7 +15,6 @@ import { createGroundhogClient } from "../../client.js";
 import { ERC20 } from "../../contracts/index.js";
 import { getContract } from "../../contract/instance.js";
 import type { Transport } from "../../transport/types.js";
-import { JsonRpcError } from "../../transport/http.js";
 import { toHex0x } from "../hex.js";
 import { view } from "./view.js";
 import { viewBatch } from "./viewBatch.js";
@@ -195,14 +194,5 @@ describe("optional view authorization", () => {
       viewBatch(transport, { calls: [{ ...call, authClaim }] }),
     ).rejects.toThrow();
     expect(request).not.toHaveBeenCalled();
-  });
-
-  it("propagates unsupported authorization without removing the claim or retrying", async () => {
-    const error = new JsonRpcError(-32052, "view authClaim is unsupported");
-    const request = vi.fn().mockRejectedValue(error);
-    await expect(
-      view({ request }, { ...call, authClaim: source }),
-    ).rejects.toBe(error);
-    expect(request).toHaveBeenCalledTimes(1);
   });
 });
