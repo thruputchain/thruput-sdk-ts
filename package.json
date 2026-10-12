@@ -4,11 +4,11 @@
   "description": "TypeScript client for the Thruput blockchain",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/groundhogchain/client-ts.git"
+    "url": "git+https://github.com/thruputchain/client-ts.git"
   },
   "homepage": "https://docs.thruput.network/tools/typescript-sdk/",
   "bugs": {
-    "url": "https://github.com/groundhogchain/client-ts/issues"
+    "url": "https://github.com/thruputchain/client-ts/issues"
   },
   "keywords": [
     "thruput",

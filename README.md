@@ -573,12 +573,12 @@ signers this package does not drive.
 
 ## Examples
 
-- [`chain-tip.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/chain-tip.ts) connects to Devnet and reads its latest block.
-- [`transfer-hog.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/transfer-hog.ts) funds two pubkey accounts and transfers HOG on Devnet.
-- [`view-hog-balance.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/view-hog-balance.ts) reads an explicitly supplied public account’s HOG balance.
-- [`deploy-counter.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/deploy-counter.ts) deploys and calls a Counter contract through DevWallet.
+- [`chain-tip.ts`](https://github.com/thruputchain/client-ts/blob/main/examples/chain-tip.ts) connects to Devnet and reads its latest block.
+- [`transfer-hog.ts`](https://github.com/thruputchain/client-ts/blob/main/examples/transfer-hog.ts) funds two pubkey accounts and transfers HOG on Devnet.
+- [`view-hog-balance.ts`](https://github.com/thruputchain/client-ts/blob/main/examples/view-hog-balance.ts) reads an explicitly supplied public account’s HOG balance.
+- [`deploy-counter.ts`](https://github.com/thruputchain/client-ts/blob/main/examples/deploy-counter.ts) deploys and calls a Counter contract through DevWallet.
 
-See the [examples guide](https://github.com/groundhogchain/client-ts/blob/main/examples/README.md) for local-node setup and configuration.
+See the [examples guide](https://github.com/thruputchain/client-ts/blob/main/examples/README.md) for local-node setup and configuration.
 
 Use the root entrypoint for the client and common runtime APIs. Focused
 entrypoints are available for transactions, transports, contract runtime
@@ -778,12 +778,13 @@ replace its nonce or amount while the outcome is uncertain.
 
 ## Publishing the renamed packages
 
-The `@thruputchain/*` packages use GitHub Packages. The source repositories
-remain in `groundhogchain`. Before release, configure `THRUPUT_PACKAGES_TOKEN`
-for these workflows with read and write access to the new `thruputchain` packages. Publishing requires a
-classic token with `write:packages`; installing requires `read:packages`.
-Do not reuse a repository's `GITHUB_TOKEN` across organizations.
+The `@thruputchain/*` packages publish to GitHub Packages from repositories in
+`thruputchain`. Release workflows use the repository's `GITHUB_TOKEN` with
+`packages: write`.
 
-Publish the protocol packages first, then the client, then React. Keep the
-existing `@groundhogchain/*` releases intact. Downstream lockfiles must be
-refreshed against the published packages before their PRs merge.
+Publish the protocol packages first, then the client, then React. Grant the
+client and React repositories Actions read access to the protocol packages,
+and grant React read access to the client package. Refresh downstream lockfiles
+from the published artifacts before merging their PRs.
+
+Existing `@groundhogchain/*` releases retain their original identities.

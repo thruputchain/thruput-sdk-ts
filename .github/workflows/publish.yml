@@ -28,14 +28,9 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Check package publishing credential
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.THRUPUT_PACKAGES_TOKEN }}
-        run: test -n "$NODE_AUTH_TOKEN" || { echo "Set THRUPUT_PACKAGES_TOKEN with write:packages access to thruputchain"; exit 1; }
-
       - run: npm ci
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.THRUPUT_PACKAGES_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install contract binding generator
         run: |
@@ -93,4 +88,4 @@ jobs:
       - name: Publish package
         run: npm publish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.THRUPUT_PACKAGES_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
