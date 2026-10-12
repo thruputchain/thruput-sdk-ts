@@ -1,0 +1,67 @@
+name: Qualify published protocol access
+
+on:
+  push:
+    branches: [qualification/published-protocol-access-gh470]
+
+permissions:
+  packages: read
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "24"
+          registry-url: https://npm.pkg.github.com
+          scope: '@thruputchain'
+      - name: Install and load the published protocol family
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir "$RUNNER_TEMP/protocol-consumer"
+          cd "$RUNNER_TEMP/protocol-consumer"
+          export npm_config_cache="$RUNNER_TEMP/empty-protocol-cache"
+          npm init --yes
+          npm install --ignore-scripts --no-audit --no-fund --save-exact \
+            @thruputchain/xdr@0.15.0 @thruputchain/protocol@0.15.0 \
+            @thruputchain/rpc@0.15.0 @thruputchain/gateway@0.15.0 \
+            @thruputchain/contract-spec@0.15.0
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          import { createRequire } from 'node:module';
+          import { resolve } from 'node:path';
+          const require = createRequire(resolve('probe.cjs'));
+          let checked = 0;
+          for (const name of ['xdr', 'protocol', 'rpc', 'gateway', 'contract-spec']) {
+            const packageName = `@thruputchain/${name}`;
+            const pkg = JSON.parse(readFileSync(`node_modules/${packageName}/package.json`, 'utf8'));
+            assert.equal(pkg.name, packageName);
+            assert.equal(pkg.version, '0.15.0');
+            for (const subpath of Object.keys(pkg.exports)) {
+              const spec = packageName + subpath.slice(1);
+              for (const condition of ['import', 'require']) {
+                const mod = condition === 'import' ? await import(spec) : require(spec);
+                const names = Object.keys(mod).filter(key => key !== 'default' && key !== '__esModule');
+                assert.ok(names.length > 0, `${spec} (${condition}) exports nothing`);
+                if (name === 'xdr' && subpath === '.') {
+                  for (const symbol of ['Uint8Codec', 'FixedOpaqueCodec', 'VarOpaqueCodec']) {
+                    assert.ok(names.includes(symbol), `${spec} is missing ${symbol}`);
+                  }
+                }
+                if (name === 'protocol' && subpath === '.') {
+                  assert.ok(mod.HOG_ADDRESS instanceof Uint8Array);
+                  assert.equal(mod.HOG_ADDRESS.length, 32);
+                  assert.ok(mod.HOG_ADDRESS.every((byte, index) => byte === (index === 31 ? 1 : 0)));
+                }
+                checked++;
+              }
+            }
+          }
+          assert.ok(checked > 0);
+          console.log(`Published registry consumer passed: ${checked} ESM/CJS entrypoints.`);
+          JS
