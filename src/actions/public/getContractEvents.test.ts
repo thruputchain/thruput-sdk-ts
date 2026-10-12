@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
-import { contractAddress, CxsWriter } from "@groundhogchain/protocol";
-import { createGroundhogClient } from "../../client.js";
+import { contractAddress, CxsWriter } from "@thruputchain/protocol";
+import { createThruputClient } from "../../client.js";
 import { groundhog_erc20_if } from "../../contracts/index.js";
 import { ContractDecodeError } from "../../contract/errors.js";
 import { HttpTransport, JsonRpcError } from "../../transport/http.js";
@@ -53,7 +53,7 @@ function transportFor(
 describe("getContractEvents", () => {
   it("makes one request and preserves decoded values, identity, and page metadata", async () => {
     const request = vi.fn<Transport["request"]>().mockResolvedValue(rawPage);
-    const client = await createGroundhogClient({
+    const client = await createThruputClient({
       transport: transportFor(request),
     });
     const signal = new AbortController().signal;
@@ -189,7 +189,7 @@ describe("getContractEvents", () => {
           );
         }),
     });
-    const client = await createGroundhogClient({ transport });
+    const client = await createThruputClient({ transport });
     const pending = client.getContractEvents(query, {
       signal: controller.signal,
     });

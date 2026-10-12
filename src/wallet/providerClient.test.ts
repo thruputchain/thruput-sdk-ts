@@ -12,11 +12,11 @@ import {
   sha256Hash,
   toHex,
   type SignedTransaction,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import { assert, describe, expect, it, vi } from "vitest";
 import { Point, utils, verifyAsync } from "@noble/ed25519";
 import { sha512 } from "@noble/hashes/sha2.js";
-import { createGroundhogClient } from "../client.js";
+import { createThruputClient } from "../client.js";
 import { hashFromHex, toHex0x } from "../actions/hex.js";
 import { hashSignedTransaction } from "../derivation/transactionHash.js";
 import { PrivateKeySigner } from "../signers/privateKey.js";
@@ -76,7 +76,7 @@ async function setup(
   initialSession: WalletSession = { networkHash, accounts: [account] },
 ) {
   const transport = new MockTransport();
-  const client = await createGroundhogClient({ transport });
+  const client = await createThruputClient({ transport });
   const listeners = new Set<(session: WalletSession) => void>();
   let session = initialSession;
   let signedResult: SignTransactionResult | undefined;

@@ -1,10 +1,6 @@
-import {
-  CxsWriter,
-  contractAddress,
-  gasAmount,
-} from "@groundhogchain/protocol";
-import { toHex } from "@groundhogchain/protocol/utils";
-import { fixedBytes } from "@groundhogchain/xdr";
+import { CxsWriter, contractAddress, gasAmount } from "@thruputchain/protocol";
+import { toHex } from "@thruputchain/protocol/utils";
+import { fixedBytes } from "@thruputchain/xdr";
 import { describe, expect, it } from "vitest";
 import { buildNamedCodecs } from "../contract/codegen.js";
 import { decodeCalldata } from "../contract/encode.js";

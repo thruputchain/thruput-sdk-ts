@@ -1,4 +1,4 @@
-import type { ContractAddress } from "@groundhogchain/protocol";
+import type { ContractAddress } from "@thruputchain/protocol";
 import type {
   FundAccountRequest,
   FundAccountResponse,

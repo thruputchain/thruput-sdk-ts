@@ -19,8 +19,8 @@
  * operation through the entrypoint of the contract that does so, passing the
  * {@link SignedOperation} that {@link defineSignedOperation} produces.
  *
- * The bytes signed are defined by the Rust `groundhog-domain-separator`
- * crate's `SignedOp` and verified by the `groundhog-signed-op` component.
+ * The bytes signed are defined by the Rust `thruput-domain-separator`
+ * crate's `SignedOp` and verified by the `thruput-signed-op` component.
  *
  * @module
  */

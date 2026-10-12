@@ -8,7 +8,7 @@ import type {
   Uniquifier,
   AuthClaim,
   Contract,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 
 /**
  * Build an invocation object from already-typed protocol values.
@@ -34,7 +34,7 @@ export function createInvocation(params: {
  * Build an unsigned transaction from an invocation and authorization metadata.
  *
  * The returned transaction must be signed with {@link signTransaction} before it
- * can be submitted to a Groundhog JSON-RPC gateway.
+ * can be submitted to a Thruput JSON-RPC gateway.
  */
 export function createTransaction(params: {
   invocation: Invocation;

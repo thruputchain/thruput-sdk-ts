@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { deserialize } from "@groundhogchain/protocol";
-import { toHex } from "@groundhogchain/protocol/utils";
+import { deserialize } from "@thruputchain/protocol";
+import { toHex } from "@thruputchain/protocol/utils";
 import {
   ContractTypeKind,
   codec as contractSpecCodec,
   type ContractSpec,
-} from "@groundhogchain/contract-spec";
+} from "@thruputchain/contract-spec";
 import { deriveEntrypointID } from "../derivation/entrypointId.js";
 import {
   ERC20Permit,

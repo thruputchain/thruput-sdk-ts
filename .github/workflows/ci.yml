@@ -19,7 +19,7 @@ jobs:
       CARGO_REGISTRIES_THRUPUT_INDEX: "sparse+https://crates.thruput.network/api/v1/crates/"
       CARGO_REGISTRIES_THRUPUT_TOKEN: ${{ secrets.GROUNDHOG_REGISTRY_TOKEN }}
       CARGO_REGISTRY_GLOBAL_CREDENTIAL_PROVIDERS: cargo:token
-      THRUPUT_CLI_VERSION: "0.27.0"
+      THRUPUT_CLI_VERSION: "0.28.0"
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
@@ -27,7 +27,7 @@ jobs:
         with:
           node-version: 24
           registry-url: https://npm.pkg.github.com
-          scope: "@groundhogchain"
+          scope: "@thruputchain"
 
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # master as of 2026-06
         with:
@@ -42,7 +42,7 @@ jobs:
 
       - run: npm ci
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.THRUPUT_PACKAGES_TOKEN }}
 
       - name: Install contract binding generator
         if: steps.thruput-cli-cache.outputs.cache-hit != 'true'
@@ -76,11 +76,11 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           registry-url: https://npm.pkg.github.com
-          scope: "@groundhogchain"
+          scope: "@thruputchain"
 
       - run: npm ci
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.THRUPUT_PACKAGES_TOKEN }}
 
       - run: npm run test
 
@@ -95,7 +95,7 @@ jobs:
   # the floor we advertise in engines.node would break while CI stayed green.
   # This is not hypothetical — it caught our .cjs entry points failing below
   # 22.12.0, where require() of an ES module is still flagged and @noble/hashes
-  # reaches us through @groundhogchain/protocol's CJS build.
+  # reaches us through @thruputchain/protocol's CJS build.
   #
   # The floor cannot build itself (tsdown requires ^22.18.0 || >=24), so build
   # on the dev version, then swap the runtime down to the exact floor and
@@ -110,11 +110,11 @@ jobs:
         with:
           node-version: 24
           registry-url: https://npm.pkg.github.com
-          scope: "@groundhogchain"
+          scope: "@thruputchain"
 
       - run: npm ci
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.THRUPUT_PACKAGES_TOKEN }}
 
       - run: npm run build
 
@@ -123,11 +123,11 @@ jobs:
         with:
           node-version: 22.12.0
           registry-url: https://npm.pkg.github.com
-          scope: "@groundhogchain"
+          scope: "@thruputchain"
 
       - run: npm ci --omit=dev
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.THRUPUT_PACKAGES_TOKEN }}
 
       - run: node --version
       - run: npm run test:smoke
@@ -147,11 +147,11 @@ jobs:
         with:
           node-version: 27-nightly
           registry-url: https://npm.pkg.github.com
-          scope: "@groundhogchain"
+          scope: "@thruputchain"
 
       - run: npm ci
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.THRUPUT_PACKAGES_TOKEN }}
 
       - run: npm run test
       - run: npm run build
@@ -172,7 +172,7 @@ jobs:
         with:
           node-version: 24
           registry-url: https://npm.pkg.github.com
-          scope: "@groundhogchain"
+          scope: "@thruputchain"
 
       - name: Read integration toolchain pin
         run: |
@@ -199,11 +199,11 @@ jobs:
 
       - run: npm ci
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.THRUPUT_PACKAGES_TOKEN }}
 
       - run: npm run test:integration
         env:
-          GROUNDHOG_INTEGRATION_LOG_DIR: ${{ runner.temp }}/integration-logs
+          THRUPUT_INTEGRATION_LOG_DIR: ${{ runner.temp }}/integration-logs
 
       - name: Upload node diagnostics
         if: always()
@@ -227,7 +227,7 @@ jobs:
         with:
           node-version: 24
           registry-url: https://npm.pkg.github.com
-          scope: "@groundhogchain"
+          scope: "@thruputchain"
 
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # master as of 2026-06
         with:
@@ -235,7 +235,7 @@ jobs:
 
       - run: npm ci
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.THRUPUT_PACKAGES_TOKEN }}
 
       - name: Generate golden test vectors
         run: ./scripts/regen-test-vectors.sh

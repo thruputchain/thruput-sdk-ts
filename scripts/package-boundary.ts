@@ -6,17 +6,17 @@ import type {
   StorageCosts,
   ClusterHasCapability,
   Cluster,
-  ConnectedGroundhogClient,
+  ConnectedThruputClient,
   ContractMethod,
   ContractViewOutcome,
   ExecutableWalletClient,
-  GroundhogClient,
+  ThruputClient,
   WalletClient,
   WalletExecutionRequest,
   WalletInvocationAdapter,
-} from "@groundhogchain/client";
+} from "@thruputchain/client";
 import {
-  createGroundhogClient,
+  createThruputClient,
   HttpTransport,
   type HttpBatchOptions,
   createPubkeyAccount,
@@ -60,23 +60,23 @@ import {
   type Invocation,
   type Transaction,
   type SignedTransaction,
-} from "@groundhogchain/client";
-import type { Transport } from "@groundhogchain/client/transport";
-import { ERC20 as BatchERC20Versions } from "@groundhogchain/client/contracts";
+} from "@thruputchain/client";
+import type { Transport } from "@thruputchain/client/transport";
+import { ERC20 as BatchERC20Versions } from "@thruputchain/client/contracts";
 import {
   getContractEvents,
   getChainConfig,
   iterateEventPages,
   readViews,
-} from "@groundhogchain/client/actions";
+} from "@thruputchain/client/actions";
 
 async function typedSnapshotBoundary(
   transport: Transport,
   address: ContractAddress,
-  authClaim: import("@groundhogchain/protocol").AuthClaim,
+  authClaim: import("@thruputchain/protocol").AuthClaim,
 ) {
   const BatchERC20 = BatchERC20Versions.v0_1;
-  const client = await createGroundhogClient({ transport });
+  const client = await createThruputClient({ transport });
   const bound = getContract({ binding: BatchERC20, address, client });
   const single = await BatchERC20.totalSupply.view({
     authClaim,
@@ -148,8 +148,8 @@ import {
   ContractDecodeError,
   defineContractMethod,
   fixedBytes,
-} from "@groundhogchain/client/contract";
-import type { SignedToken } from "@groundhogchain/client/contract";
+} from "@thruputchain/client/contract";
+import type { SignedToken } from "@thruputchain/client/contract";
 import {
   ERC20,
   ERC20Metadata,
@@ -158,21 +158,21 @@ import {
   decodeERC20Event,
   default_wallet,
   groundhog_erc20_if,
-} from "@groundhogchain/client/contracts";
-import type { BitMap, Weight } from "@groundhogchain/protocol";
-import type { Signer } from "@groundhogchain/client/signers";
+} from "@thruputchain/client/contracts";
+import type { BitMap, Weight } from "@thruputchain/protocol";
+import type { Signer } from "@thruputchain/client/signers";
 import {
   SignedOp,
   defineSignedOperation,
   randomNonce,
   signedOperationPreimage,
-} from "@groundhogchain/client/signed-op";
+} from "@thruputchain/client/signed-op";
 import type {
   ContractTypeSelector,
   Operation,
   SignedOperation,
   SignedOperationType,
-} from "@groundhogchain/client/signed-op";
+} from "@thruputchain/client/signed-op";
 import {
   discoverWalletProviders,
   registerWalletProvider,
@@ -181,15 +181,15 @@ import {
   type WalletProvider,
   type SignTransactionResult,
   type SubmitTransactionResult,
-} from "@groundhogchain/client/provider";
+} from "@thruputchain/client/provider";
 import {
   createProviderWalletClient,
   type ProviderWalletClient,
   type WalletAccount as LocalWalletAccount,
-} from "@groundhogchain/client/wallet";
+} from "@thruputchain/client/wallet";
 
 async function eventPagesBoundary(
-  client: GroundhogClient,
+  client: ThruputClient,
   transport: Transport,
   address: ContractAddress,
   signal: AbortSignal,
@@ -212,7 +212,7 @@ async function eventPagesBoundary(
     filters: [groundhog_erc20_if.v0_1.events.TransferEvent.filter(query)],
     cursor: page.cursor,
   };
-  const pages: AsyncIterable<import("@groundhogchain/client").EventPage> =
+  const pages: AsyncIterable<import("@thruputchain/client").EventPage> =
     client.iterateEventPages(rawQuery, { signal });
   const directPages: typeof pages = iterateEventPages(transport, rawQuery, {
     signal,
@@ -238,7 +238,7 @@ async function eventPagesBoundary(
 void eventPagesBoundary;
 
 async function chainConfigBoundary(
-  client: GroundhogClient,
+  client: ThruputClient,
   transport: Transport,
 ) {
   const config: ChainConfig = await client.getChainConfig();
@@ -257,7 +257,7 @@ void chainConfigBoundary;
 
 const units: bigint = parseUnits("12.05", 2);
 const batchOptions: HttpBatchOptions = { maxSize: 100, waitMs: 0 };
-const subpathBatchOptions: import("@groundhogchain/client/transport").HttpBatchOptions =
+const subpathBatchOptions: import("@thruputchain/client/transport").HttpBatchOptions =
   batchOptions;
 const batchedTransport: Transport = new HttpTransport("https://rpc.example", {
   batch: subpathBatchOptions,
@@ -287,15 +287,15 @@ const primitiveValues: [
   invokeFlagSet(BigInt(InvokeFlag.ReadOnly)),
 ];
 const protocolValues: [
-  import("@groundhogchain/protocol").ContractAddress,
-  import("@groundhogchain/protocol").BlockHeight,
-  import("@groundhogchain/protocol").SHA256Hash,
-  import("@groundhogchain/protocol").NetworkHash,
-  import("@groundhogchain/protocol").GasAmount,
-  import("@groundhogchain/protocol").ContractEntrypointID,
-  import("@groundhogchain/protocol").Calldata,
-  import("@groundhogchain/protocol").TimePoint,
-  import("@groundhogchain/protocol").InvokeFlagSet,
+  import("@thruputchain/protocol").ContractAddress,
+  import("@thruputchain/protocol").BlockHeight,
+  import("@thruputchain/protocol").SHA256Hash,
+  import("@thruputchain/protocol").NetworkHash,
+  import("@thruputchain/protocol").GasAmount,
+  import("@thruputchain/protocol").ContractEntrypointID,
+  import("@thruputchain/protocol").Calldata,
+  import("@thruputchain/protocol").TimePoint,
+  import("@thruputchain/protocol").InvokeFlagSet,
 ] = primitiveValues;
 const clientValues: typeof primitiveValues = protocolValues;
 void clientValues;
@@ -304,16 +304,16 @@ function transactionTypeIdentity(
   values: [Invocation, Transaction, SignedTransaction, ExecResult],
 ) {
   const protocolTypes: [
-    import("@groundhogchain/protocol").Invocation,
-    import("@groundhogchain/protocol").Transaction,
-    import("@groundhogchain/protocol").SignedTransaction,
-    import("@groundhogchain/protocol").ExecResult,
+    import("@thruputchain/protocol").Invocation,
+    import("@thruputchain/protocol").Transaction,
+    import("@thruputchain/protocol").SignedTransaction,
+    import("@thruputchain/protocol").ExecResult,
   ] = values;
   const clientTypes: typeof values = protocolTypes;
   return clientTypes;
 }
 void transactionTypeIdentity;
-const executionResult: import("@groundhogchain/protocol").ExecResult =
+const executionResult: import("@thruputchain/protocol").ExecResult =
   ExecResult.ExecResultOK;
 void executionResult;
 const readErrorKind: ReadErrorKind = classifyReadError(
@@ -331,7 +331,7 @@ async function typedExecutionBoundary(
   wallet: ProviderWalletClient,
   address: ContractAddress,
   gas: GasAmount,
-  client: GroundhogClient,
+  client: ThruputClient,
 ) {
   const transfer = ERC20.v0_1.transfer.call({
     contract: address,
@@ -390,7 +390,7 @@ async function typedExecutionBoundary(
 void typedExecutionBoundary;
 
 async function providerBoundaryTypecheck(
-  client: GroundhogClient,
+  client: ThruputClient,
   provider: WalletProvider,
   invocation: Invocation,
   persist: (signed: SignTransactionResult) => Promise<void>,
@@ -434,7 +434,7 @@ async function providerBoundaryTypecheck(
 }
 
 async function packageBoundaryTypecheck(
-  client: GroundhogClient,
+  client: ThruputClient,
   contract: ContractAddress,
   recipient: ContractAddress,
   gasLimit: GasAmount,
@@ -583,13 +583,13 @@ function clusterBoundaryTypecheck(
     "airdrop"
   > = false;
   const customCapability: "airdrop" = custom.capabilities[0];
-  const connected: Promise<ConnectedGroundhogClient<typeof dev>> =
-    createGroundhogClient({ cluster: dev, transport });
-  const defaultConnected: Promise<ConnectedGroundhogClient<typeof dev>> =
-    createGroundhogClient({ cluster: dev });
+  const connected: Promise<ConnectedThruputClient<typeof dev>> =
+    createThruputClient({ cluster: dev, transport });
+  const defaultConnected: Promise<ConnectedThruputClient<typeof dev>> =
+    createThruputClient({ cluster: dev });
 
   connected.then((client) => client.requestAirdrop({ recipient }));
-  createGroundhogClient({ cluster: production, transport }).then((client) => {
+  createThruputClient({ cluster: production, transport }).then((client) => {
     // @ts-expect-error Mainnet clients do not expose airdrop actions.
     client.requestAirdrop({ recipient });
   });
@@ -605,7 +605,7 @@ function clusterBoundaryTypecheck(
 }
 
 function walletBoundaryTypecheck(
-  client: GroundhogClient,
+  client: ThruputClient,
   address: ContractAddress,
   signer: Signer,
   allowedKeys: BitMap,
@@ -620,7 +620,7 @@ function walletBoundaryTypecheck(
     allowedKeys,
     requiredWeight,
   });
-  const wallet: WalletClient<GroundhogClient, typeof account> =
+  const wallet: WalletClient<ThruputClient, typeof account> =
     createWalletClient({ client, account, networkHash });
 
   wallet.getBalance();
@@ -645,7 +645,7 @@ function walletBoundaryTypecheck(
 
   const pubkeyAccount = createPubkeyAccount({ signer });
   const pubkeyWallet: ExecutableWalletClient<
-    GroundhogClient,
+    ThruputClient,
     typeof pubkeyAccount
   > = createWalletClient({ client, account: pubkeyAccount, networkHash });
   pubkeyWallet.prepareExecution({

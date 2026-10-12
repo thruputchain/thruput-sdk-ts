@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { once } from "node:events";
 import openrpcSpec from "../../specs/openrpc.json";
 import {
-  GroundhogRpcErrorCode,
+  ThruputRpcErrorCode,
   HttpRequestError,
   HttpResponseError,
   HttpTransport,
@@ -47,9 +47,9 @@ async function withDelayedBody(run: (url: string) => Promise<void>) {
   }
 }
 
-describe("GroundhogRpcErrorCode", () => {
+describe("ThruputRpcErrorCode", () => {
   it("matches specs/openrpc.json error codes", () => {
-    expect(GroundhogRpcErrorCode).toEqual(documentedErrorCodes());
+    expect(ThruputRpcErrorCode).toEqual(documentedErrorCodes());
   });
 });
 
@@ -175,7 +175,7 @@ describe("HttpTransport", () => {
           jsonrpc: "2.0",
           id: 1,
           error: {
-            code: GroundhogRpcErrorCode.BackendUnavailable,
+            code: ThruputRpcErrorCode.BackendUnavailable,
             message: "backend unavailable",
           },
         }),
@@ -189,7 +189,7 @@ describe("HttpTransport", () => {
     } catch (error) {
       expect(error).toBeInstanceOf(JsonRpcError);
       expect(error).toMatchObject({
-        code: GroundhogRpcErrorCode.BackendUnavailable,
+        code: ThruputRpcErrorCode.BackendUnavailable,
         method: "groundhog_version",
       });
     }

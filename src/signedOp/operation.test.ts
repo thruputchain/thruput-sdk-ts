@@ -5,15 +5,15 @@ import {
   contractAddress,
   networkHash,
   sha256Hash,
-} from "@groundhogchain/protocol";
-import { toHex } from "@groundhogchain/protocol/utils";
+} from "@thruputchain/protocol";
+import { toHex } from "@thruputchain/protocol/utils";
 import {
   ContractTypeDefKind,
   ContractTypeKind,
   contractSpecString,
   type ContractTypeDef,
   type ContractSpecId,
-} from "@groundhogchain/contract-spec";
+} from "@thruputchain/contract-spec";
 import { PrivateKeySigner } from "../signers/privateKey.js";
 import type { Signer } from "../signers/types.js";
 import { defineSignedOperation, randomNonce } from "./operation.js";

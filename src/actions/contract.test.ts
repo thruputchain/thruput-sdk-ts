@@ -29,7 +29,7 @@ import {
   weight,
   sha256Hash,
   networkHash,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import { getChainTip } from "./public/getChainTip.js";
 import { getBalance } from "./public/getBalance.js";
 import { getAddressAuthData } from "./public/getAddressAuthData.js";
@@ -57,11 +57,11 @@ import { createInvocation, createTransaction } from "../transaction/build.js";
 import { signTransaction } from "../transaction/sign.js";
 import type { Transport } from "../transport/types.js";
 import {
-  GroundhogRpcErrorCode,
+  ThruputRpcErrorCode,
   HttpTransport,
   JsonRpcError,
 } from "../transport/http.js";
-import type { SHA256Hash, SignedTransaction } from "@groundhogchain/protocol";
+import type { SHA256Hash, SignedTransaction } from "@thruputchain/protocol";
 
 // ---- ajv setup ---------------------------------------------------------
 
@@ -489,7 +489,7 @@ describe("contract tests against specs/openrpc.json", () => {
           jsonrpc: "2.0",
           id: request.id,
           error: {
-            code: GroundhogRpcErrorCode.LocalFundingUnresolved,
+            code: ThruputRpcErrorCode.LocalFundingUnresolved,
             message: "Local funding outcome is unresolved",
             data: evidence,
           },
@@ -504,7 +504,7 @@ describe("contract tests against specs/openrpc.json", () => {
     });
     await expect(result).rejects.toBeInstanceOf(JsonRpcError);
     await expect(result).rejects.toMatchObject({
-      code: GroundhogRpcErrorCode.LocalFundingUnresolved,
+      code: ThruputRpcErrorCode.LocalFundingUnresolved,
       method: "groundhog_fundAccount",
       data: evidence,
     });

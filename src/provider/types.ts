@@ -51,7 +51,7 @@ export interface WalletCapabilities {
  * approvals on session changes or disconnect and recheck authorization before signing
  * or broadcasting. Page-supplied parameters cannot establish the caller's origin.
  *
- * @see https://docs.groundhog.dev/tools/wallet-provider/
+ * @see https://docs.thruput.network/tools/wallet-provider/
  */
 export type ProviderRequest =
   | { method: "connect" }
@@ -92,8 +92,8 @@ export interface SubmitTransactionResult {
  * Framework- and transport-neutral, origin-scoped wallet interface.
  * Validate unknown results with the matching parser before using them.
  *
- * @see https://docs.groundhog.dev/tools/wallet-provider/
- * @see https://docs.groundhog.dev/tools/wallet-integration/
+ * @see https://docs.thruput.network/tools/wallet-provider/
+ * @see https://docs.thruput.network/tools/wallet-integration/
  */
 export interface WalletProvider {
   info: WalletProviderInfo;

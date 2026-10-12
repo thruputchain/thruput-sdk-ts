@@ -8,7 +8,7 @@ import {
   protocol,
   timePoint,
   validatorID,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import type { BlockInfo } from "../../types/rpc.js";
 import { fromHex0x, hashFromHex } from "../hex.js";
 import { parseHeight, parseU64, serializeHeight } from "../decimal.js";

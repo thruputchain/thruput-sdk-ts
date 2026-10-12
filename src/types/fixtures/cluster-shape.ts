@@ -1,17 +1,17 @@
 import {
-  createGroundhogClient,
+  createThruputClient,
   defineCluster,
   devnet,
   localnet,
   mainnet,
   type ClusterHasCapability,
   type Cluster,
-  type ConnectedGroundhogClient,
+  type ConnectedThruputClient,
   type AirdropExecutionStatus,
   type AirdropResponse,
 } from "../../index.js";
 import type { Transport } from "../../transport/types.js";
-import type { ContractAddress } from "@groundhogchain/protocol";
+import type { ContractAddress } from "@thruputchain/protocol";
 
 function assertClusterTypes(
   transport: Transport,
@@ -53,19 +53,19 @@ function assertClusterTypes(
   > = false;
   const customCapability: "airdrop" = privateCluster.capabilities[0];
 
-  const connected: Promise<ConnectedGroundhogClient<typeof devnetCluster>> =
-    createGroundhogClient({ cluster: devnetCluster, transport });
+  const connected: Promise<ConnectedThruputClient<typeof devnetCluster>> =
+    createThruputClient({ cluster: devnetCluster, transport });
   const defaultConnected: Promise<
-    ConnectedGroundhogClient<typeof devnetCluster>
-  > = createGroundhogClient({ cluster: devnetCluster });
-  const unqualified = createGroundhogClient({ transport });
+    ConnectedThruputClient<typeof devnetCluster>
+  > = createThruputClient({ cluster: devnetCluster });
+  const unqualified = createThruputClient({ transport });
   // @ts-expect-error Genesis identity cannot be validated by the client.
-  createGroundhogClient({ cluster: legacyCluster, transport });
+  createThruputClient({ cluster: legacyCluster, transport });
 
   // @ts-expect-error Mainnet declares no optional capabilities.
   mainnetCluster.capabilities[0];
   // @ts-expect-error Unknown capabilities cannot be declared.
-  createGroundhogClient({
+  createThruputClient({
     cluster: {
       name: "invalid",
       rpcUrl: "https://rpc.example.com",
@@ -76,18 +76,16 @@ function assertClusterTypes(
   unqualified.then((client) => client.cluster);
 
   connected.then((client) => client.requestAirdrop({ recipient }));
-  createGroundhogClient({ cluster: localnetCluster, transport }).then(
-    (client) => client.requestAirdrop({ recipient }),
-  );
-  createGroundhogClient({ cluster: privateCluster, transport }).then((client) =>
+  createThruputClient({ cluster: localnetCluster, transport }).then((client) =>
     client.requestAirdrop({ recipient }),
   );
-  createGroundhogClient({ cluster: mainnetCluster, transport }).then(
-    (client) => {
-      // @ts-expect-error Mainnet clients do not expose airdrop actions.
-      client.requestAirdrop({ recipient });
-    },
+  createThruputClient({ cluster: privateCluster, transport }).then((client) =>
+    client.requestAirdrop({ recipient }),
   );
+  createThruputClient({ cluster: mainnetCluster, transport }).then((client) => {
+    // @ts-expect-error Mainnet clients do not expose airdrop actions.
+    client.requestAirdrop({ recipient });
+  });
 
   void devnetCapability;
   void localnetSupportsAirdrop;

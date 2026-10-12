@@ -6,14 +6,14 @@ import {
   codec,
   Uint128Codec,
   Uint32Codec,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import {
   contractSpecString,
   ContractTypeKind,
   ContractTypeDefKind,
   ContractUnionCaseKind,
   type ContractSpecId,
-} from "@groundhogchain/contract-spec";
+} from "@thruputchain/contract-spec";
 import type { ContractSpec, ContractTypeDef } from "./spec.js";
 import { specIdKey } from "./spec.js";
 import { encodeCalldata, decodeCalldata } from "./encode.js";

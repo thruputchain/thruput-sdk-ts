@@ -5,8 +5,8 @@ import {
   type ContractAddress,
   type GasAmount,
   type Invocation,
-} from "@groundhogchain/protocol";
-import { fixedBytes } from "@groundhogchain/xdr";
+} from "@thruputchain/protocol";
+import { fixedBytes } from "@thruputchain/xdr";
 import { bytesEqual } from "../contract/event.js";
 import { DefaultWallet } from "../contracts/default_wallet.js";
 import { DevWallet } from "../contracts/dev_wallet.js";

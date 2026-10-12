@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { runInNewContext } from "node:vm";
 import { classifyReadError } from "./readError.js";
 import {
-  GroundhogRpcErrorCode,
+  ThruputRpcErrorCode,
   HttpRequestError,
   HttpResponseError,
   JsonRpcError,
@@ -29,16 +29,16 @@ describe("read error classification", () => {
     },
   );
   it.each([
-    [GroundhogRpcErrorCode.BackendUnavailable, "transient"],
-    [GroundhogRpcErrorCode.ViewHeightUnavailable, "transient"],
-    [GroundhogRpcErrorCode.BackendTimeout, "transient"],
-    [GroundhogRpcErrorCode.Overloaded, "transient"],
-    [GroundhogRpcErrorCode.InvalidParams, "permanent"],
-    [GroundhogRpcErrorCode.TxInvalid, "permanent"],
-    [GroundhogRpcErrorCode.TxRejected, "permanent"],
-    [GroundhogRpcErrorCode.NotImplemented, "permanent"],
-    [GroundhogRpcErrorCode.TxNotFound, "unknown"],
-    [GroundhogRpcErrorCode.BlockNotFound, "unknown"],
+    [ThruputRpcErrorCode.BackendUnavailable, "transient"],
+    [ThruputRpcErrorCode.ViewHeightUnavailable, "transient"],
+    [ThruputRpcErrorCode.BackendTimeout, "transient"],
+    [ThruputRpcErrorCode.Overloaded, "transient"],
+    [ThruputRpcErrorCode.InvalidParams, "permanent"],
+    [ThruputRpcErrorCode.TxInvalid, "permanent"],
+    [ThruputRpcErrorCode.TxRejected, "permanent"],
+    [ThruputRpcErrorCode.NotImplemented, "permanent"],
+    [ThruputRpcErrorCode.TxNotFound, "unknown"],
+    [ThruputRpcErrorCode.BlockNotFound, "unknown"],
     [-32603, "unknown"],
   ] as const)("classifies RPC %s as %s", (code, expected) => {
     expect(classifyReadError(new JsonRpcError(code, "failure"))).toBe(expected);

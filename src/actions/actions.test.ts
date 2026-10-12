@@ -11,7 +11,7 @@ import {
   ExecResult,
   sha256Hash,
   networkHash,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import { PrivateKeySigner } from "../signers/privateKey.js";
 import { createInvocation, createTransaction } from "../transaction/build.js";
 import { signTransaction } from "../transaction/sign.js";

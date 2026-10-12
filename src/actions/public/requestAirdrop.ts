@@ -1,4 +1,4 @@
-import type { ContractAddress, SHA256Hash } from "@groundhogchain/protocol";
+import type { ContractAddress, SHA256Hash } from "@thruputchain/protocol";
 import type {
   Transport,
   TransportRequestOptions,

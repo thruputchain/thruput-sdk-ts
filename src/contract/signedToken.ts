@@ -1,4 +1,4 @@
-import type { XdrCodec } from "@groundhogchain/xdr";
+import type { XdrCodec } from "@thruputchain/xdr";
 
 declare const signedTokenPreimageBrand: unique symbol;
 

@@ -9,7 +9,7 @@ import {
   contractEntrypointID,
   calldata,
   type AuthClaim,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import type { Transport } from "../../transport/types.js";
 import { toHex0x } from "../hex.js";
 import { view } from "./view.js";

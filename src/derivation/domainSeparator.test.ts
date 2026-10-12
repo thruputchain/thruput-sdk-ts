@@ -6,8 +6,8 @@ import {
   fromHex,
   serializeCxs,
   toHex,
-} from "@groundhogchain/protocol";
-import type { PubkeyAccountPreimage } from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
+import type { PubkeyAccountPreimage } from "@thruputchain/protocol";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -30,7 +30,7 @@ interface VectorFile {
 }
 
 // Generated, not committed: CI regenerates from the published
-// groundhog-test-vectors crate; run scripts/regen-test-vectors.sh locally.
+// thruput-test-vectors crate; run scripts/regen-test-vectors.sh locally.
 const vectorsPath = fileURLToPath(
   new URL("../../specs/test-vectors/domain-separator.json", import.meta.url),
 );

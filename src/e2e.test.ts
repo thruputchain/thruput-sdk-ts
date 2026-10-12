@@ -13,7 +13,7 @@ import {
   toHex,
   sha256Hash,
   networkHash,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import { deriveEntrypointID } from "./derivation/entrypointId.js";
 import { hashSignedTransaction } from "./derivation/transactionHash.js";
 import {
@@ -21,7 +21,7 @@ import {
   ContractTypeKind,
   ContractTypeDefKind,
   type ContractSpecId,
-} from "@groundhogchain/contract-spec";
+} from "@thruputchain/contract-spec";
 import { PrivateKeySigner } from "./signers/privateKey.js";
 import { createInvocation, createTransaction } from "./transaction/build.js";
 import { signTransaction } from "./transaction/sign.js";
@@ -34,7 +34,7 @@ import { encodeCalldata, decodeCalldata } from "./contract/encode.js";
 import { buildNamedCodecs } from "./contract/codegen.js";
 import type { ContractSpec } from "./contract/spec.js";
 import { MockTransport } from "./transport/mock.js";
-import { createGroundhogClient } from "./client.js";
+import { createThruputClient } from "./client.js";
 import { ERC20 } from "./contracts/erc20.js";
 
 /** A spec id for a type declared at the root of a `fixture` crate. */
@@ -189,7 +189,7 @@ describe("end-to-end: build, sign, serialize an ERC20 transfer", () => {
 describe("end-to-end: full pipeline via MockTransport client", () => {
   it("builds ERC20 transfer, sends, and retrieves receipt via client", async () => {
     const transport = new MockTransport();
-    const client = await createGroundhogClient({ transport });
+    const client = await createThruputClient({ transport });
 
     // Initial chain tip should be at height 0
     const initialTip = await client.getChainTip();

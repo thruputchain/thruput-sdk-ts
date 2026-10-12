@@ -3,8 +3,8 @@ import {
   gasAmount,
   type GasAmount,
   type SHA256Hash,
-} from "@groundhogchain/protocol";
-import type { CoreGroundhogClient } from "../client.js";
+} from "@thruputchain/protocol";
+import type { CoreThruputClient } from "../client.js";
 import type { TransactionReceipt } from "../types/rpc.js";
 import type { WaitForTransactionReceiptOptions } from "../actions/public/waitForTransactionReceipt.js";
 import type { ContractCall } from "../contract/method.js";
@@ -58,7 +58,7 @@ export class TransactionObservationError extends Error {
  * submission failures are conservatively treated as potentially broadcast.
  */
 export async function submitAndObserve(
-  client: Pick<CoreGroundhogClient, "waitForTransactionReceipt">,
+  client: Pick<CoreThruputClient, "waitForTransactionReceipt">,
   txHash: SHA256Hash,
   submit: () => Promise<unknown>,
   options?: WaitForTransactionReceiptOptions,
@@ -81,7 +81,7 @@ export async function submitAndObserve(
 
 /** Wait for commitment and require successful execution. */
 export async function waitForExecution(
-  client: Pick<CoreGroundhogClient, "waitForTransactionReceipt">,
+  client: Pick<CoreThruputClient, "waitForTransactionReceipt">,
   hash: SHA256Hash,
   options?: WaitForTransactionReceiptOptions,
 ): Promise<ExecutionResult> {

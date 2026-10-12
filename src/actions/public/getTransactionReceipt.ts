@@ -1,5 +1,5 @@
-import type { SHA256Hash } from "@groundhogchain/protocol";
-import { ExecResult } from "@groundhogchain/protocol";
+import type { SHA256Hash } from "@thruputchain/protocol";
+import { ExecResult } from "@thruputchain/protocol";
 import type {
   Transport,
   TransportRequestOptions,

@@ -28,16 +28,20 @@ import { readFileSync, writeFileSync } from "node:fs";
 const path = process.argv[2];
 const importPath = process.argv[3];
 const source = readFileSync(path, "utf8");
-const moduleSpecifier = '"@groundhogchain/client/contract"';
-const matches = source.split(moduleSpecifier).length - 1;
+// Accept the published CLI and its rename companion, but require one runtime import.
+const candidates = ['"@groundhogchain/client/contract"', '"@thruputchain/client/contract"'];
+const matches = candidates.reduce((count, specifier) => count + source.split(specifier).length - 1, 0);
+const moduleSpecifier = candidates.find((specifier) => source.includes(specifier));
 
-if (matches !== 1) {
+if (!moduleSpecifier || matches !== 1) {
   throw new Error(
     `Expected exactly one ${moduleSpecifier} import in ${path}, found ${matches}`,
   );
 }
 
-writeFileSync(path, source.replace(moduleSpecifier, JSON.stringify(importPath)));
+writeFileSync(path, source.replace(moduleSpecifier, JSON.stringify(importPath))
+  .replaceAll('"@groundhogchain/protocol', '"@thruputchain/protocol')
+  .replaceAll('"@groundhogchain/contract-spec', '"@thruputchain/contract-spec'));
 NODE
   npx prettier --write "$generated" >/dev/null
 }

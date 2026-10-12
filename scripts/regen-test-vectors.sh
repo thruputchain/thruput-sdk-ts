@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cargo install groundhog-test-vectors@0.38.0 --registry thruput --locked
+cargo install thruput-test-vectors@0.51.0 --registry thruput --locked
 VECTORS_DIR="$(git rev-parse --show-toplevel)/specs/test-vectors"
 mkdir -p "$VECTORS_DIR"
-groundhog-test-vectors domain-separator > "$VECTORS_DIR/domain-separator.json"
-groundhog-test-vectors entrypoint-id > "$VECTORS_DIR/entrypoint-id.json"
-groundhog-test-vectors signed-op > "$VECTORS_DIR/signed-op.json"
+thruput-test-vectors domain-separator > "$VECTORS_DIR/domain-separator.json"
+thruput-test-vectors entrypoint-id > "$VECTORS_DIR/entrypoint-id.json"
+thruput-test-vectors signed-op > "$VECTORS_DIR/signed-op.json"
 # Run prettier so the committed snapshot matches the rest of the repo's
 # formatting and `npm run format:check` stays clean across regens.
 npx --no-install prettier --write "$VECTORS_DIR"/*.json >/dev/null

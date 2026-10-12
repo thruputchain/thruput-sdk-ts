@@ -6,7 +6,7 @@ import {
   deserialize,
   gasAmount,
   type Invocation,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import { describe, expect, it } from "vitest";
 import { buildNamedCodecs } from "../contract/codegen.js";
 import { decodeCalldata } from "../contract/encode.js";

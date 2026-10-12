@@ -1,5 +1,5 @@
 /** Contract spec types consumed by SDK calldata helpers and generated bindings. */
-import type { ContractSpecId } from "@groundhogchain/contract-spec";
+import type { ContractSpecId } from "@thruputchain/contract-spec";
 
 export type {
   ContractSpec,
@@ -19,7 +19,7 @@ export type {
   ContractExceptionType,
   ContractSpecString,
   ContractSpecId,
-} from "@groundhogchain/contract-spec";
+} from "@thruputchain/contract-spec";
 
 /** Contract spec enum discriminants used when inspecting parsed specs. */
 export {
@@ -27,7 +27,7 @@ export {
   ContractTypeKind,
   ContractTypeDefKind,
   ContractUnionCaseKind,
-} from "@groundhogchain/contract-spec";
+} from "@thruputchain/contract-spec";
 
 /**
  * Lookup key for a named type: every segment of its spec id.
@@ -43,7 +43,7 @@ export function specIdKey(id: ContractSpecId): string {
 
 /**
  * Render a spec id for diagnostics as `module_path::declared (crate@major)`,
- * the shape the Groundhog CLI and spec tool print.
+ * the shape the Thruput CLI and spec tool print.
  */
 export function formatSpecId(
   id: Readonly<Record<keyof ContractSpecId, string>>,

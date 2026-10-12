@@ -3,16 +3,16 @@ import {
   calldata,
   contractAddress,
   contractEntrypointID,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import { ERC20 as ERC20Versions } from "../../contracts/index.js";
-import { createGroundhogClient } from "../../client.js";
+import { createThruputClient } from "../../client.js";
 import { getContract } from "../../contract/instance.js";
 import type { Transport } from "../../transport/types.js";
 import { JsonRpcError } from "../../transport/http.js";
 import { viewBatch, ViewBatchResultError } from "./viewBatch.js";
 import { ContractDecodeError } from "../../contract/errors.js";
 import { readViews } from "./readViews.js";
-import { CxsWriter } from "@groundhogchain/xdr";
+import { CxsWriter } from "@thruputchain/xdr";
 import { toHex0x } from "../hex.js";
 
 const ERC20 = ERC20Versions.v0_1;
@@ -87,7 +87,7 @@ describe("shared-snapshot reads", () => {
         fault,
       ],
     });
-    const client = await createGroundhogClient({ transport });
+    const client = await createThruputClient({ transport });
     const result = await client.readViews({
       calls: [
         ERC20.totalSupply.viewRequest({ contract: address }),
@@ -121,7 +121,7 @@ describe("shared-snapshot reads", () => {
     const caller = contractAddress(address.slice());
     const owner = contractAddress(address.slice());
     const { transport } = stub({ height: "1", results: [returned] });
-    const client = await createGroundhogClient({ transport });
+    const client = await createThruputClient({ transport });
     const bound = getContract({ binding: ERC20, address: contract, client });
     const prepared = bound.getBalanceOf.viewRequest({
       caller,

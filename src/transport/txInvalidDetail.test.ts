@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { GroundhogRpcErrorCode, JsonRpcError } from "./http.js";
+import { ThruputRpcErrorCode, JsonRpcError } from "./http.js";
 import { txInvalidDetail } from "./txInvalidDetail.js";
 
 function txInvalid(data: unknown): JsonRpcError {
   return new JsonRpcError(
-    GroundhogRpcErrorCode.TxInvalid,
+    ThruputRpcErrorCode.TxInvalid,
     "Invalid transaction",
     data,
     "groundhog_sendRawTransaction",
@@ -53,7 +53,7 @@ describe("txInvalidDetail", () => {
   it.each([
     [
       "another error code",
-      new JsonRpcError(GroundhogRpcErrorCode.TxRejected, "x", {
+      new JsonRpcError(ThruputRpcErrorCode.TxRejected, "x", {
         reason: "tooManyContracts",
         attached: 5,
         max: 4,

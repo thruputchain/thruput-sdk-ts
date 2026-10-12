@@ -1,6 +1,6 @@
 import { sha256 } from "@noble/hashes/sha2.js";
-import { contractEntrypointID } from "@groundhogchain/protocol";
-import type { ContractEntrypointID } from "@groundhogchain/protocol";
+import { contractEntrypointID } from "@thruputchain/protocol";
+import type { ContractEntrypointID } from "@thruputchain/protocol";
 
 /**
  * The major-version domain a semver string belongs to.

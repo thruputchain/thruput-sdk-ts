@@ -10,10 +10,10 @@ import type {
   Protocol,
   TimePoint,
   ValidatorID,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 
 /** Execution result enum returned in transaction receipts. */
-export type { ExecResult } from "@groundhogchain/protocol";
+export type { ExecResult } from "@thruputchain/protocol";
 
 /** A registered authorization key, including schemes unknown to the server. */
 export type AuthPublicKey =
@@ -40,7 +40,7 @@ export interface AddressAuthDataResponse {
   readonly authData: AddressAuthDataInfo | null;
 }
 
-/** Immutable identity configured for a Groundhog RPC endpoint. */
+/** Immutable identity configured for a Thruput RPC endpoint. */
 export interface NetworkInfo {
   /** Protocol network identity bound into every transaction signature. */
   readonly networkHash: NetworkHash;

@@ -1,8 +1,8 @@
-import { codec, contractAddress } from "@groundhogchain/protocol";
+import { codec, contractAddress } from "@thruputchain/protocol";
 import type {
   ContractAddress,
   PubkeyAccountPreimage,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import { PUBKEY_ACCOUNT } from "./domainSeparator.js";
 
 /**
@@ -15,8 +15,8 @@ import { PUBKEY_ACCOUNT } from "./domainSeparator.js";
  *
  * @example
  * ```ts
- * import { derivePubkeyAccountAddress } from "@groundhogchain/client";
- * import { CryptographicScheme, ed25519PublicKey } from "@groundhogchain/protocol";
+ * import { derivePubkeyAccountAddress } from "@thruputchain/client";
+ * import { CryptographicScheme, ed25519PublicKey } from "@thruputchain/protocol";
  *
  * const address = derivePubkeyAccountAddress({
  *   pubkey: { scheme: CryptographicScheme.Ed25519, ed25519: ed25519PublicKey(raw) },

@@ -7,8 +7,8 @@ import {
   type Contract,
   type Invocation,
   type Transaction,
-} from "@groundhogchain/protocol";
-import type { CoreGroundhogClient } from "../../client.js";
+} from "@thruputchain/protocol";
+import type { CoreThruputClient } from "../../client.js";
 import type { WalletAccount } from "../../wallet/account.js";
 import { createTransaction } from "../../transaction/build.js";
 
@@ -28,7 +28,7 @@ export interface PrepareTransactionRequest {
 
 /** Prepare an unsigned transaction for a wallet account. */
 export async function prepareTransaction(
-  client: Pick<CoreGroundhogClient, "getChainTip">,
+  client: Pick<CoreThruputClient, "getChainTip">,
   account: Pick<WalletAccount, "address" | "authClaim">,
   request: PrepareTransactionRequest,
 ): Promise<Transaction> {

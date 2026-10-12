@@ -1,5 +1,5 @@
 import {
-  GroundhogRpcErrorCode,
+  ThruputRpcErrorCode,
   HttpRequestError,
   HttpResponseError,
   JsonRpcError,
@@ -35,15 +35,15 @@ export function classifyReadError(
     }
     if (error instanceof JsonRpcError) {
       switch (error.code) {
-        case GroundhogRpcErrorCode.BackendUnavailable:
-        case GroundhogRpcErrorCode.ViewHeightUnavailable:
-        case GroundhogRpcErrorCode.BackendTimeout:
-        case GroundhogRpcErrorCode.Overloaded:
+        case ThruputRpcErrorCode.BackendUnavailable:
+        case ThruputRpcErrorCode.ViewHeightUnavailable:
+        case ThruputRpcErrorCode.BackendTimeout:
+        case ThruputRpcErrorCode.Overloaded:
           return "transient";
-        case GroundhogRpcErrorCode.InvalidParams:
-        case GroundhogRpcErrorCode.TxInvalid:
-        case GroundhogRpcErrorCode.TxRejected:
-        case GroundhogRpcErrorCode.NotImplemented:
+        case ThruputRpcErrorCode.InvalidParams:
+        case ThruputRpcErrorCode.TxInvalid:
+        case ThruputRpcErrorCode.TxRejected:
+        case ThruputRpcErrorCode.NotImplemented:
           return "permanent";
         default:
           return "unknown";

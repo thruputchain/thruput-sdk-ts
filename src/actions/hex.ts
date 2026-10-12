@@ -1,12 +1,12 @@
-import type { SHA256Hash, ContractAddress } from "@groundhogchain/protocol";
+import type { SHA256Hash, ContractAddress } from "@thruputchain/protocol";
 import {
   toHex,
   fromHex,
   sha256Hash,
   contractAddress,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 
-export { toHex, fromHex } from "@groundhogchain/protocol";
+export { toHex, fromHex } from "@thruputchain/protocol";
 
 /** Convert bytes to a `0x`-prefixed lowercase hex string. */
 export function toHex0x(bytes: Uint8Array): string {

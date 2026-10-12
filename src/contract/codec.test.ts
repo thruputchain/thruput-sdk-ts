@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { CxsWriter, Int32Codec } from "@groundhogchain/protocol";
-import type { FixedArray } from "@groundhogchain/xdr";
+import { CxsWriter, Int32Codec } from "@thruputchain/protocol";
+import type { FixedArray } from "@thruputchain/xdr";
 import {
   contractSpecString,
   ContractTypeDefKind,
   ContractTypeKind,
   ContractUnionCaseKind,
   type ContractSpecId,
-} from "@groundhogchain/contract-spec";
+} from "@thruputchain/contract-spec";
 import {
   createContractCodec,
   createContractCodecContext,
@@ -125,8 +125,8 @@ describe("contract codecs", () => {
     expect(() => codec.encode("\ud800")).toThrow(
       "String contains an unpaired UTF-16 surrogate",
     );
-    expect(codec.decode(codec.encode("Groundhog \ud83e\udd94"))).toBe(
-      "Groundhog \ud83e\udd94",
+    expect(codec.decode(codec.encode("Thruput \ud83e\udd94"))).toBe(
+      "Thruput \ud83e\udd94",
     );
   });
 
@@ -289,6 +289,21 @@ describe("contract codecs", () => {
     expect(codec.decode(codec.encode(value))).toEqual(value);
     expect(() => codec.encode([1n, 2n] as never)).toThrow(
       "Expected Uint8Array",
+    );
+  });
+
+  it("bounds zero-width vector materialization independently of return bytes", () => {
+    const codec = createContractCodec<void[]>(createContractCodecContext([]), {
+      v: ContractTypeKind.Vector,
+      vector: { element: { v: ContractTypeKind.Void }, max_len: 0xffffffffn },
+    });
+    const small = new CxsWriter();
+    small.writeUint32(1024n);
+    expect(codec.decode(small.finish())).toHaveLength(1024);
+    const oversized = new CxsWriter();
+    oversized.writeUint32(1025n);
+    expect(() => codec.decode(oversized.finish())).toThrow(
+      /cannot be safely materialized/,
     );
   });
 

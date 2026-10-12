@@ -2,7 +2,7 @@ import {
   sha256Hash,
   type SHA256Hash,
   type NetworkHash,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import type { Transport } from "../../transport/types.js";
 import type {
   TransactionReceipt,
@@ -10,7 +10,7 @@ import type {
   TransactionFailureCause,
   SchedulerTransactionError,
 } from "../../types/rpc.js";
-import { GroundhogRpcErrorCode, JsonRpcError } from "../../transport/http.js";
+import { ThruputRpcErrorCode, JsonRpcError } from "../../transport/http.js";
 import { classifyReadError } from "../../transport/readError.js";
 import { getNetworkInfo } from "./getNetworkInfo.js";
 import { assertNetworkMatchesCluster } from "../../cluster.js";
@@ -226,7 +226,7 @@ export async function waitForTransactionReceipt(
 function isRetryableReceiptFailure(cause: unknown): boolean {
   return (
     (cause instanceof JsonRpcError &&
-      cause.code === GroundhogRpcErrorCode.TxNotFound) ||
+      cause.code === ThruputRpcErrorCode.TxNotFound) ||
     classifyReadError(cause) === "transient"
   );
 }

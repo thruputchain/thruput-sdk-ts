@@ -8,8 +8,8 @@ import {
   networkHash,
   serializeCxs,
   sha256Hash,
-} from "@groundhogchain/protocol";
-import { fromHex, toHex } from "@groundhogchain/protocol/utils";
+} from "@thruputchain/protocol";
+import { fromHex, toHex } from "@thruputchain/protocol/utils";
 import {
   ContractTypeDefKind,
   ContractTypeKind,
@@ -17,7 +17,7 @@ import {
   contractSpecString,
   type ContractTypeDef,
   type ContractSpecId,
-} from "@groundhogchain/contract-spec";
+} from "@thruputchain/contract-spec";
 import { SIGNED_OP } from "../derivation/domainSeparator.js";
 import { defineSignedOperation } from "./operation.js";
 import { signedOperationPreimage } from "./preimage.js";
@@ -28,11 +28,9 @@ import { signedOperationPreimage } from "./preimage.js";
  */
 function specId(declared: string): ContractSpecId {
   return {
-    crate_name: contractSpecString("groundhog-test-vectors"),
+    crate_name: contractSpecString("thruput-test-vectors"),
     major: contractSpecString("0"),
-    module_path: contractSpecString(
-      "groundhog_test_vectors::signed_op_vectors",
-    ),
+    module_path: contractSpecString("thruput_test_vectors::signed_op_vectors"),
     declared: contractSpecString(declared),
   };
 }
@@ -59,7 +57,7 @@ interface VectorFile {
 
 // Committed, unlike the other categories, so these tests run without the
 // generator installed; scripts/regen-test-vectors.sh refreshes it from the
-// pinned groundhog-test-vectors release.
+// pinned thruput-test-vectors release.
 const vectorsPath = fileURLToPath(
   new URL("../../specs/test-vectors/signed-op.json", import.meta.url),
 );

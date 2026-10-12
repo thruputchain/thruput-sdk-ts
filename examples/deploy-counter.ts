@@ -1,9 +1,9 @@
 import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { gasAmount } from "@groundhogchain/protocol";
+import { gasAmount } from "@thruputchain/protocol";
 import {
   PrivateKeySigner,
-  createGroundhogClient,
+  createThruputClient,
   createPubkeyAccount,
   createWalletClient,
   localnet,
@@ -12,15 +12,15 @@ import {
 } from "../src/index.js";
 import { Counter } from "./generated/counter.js";
 
-const rpcUrl = process.env.GROUNDHOG_RPC_URL;
-if (rpcUrl && !process.env.GROUNDHOG_RUNTIME_MANIFEST) {
+const rpcUrl = process.env.THRUPUT_RPC_URL;
+if (rpcUrl && !process.env.THRUPUT_RUNTIME_MANIFEST) {
   throw new Error(
-    "Set GROUNDHOG_RUNTIME_MANIFEST when overriding the Localnet RPC URL",
+    "Set THRUPUT_RUNTIME_MANIFEST when overriding the Localnet RPC URL",
   );
 }
 const walletGasLimit = gasAmount(10_000_000n);
 const counterGasLimit = gasAmount(500_000n);
-const client = await createGroundhogClient({
+const client = await createThruputClient({
   cluster: localnet(rpcUrl ? { rpcUrl } : {}),
 });
 

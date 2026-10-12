@@ -1,11 +1,11 @@
 import type { Transport } from "./types.js";
-import { sha256Hash, toHex } from "@groundhogchain/protocol";
+import { sha256Hash, toHex } from "@thruputchain/protocol";
 import { parseHeight } from "../actions/decimal.js";
 
 /**
  * In-memory transport for tests and examples.
  *
- * `MockTransport` implements a small deterministic subset of the Groundhog
+ * `MockTransport` implements a small deterministic subset of the Thruput
  * JSON-RPC API. It is useful for SDK unit tests and simple examples, but it is
  * not a full node simulator and does not execute contract code.
  */

@@ -1,11 +1,11 @@
 import { assert, describe, expect, it } from "vitest";
-import { CxsWriter, CxsReader } from "@groundhogchain/protocol";
+import { CxsWriter, CxsReader } from "@thruputchain/protocol";
 import {
   contractSpecString,
   ContractTypeKind,
   ContractTypeDefKind,
   type ContractSpecId,
-} from "@groundhogchain/contract-spec";
+} from "@thruputchain/contract-spec";
 import type { ContractTypeDef } from "./spec.js";
 import { specIdKey } from "./spec.js";
 import { buildNamedCodecs } from "./codegen.js";

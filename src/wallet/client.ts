@@ -4,8 +4,8 @@ import {
   type ContractAddress,
   type NetworkHash,
   type GasAmount,
-} from "@groundhogchain/protocol";
-import type { AirdropActions, CoreGroundhogClient } from "../client.js";
+} from "@thruputchain/protocol";
+import type { AirdropActions, CoreThruputClient } from "../client.js";
 import type { TransportRequestOptions } from "../transport/types.js";
 import type { AirdropSucceeded, BalanceResponse } from "../types/rpc.js";
 import type { RequestAirdropOptions } from "../actions/public/requestAirdrop.js";
@@ -31,7 +31,7 @@ import type {
   SHA256Hash,
   SignedTransaction,
   Transaction,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import {
   submitAndObserve,
   assertTransactionSuccess,
@@ -50,7 +50,7 @@ import {
   type DeploymentOptions,
 } from "./deployment.js";
 
-const walletClientMarker = Symbol("GroundhogWalletClient");
+const walletClientMarker = Symbol("ThruputWalletClient");
 const reservedWalletClientProperties = [
   "account",
   "prepareTransaction",
@@ -135,7 +135,7 @@ export interface WalletAirdropActions {
 
 /** Existing client methods plus signer-bound wallet actions. */
 export type WalletClient<
-  TClient extends CoreGroundhogClient,
+  TClient extends CoreThruputClient,
   TAccount extends WalletAccount = WalletAccount,
 > = Omit<
   TClient,
@@ -153,13 +153,13 @@ export type WalletClient<
 
 /** Wallet client with adapter-aware inner invocation execution. */
 export type ExecutableWalletClient<
-  TClient extends CoreGroundhogClient,
+  TClient extends CoreThruputClient,
   TAccount extends WalletAccount = WalletAccount,
   TRequest extends WalletExecutionRequest = WalletExecutionRequest,
 > = WalletClient<TClient, TAccount> & WalletExecutionActions<TRequest>;
 
 /** Signing-network input inferred from whether a client has validated identity. */
-export type WalletNetworkOptions<TClient extends CoreGroundhogClient> =
+export type WalletNetworkOptions<TClient extends CoreThruputClient> =
   TClient extends { readonly network: { readonly networkHash: NetworkHash } }
     ? { readonly networkHash?: never }
     : {
@@ -169,7 +169,7 @@ export type WalletNetworkOptions<TClient extends CoreGroundhogClient> =
 
 /** Decorate an existing client with signer-bound wallet behavior. */
 export function createWalletClient<
-  TClient extends CoreGroundhogClient,
+  TClient extends CoreThruputClient,
   TAccount extends WalletAccount,
   TRequest extends WalletExecutionRequest,
 >(
@@ -180,7 +180,7 @@ export function createWalletClient<
   } & WalletNetworkOptions<TClient>,
 ): ExecutableWalletClient<TClient, TAccount, TRequest>;
 export function createWalletClient<
-  TClient extends CoreGroundhogClient,
+  TClient extends CoreThruputClient,
   TAccount extends PubkeyAccount,
 >(
   options: {
@@ -190,7 +190,7 @@ export function createWalletClient<
   } & WalletNetworkOptions<TClient>,
 ): ExecutableWalletClient<TClient, TAccount>;
 export function createWalletClient<
-  TClient extends CoreGroundhogClient,
+  TClient extends CoreThruputClient,
   TAccount extends SourceAddressAccount,
 >(
   options: {
@@ -200,7 +200,7 @@ export function createWalletClient<
   } & WalletNetworkOptions<TClient>,
 ): WalletClient<TClient, TAccount>;
 export function createWalletClient<
-  TClient extends CoreGroundhogClient,
+  TClient extends CoreThruputClient,
   TAccount extends WalletAccount,
 >(
   options: {
@@ -210,7 +210,7 @@ export function createWalletClient<
   } & WalletNetworkOptions<TClient>,
 ): WalletClient<TClient, TAccount>;
 export function createWalletClient<
-  TClient extends CoreGroundhogClient,
+  TClient extends CoreThruputClient,
   TAccount extends WalletAccount,
 >(
   options: {
@@ -247,7 +247,7 @@ export function createWalletClient<
   const requestAirdrop =
     "requestAirdrop" in client
       ? (
-          client as CoreGroundhogClient & Pick<AirdropActions, "requestAirdrop">
+          client as CoreThruputClient & Pick<AirdropActions, "requestAirdrop">
         ).requestAirdrop.bind(client)
       : undefined;
   const walletActions: WalletActions<TAccount> = {
@@ -424,7 +424,7 @@ export function createWalletClient<
 }
 
 function getConnectedNetworkHash(
-  client: CoreGroundhogClient,
+  client: CoreThruputClient,
 ): NetworkHash | undefined {
   if (!("network" in client)) return undefined;
   const network = client.network;

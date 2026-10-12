@@ -4,7 +4,7 @@ import type {
   ContractAddress,
   SHA256Hash,
   SignedTransaction,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import type {
   ChainTip,
   BalanceResponse,
@@ -73,13 +73,13 @@ import type { ContractViewRequest } from "./contract/method.js";
 import { sendTransaction } from "./actions/wallet/sendTransaction.js";
 
 /**
- * Convenience client with all supported Groundhog actions bound to a single
+ * Convenience client with all supported Thruput actions bound to a single
  * transport.
  *
- * Use {@link createGroundhogClient} when application code should not pass a
+ * Use {@link createThruputClient} when application code should not pass a
  * transport into every action call.
  */
-export interface CoreGroundhogClient {
+export interface CoreThruputClient {
   /** Read registered signers, or null auth data for an unregistered address. */
   getAddressAuthData(
     address: ContractAddress,
@@ -207,9 +207,9 @@ export interface AirdropActions {
 }
 
 /** Unqualified client with every supported SDK action. */
-export interface GroundhogClient extends CoreGroundhogClient, AirdropActions {}
+export interface ThruputClient extends CoreThruputClient, AirdropActions {}
 
-function createCoreGroundhogClient(transport: Transport): CoreGroundhogClient {
+function createCoreThruputClient(transport: Transport): CoreThruputClient {
   return {
     getNetworkInfo: (options) => getNetworkInfo(transport, options),
     getChainTip: (options) => getChainTip(transport, options),
@@ -254,8 +254,8 @@ function createAirdropActions(transport: Transport): AirdropActions {
 }
 
 /** A client with a fetched network identity, verified against any cluster identity pin. */
-export type ConnectedGroundhogClient<TCluster extends Cluster = Cluster> =
-  CoreGroundhogClient &
+export type ConnectedThruputClient<TCluster extends Cluster = Cluster> =
+  CoreThruputClient &
     (ClusterHasCapability<TCluster, "airdrop"> extends true
       ? AirdropActions
       : object) & {
@@ -267,13 +267,13 @@ export type ConnectedGroundhogClient<TCluster extends Cluster = Cluster> =
     };
 
 /** Options for an unqualified client that skips runtime identity validation. */
-export interface GroundhogClientOptions {
+export interface ThruputClientOptions {
   readonly transport: Transport;
   readonly cluster?: never;
 }
 
 /** Options for fetching network identity and verifying any declared cluster identity pin. */
-export interface ClusterGroundhogClientOptions<
+export interface ClusterThruputClientOptions<
   TCluster extends Cluster = Cluster,
 > {
   readonly cluster: TCluster & { readonly genesisHash?: never };
@@ -286,25 +286,25 @@ export interface ClusterGroundhogClientOptions<
  * identity and verify any supplied `networkHash` pin. Identity is checked only
  * during connection; cluster capabilities are declared, not probed.
  */
-export function createGroundhogClient<const TCluster extends Cluster>(
-  options: ClusterGroundhogClientOptions<TCluster>,
-): Promise<ConnectedGroundhogClient<TCluster>>;
-export function createGroundhogClient(
-  options: GroundhogClientOptions,
-): Promise<GroundhogClient>;
-export async function createGroundhogClient(
-  options: GroundhogClientOptions | ClusterGroundhogClientOptions<Cluster>,
-): Promise<GroundhogClient | ConnectedGroundhogClient> {
+export function createThruputClient<const TCluster extends Cluster>(
+  options: ClusterThruputClientOptions<TCluster>,
+): Promise<ConnectedThruputClient<TCluster>>;
+export function createThruputClient(
+  options: ThruputClientOptions,
+): Promise<ThruputClient>;
+export async function createThruputClient(
+  options: ThruputClientOptions | ClusterThruputClientOptions<Cluster>,
+): Promise<ThruputClient | ConnectedThruputClient> {
   if (options.cluster === undefined) {
     return Object.assign(
-      createCoreGroundhogClient(options.transport),
+      createCoreThruputClient(options.transport),
       createAirdropActions(options.transport),
     );
   }
 
   const cluster = defineCluster(options.cluster);
   const transport = resolveClusterTransport({ ...options, cluster });
-  const client = createCoreGroundhogClient(transport);
+  const client = createCoreThruputClient(transport);
   const network = await client.getNetworkInfo();
   assertNetworkMatchesCluster(cluster, network);
   return Object.assign(
@@ -313,11 +313,11 @@ export async function createGroundhogClient(
       ? createAirdropActions(transport)
       : {},
     { cluster, network },
-  ) as ConnectedGroundhogClient;
+  ) as ConnectedThruputClient;
 }
 
 function resolveClusterTransport<TCluster extends Cluster>(
-  options: ClusterGroundhogClientOptions<TCluster>,
+  options: ClusterThruputClientOptions<TCluster>,
 ): Transport {
   if (options.transport) return options.transport;
   if (options.cluster.rpcUrl) return new HttpTransport(options.cluster.rpcUrl);

@@ -12,8 +12,8 @@ import {
   contractEntrypointID,
   type ContractAddress,
   type GasAmount,
-} from "@groundhogchain/protocol";
-import { ContractTypeKind } from "@groundhogchain/contract-spec";
+} from "@thruputchain/protocol";
+import { ContractTypeKind } from "@thruputchain/contract-spec";
 
 export interface ExampleSetIdArgs {
   id: FixedBytes<32>;

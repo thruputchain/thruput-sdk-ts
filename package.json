@@ -1,17 +1,17 @@
 {
-  "name": "@groundhogchain/client",
-  "version": "0.17.0",
-  "description": "TypeScript client for the Groundhog blockchain",
+  "name": "@thruputchain/client",
+  "version": "0.18.0",
+  "description": "TypeScript client for the Thruput blockchain",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/groundhogchain/client-ts.git"
   },
-  "homepage": "https://docs.groundhog.dev/tools/typescript-sdk/",
+  "homepage": "https://docs.thruput.network/tools/typescript-sdk/",
   "bugs": {
     "url": "https://github.com/groundhogchain/client-ts/issues"
   },
   "keywords": [
-    "groundhog",
+    "thruput",
     "blockchain",
     "json-rpc",
     "sdk",
@@ -104,9 +104,9 @@
     "vitest": "4.1.11"
   },
   "dependencies": {
-    "@groundhogchain/contract-spec": "0.13.0",
-    "@groundhogchain/protocol": "0.13.0",
-    "@groundhogchain/xdr": "0.13.0",
+    "@thruputchain/contract-spec": "0.15.0",
+    "@thruputchain/protocol": "0.15.0",
+    "@thruputchain/xdr": "0.15.0",
     "@noble/ed25519": "^3.1.0",
     "@noble/hashes": "^2.2.0"
   }

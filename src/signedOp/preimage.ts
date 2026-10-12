@@ -2,12 +2,12 @@ import type {
   BlockHeight,
   ContractAddress,
   NetworkHash,
-} from "@groundhogchain/protocol";
-import { CxsWriter, codec } from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
+import { CxsWriter, codec } from "@thruputchain/protocol";
 import {
   codec as contractSpecCodec,
   type ContractTypeDef,
-} from "@groundhogchain/contract-spec";
+} from "@thruputchain/contract-spec";
 import { SIGNED_OP } from "../derivation/domainSeparator.js";
 
 /** Everything a signed-operation signature commits to. */

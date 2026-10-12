@@ -1,5 +1,5 @@
-import type { Transaction, SignedTransaction } from "@groundhogchain/protocol";
-import { serialize, deserialize, codec } from "@groundhogchain/protocol";
+import type { Transaction, SignedTransaction } from "@thruputchain/protocol";
+import { serialize, deserialize, codec } from "@thruputchain/protocol";
 
 /** Serialize an unsigned transaction to its canonical protocol bytes. */
 export function serializeTransaction(tx: Transaction): Uint8Array {

@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { CxsReader, CxsWriter } from "@groundhogchain/protocol";
-import { toHex } from "@groundhogchain/protocol/utils";
+import { CxsReader, CxsWriter } from "@thruputchain/protocol";
+import { toHex } from "@thruputchain/protocol/utils";
 import {
   ContractTypeDefKind,
   ContractTypeKind,
   contractSpecString,
   type ContractType,
   type ContractSpecId,
-} from "@groundhogchain/contract-spec";
+} from "@thruputchain/contract-spec";
 import { createContractCodec, createContractCodecContext } from "./codec.js";
 import { resolveCodec } from "./encode.js";
 import { isSignedToken, signedToken } from "./signedToken.js";

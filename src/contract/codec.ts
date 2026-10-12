@@ -1,4 +1,4 @@
-import { CxsReader, CxsWriter, type XdrCodec } from "@groundhogchain/xdr";
+import { CxsReader, CxsWriter, type XdrCodec } from "@thruputchain/xdr";
 import type { ContractType, ContractTypeDef } from "./spec.js";
 import {
   ContractTypeDefKind,

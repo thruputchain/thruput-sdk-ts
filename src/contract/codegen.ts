@@ -1,5 +1,5 @@
-import type { XdrCodec } from "@groundhogchain/xdr";
-import { Int32Codec } from "@groundhogchain/protocol";
+import type { XdrCodec } from "@thruputchain/xdr";
+import { Int32Codec } from "@thruputchain/protocol";
 import type {
   ContractSpecId,
   ContractTypeDef,

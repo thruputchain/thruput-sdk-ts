@@ -11,12 +11,12 @@ import {
   ExecResult,
   sha256Hash,
   networkHash,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import { PrivateKeySigner } from "./signers/privateKey.js";
 import { createInvocation, createTransaction } from "./transaction/build.js";
 import { signTransaction } from "./transaction/sign.js";
 import { MockTransport } from "./transport/mock.js";
-import { createGroundhogClient } from "./client.js";
+import { createThruputClient } from "./client.js";
 
 const testNetworkHash = networkHash(sha256Hash(new Uint8Array(32).fill(0x5a)));
 
@@ -51,9 +51,9 @@ function makeDummySignedTx() {
   return signTransaction(tx, [{ signer, publicKeyId: 0n }], testNetworkHash);
 }
 
-describe("createGroundhogClient", () => {
+describe("createThruputClient", () => {
   it("requests an airdrop through the bound client", async () => {
-    const client = await createGroundhogClient({
+    const client = await createThruputClient({
       transport: new MockTransport(),
     });
     const recipient = contractAddress(new Uint8Array(32).fill(0x22));
@@ -66,7 +66,7 @@ describe("createGroundhogClient", () => {
   });
 
   it("getChainTip returns height 0n on fresh mock", async () => {
-    const client = await createGroundhogClient({
+    const client = await createThruputClient({
       transport: new MockTransport(),
     });
     const tip = await client.getChainTip();
@@ -75,7 +75,7 @@ describe("createGroundhogClient", () => {
   });
 
   it("sends a transaction and waits for its receipt", async () => {
-    const client = await createGroundhogClient({
+    const client = await createThruputClient({
       transport: new MockTransport(),
     });
     const signedTx = await makeDummySignedTx();
