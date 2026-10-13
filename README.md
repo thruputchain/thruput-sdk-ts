@@ -573,12 +573,12 @@ signers this package does not drive.
 
 ## Examples
 
-- [`chain-tip.ts`](https://github.com/thruputchain/client-ts/blob/main/examples/chain-tip.ts) connects to Devnet and reads its latest block.
-- [`transfer-hog.ts`](https://github.com/thruputchain/client-ts/blob/main/examples/transfer-hog.ts) funds two pubkey accounts and transfers HOG on Devnet.
-- [`view-hog-balance.ts`](https://github.com/thruputchain/client-ts/blob/main/examples/view-hog-balance.ts) reads an explicitly supplied public account’s HOG balance.
-- [`deploy-counter.ts`](https://github.com/thruputchain/client-ts/blob/main/examples/deploy-counter.ts) deploys and calls a Counter contract through DevWallet.
+- [`chain-tip.ts`](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/chain-tip.ts) connects to Devnet and reads its latest block.
+- [`transfer-hog.ts`](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/transfer-hog.ts) funds two pubkey accounts and transfers HOG on Devnet.
+- [`view-hog-balance.ts`](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/view-hog-balance.ts) reads an explicitly supplied public account’s HOG balance.
+- [`deploy-counter.ts`](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/deploy-counter.ts) deploys and calls a Counter contract through DevWallet.
 
-See the [examples guide](https://github.com/thruputchain/client-ts/blob/main/examples/README.md) for local-node setup and configuration.
+See the [examples guide](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/README.md) for local-node setup and configuration.
 
 Use the root entrypoint for the client and common runtime APIs. Focused
 entrypoints are available for transactions, transports, contract runtime
