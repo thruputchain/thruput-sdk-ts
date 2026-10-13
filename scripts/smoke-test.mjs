@@ -24,7 +24,7 @@ const requiredExports = {
     "HttpTransport",
     "InvalidTransactionReceiptError",
     "PrivateKeySigner",
-    "createGroundhogClient",
+    "createThruputClient",
     "createPubkeyAccount",
     "createSourceAddressAccount",
     "createTransaction",
@@ -42,7 +42,7 @@ const requiredExports = {
     "signTransaction",
   ],
   "./transport": [
-    "GroundhogRpcErrorCode",
+    "ThruputRpcErrorCode",
     "txInvalidDetail",
     "HttpResponseError",
     "HttpTransport",

@@ -1,4 +1,4 @@
-import { kMaxEventLength, kMaxTopics } from "@groundhogchain/protocol";
+import { kMaxEventLength, kMaxTopics } from "@thruputchain/protocol";
 import type { EmittedEvent } from "../types/rpc.js";
 import { addressFromHex, fromHex0x } from "./hex.js";
 

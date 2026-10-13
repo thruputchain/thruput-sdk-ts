@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contractAddress, gasAmount } from "@groundhogchain/protocol";
+import { contractAddress, gasAmount } from "@thruputchain/protocol";
 import { decodeCalldata } from "../contract/encode.js";
 import { buildNamedCodecs } from "../contract/codegen.js";
 import {

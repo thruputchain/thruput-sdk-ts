@@ -3,14 +3,14 @@ import type {
   SignedTransaction,
   DecoratedSignature,
   NetworkHash,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import {
   AuthClaimType,
   codec,
   deserialize,
   kMaxSigners,
   serialize,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import type { Signer } from "../signers/types.js";
 import { transactionSignaturePreimage } from "./preimage.js";
 
@@ -38,8 +38,8 @@ export interface SignerEntry {
  *
  * @example
  * ```ts
- * import { signTransaction } from "@groundhogchain/client/transaction";
- * import { PrivateKeySigner } from "@groundhogchain/client/signers";
+ * import { signTransaction } from "@thruputchain/client/transaction";
+ * import { PrivateKeySigner } from "@thruputchain/client/signers";
  *
  * const signer = new PrivateKeySigner(secretKey);
  * const signedTx = await signTransaction(

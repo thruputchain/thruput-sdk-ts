@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { contractAddress } from "@groundhogchain/protocol";
+import { contractAddress } from "@thruputchain/protocol";
 import { getAddressAuthData } from "./getAddressAuthData.js";
 import type { Transport } from "../../transport/types.js";
 import { toHex0x } from "../hex.js";
-import { createGroundhogClient } from "../../client.js";
+import { createThruputClient } from "../../client.js";
 import { MockTransport } from "../../transport/mock.js";
 
 const address = contractAddress(new Uint8Array(32).fill(7));
@@ -18,7 +18,7 @@ function transport(authData: unknown, height: unknown = "42"): Transport {
 
 describe("getAddressAuthData", () => {
   it("is available through the bound client and mock transport", async () => {
-    const client = await createGroundhogClient({
+    const client = await createThruputClient({
       transport: new MockTransport(),
     });
     await expect(client.getAddressAuthData(address)).resolves.toMatchObject({

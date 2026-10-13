@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { contractAddress } from "@groundhogchain/protocol";
-import { createGroundhogClient } from "../../client.js";
+import { contractAddress } from "@thruputchain/protocol";
+import { createThruputClient } from "../../client.js";
 import { HttpTransport, JsonRpcError } from "../../transport/http.js";
 import type { Transport } from "../../transport/types.js";
 import type { EventQuery } from "../../types/rpc.js";
@@ -36,7 +36,7 @@ describe("iterateEventPages", () => {
       .fn<Transport["request"]>()
       .mockResolvedValueOnce(rawPage("0x01"))
       .mockResolvedValueOnce(rawPage("0x"));
-    const client = await createGroundhogClient({
+    const client = await createThruputClient({
       transport: transportFor(request),
     });
     const pages = client.iterateEventPages(query);

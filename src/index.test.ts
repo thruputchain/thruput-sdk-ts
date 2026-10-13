@@ -4,7 +4,7 @@ import {
   CryptographicScheme,
   ed25519PublicKey,
   ed25519Signature,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 
 describe("skeleton", () => {
   it("exports the Signer type", () => {

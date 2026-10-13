@@ -4,8 +4,8 @@ import {
   CxsWriter,
   contractAddress,
   kMaxEventLength,
-} from "@groundhogchain/protocol";
-import { ContractTypeKind } from "@groundhogchain/contract-spec";
+} from "@thruputchain/protocol";
+import { ContractTypeKind } from "@thruputchain/contract-spec";
 import type { EmittedEvent } from "../types/rpc.js";
 import { createContractCodecContext } from "./codec.js";
 import { ContractDecodeError } from "./errors.js";

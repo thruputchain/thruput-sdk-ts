@@ -6,7 +6,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import {
   HttpTransport,
   PrivateKeySigner,
-  createGroundhogClient,
+  createThruputClient,
   createPubkeyAccount,
   createWalletClient,
   defaultWalletAdapter,
@@ -16,25 +16,25 @@ import {
   defineContractEvent,
   deriveEntrypointID,
   encodeCalldata,
-} from "@groundhogchain/client";
-import { codec as specCodec, deserialize } from "@groundhogchain/contract-spec";
+} from "@thruputchain/client";
+import { codec as specCodec, deserialize } from "@thruputchain/contract-spec";
 import {
-  GroundhogRpcErrorCode,
+  ThruputRpcErrorCode,
   JsonRpcError,
-} from "@groundhogchain/client/transport";
+} from "@thruputchain/client/transport";
 import {
   DefaultWallet,
   ERC20,
   decodeERC20Event,
   groundhog_erc20_if,
-} from "@groundhogchain/client/contracts";
+} from "@thruputchain/client/contracts";
 import {
   ExecResult,
   HOG_ADDRESS,
   Uint64Codec,
   deserializeCxs,
   gasAmount,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import versions from "../../scripts/integration-versions.json" with { type: "json" };
 import {
   airdropTimeoutMs,
@@ -86,7 +86,7 @@ test("chain config integration assertions accept stated and execution readings",
     },
   };
   for (const result of [stated, { ...stated, execution }]) {
-    const client = await createGroundhogClient({
+    const client = await createThruputClient({
       transport: { request: async () => result },
     });
     assertChainConfig(await client.getChainConfig());
@@ -94,11 +94,11 @@ test("chain config integration assertions accept stated and execution readings",
 });
 
 test("built SDK against a real local node", { timeout }, async (t) => {
-  const rpcUrl = process.env.GROUNDHOG_RPC_URL;
+  const rpcUrl = process.env.THRUPUT_RPC_URL;
   assert.ok(rpcUrl, "Run through npm run test:integration");
-  assert.ok(process.env.GROUNDHOG_RUNTIME_MANIFEST);
+  assert.ok(process.env.THRUPUT_RUNTIME_MANIFEST);
   const transport = new HttpTransport(rpcUrl, { timeoutMs: rpcTimeoutMs });
-  const client = await createGroundhogClient({
+  const client = await createThruputClient({
     cluster: localnet({ rpcUrl }),
     transport,
   });
@@ -109,7 +109,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
     "connects and decodes network, version, and chain tip",
     async () => {
       const manifest = JSON.parse(
-        await readFile(process.env.GROUNDHOG_RUNTIME_MANIFEST, "utf8"),
+        await readFile(process.env.THRUPUT_RUNTIME_MANIFEST, "utf8"),
       );
       assert.equal(
         Buffer.from(client.network.networkHash).toString("hex"),
@@ -124,7 +124,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       // The released node can predate optional additions in the SDK's schema.
       assert.equal(
         version.wireFormat,
-        process.env.GROUNDHOG_EXPECTED_WIRE_FORMAT ?? versions.wireFormat,
+        process.env.THRUPUT_EXPECTED_WIRE_FORMAT ?? versions.wireFormat,
       );
       const tip = await client.getChainTip();
       assert.equal(typeof tip.height, "bigint");
@@ -175,7 +175,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         return fetch(input, init);
       },
     });
-    const batchedClient = await createGroundhogClient({
+    const batchedClient = await createThruputClient({
       transport: batchedTransport,
     });
     const hash = `0x${"00".repeat(32)}`;
@@ -199,7 +199,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
     assert.deepEqual(duplicate, missing);
     assert.equal(invalid.status, "rejected");
     assert.ok(invalid.reason instanceof JsonRpcError);
-    assert.equal(invalid.reason.code, GroundhogRpcErrorCode.InvalidParams);
+    assert.equal(invalid.reason.code, ThruputRpcErrorCode.InvalidParams);
   });
 
   await t.test(
@@ -236,7 +236,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         "simulates an authenticated wallet transfer and reads its temporary balance",
         {
           skip:
-            (process.env.GROUNDHOG_EXPECTED_WIRE_FORMAT ??
+            (process.env.THRUPUT_EXPECTED_WIRE_FORMAT ??
               versions.wireFormat) === "11.1.0"
               ? "The pinned node predates view auth; use matching source builds with wire 11.2.0"
               : false,
@@ -355,7 +355,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         } catch (error) {
           if (
             !(error instanceof JsonRpcError) ||
-            error.code !== GroundhogRpcErrorCode.ViewHeightUnavailable
+            error.code !== ThruputRpcErrorCode.ViewHeightUnavailable
           ) {
             throw error;
           }
@@ -690,7 +690,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         transport.request("groundhog_sendRawTransaction", ["not-valid-hex"]),
         (error) => {
           assert.ok(error instanceof JsonRpcError);
-          assert.equal(error.code, GroundhogRpcErrorCode.TxInvalid);
+          assert.equal(error.code, ThruputRpcErrorCode.TxInvalid);
           assert.equal(error.method, "groundhog_sendRawTransaction");
           assert.match(error.message, /invalid hex/i);
           return true;
@@ -704,9 +704,9 @@ test(
   "fresh HOG funding covers the recipient balance-item deposit",
   { timeout },
   async () => {
-    const client = await createGroundhogClient({
-      cluster: localnet({ rpcUrl: process.env.GROUNDHOG_RPC_URL }),
-      transport: new HttpTransport(process.env.GROUNDHOG_RPC_URL, {
+    const client = await createThruputClient({
+      cluster: localnet({ rpcUrl: process.env.THRUPUT_RPC_URL }),
+      transport: new HttpTransport(process.env.THRUPUT_RPC_URL, {
         timeoutMs: rpcTimeoutMs,
       }),
     });

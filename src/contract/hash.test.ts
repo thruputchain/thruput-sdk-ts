@@ -4,8 +4,8 @@ import {
   ContractType,
   contractAddress,
   sha256Hash,
-} from "@groundhogchain/protocol";
-import { toHex } from "@groundhogchain/protocol/utils";
+} from "@thruputchain/protocol";
+import { toHex } from "@thruputchain/protocol/utils";
 import { deriveContractAddress, hashContract } from "./index.js";
 
 const counterArtifact = readFileSync(

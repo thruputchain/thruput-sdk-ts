@@ -1,13 +1,13 @@
 /**
  * Cross-SDK entrypoint ID derivation.
  *
- * Replays the vectors emitted by the Rust `groundhog-test-vectors entrypoint-id`
+ * Replays the vectors emitted by the Rust `thruput-test-vectors entrypoint-id`
  * so the two implementations cannot drift apart silently.
  */
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { toHex } from "@groundhogchain/protocol";
+import { toHex } from "@thruputchain/protocol";
 import { deriveEntrypointID } from "./entrypointId.js";
 
 interface Vector {
@@ -25,7 +25,7 @@ interface VectorFile {
 }
 
 // Generated, not committed: CI regenerates from the published
-// groundhog-test-vectors crate; run scripts/regen-test-vectors.sh locally.
+// thruput-test-vectors crate; run scripts/regen-test-vectors.sh locally.
 const vectorsPath = fileURLToPath(
   new URL("../../specs/test-vectors/entrypoint-id.json", import.meta.url),
 );

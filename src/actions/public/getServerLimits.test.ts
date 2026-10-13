@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { getServerLimits } from "../../index.js";
-import { createGroundhogClient } from "../../client.js";
+import { createThruputClient } from "../../client.js";
 import { MockTransport } from "../../transport/mock.js";
 import type { Transport } from "../../transport/types.js";
 
@@ -51,7 +51,7 @@ describe("getServerLimits", () => {
     ).rejects.toThrow();
   });
   it("binds the action on the client and exposes the standalone action", async () => {
-    const client = await createGroundhogClient({
+    const client = await createThruputClient({
       transport: new MockTransport(),
     });
     const expected = {

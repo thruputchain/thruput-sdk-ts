@@ -1,6 +1,6 @@
 import { sha256 } from "@noble/hashes/sha2.js";
-import { codec, serialize, sha256Hash } from "@groundhogchain/protocol";
-import type { Contract, SHA256Hash } from "@groundhogchain/protocol";
+import { codec, serialize, sha256Hash } from "@thruputchain/protocol";
+import type { Contract, SHA256Hash } from "@thruputchain/protocol";
 
 /**
  * Return the network identity of a protocol contract.
@@ -14,7 +14,7 @@ import type { Contract, SHA256Hash } from "@groundhogchain/protocol";
  * import {
  *   deriveContractAddress,
  *   hashContract,
- * } from "@groundhogchain/client";
+ * } from "@thruputchain/client";
  *
  * const contractHash = hashContract(contract);
  * const address = deriveContractAddress(wallet, deploymentNonce, contractHash);

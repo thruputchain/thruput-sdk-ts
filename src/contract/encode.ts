@@ -1,16 +1,15 @@
-import type { Calldata } from "@groundhogchain/protocol";
+import type { Calldata } from "@thruputchain/protocol";
 import {
   fixedArray,
   FixedOpaqueCodec,
   Uint8Codec,
   VarOpaqueCodec,
   type XdrCodec,
-} from "@groundhogchain/xdr";
+} from "@thruputchain/xdr";
 import {
   calldata,
   codec,
   BoolCodec,
-  kMaxReturnBufferLen,
   VoidCodec,
   Uint32Codec,
   Uint64Codec,
@@ -25,7 +24,7 @@ import {
   OptionCodec,
   VarArrayCodec,
   FixedArrayCodec,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import type { ContractType, ContractSpec, ContractSpecMethod } from "./spec.js";
 import { ContractTypeKind, formatSpecId, specIdKey } from "./spec.js";
 import { ContractDecodeError } from "./errors.js";
@@ -155,6 +154,10 @@ function requireArrayCodec<T>(codec: XdrCodec<T[]>): XdrCodec<T[]> {
   };
 }
 
+// Zero-width values can occupy no input bytes. Bound their materialization
+// independently of the target network's return-buffer byte limit.
+const MAX_ZERO_WIDTH_VECTOR_LENGTH = 1024;
+
 function safeVarArrayCodec<T>(
   inner: XdrCodec<T>,
   maxLength: number,
@@ -169,7 +172,7 @@ function safeVarArrayCodec<T>(
       }
       // Non-empty values cannot outnumber the remaining bytes. Keep small
       // zero-width vectors valid without letting a length prefix create a huge array.
-      if (length > reader.remaining && length > Number(kMaxReturnBufferLen)) {
+      if (length > reader.remaining && length > MAX_ZERO_WIDTH_VECTOR_LENGTH) {
         throw new Error(
           `VarArray length ${length} cannot be safely materialized from ${reader.remaining} remaining bytes`,
         );

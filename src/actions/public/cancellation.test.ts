@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  contractAddress,
-  gasAmount,
-  sha256Hash,
-} from "@groundhogchain/protocol";
-import { createGroundhogClient, type GroundhogClient } from "../../client.js";
+import { contractAddress, gasAmount, sha256Hash } from "@thruputchain/protocol";
+import { createThruputClient, type ThruputClient } from "../../client.js";
 import { getContract } from "../../contract/instance.js";
 import { ERC20 } from "../../contracts/erc20.js";
 import { HttpTransport } from "../../transport/http.js";
@@ -14,7 +10,7 @@ const hash = sha256Hash(new Uint8Array(32));
 const invocation = ERC20.v0_1.getBalance.invocation(address, gasAmount(1n));
 const reads: Record<
   string,
-  (client: GroundhogClient, signal: AbortSignal) => Promise<unknown>
+  (client: ThruputClient, signal: AbortSignal) => Promise<unknown>
 > = {
   network: (client, signal) => client.getNetworkInfo({ signal }),
   chainConfig: (client, signal) => client.getChainConfig({ signal }),
@@ -64,7 +60,7 @@ const reads: Record<
 describe.each(Object.entries(reads))("%s cancellation", (_, read) => {
   it("does not dispatch a pre-aborted read", async () => {
     const fetch = vi.fn<typeof globalThis.fetch>();
-    const client = await createGroundhogClient({
+    const client = await createThruputClient({
       transport: new HttpTransport("https://rpc.example", { fetch }),
     });
     const reason = new Error("view unmounted");
@@ -83,7 +79,7 @@ describe.each(Object.entries(reads))("%s cancellation", (_, read) => {
           );
         }),
     );
-    const client = await createGroundhogClient({
+    const client = await createThruputClient({
       transport: new HttpTransport("https://rpc.example", {
         fetch,
         timeoutMs: 5_000,

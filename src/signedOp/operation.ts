@@ -1,16 +1,16 @@
-import type { ContractAddress, NetworkHash } from "@groundhogchain/protocol";
+import type { ContractAddress, NetworkHash } from "@thruputchain/protocol";
 import {
   CryptographicScheme,
   blockHeight,
   ed25519Signature,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import {
   ContractTypeDefKind,
   ContractTypeKind,
   type ContractSpecId,
   type ContractTypeDef,
-} from "@groundhogchain/contract-spec";
-import type { FixedBytes } from "@groundhogchain/xdr";
+} from "@thruputchain/contract-spec";
+import type { FixedBytes } from "@thruputchain/xdr";
 import { randomBytes } from "@noble/hashes/utils.js";
 import {
   createContractCodec,
@@ -22,7 +22,7 @@ import { signedOperationPreimage } from "./preimage.js";
 
 /**
  * Wire form of a signed operation: the `Operation` struct of the
- * `groundhog-signed-op-if` interface, in the shape generated bindings give it.
+ * `thruput-signed-op-if` interface, in the shape generated bindings give it.
  *
  * The network hash, the verifying contract, and the signing key are covered
  * by the signature but deliberately absent here. The verifying contract
@@ -151,7 +151,7 @@ export function randomNonce(): bigint {
  * import {
  *   defineSignedOperation,
  *   randomNonce,
- * } from "@groundhogchain/client/signed-op";
+ * } from "@thruputchain/client/signed-op";
  * import { spec, MyWallet, type my_wallet } from "./generated/my_wallet.js";
  *
  * const transfer = defineSignedOperation<my_wallet.v0_1.Transfer>({

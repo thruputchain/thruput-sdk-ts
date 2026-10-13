@@ -1,4 +1,4 @@
-import type { Signature, PublicKey } from "@groundhogchain/protocol";
+import type { Signature, PublicKey } from "@thruputchain/protocol";
 
 /**
  * Interface for signing canonical transaction bytes.

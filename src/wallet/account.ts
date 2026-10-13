@@ -10,7 +10,7 @@ import {
   type BitMap,
   type ContractAddress,
   type Weight,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import type { Signer } from "../signers/types.js";
 import type { SignerEntry } from "../transaction/sign.js";
 import { derivePubkeyAccountAddress } from "../derivation/pubkeyAccount.js";

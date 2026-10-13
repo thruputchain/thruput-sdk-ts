@@ -3,14 +3,14 @@ import type {
   Invocation,
   NetworkHash,
   Transaction,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import {
-  createGroundhogClient,
+  createThruputClient,
   createWalletClient,
   defineWalletInvocationAdapter,
   devWalletAdapter,
   localnet,
-  type ConnectedGroundhogClient,
+  type ConnectedThruputClient,
   type PubkeyAccount,
   type SourceAddressAccount,
   type WalletExecutionRequest,
@@ -19,8 +19,8 @@ import type { devnet, mainnet } from "../../cluster.js";
 import type { Transport } from "../../transport/types.js";
 
 function assertWalletTypes(
-  devnetClient: ConnectedGroundhogClient<ReturnType<typeof devnet>>,
-  mainnetClient: ConnectedGroundhogClient<ReturnType<typeof mainnet>>,
+  devnetClient: ConnectedThruputClient<ReturnType<typeof devnet>>,
+  mainnetClient: ConnectedThruputClient<ReturnType<typeof mainnet>>,
   account: SourceAddressAccount,
   pubkeyAccount: PubkeyAccount,
   otherAddress: ContractAddress,
@@ -75,11 +75,11 @@ function assertWalletTypes(
   // @ts-expect-error Mainnet wallet clients do not expose airdrops.
   mainnetWallet.requestAirdrop();
 
-  createGroundhogClient({
+  createThruputClient({
     cluster: localnet(),
     transport,
   }).then((client) => createWalletClient({ client, account }).requestAirdrop());
-  createGroundhogClient({
+  createThruputClient({
     cluster: {
       name: "capable",
       rpcUrl: "https://rpc.example.com",
@@ -87,7 +87,7 @@ function assertWalletTypes(
     },
     transport,
   }).then((client) => createWalletClient({ client, account }).requestAirdrop());
-  createGroundhogClient({
+  createThruputClient({
     cluster: {
       name: "incapable",
       rpcUrl: "https://rpc.example.com",
@@ -99,7 +99,7 @@ function assertWalletTypes(
     // @ts-expect-error Custom clients without the capability omit airdrops.
     wallet.requestAirdrop();
   });
-  createGroundhogClient({ transport }).then((client) => {
+  createThruputClient({ transport }).then((client) => {
     // @ts-expect-error Unqualified clients require an explicit signing network.
     createWalletClient({ client, account });
     createWalletClient({ client, account, networkHash });
@@ -109,7 +109,7 @@ function assertWalletTypes(
 }
 
 function assertCollidingClientMethods(
-  client: ConnectedGroundhogClient<ReturnType<typeof devnet>> & {
+  client: ConnectedThruputClient<ReturnType<typeof devnet>> & {
     execute(value: string): string;
     prepareExecution(value: string): string;
     signTransaction(value: string): string;
@@ -134,7 +134,7 @@ function assertCollidingClientMethods(
 }
 
 function assertSourceCollisionTypes(
-  client: ConnectedGroundhogClient<ReturnType<typeof devnet>> & {
+  client: ConnectedThruputClient<ReturnType<typeof devnet>> & {
     execute(value: string): string;
   },
   account: SourceAddressAccount,

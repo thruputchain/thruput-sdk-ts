@@ -1,9 +1,9 @@
 // Generated from erc20_permit.spec.xdr - ERC20Permit interface v0.1.41
 // DO NOT EDIT. Re-run codegen to update.
 
-import * as __gh_protocol from "@groundhogchain/protocol";
-import * as __gh_protocol_utils from "@groundhogchain/protocol/utils";
-import * as __gh_contract_spec from "@groundhogchain/contract-spec";
+import * as __gh_protocol from "@thruputchain/protocol";
+import * as __gh_protocol_utils from "@thruputchain/protocol/utils";
+import * as __gh_contract_spec from "@thruputchain/contract-spec";
 import * as __gh_client_contract from "../contract/index.js";
 
 const __gh_s = __gh_contract_spec.contractSpecString;

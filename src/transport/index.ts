@@ -8,7 +8,7 @@
  */
 export type { Transport, TransportRequestOptions } from "./types.js";
 export {
-  GroundhogRpcErrorCode,
+  ThruputRpcErrorCode,
   HttpResponseError,
   HttpRequestError,
   HttpTransport,

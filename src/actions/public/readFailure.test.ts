@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { contractAddress, sha256Hash } from "@groundhogchain/protocol";
+import { contractAddress, sha256Hash } from "@thruputchain/protocol";
 import type { Transport } from "../../transport/types.js";
 import { ContractDecodeError } from "../../contract/errors.js";
 import { HttpResponseError } from "../../transport/http.js";

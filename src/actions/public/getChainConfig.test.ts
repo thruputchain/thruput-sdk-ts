@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Transport } from "../../transport/types.js";
-import { createGroundhogClient } from "../../client.js";
+import { createThruputClient } from "../../client.js";
 import { getChainConfig } from "./getChainConfig.js";
 
 function returning(result: unknown): Transport {
@@ -86,7 +86,7 @@ describe("getChainConfig", () => {
         return { execution } as T;
       },
     };
-    const client = await createGroundhogClient({ transport });
+    const client = await createThruputClient({ transport });
     expect((await client.getChainConfig()).execution?.observedTip.height).toBe(
       42n,
     );

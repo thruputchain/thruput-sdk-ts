@@ -9,7 +9,7 @@ import {
   sha256Hash,
   networkHash,
   CxsWriter,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import { hashSignedTransaction } from "../derivation/transactionHash.js";
 import { PrivateKeySigner } from "../signers/privateKey.js";
 import { createTransaction } from "../transaction/build.js";

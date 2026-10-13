@@ -1,8 +1,8 @@
-import { ExecResult, networkHash } from "@groundhogchain/protocol";
+import { ExecResult, networkHash } from "@thruputchain/protocol";
 import { describe, expect, it, vi } from "vitest";
 import type { Transport } from "../../transport/types.js";
 import {
-  GroundhogRpcErrorCode,
+  ThruputRpcErrorCode,
   HttpRequestError,
   HttpResponseError,
   JsonRpcError,
@@ -229,10 +229,10 @@ describe("waitForTransactionReceipt", () => {
   });
 
   it.each([
-    GroundhogRpcErrorCode.TxNotFound,
-    GroundhogRpcErrorCode.BackendUnavailable,
-    GroundhogRpcErrorCode.BackendTimeout,
-    GroundhogRpcErrorCode.Overloaded,
+    ThruputRpcErrorCode.TxNotFound,
+    ThruputRpcErrorCode.BackendUnavailable,
+    ThruputRpcErrorCode.BackendTimeout,
+    ThruputRpcErrorCode.Overloaded,
   ])("retries transient receipt error %i", async (code) => {
     let receiptQueries = 0;
     const transport: Transport = {
@@ -293,7 +293,7 @@ describe("waitForTransactionReceipt", () => {
 
   it("does not retry deterministic receipt errors", async () => {
     const failure = new JsonRpcError(
-      GroundhogRpcErrorCode.InvalidParams,
+      ThruputRpcErrorCode.InvalidParams,
       "invalid hash",
     );
     const transport: Transport = {

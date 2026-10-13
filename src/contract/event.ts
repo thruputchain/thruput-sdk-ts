@@ -2,13 +2,13 @@ import {
   contractAddress,
   kMaxEventLength,
   type ContractAddress,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import {
   CxsReader,
   CxsWriter,
   fixedBytes,
   type XdrCodec,
-} from "@groundhogchain/xdr";
+} from "@thruputchain/xdr";
 import type {
   EmittedEvent,
   EventFilter,

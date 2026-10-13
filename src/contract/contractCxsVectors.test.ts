@@ -6,9 +6,9 @@ import {
   gasAmount,
   Uint32Codec,
   CxsWriter,
-} from "@groundhogchain/protocol";
-import { fromHex, toHex } from "@groundhogchain/protocol/utils";
-import { ContractTypeKind } from "@groundhogchain/contract-spec";
+} from "@thruputchain/protocol";
+import { fromHex, toHex } from "@thruputchain/protocol/utils";
+import { ContractTypeKind } from "@thruputchain/contract-spec";
 import {
   RecursiveTypeContract,
   type recursive_type,

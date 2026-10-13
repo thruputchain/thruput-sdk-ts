@@ -2,17 +2,17 @@ import {
   networkHash as toNetworkHash,
   sha256Hash,
   type NetworkHash,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import type { NetworkInfo } from "./types/rpc.js";
 import { toHex0x } from "./actions/hex.js";
 
-/** Public Groundhog Devnet JSON-RPC endpoint. */
+/** Public Thruput Devnet JSON-RPC endpoint. */
 export const DEVNET_RPC_URL = "https://rpc.thruput.network";
 
 /** Default JSON-RPC endpoint for `thruput node`. */
 export const LOCALNET_RPC_URL = "http://127.0.0.1:9545";
 
-/** Optional feature exposed by a Groundhog cluster. */
+/** Optional feature exposed by a Thruput cluster. */
 export type ClusterCapability = "airdrop";
 
 /** Network identity and optional features expected at an RPC endpoint. */
@@ -80,7 +80,7 @@ export function defineCluster<const TCluster extends Cluster>(
   }) as TCluster;
 }
 
-/** Define the canonical Groundhog mainnet cluster. */
+/** Define the canonical Thruput mainnet cluster. */
 export function mainnet(
   options: PredefinedClusterOptions = {},
 ): Cluster<readonly []> & { readonly name: "mainnet" } {
@@ -92,7 +92,7 @@ export function mainnet(
   });
 }
 
-/** Define the resettable public Groundhog development network, unpinned unless `networkHash` is supplied. */
+/** Define the resettable public Thruput development network, unpinned unless `networkHash` is supplied. */
 export function devnet(
   options: PredefinedClusterOptions = {},
 ): Cluster<readonly ["airdrop"]> & { readonly name: "devnet" } {

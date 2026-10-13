@@ -27,7 +27,7 @@ function browserTarget(): EventTarget {
  * announcements from this registration, but does not retract a provider already
  * discovered, disconnect sessions, or revoke permissions. There is no unregister event.
  *
- * @see https://docs.groundhog.dev/tools/wallet-provider/
+ * @see https://docs.thruput.network/tools/wallet-provider/
  */
 export function registerWalletProvider(
   provider: WalletProvider,
@@ -58,7 +58,7 @@ export function registerWalletProvider(
  * @returns Idempotent cleanup that removes the listener and releases retained IDs.
  * It does not disconnect discovered providers or revoke their permissions.
  *
- * @see https://docs.groundhog.dev/tools/wallet-integration/
+ * @see https://docs.thruput.network/tools/wallet-integration/
  */
 export function discoverWalletProviders(
   listener: (provider: WalletProvider) => void,

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-GENERATOR="${GROUNDHOG_OPENRPC_GENERATOR:-}"
+GENERATOR="${THRUPUT_OPENRPC_GENERATOR:-}"
 if [[ -z "$GENERATOR" ]]; then
-  cargo install groundhog-open-rpc-spec@0.25.0 --registry thruput --locked
-  GENERATOR="groundhog-open-rpc-spec"
+  cargo install thruput-open-rpc-spec@0.28.0 --registry thruput --locked
+  GENERATOR="thruput-open-rpc-spec"
 fi
 SPEC="$(git rev-parse --show-toplevel)/specs/openrpc.json"
 TEMP_SPEC="$(mktemp)"
@@ -15,11 +15,11 @@ node --input-type=module - "$TEMP_SPEC" <<'JS'
 import { readFileSync } from "node:fs";
 const spec = JSON.parse(readFileSync(process.argv[2], "utf8"));
 if (spec.info.version !== "11.2.0") {
-  throw new Error(`Expected RPC wire 11.2.0, received ${spec.info.version}. Set GROUNDHOG_OPENRPC_GENERATOR to a matching generator.`);
+  throw new Error(`Expected RPC wire 11.2.0, received ${spec.info.version}. Set THRUPUT_OPENRPC_GENERATOR to a matching generator.`);
 }
 for (const name of ["groundhog_fundAccount", "groundhog_viewBatch"]) {
   if (!spec.methods.some((method) => method.name === name)) {
-    throw new Error(`Generator is missing ${name}. Set GROUNDHOG_OPENRPC_GENERATOR to a matching generator.`);
+    throw new Error(`Generator is missing ${name}. Set THRUPUT_OPENRPC_GENERATOR to a matching generator.`);
   }
 }
 JS

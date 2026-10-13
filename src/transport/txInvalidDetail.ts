@@ -1,4 +1,4 @@
-import { GroundhogRpcErrorCode, JsonRpcError } from "./http.js";
+import { ThruputRpcErrorCode, JsonRpcError } from "./http.js";
 
 /**
  * Why `sendRawTransaction` rejected a transaction before submitting it: the
@@ -56,7 +56,7 @@ const FIELDS: Record<TxInvalidDetail["reason"], readonly string[]> = {
 export function txInvalidDetail(error: unknown): TxInvalidDetail | null {
   if (
     !(error instanceof JsonRpcError) ||
-    error.code !== GroundhogRpcErrorCode.TxInvalid
+    error.code !== ThruputRpcErrorCode.TxInvalid
   ) {
     return null;
   }

@@ -1,5 +1,5 @@
-import type { NetworkHash, Transaction } from "@groundhogchain/protocol";
-import { codec, serialize } from "@groundhogchain/protocol";
+import type { NetworkHash, Transaction } from "@thruputchain/protocol";
+import { codec, serialize } from "@thruputchain/protocol";
 import { TRANSACTION } from "../derivation/domainSeparator.js";
 
 /**

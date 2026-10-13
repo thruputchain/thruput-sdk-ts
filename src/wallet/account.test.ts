@@ -3,7 +3,7 @@ import {
   bitMap,
   contractAddress,
   weight,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import { describe, expect, it } from "vitest";
 import { PrivateKeySigner } from "../signers/privateKey.js";
 import { derivePubkeyAccountAddress } from "../derivation/pubkeyAccount.js";

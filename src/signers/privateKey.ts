@@ -1,11 +1,11 @@
 import { sha512 } from "@noble/hashes/sha2.js";
 import { hashes, sign, getPublicKey } from "@noble/ed25519";
-import type { Signature, PublicKey } from "@groundhogchain/protocol";
+import type { Signature, PublicKey } from "@thruputchain/protocol";
 import {
   CryptographicScheme,
   ed25519PublicKey,
   ed25519Signature,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import type { Signer } from "./types.js";
 
 if (!hashes.sha512) {
@@ -21,7 +21,7 @@ if (!hashes.sha512) {
  *
  * @example
  * ```ts
- * import { PrivateKeySigner } from "@groundhogchain/client/signers";
+ * import { PrivateKeySigner } from "@thruputchain/client/signers";
  *
  * const signer = new PrivateKeySigner(secretKey);
  * const signature = await signer.sign(message);

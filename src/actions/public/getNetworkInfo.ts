@@ -3,7 +3,7 @@ import type {
   TransportRequestOptions,
 } from "../../transport/types.js";
 import type { NetworkInfo } from "../../types/rpc.js";
-import { networkHash } from "@groundhogchain/protocol";
+import { networkHash } from "@thruputchain/protocol";
 import { hashFromHex } from "../hex.js";
 
 const CANONICAL_SHA256_HASH = /^0x[0-9a-f]{64}$/;

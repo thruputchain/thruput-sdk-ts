@@ -10,7 +10,7 @@ import {
   sha256Hash,
   type Transaction,
   type SignedTransaction,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import { Point, verifyAsync } from "@noble/ed25519";
 import { toHex0x } from "../actions/hex.js";
 import { derivePubkeyAccountAddress } from "../derivation/pubkeyAccount.js";
@@ -425,7 +425,7 @@ export function assertWalletTransaction(
  * Requires Web Crypto (HTTPS or localhost in browsers). Invalid signing results
  * throw code -32603; invalid expected inputs fail their boundary validation first.
  *
- * @see https://docs.groundhog.dev/tools/wallet-provider/
+ * @see https://docs.thruput.network/tools/wallet-provider/
  */
 export async function verifySignTransactionResult(
   value: unknown,

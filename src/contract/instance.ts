@@ -1,5 +1,5 @@
-import type { ContractAddress } from "@groundhogchain/protocol";
-import type { GroundhogClient } from "../client.js";
+import type { ContractAddress } from "@thruputchain/protocol";
+import type { ThruputClient } from "../client.js";
 import type { ContractMethod, ContractViewOptions } from "./method.js";
 
 /** A method descriptor with address/client defaults bound for reads and calls. */
@@ -49,7 +49,7 @@ export function getContract<
 >(options: {
   binding: T;
   address: ContractAddress;
-  client: Pick<GroundhogClient, "view">;
+  client: Pick<ThruputClient, "view">;
 }): ContractInstance<T> {
   const address = options.address.slice() as ContractAddress;
   return Object.fromEntries(

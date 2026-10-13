@@ -12,16 +12,15 @@ import {
   contractAddress,
   contractEntrypointID,
   gasAmount,
-  kMaxReturnBufferLen,
   sha256Hash,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import {
   ContractMethodEffect,
   ContractTypeKind,
-} from "@groundhogchain/contract-spec";
+} from "@thruputchain/contract-spec";
 import { DefaultWallet, ERC20 } from "../contracts/index.js";
 import { getContract } from "./instance.js";
-import type { GroundhogClient } from "../client.js";
+import type { ThruputClient } from "../client.js";
 import type {
   EmittedEvent,
   TransactionReceipt,
@@ -81,7 +80,7 @@ function encode(write: (writer: CxsWriter) => void): Uint8Array {
 function clientReturning(response: ViewResponse) {
   return {
     view: vi.fn(async () => response),
-  } satisfies Pick<GroundhogClient, "view">;
+  } satisfies Pick<ThruputClient, "view">;
 }
 
 function receipt(
@@ -364,15 +363,67 @@ describe("contract method decoding", () => {
     expect(() => method.decodeReturn(data)).toThrow(/trailing bytes/);
   });
 
-  it("enforces the protocol return and abort buffer limit", () => {
-    const oversized = new Uint8Array(Number(kMaxReturnBufferLen) + 1);
+  it("decodes return and declared abort payloads beyond the former 1024-byte limit", () => {
+    const descriptor = defineContractMethod<void, Uint8Array, unknown>(
+      definition({
+        args: [],
+        returnType: { v: ContractTypeKind.Bytes },
+        throws: [
+          {
+            selector: 7n,
+            name: "LargeFailure",
+            type: { v: ContractTypeKind.Bytes },
+          },
+        ],
+      }),
+    );
+    const value = new Uint8Array(2048).fill(0x2a);
+    const returned = encode((writer) =>
+      writer.writeVarOpaque(value, 0xffffffff),
+    );
+    const aborted = encode((writer) => {
+      writer.writeUint64(7n);
+      writer.writeVarOpaque(value, 0xffffffff);
+    });
+    expect(descriptor.decodeReturn(returned)).toEqual(value);
+    expect(descriptor.decodeException(aborted)).toEqual({
+      kind: "declared",
+      selector: 7n,
+      name: "LargeFailure",
+      value,
+    });
+    expect(
+      descriptor.decodeReceiptOutcome(receipt({ returnData: returned })),
+    ).toMatchObject({
+      kind: "return",
+      value,
+    });
+    expect(
+      descriptor.decodeViewOutcome({
+        output: { result: "return", returnData: returned },
+        height: 1n,
+        gasUsed: 1n,
+        events: [],
+      }),
+    ).toMatchObject({ kind: "return", value });
+    expect(() =>
+      descriptor.decodeReturn(returned.subarray(0, returned.length - 1)),
+    ).toThrow(ContractDecodeError);
+    expect(() =>
+      descriptor.decodeException(aborted.subarray(0, aborted.length - 1)),
+    ).toThrow(ContractDecodeError);
+  });
 
-    expect(() => method.decodeReturn(oversized)).toThrow(
-      /Contract return data exceeds 1024 bytes: 1025/,
-    );
-    expect(() => method.decodeException(oversized)).toThrow(
-      /Contract abort data exceeds 1024 bytes: 1025/,
-    );
+  it("preserves unknown abort payloads beyond the former buffer limit", () => {
+    const data = encode((writer) => {
+      writer.writeUint64(99n);
+      writer.writeFixedOpaque(new Uint8Array(2048).fill(0x2a), 2048);
+    });
+    expect(method.decodeException(data)).toEqual({
+      kind: "unknown",
+      selector: 99n,
+      data,
+    });
   });
 
   it("decodes declared exceptions and rejects trailing bytes", () => {
@@ -705,7 +756,7 @@ describe("contract method views", () => {
       view: vi.fn(async () => {
         throw failure;
       }),
-    } satisfies Pick<GroundhogClient, "view">;
+    } satisfies Pick<ThruputClient, "view">;
 
     await expect(
       method.viewOutcome({

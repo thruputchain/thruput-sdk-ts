@@ -1,5 +1,5 @@
 {
-  "name": "@groundhogchain/client",
+  "name": "@thruputchain/client",
   "entryPoints": [
     "src/index.ts",
     "src/actions/index.ts",

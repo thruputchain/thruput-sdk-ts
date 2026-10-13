@@ -1,8 +1,8 @@
 import type { Transport, TransportRequestOptions } from "./types.js";
 import { HttpBatch } from "./httpBatch.js";
 
-/** JSON-RPC error codes currently returned by Groundhog gateways. */
-export const GroundhogRpcErrorCode = {
+/** JSON-RPC error codes currently returned by Thruput gateways. */
+export const ThruputRpcErrorCode = {
   InvalidParams: -32602,
   TxInvalid: -32000,
   TxRejected: -32001,
@@ -119,7 +119,7 @@ export interface HttpTransportOptions {
  *
  * @example
  * ```ts
- * import { HttpTransport } from "@groundhogchain/client/transport";
+ * import { HttpTransport } from "@thruputchain/client/transport";
  *
  * const transport = new HttpTransport("http://127.0.0.1:9545", {
  *   timeoutMs: 10_000,
@@ -136,7 +136,7 @@ export class HttpTransport implements Transport {
   #nextId = 1;
   #batch?: HttpBatch;
 
-  /** Create an HTTP transport for a Groundhog JSON-RPC endpoint URL. */
+  /** Create an HTTP transport for a Thruput JSON-RPC endpoint URL. */
   constructor(url: string, options: HttpTransportOptions = {}) {
     this.#url = url;
     this.#headers = options.headers;

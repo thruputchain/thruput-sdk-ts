@@ -8,7 +8,7 @@ import {
   contractAddress,
   contractEntrypointID,
   calldata,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import type { Transport } from "../transport/types.js";
 import { I64_MIN, I64_MAX, U64_MAX, parseHeight, parseU64 } from "./decimal.js";
 

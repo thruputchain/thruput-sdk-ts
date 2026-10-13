@@ -4,9 +4,9 @@ import {
   codec,
   serializeCxs,
   sha256Hash,
-} from "@groundhogchain/protocol";
-import type { SHA256Hash } from "@groundhogchain/protocol";
-import type { XdrCodec } from "@groundhogchain/xdr";
+} from "@thruputchain/protocol";
+import type { SHA256Hash } from "@thruputchain/protocol";
+import type { XdrCodec } from "@thruputchain/xdr";
 
 /**
  * Maximum UTF-8 length of a domain-separator name, from the protocol's

@@ -1,5 +1,5 @@
-import type { SignedTransaction, SHA256Hash } from "@groundhogchain/protocol";
-import { serialize, codec } from "@groundhogchain/protocol";
+import type { SignedTransaction, SHA256Hash } from "@thruputchain/protocol";
+import { serialize, codec } from "@thruputchain/protocol";
 import type { Transport } from "../../transport/types.js";
 import { toHex0x, hashFromHex } from "../hex.js";
 

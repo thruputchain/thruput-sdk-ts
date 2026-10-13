@@ -5,20 +5,19 @@ import type {
   GasAmount,
   Invocation,
   SHA256Hash,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import {
   ExecResult,
   calldata,
   contractAddress,
   contractEntrypointID,
-  kMaxReturnBufferLen,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import {
   ContractMethodEffect,
   ContractTypeKind,
-} from "@groundhogchain/contract-spec";
-import { CxsReader, CxsWriter, type XdrCodec } from "@groundhogchain/xdr";
-import type { GroundhogClient } from "../client.js";
+} from "@thruputchain/contract-spec";
+import { CxsReader, CxsWriter, type XdrCodec } from "@thruputchain/xdr";
+import type { ThruputClient } from "../client.js";
 import type {
   EmittedEvent,
   TransactionReceipt,
@@ -236,7 +235,7 @@ export type ContractMethodInputs<TArgs> = {
 export type ContractViewOptions<TArgs> = ContractMethodInputs<TArgs> & {
   /** Optional authorization assumed by the simulator, without signatures. */
   authClaim?: AuthClaim;
-  client: Pick<GroundhogClient, "view">;
+  client: Pick<ThruputClient, "view">;
   caller?: ContractAddress;
   /** Minimum committed snapshot height. No waiting or request-driven refresh. */
   minHeight?: bigint;
@@ -316,7 +315,9 @@ export interface ContractMethod<TArgs, TResult, TDeclaredException> {
    * ```
    */
   decodeArgs(data: Uint8Array): TArgs;
+  /** Decode complete return data. The runtime enforces network-specific buffer limits. */
   decodeReturn(data: Uint8Array): TResult;
+  /** Decode abort data, preserving an unknown selector and its complete payload. */
   decodeException(data: Uint8Array): ContractException<TDeclaredException>;
   /** Decode a view response with the same semantics as view(). */
   decodeView(response: ViewResponse): ContractView<TResult>;
@@ -482,7 +483,6 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
     },
 
     decodeReturn(data) {
-      assertReturnBufferLimit(data, "return");
       return decodeComplete<TResult>(
         returnCodec,
         data,
@@ -491,7 +491,6 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
     },
 
     decodeException(data) {
-      assertReturnBufferLimit(data, "abort");
       return decodeException<TDeclaredException>(data, exceptionBySelector);
     },
 
@@ -702,18 +701,6 @@ function decodeException<TDeclaredException>(
     throw new ContractDecodeError(
       `Failed to decode contract exception${detail}`,
       { cause },
-    );
-  }
-}
-
-function assertReturnBufferLimit(
-  data: Uint8Array,
-  kind: "return" | "abort",
-): void {
-  const limit = Number(kMaxReturnBufferLen);
-  if (data.length > limit) {
-    throw new ContractDecodeError(
-      `Contract ${kind} data exceeds ${limit} bytes: ${data.length}`,
     );
   }
 }

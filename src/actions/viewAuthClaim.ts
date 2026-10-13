@@ -5,7 +5,7 @@ import {
   deserialize,
   serialize,
   type AuthClaim,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import { toHex0x } from "./hex.js";
 import { serializeU64 } from "./decimal.js";
 

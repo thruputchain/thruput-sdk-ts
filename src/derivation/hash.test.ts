@@ -12,9 +12,9 @@ import {
   toHex,
   CryptographicScheme,
   AuthClaimType,
-} from "@groundhogchain/protocol";
-import type { SignedTransaction } from "@groundhogchain/protocol";
-import { codec, serialize } from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
+import type { SignedTransaction } from "@thruputchain/protocol";
+import { codec, serialize } from "@thruputchain/protocol";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { hashSignedTransaction } from "./transactionHash.js";
 import { deriveContractAddress } from "./contractAddress.js";

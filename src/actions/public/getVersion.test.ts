@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { createGroundhogClient } from "../../client.js";
+import { createThruputClient } from "../../client.js";
 import { HttpTransport } from "../../transport/http.js";
 
 const base = { wireFormat: "3.3.0", implementation: "gateway" };
 async function readVersion(fields: Record<string, unknown>) {
-  const client = await createGroundhogClient({
+  const client = await createThruputClient({
     transport: new HttpTransport("https://rpc.example", {
       fetch: async () =>
         Response.json({

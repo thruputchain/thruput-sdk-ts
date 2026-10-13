@@ -1,6 +1,6 @@
 import { sha256 } from "@noble/hashes/sha2.js";
-import { codec, serialize, sha256Hash } from "@groundhogchain/protocol";
-import type { SHA256Hash, SignedTransaction } from "@groundhogchain/protocol";
+import { codec, serialize, sha256Hash } from "@thruputchain/protocol";
+import type { SHA256Hash, SignedTransaction } from "@thruputchain/protocol";
 
 /**
  * The transaction's network-wide identifier: `sha256(txs(stx.tx))`.

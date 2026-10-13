@@ -9,7 +9,7 @@ import {
   serialize,
   type Transaction,
   type GasAmount,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
 import { hashFromHex } from "../actions/hex.js";
 import {
   submitAndObserve,
@@ -26,7 +26,7 @@ import {
   type ContractDeployment,
   type DeploymentOptions,
 } from "./deployment.js";
-import type { CoreGroundhogClient } from "../client.js";
+import type { CoreThruputClient } from "../client.js";
 import { toHex0x } from "../actions/hex.js";
 import { prepareTransaction } from "../actions/wallet/prepareTransaction.js";
 import {
@@ -87,9 +87,9 @@ export interface CreateProviderWalletClientOptions {
   /**
    * RPC client connected to and verified against the application's expected network.
    * A validated client identity must match `networkHash`; an unqualified
-   * CoreGroundhogClient requires the caller to verify its RPC network separately.
+   * CoreThruputClient requires the caller to verify its RPC network separately.
    */
-  client: CoreGroundhogClient;
+  client: CoreThruputClient;
   /** Live external provider with an already authorized session. */
   provider: WalletProvider;
   /** Wire pubkey account from the provider subpath, snapshotted at construction. */
@@ -105,7 +105,7 @@ export interface CreateProviderWalletClientOptions {
  * a failed session read, or a mismatched session. Dispose and recreate after a
  * change or reconnect; there is no automatic reconnect or retry.
  *
- * @see https://docs.groundhog.dev/tools/wallet-integration/
+ * @see https://docs.thruput.network/tools/wallet-integration/
  */
 export interface ProviderWalletClient {
   /** Prepare a root deployment, preserving the explicit signing boundary. */
@@ -120,7 +120,7 @@ export interface ProviderWalletClient {
     controls: ProviderExecutionOptions,
   ): Promise<
     ExecutionResult & {
-      address: import("@groundhogchain/protocol").ContractAddress;
+      address: import("@thruputchain/protocol").ContractAddress;
     }
   >;
   /** Prepare, sign, persist, submit once, then observe a successful receipt. */
@@ -188,7 +188,7 @@ export interface ProviderWalletClient {
  * derivation and any validated client network identity, and subscribes to changes.
  * Supply the application's trusted expected network hash, not a value adopted from
  * the wallet. The RPC client must be connected to and verified against that same
- * network. An unqualified CoreGroundhogClient carries no validated network identity;
+ * network. An unqualified CoreThruputClient carries no validated network identity;
  * the caller must verify its RPC network separately before creating this adapter.
  * See {@link ProviderWalletClient} for invalidation and concurrency rules.
  * Providers own request deadlines; this adapter adds no UI timeout or cancellation.
@@ -201,21 +201,21 @@ export interface ProviderWalletClient {
  * must already be connected to and verified against that network.
  *
  * ```ts
- * import type { CoreGroundhogClient } from "@groundhogchain/client";
+ * import type { CoreThruputClient } from "@thruputchain/client";
  * import {
  *   parseWalletSession,
  *   parseWalletNetworkHash,
  *   type SignTransactionResult,
  *   type WalletAccount,
  *   type WalletProvider,
- * } from "@groundhogchain/client/provider";
+ * } from "@thruputchain/client/provider";
  * import {
  *   createProviderWalletClient,
  *   type PrepareExecutionRequest,
- * } from "@groundhogchain/client/wallet";
+ * } from "@thruputchain/client/wallet";
  *
  * async function sendWithWallet(
- *   client: CoreGroundhogClient,
+ *   client: CoreThruputClient,
  *   provider: WalletProvider,
  *   expectedNetworkHash: string,
  *   request: PrepareExecutionRequest,
@@ -246,8 +246,8 @@ export interface ProviderWalletClient {
  * }
  * ```
  *
- * @see https://docs.groundhog.dev/tools/wallet-integration/
- * @see https://docs.groundhog.dev/tools/wallet-provider/
+ * @see https://docs.thruput.network/tools/wallet-integration/
+ * @see https://docs.thruput.network/tools/wallet-provider/
  */
 export function createProviderWalletClient(
   options: CreateProviderWalletClientOptions,
@@ -628,7 +628,7 @@ export function createProviderWalletClient(
           ...options.wait,
           expectedNetworkHash: hashFromHex(
             `0x${networkHash}`,
-          ) as import("@groundhogchain/protocol").NetworkHash,
+          ) as import("@thruputchain/protocol").NetworkHash,
         },
         () => submissionDispatched,
       );
@@ -646,7 +646,7 @@ export function createProviderWalletClient(
     },
     async deployContractAndWait(deployment, options, controls) {
       const address =
-        deployment.address.slice() as import("@groundhogchain/protocol").ContractAddress;
+        deployment.address.slice() as import("@thruputchain/protocol").ContractAddress;
       const result = await execute(
         () => base.prepareDeployment(deployment, options),
         controls,

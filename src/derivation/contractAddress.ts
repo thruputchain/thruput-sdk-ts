@@ -1,6 +1,6 @@
 import { sha256 } from "@noble/hashes/sha2.js";
-import { codec, contractAddress, serialize } from "@groundhogchain/protocol";
-import type { ContractAddress, SHA256Hash } from "@groundhogchain/protocol";
+import { codec, contractAddress, serialize } from "@thruputchain/protocol";
+import type { ContractAddress, SHA256Hash } from "@thruputchain/protocol";
 
 /**
  * The on-chain address a deployment produces:

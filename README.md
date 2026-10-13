@@ -1,6 +1,6 @@
-# @groundhogchain/client
+# @thruputchain/client
 
-TypeScript client for the [Groundhog](https://github.com/groundhogchain) blockchain.
+TypeScript client for the [Thruput](https://github.com/groundhogchain) blockchain.
 
 It provides typed JSON-RPC actions, transaction construction and signing,
 HTTP and mock transports, and generated contract bindings. Generated methods
@@ -11,7 +11,7 @@ named topic filters, and receipt extraction.
 ## Install
 
 ```sh
-npm install @groundhogchain/client
+npm install @thruputchain/client
 ```
 
 The package is currently distributed through GitHub Packages and requires a
@@ -32,9 +32,9 @@ convert bigint fields explicitly to decimal strings; `JSON.stringify` does not
 serialize bigint values by itself.
 
 ```ts
-import { createGroundhogClient, HttpTransport } from "@groundhogchain/client";
+import { createThruputClient, HttpTransport } from "@thruputchain/client";
 
-const client = await createGroundhogClient({
+const client = await createThruputClient({
   transport: new HttpTransport("https://rpc.example.com"),
 });
 
@@ -45,7 +45,7 @@ const txHash = await client.sendTransaction(signedTransaction);
 Enable HTTP batching to group concurrent calls into one JSON-RPC array:
 
 ```ts
-const client = await createGroundhogClient({
+const client = await createThruputClient({
   transport: new HttpTransport("https://rpc.example.com", {
     batch: true, // defaults to { maxSize: 100, waitMs: 0 }
   }),
@@ -66,9 +66,9 @@ Pass a cluster to fetch the endpoint's network identity during connection and
 verify it against the cluster's `networkHash`, if supplied:
 
 ```ts
-import { createGroundhogClient, devnet, toHex0x } from "@groundhogchain/client";
+import { createThruputClient, devnet, toHex0x } from "@thruputchain/client";
 
-const client = await createGroundhogClient({
+const client = await createThruputClient({
   cluster: devnet(),
 });
 
@@ -106,7 +106,7 @@ Pass an explicit transport for custom headers or request handling. Omit
 `cluster` to use an unknown endpoint without runtime identity validation.
 
 ```ts
-const client = await createGroundhogClient({
+const client = await createThruputClient({
   cluster: {
     name: "private-devnet",
     rpcUrl: "https://rpc.example.com",
@@ -116,14 +116,14 @@ const client = await createGroundhogClient({
 ```
 
 Common protocol types and constructors are available directly from
-`@groundhogchain/client`: addresses, hashes, block heights, gas amounts,
+`@thruputchain/client`: addresses, hashes, block heights, gas amounts,
 `ContractEntrypointID`, `Calldata`, `TimePoint`, and `InvokeFlagSet`. The client also
 exports `Invocation`, `Transaction`, `SignedTransaction`, `InvokeFlag`, and
 `ExecResult`. These are the original protocol definitions; the full protocol and
-XDR API remains available from `@groundhogchain/protocol`.
+XDR API remains available from `@thruputchain/protocol`.
 
 ```ts
-import { gasAmount, type ContractAddress } from "@groundhogchain/client";
+import { gasAmount, type ContractAddress } from "@thruputchain/client";
 ```
 
 Generated contract bindings are exported separately. Each interface nests its
@@ -133,7 +133,7 @@ types, enum values, and event descriptors nest under the declaring crate and
 major (`groundhog_erc20_if.v0_1.events.TransferEvent`).
 
 ```ts
-import { ERC20 } from "@groundhogchain/client/contracts";
+import { ERC20 } from "@thruputchain/client/contracts";
 
 const balance = await ERC20.v0_1.getBalanceOf.view({
   client,
@@ -152,7 +152,7 @@ const transfer = ERC20.v0_1.transfer.invocation(tokenAddress, gasLimit, {
 Convert user input without floating-point arithmetic:
 
 ```ts
-import { parseUnits, formatUnits } from "@groundhogchain/client";
+import { parseUnits, formatUnits } from "@thruputchain/client";
 
 const amount = parseUnits("12.05", 2); // 1205n
 console.log(formatUnits(amount, 2)); // "12.05"
@@ -160,7 +160,7 @@ console.log(formatUnits(amount, 2)); // "12.05"
 
 Parsing rejects malformed input and excess precision rather than rounding.
 Applications still check token positivity and size limits. See the
-[amount guide](https://docs.groundhog.dev/tools/typescript-sdk/#exact-amounts-and-common-types)
+[amount guide](https://docs.thruput.network/tools/typescript-sdk/#exact-amounts-and-common-types)
 for error handling and supported inputs.
 
 ### Cancellable reads
@@ -182,7 +182,7 @@ const balance = await ERC20.v0_1.getBalanceOf.view({
 Call `controller.abort()` from the application's cleanup handler. Bound views also
 accept a signal. `classifyReadError(error, { signal })` helps distinguish cancellation
 from infrastructure failures; applications own retry policy. Canceling observation
-does not cancel a transaction. See [read errors](https://docs.groundhog.dev/tools/typescript-sdk/#cancellation-and-read-errors).
+does not cancel a transaction. See [read errors](https://docs.thruput.network/tools/typescript-sdk/#cancellation-and-read-errors).
 
 ### Inspect arguments
 
@@ -292,7 +292,7 @@ client's wait.
 Use a generated event descriptor to fetch one page with typed topics and fields:
 
 ```ts
-import { groundhog_erc20_if } from "@groundhogchain/client/contracts";
+import { groundhog_erc20_if } from "@thruputchain/client/contracts";
 
 const { TransferEvent } = groundhog_erc20_if.v0_1.events;
 const page = await client.getContractEvents({
@@ -334,7 +334,7 @@ A cursor continues one bounded historical walk, not future blocks. For ascending
 ingestion, start a new ascending walk with an empty cursor at the last stored
 row's height and deduplicate that block. Save rows and progress together. Refresh
 descending history from `anchor: "end"` with an empty cursor, not its oldest row.
-See the [pagination and restart walkthrough](https://docs.groundhog.dev/tutorials/add-events-to-a-contract/#resume-without-missing-events).
+See the [pagination and restart walkthrough](https://docs.thruput.network/tutorials/add-events-to-a-contract/#resume-without-missing-events).
 
 Local applications own their signing keys. A schema-4 local manifest contains
 public allocations and a public faucet address; it cannot produce a signer.
@@ -348,14 +348,14 @@ A wallet client binds account authorization and signers to an existing client:
 
 ```ts
 import {
-  createGroundhogClient,
+  createThruputClient,
   createPubkeyAccount,
   createWalletClient,
   devnet,
   PrivateKeySigner,
-} from "@groundhogchain/client";
+} from "@thruputchain/client";
 
-const client = await createGroundhogClient({ cluster: devnet() });
+const client = await createThruputClient({ cluster: devnet() });
 const signer = new PrivateKeySigner(secretKey);
 const account = createPubkeyAccount({ signer, nonce: 0n });
 const wallet = createWalletClient({ client, account });
@@ -406,7 +406,7 @@ amount and an optional initializer. Prepare the deployment identity first, then
 compose an initializer using the generated contract binding:
 
 ```ts
-import { prepareContractDeployment } from "@groundhogchain/client/wallet";
+import { prepareContractDeployment } from "@thruputchain/client/wallet";
 import { Counter } from "./generated/counter.js";
 
 const deployment = prepareContractDeployment({
@@ -529,15 +529,15 @@ automatically re-signing.
 A signed operation authorizes an on-chain action off-chain: the signer signs a
 `#[contract_type]` payload together with the network, the verifying contract,
 and a replay guard (a signer-chosen nonce plus an expiry height), and anyone
-can submit it. The contract verifies it with the `groundhog-signed-op` Rust
+can submit it. The contract verifies it with the `thruput-signed-op` Rust
 component against the key it holds; nothing on the wire names the signer. The
-`@groundhogchain/client/signed-op` entrypoint is the client half.
+`@thruputchain/client/signed-op` entrypoint is the client half.
 
 ```ts
 import {
   defineSignedOperation,
   randomNonce,
-} from "@groundhogchain/client/signed-op";
+} from "@thruputchain/client/signed-op";
 import { spec, MyWallet, type my_wallet } from "./generated/my_wallet.js";
 
 // Bind the payload type from the contract's generated spec. Its definition is
@@ -573,12 +573,12 @@ signers this package does not drive.
 
 ## Examples
 
-- [`chain-tip.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/chain-tip.ts) connects to Devnet and reads its latest block.
-- [`transfer-hog.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/transfer-hog.ts) funds two pubkey accounts and transfers HOG on Devnet.
-- [`view-hog-balance.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/view-hog-balance.ts) reads an explicitly supplied public account’s HOG balance.
-- [`deploy-counter.ts`](https://github.com/groundhogchain/client-ts/blob/main/examples/deploy-counter.ts) deploys and calls a Counter contract through DevWallet.
+- [`chain-tip.ts`](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/chain-tip.ts) connects to Devnet and reads its latest block.
+- [`transfer-hog.ts`](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/transfer-hog.ts) funds two pubkey accounts and transfers HOG on Devnet.
+- [`view-hog-balance.ts`](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/view-hog-balance.ts) reads an explicitly supplied public account’s HOG balance.
+- [`deploy-counter.ts`](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/deploy-counter.ts) deploys and calls a Counter contract through DevWallet.
 
-See the [examples guide](https://github.com/groundhogchain/client-ts/blob/main/examples/README.md) for local-node setup and configuration.
+See the [examples guide](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/README.md) for local-node setup and configuration.
 
 Use the root entrypoint for the client and common runtime APIs. Focused
 entrypoints are available for transactions, transports, contract runtime
@@ -586,18 +586,18 @@ helpers, generated standard contracts, signers, and standalone actions.
 
 ## What's in this repo
 
-- `src/client.ts` — async `createGroundhogClient` factory for unqualified and cluster-validated clients.
+- `src/client.ts` — async `createThruputClient` factory for unqualified and cluster-validated clients.
 - `src/actions/` — RPC actions grouped by namespace:
   - `public/` — chain, account, contract-view, event, and transaction queries.
   - `wallet/` — write methods (`sendTransaction`).
 - `src/transaction/` — transaction build, serialize, and sign helpers.
 - `src/contract/` — reusable codecs, typed method and event descriptors, fixed-length values, and contract spec helpers.
-- `src/contracts/` — generated standard contract bindings exported through `@groundhogchain/client/contracts`.
+- `src/contracts/` — generated standard contract bindings exported through `@thruputchain/client/contracts`.
 - `src/transport/` — `HttpTransport` (JSON-RPC over HTTP) and `MockTransport` for tests.
 - `src/signers/` — `Signer` interface and `PrivateKeySigner` (ed25519 via `@noble/ed25519`).
 - `src/signedOp/` — off-chain signing of `SignedOp` operations: preimage construction and payload binding, plus the generated `SignedOp` binding re-exported from `src/contracts/signed_op.ts`.
 - `src/types/rpc.ts` — typed RPC request/response shapes.
-- `specs/openrpc.json` — pinned Groundhog OpenRPC spec; `scripts/regen-openrpc.sh` refreshes it. After a regen, `npm test` (specifically `src/actions/contract.test.ts`) names any TS action whose serialized request no longer matches the new spec.
+- `specs/openrpc.json` — pinned Thruput OpenRPC spec; `scripts/regen-openrpc.sh` refreshes it. After a regen, `npm test` (specifically `src/actions/contract.test.ts`) names any TS action whose serialized request no longer matches the new spec.
 - `docs/api/` — generated TypeDoc output from `npm run docs` (ignored by git; see [API docs](#api-docs)).
 - `Caddyfile` and `Staticfile` — configure the private TypeDoc host that serves `docs/api/`; they are not part of the published package.
 
@@ -607,7 +607,7 @@ The package exposes focused entry points alongside the root: `./transaction`,
 `./transport`, `./contract`, `./contracts`, `./signers`, `./actions`,
 `./signed-op`, `./wallet`, and `./provider`.
 
-Browser wallets use the framework-neutral [wallet provider contract](https://docs.groundhog.dev/tools/wallet-provider/). See [Wallet Integration](https://docs.groundhog.dev/tools/wallet-integration/) for discovery, connection, and the prepare/sign/persist/submit flow.
+Browser wallets use the framework-neutral [wallet provider contract](https://docs.thruput.network/tools/wallet-provider/). See [Wallet Integration](https://docs.thruput.network/tools/wallet-integration/) for discovery, connection, and the prepare/sign/persist/submit flow.
 `./provider` exports wire types, strict validation, and multi-wallet discovery.
 `./wallet` exports the existing local-signer wallet API and
 `createProviderWalletClient`, with separate prepare, sign, and submit steps so apps
@@ -646,10 +646,10 @@ Recover an uncertain submission through its original saved transaction hash.
 
 ## Documentation
 
-- [TypeScript SDK guide](https://docs.groundhog.dev/tools/typescript-sdk/) and the
-  [end-to-end tutorial](https://docs.groundhog.dev/tutorials/work-with-groundhog-from-typescript/)
-  on the Groundhog developer site.
-- [JSON-RPC API reference](https://docs.groundhog.dev/reference/json-rpc-api/) for the
+- [TypeScript SDK guide](https://docs.thruput.network/tools/typescript-sdk/) and the
+  [end-to-end tutorial](https://docs.thruput.network/tutorials/work-with-groundhog-from-typescript/)
+  on the Thruput developer site.
+- [JSON-RPC API reference](https://docs.thruput.network/reference/json-rpc-api/) for the
   methods behind each action.
 - The TypeDoc API reference is generated from this package's entry points with
   `npm run docs` (see [API docs](#api-docs)).
@@ -676,7 +676,7 @@ The API reference is generated from the package's public entry points, matching 
 
 ### Registry auth (one-time setup)
 
-The `@groundhogchain/*` dependencies are hosted on GitHub Packages, which
+The `@thruputchain/*` dependencies are hosted on GitHub Packages, which
 requires a GitHub token even to download — a plain `npm install` on a fresh
 machine fails with `401 Unauthorized` from `npm.pkg.github.com`. To set up
 auth using the `gh` CLI:
@@ -691,7 +691,7 @@ Then add this line to `~/.npmrc` (it holds no secret — npm expands
 `$(gh auth token)` itself):
 
 ```
-@groundhogchain:registry=https://npm.pkg.github.com
+@thruputchain:registry=https://npm.pkg.github.com
 //npm.pkg.github.com/:_authToken=${GH_NPM_TOKEN}
 ```
 
@@ -728,7 +728,7 @@ npm run test:integration
 # Or qualify matching source builds:
 THRUPUT_CLI=/absolute/path/to/thruput \
 THRUPUT_DEVNODE_BINARY=/absolute/path/to/hog-devnode \
-GROUNDHOG_EXPECTED_WIRE_FORMAT=11.2.0 \
+THRUPUT_EXPECTED_WIRE_FORMAT=11.2.0 \
 npm run test:integration
 ```
 
@@ -746,14 +746,14 @@ CLI 0.27.0 uses wire 11.1.0 and skips those two probes explicitly.
 
 An explicit CLI overrides the release pin; tests verify that the RPC server
 reports that executable's version. The expected wire version defaults to
-`scripts/integration-versions.json`; set `GROUNDHOG_EXPECTED_WIRE_FORMAT` when
+`scripts/integration-versions.json`; set `THRUPUT_EXPECTED_WIRE_FORMAT` when
 testing a source build with a different wire version.
 An explicit devnode skips runtime installation. Set `HOGD_PROTOCOL_OVERRIDE`
 only when qualifying a compatible runtime with a different handshake token.
 
 The harness isolates configuration and state, stops its child processes, and
 retains logs and node state on failure at the printed temporary path. Set
-`GROUNDHOG_INTEGRATION_LOG_DIR` to retain logs at a chosen location; CI uploads
+`THRUPUT_INTEGRATION_LOG_DIR` to retain logs at a chosen location; CI uploads
 them as `live-node-logs`.
 
 The pinned devnode supports unified native deployment. The standard integration
@@ -763,8 +763,8 @@ built package tests against its reported URL and manifest:
 
 ```sh
 npm run build
-GROUNDHOG_RPC_URL=http://127.0.0.1:9545 \
-GROUNDHOG_RUNTIME_MANIFEST=/absolute/path/to/runtime-manifest.json \
+THRUPUT_RPC_URL=http://127.0.0.1:9545 \
+THRUPUT_RUNTIME_MANIFEST=/absolute/path/to/runtime-manifest.json \
 node --test --test-concurrency=1 tests/integration/live-node.test.mjs
 ```
 
@@ -775,3 +775,16 @@ A `LocalFundingUnresolved` RPC error preserves the original `txHash` and
 `signedTransaction` hex strings in `JsonRpcError.data`. These are transaction
 evidence, not confirmation. Inspect that hash and retry the same request; do not
 replace its nonce or amount while the outcome is uncertain.
+
+## Publishing the renamed packages
+
+The `@thruputchain/*` packages publish to GitHub Packages from repositories in
+`thruputchain`. Release workflows use the repository's `GITHUB_TOKEN` with
+`packages: write`.
+
+Publish the protocol packages first, then the client, then React. Grant the
+client and React repositories Actions read access to the protocol packages,
+and grant React read access to the client package. Refresh downstream lockfiles
+from the published artifacts before merging their PRs.
+
+Existing `@groundhogchain/*` releases retain their original identities.

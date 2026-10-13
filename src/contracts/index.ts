@@ -15,7 +15,7 @@
  *
  * @example
  * ```ts
- * import { ERC20 as ERC20Versions } from "@groundhogchain/client/contracts";
+ * import { ERC20 as ERC20Versions } from "@thruputchain/client/contracts";
  *
  * const ERC20 = ERC20Versions.v0_1;
  * const invocation = ERC20.transfer.invocation(tokenAddress, gasLimit, {

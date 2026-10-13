@@ -15,8 +15,8 @@ import {
   sha256Hash,
   ContractType,
   networkHash,
-} from "@groundhogchain/protocol";
-import type { Contract } from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";
+import type { Contract } from "@thruputchain/protocol";
 import { PrivateKeySigner } from "../signers/privateKey.js";
 import { signTransaction } from "./sign.js";
 import { transactionSignaturePreimage } from "./preimage.js";

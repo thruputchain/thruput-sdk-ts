@@ -1,8 +1,8 @@
-import { contractAddress } from "@groundhogchain/protocol";
+import { contractAddress } from "@thruputchain/protocol";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Transport } from "../../transport/types.js";
 import {
-  GroundhogRpcErrorCode,
+  ThruputRpcErrorCode,
   HttpResponseError,
   HttpRequestError,
   HttpTransport,
@@ -223,9 +223,9 @@ describe("requestAirdrop", () => {
   });
 
   it.each([
-    GroundhogRpcErrorCode.BackendUnavailable,
-    GroundhogRpcErrorCode.BackendTimeout,
-    GroundhogRpcErrorCode.Overloaded,
+    ThruputRpcErrorCode.BackendUnavailable,
+    ThruputRpcErrorCode.BackendTimeout,
+    ThruputRpcErrorCode.Overloaded,
   ])("retries transient JSON-RPC error %i", async (code) => {
     vi.useFakeTimers();
     let calls = 0;
@@ -277,7 +277,7 @@ describe("requestAirdrop", () => {
 
   it("does not retry a permanent JSON-RPC error", async () => {
     const failure = new JsonRpcError(
-      GroundhogRpcErrorCode.InvalidParams,
+      ThruputRpcErrorCode.InvalidParams,
       "invalid nonce",
     );
     const request = vi.fn(async () => {

@@ -4,9 +4,9 @@ import {
   contractAddress,
   contractEntrypointID,
   gasAmount,
-} from "@groundhogchain/protocol";
-import { CxsWriter } from "@groundhogchain/xdr";
-import { createGroundhogClient } from "../../client.js";
+} from "@thruputchain/protocol";
+import { CxsWriter } from "@thruputchain/xdr";
+import { createThruputClient } from "../../client.js";
 import { ERC20 as ERC20Versions } from "../../contracts/index.js";
 import { getContract } from "../../contract/instance.js";
 import { ContractViewError } from "../../contract/method.js";
@@ -163,7 +163,7 @@ describe("single-view freshness", () => {
 
   it("supports generated and bound views with typed outcomes and metadata", async () => {
     const { transport, request } = stub();
-    const client = await createGroundhogClient({ transport });
+    const client = await createThruputClient({ transport });
     const bound = getContract({ binding: ERC20, address, client });
     const options = {
       contract: address,
@@ -211,7 +211,7 @@ describe("single-view freshness", () => {
   });
 
   it("preserves contract faults as typed outcomes after the floor is met", async () => {
-    const client = await createGroundhogClient({
+    const client = await createThruputClient({
       transport: stub({ ...response, output: { result: "fault" } }).transport,
     });
     const options = { client, contract: address, minHeight: 42n };
@@ -226,7 +226,7 @@ describe("single-view freshness", () => {
   it("preserves typed abort outcomes after the floor is met", async () => {
     const writer = new CxsWriter();
     writer.writeUint64(7n);
-    const client = await createGroundhogClient({
+    const client = await createThruputClient({
       transport: stub({
         ...response,
         output: { result: "abort", abortData: toHex0x(writer.finish()) },

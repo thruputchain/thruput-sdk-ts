@@ -1,7 +1,7 @@
 /**
- * Root SDK entrypoint for the Groundhog TypeScript client.
+ * Root SDK entrypoint for the Thruput TypeScript client.
  *
- * Most applications should start here with {@link createGroundhogClient} and
+ * Most applications should start here with {@link createThruputClient} and
  * {@link HttpTransport}. Focused subpath exports are also available for
  * transaction, transport, contract, standard contract binding, signer, and
  * action APIs.
@@ -21,7 +21,7 @@ export {
 } from "./actions/hex.js";
 export type { Transport, TransportRequestOptions } from "./transport/index.js";
 export {
-  GroundhogRpcErrorCode,
+  ThruputRpcErrorCode,
   HttpResponseError,
   HttpRequestError,
   HttpTransport,
@@ -38,7 +38,7 @@ export type {
 } from "./transport/index.js";
 export type { Signer } from "./signers/index.js";
 export { PrivateKeySigner } from "./signers/index.js";
-export { createGroundhogClient } from "./client.js";
+export { createThruputClient } from "./client.js";
 export {
   devnet,
   mainnet,
@@ -50,12 +50,12 @@ export {
   LOCALNET_RPC_URL,
 } from "./cluster.js";
 export type {
-  ConnectedGroundhogClient,
-  ClusterGroundhogClientOptions,
-  GroundhogClientOptions,
-  CoreGroundhogClient,
+  ConnectedThruputClient,
+  ClusterThruputClientOptions,
+  ThruputClientOptions,
+  CoreThruputClient,
   AirdropActions,
-  GroundhogClient,
+  ThruputClient,
 } from "./client.js";
 export type {
   Cluster,
@@ -95,4 +95,4 @@ export {
   type Invocation,
   type Transaction,
   type SignedTransaction,
-} from "@groundhogchain/protocol";
+} from "@thruputchain/protocol";

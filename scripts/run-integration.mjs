@@ -192,9 +192,7 @@ async function main() {
   }
 
   work = await mkdtemp(join(tmpdir(), "thruput-client-integration-"));
-  logs = resolve(
-    process.env.GROUNDHOG_INTEGRATION_LOG_DIR ?? join(work, "logs"),
-  );
+  logs = resolve(process.env.THRUPUT_INTEGRATION_LOG_DIR ?? join(work, "logs"));
   await mkdir(logs, { recursive: true });
   console.log(`Integration logs: ${logs}`);
   const env = { ...process.env };
@@ -288,11 +286,11 @@ async function main() {
     ],
     {
       ...env,
-      GROUNDHOG_RPC_URL: ready.rpc_url,
-      GROUNDHOG_RUNTIME_MANIFEST: ready.runtime_manifest.path,
+      THRUPUT_RPC_URL: ready.rpc_url,
+      THRUPUT_RUNTIME_MANIFEST: ready.runtime_manifest.path,
       THRUPUT_EXPECTED_CLI_VERSION: cliVersion,
-      GROUNDHOG_EXPECTED_WIRE_FORMAT:
-        process.env.GROUNDHOG_EXPECTED_WIRE_FORMAT ?? versions.wireFormat,
+      THRUPUT_EXPECTED_WIRE_FORMAT:
+        process.env.THRUPUT_EXPECTED_WIRE_FORMAT ?? versions.wireFormat,
     },
     "tests",
     true,

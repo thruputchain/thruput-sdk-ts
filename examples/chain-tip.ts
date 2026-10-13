@@ -1,8 +1,8 @@
-// Repository-local import; applications use "@groundhogchain/client".
-import { createGroundhogClient, devnet, toHex0x } from "../src/index.js";
+// Repository-local import; applications use "@thruputchain/client".
+import { createThruputClient, devnet, toHex0x } from "../src/index.js";
 
-const rpcUrl = process.env.GROUNDHOG_RPC_URL;
-const client = await createGroundhogClient({
+const rpcUrl = process.env.THRUPUT_RPC_URL;
+const client = await createThruputClient({
   cluster: devnet(rpcUrl ? { rpcUrl } : {}),
 });
 

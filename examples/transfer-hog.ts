@@ -1,9 +1,9 @@
 import { randomBytes } from "node:crypto";
-import { HOG_ADDRESS, gasAmount } from "@groundhogchain/protocol";
+import { HOG_ADDRESS, gasAmount } from "@thruputchain/protocol";
 // Repository-local imports; applications use the published client entrypoints.
 import {
   PrivateKeySigner,
-  createGroundhogClient,
+  createThruputClient,
   createPubkeyAccount,
   createWalletClient,
   devnet,
@@ -17,7 +17,7 @@ const amount = parseUnits("0.0001", 7); // HOG has seven decimal places.
 // declared root gas reserves scheduling capacity against the sender's free HOG.
 const walletGasLimit = gasAmount(1_000_000n);
 const callGasLimit = gasAmount(500_000n);
-const rpcUrl = process.env.GROUNDHOG_RPC_URL;
+const rpcUrl = process.env.THRUPUT_RPC_URL;
 
 // These accounts exist only for this process. Their keys are not persisted.
 const sender = createPubkeyAccount({
@@ -27,7 +27,7 @@ const recipient = createPubkeyAccount({
   signer: new PrivateKeySigner(randomBytes(32)),
 });
 
-const client = await createGroundhogClient({
+const client = await createThruputClient({
   cluster: devnet(rpcUrl ? { rpcUrl } : {}),
 });
 const wallet = createWalletClient({

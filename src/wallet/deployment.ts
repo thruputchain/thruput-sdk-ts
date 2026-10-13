@@ -10,8 +10,8 @@ import {
   type GasAmount,
   type Invocation,
   type SHA256Hash,
-} from "@groundhogchain/protocol";
-import { fixedBytes } from "@groundhogchain/xdr";
+} from "@thruputchain/protocol";
+import { fixedBytes } from "@thruputchain/xdr";
 import { hashContract } from "../contract/hash.js";
 import { deriveContractAddress } from "../derivation/contractAddress.js";
 import { bytesEqual } from "../contract/event.js";

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createGroundhogClient } from "../client.js";
+import { createThruputClient } from "../client.js";
 import { HttpRequestError, HttpResponseError, HttpTransport } from "./http.js";
 import { classifyReadError } from "./readError.js";
 
@@ -67,7 +67,7 @@ describe("HTTP batching", () => {
         })),
       );
     });
-    const client = await createGroundhogClient({
+    const client = await createThruputClient({
       transport: new HttpTransport("https://rpc.example", {
         batch: true,
         fetch,

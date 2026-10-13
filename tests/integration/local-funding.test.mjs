@@ -8,22 +8,22 @@ import {
   HttpTransport,
   PrivateKeySigner,
   createPubkeyAccount,
-  createGroundhogClient,
+  createThruputClient,
   createWalletClient,
   localnet,
   fundAccount,
   addressFromHex,
   toHex0x,
-} from "@groundhogchain/client";
-import { ERC20 } from "@groundhogchain/client/contracts";
-import { HOG_ADDRESS, gasAmount, ExecResult } from "@groundhogchain/protocol";
+} from "@thruputchain/client";
+import { ERC20 } from "@thruputchain/client/contracts";
+import { HOG_ADDRESS, gasAmount, ExecResult } from "@thruputchain/protocol";
 
 test(
   "local funding preserves admitted bytes after a lost response",
   { timeout: 120_000 },
   async (t) => {
-    const rpcUrl = process.env.GROUNDHOG_RPC_URL;
-    assert.ok(rpcUrl, "Set GROUNDHOG_RPC_URL to a GH-462 local node");
+    const rpcUrl = process.env.THRUPUT_RPC_URL;
+    assert.ok(rpcUrl, "Set THRUPUT_RPC_URL to a GH-462 local node");
     const transport = new HttpTransport(rpcUrl, { timeoutMs: 30_000 });
     const version = await transport.request("groundhog_version", []);
     if (version.wireFormat === "11.1.0") {
@@ -31,7 +31,7 @@ test(
       return;
     }
     const manifest = JSON.parse(
-      await readFile(process.env.GROUNDHOG_RUNTIME_MANIFEST, "utf8"),
+      await readFile(process.env.THRUPUT_RUNTIME_MANIFEST, "utf8"),
     );
     if (manifest.schemaVersion === 3 && manifest.kind === "hogd-dev-runtime") {
       t.skip("Published runtime predates schema-4 local funding");
@@ -85,7 +85,7 @@ test(
         toHex0x(recovered.signedTransaction),
         admitted.signedTransaction,
       );
-      const client = await createGroundhogClient({
+      const client = await createThruputClient({
         cluster: localnet({ rpcUrl }),
         transport,
       });

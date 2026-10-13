@@ -9,13 +9,13 @@ import {
   contractAddress,
   deserialize,
   gasAmount,
-} from "@groundhogchain/protocol";
-import { toHex } from "@groundhogchain/protocol/utils";
+} from "@thruputchain/protocol";
+import { toHex } from "@thruputchain/protocol/utils";
 import {
   codec as contractSpecCodec,
   type ContractSpec,
-} from "@groundhogchain/contract-spec";
-import { fixedBytes } from "@groundhogchain/xdr";
+} from "@thruputchain/contract-spec";
+import { fixedBytes } from "@thruputchain/xdr";
 import { signedToken } from "../contract/signedToken.js";
 import { deriveEntrypointID } from "../derivation/entrypointId.js";
 import { SignedOp, groundhog_signed_op_if, spec } from "./signed_op.js";

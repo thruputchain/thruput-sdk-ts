@@ -5,8 +5,8 @@ import {
   contractAddress,
   gasAmount,
   sha256Hash,
-} from "@groundhogchain/protocol";
-import { CxsWriter, Uint64Codec } from "@groundhogchain/xdr";
+} from "@thruputchain/protocol";
+import { CxsWriter, Uint64Codec } from "@thruputchain/xdr";
 import { Counter } from "../../examples/generated/counter.js";
 import { DefaultWallet, default_wallet } from "../contracts/default_wallet.js";
 import { getContract } from "../contract/instance.js";

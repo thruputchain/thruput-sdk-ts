@@ -3,8 +3,8 @@ import type {
   SignedTransaction,
   Transaction,
   NetworkHash,
-} from "@groundhogchain/protocol";
-import type { CoreGroundhogClient } from "../../client.js";
+} from "@thruputchain/protocol";
+import type { CoreThruputClient } from "../../client.js";
 import type { WalletAccount } from "../../wallet/account.js";
 import { signTransaction as sign } from "../../transaction/sign.js";
 import {
@@ -23,7 +23,7 @@ export function signWalletTransaction(
 
 /** Prepare, sign, and submit one explicit root invocation. */
 export async function sendInvocation(
-  client: Pick<CoreGroundhogClient, "getChainTip" | "sendTransaction">,
+  client: Pick<CoreThruputClient, "getChainTip" | "sendTransaction">,
   account: WalletAccount,
   networkHash: NetworkHash,
   request: PrepareTransactionRequest,

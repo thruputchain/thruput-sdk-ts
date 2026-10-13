@@ -1,8 +1,8 @@
 # Examples
 
 The `../src/...` imports run these examples against this checkout. Applications
-should install the package and import from `@groundhogchain/client`,
-`@groundhogchain/client/contracts`.
+should install the package and import from `@thruputchain/client`,
+`@thruputchain/client/contracts`.
 
 Run examples from the repository root:
 
@@ -17,8 +17,8 @@ npm run example <name>
 | `view-hog-balance` | Localnet | Public account address and typed contract views                |
 | `deploy-counter`   | Localnet | Native wallet funding, atomic initialization, and readback     |
 
-Set `GROUNDHOG_RPC_URL` to override a cluster's default endpoint. A Localnet
-override must also set `GROUNDHOG_RUNTIME_MANIFEST` to the manifest produced by
+Set `THRUPUT_RPC_URL` to override a cluster's default endpoint. A Localnet
+override must also set `THRUPUT_RUNTIME_MANIFEST` to the manifest produced by
 that same node; the shared `localnet` network ID cannot distinguish separate
 local runtimes.
 
@@ -59,7 +59,7 @@ Read an ordinary account's HOG balance through the generated ERC-20 binding.
 Supply its public address; this read does not need a signer:
 
 ```bash
-GROUNDHOG_ADDRESS=0x... npm run example view-hog-balance
+THRUPUT_ADDRESS=0x... npm run example view-hog-balance
 ```
 
 Local manifests contain public accounts only. Each signing example owns its key
@@ -72,8 +72,8 @@ Counter contract, increment it, and read the committed value:
 npm run example deploy-counter
 ```
 
-Set `GROUNDHOG_RUNTIME_MANIFEST` to override the active manifest path. When
-using `GROUNDHOG_RPC_URL`, both overrides must identify the same local node.
+Set `THRUPUT_RUNTIME_MANIFEST` to override the active manifest path. When
+using `THRUPUT_RPC_URL`, both overrides must identify the same local node.
 
 ## Contract Deployment
 
@@ -90,7 +90,7 @@ any remaining funds become inaccessible when the process exits.
 
 The Counter artifact's source revision, SDK, compiler, and SHA-256 are recorded in
 [`fixtures/README.md`](fixtures/README.md). The example prints the canonical
-Groundhog contract hash computed from the actual artifact. The fixture's build
+Thruput contract hash computed from the actual artifact. The fixture's build
 provenance is distinct from the current SDK used to generate new projects.
 Wallet binding provenance and all canonical input hashes are recorded in
 [`specs/contracts/README.md`](../specs/contracts/README.md).
@@ -104,4 +104,4 @@ thruput build -p counter --bindings ts
 
 In a single-package project, omit `-p counter`. The build writes the RV32
 artifact, canonical spec, and generated TypeScript binding under
-`target/groundhog/`.
+`target/thruput/`.
