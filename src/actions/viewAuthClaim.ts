@@ -5,6 +5,7 @@ import {
   serialize,
   type AuthClaim,
 } from "@thruputchain/protocol";
+import { toHex0x } from "./hex.js";
 import { serializeU64 } from "./decimal.js";
 
 function u32(value: bigint, name: string): number {
@@ -28,12 +29,17 @@ export function serializeViewAuthClaim(claim: AuthClaim) {
           "requiredWeight",
         ),
       };
-    case AuthClaimType.kPubkeySignature:
-      // The claim names its key only by hash, but the view RPC's
-      // `pubkeySignature` form still takes the Ed25519 key itself.
-      throw new TypeError(
-        "View authClaim does not yet support kPubkeySignature claims: the claim names its key by hash and the view RPC takes the key",
-      );
+    case AuthClaimType.kPubkeySignature: {
+      const { pubkey_hash, nonce } = claim.pubkey_preimage;
+      if (!(pubkey_hash instanceof Uint8Array) || pubkey_hash.length !== 32) {
+        throw new TypeError("View authClaim pubkey_hash must be 32 bytes");
+      }
+      return {
+        kind: "pubkeySignature" as const,
+        pubkeyHash: toHex0x(pubkey_hash),
+        nonce: serializeU64(nonce, "nonce"),
+      };
+    }
     default:
       throw new TypeError("Unsupported view authClaim type");
   }

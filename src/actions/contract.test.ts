@@ -19,6 +19,7 @@ import openrpcSpec from "../../specs/openrpc.json";
 import {
   AuthClaimType,
   bitMap,
+  publicKeyHash,
   blockHeight,
   calldata,
   contractAddress,
@@ -377,10 +378,10 @@ describe("contract tests against specs/openrpc.json", () => {
         calldata: input,
         gasLimit,
         authClaim: {
-          claim_type: AuthClaimType.kSourceAddressAuthData,
-          source_address_claim: {
-            allowed_keys: bitMap(1n),
-            required_weight: weight(1n),
+          claim_type: AuthClaimType.kPubkeySignature,
+          pubkey_preimage: {
+            pubkey_hash: publicKeyHash(new Uint8Array(32)),
+            nonce: gasLimit,
           },
         },
       });

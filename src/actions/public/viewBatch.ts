@@ -30,7 +30,7 @@ export class ViewBatchResultError extends Error {
 /**
  * Simulate independent calls at one committed height, in input order.
  * Requires groundhog_viewBatch (wire format 11.1.0). No fallback or chunking is used.
- * Each call may supply an optional authClaim (RPC wire 11.2.0); it is an
+ * Each call may supply an optional authClaim (RPC wire 12.0.0); it is an
  * assumption for simulation, not verified authorization.
  * Simulated writes do not pass between calls. The server retries abandoned
  * snapshots as a whole group; aborts and faults remain per-call results.

@@ -239,7 +239,7 @@ its normal permission checks. Omitting the claim keeps the current default.
 
 Pass `authClaim` to `client.view`, generated or bound `.view()` / `.viewOutcome()`,
 or `.viewRequest()` for a grouped read. Each `viewBatch` entry has its own claim.
-This requires matching RPC (wire 11.2.0) and hogd builds with view auth support.
+This requires matching RPC (wire 12.0.0) and hogd builds with view auth support.
 
 `caller` is separate: it supplies a parent-contract address. To simulate a root
 invocation such as `DefaultWallet.execute`, use the account address as `contract`,
