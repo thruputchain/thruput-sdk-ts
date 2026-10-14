@@ -146,6 +146,7 @@ specs/test-vectors/*
 # Committed so the signed-op tests run without the generator installed; the
 # regen script overwrites it from the pinned release.
 !specs/test-vectors/signed-op.json
+!specs/test-vectors/pubkey-auth.json
 # Shared ML-DSA pubkey-auth vectors, copied from thruput-protocol
 # test_vectors/pubkey_auth.json.
 !specs/test-vectors/pubkey_auth.json
