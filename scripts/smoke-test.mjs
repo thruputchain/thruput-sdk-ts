@@ -69,7 +69,7 @@ const requiredExports = {
     "groundhog_erc20_if",
     "groundhog_signed_op_if",
   ],
-  "./signers": ["PrivateKeySigner"],
+  "./signers": ["PrivateKeySigner", "MlDsa65Signer", "verifyMlDsa65"],
   "./actions": [
     "InvalidTransactionReceiptError",
     "getChainConfig",

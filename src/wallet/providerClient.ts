@@ -28,6 +28,7 @@ import {
 } from "./deployment.js";
 import type { CoreThruputClient } from "../client.js";
 import { toHex0x } from "../actions/hex.js";
+import { pubkeyAccountPreimage } from "../derivation/pubkeyAccount.js";
 import { prepareTransaction } from "../actions/wallet/prepareTransaction.js";
 import {
   WalletProviderError,
@@ -275,13 +276,13 @@ export function createProviderWalletClient(
     address: contractAddress(fromHex(account.address.slice(2))),
     authClaim: {
       claim_type: AuthClaimType.kPubkeySignature,
-      pubkey_preimage: {
-        pubkey: {
+      pubkey_preimage: pubkeyAccountPreimage(
+        {
           scheme: CryptographicScheme.Ed25519,
           ed25519: ed25519PublicKey(fromHex(account.publicKey.slice(2))),
         },
-        nonce: BigInt(account.nonce),
-      },
+        BigInt(account.nonce),
+      ),
     },
   } as const;
   const providerRequest = provider.request.bind(provider);

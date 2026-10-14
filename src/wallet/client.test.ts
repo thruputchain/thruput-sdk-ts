@@ -30,6 +30,7 @@ import {
   devWalletAdapter,
   type WalletExecutionRequest,
 } from "./invocationAdapter.js";
+import { ed25519Of } from "../testing/signatures.js";
 
 const address = contractAddress(new Uint8Array(32).fill(0x11));
 const testNetworkHash = networkHash(sha256Hash(new Uint8Array(32)));
@@ -329,9 +330,10 @@ describe("wallet transactions", () => {
 
     expect(
       verify(
-        signed.signatures[0]!.signature.ed25519,
+        ed25519Of(signed.signatures[0]!.signature),
         transactionSignaturePreimage(testNetworkHash, signed.tx),
-        walletAccount.signers[0]!.signer.publicKey.ed25519,
+        (walletAccount.signers[0]!.signer as PrivateKeySigner).publicKey
+          .ed25519,
       ),
     ).toBe(true);
   });

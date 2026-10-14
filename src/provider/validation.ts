@@ -8,14 +8,20 @@ import {
   networkHash as toNetworkHash,
   serialize,
   sha256Hash,
+  type PublicKey,
   type Transaction,
   type SignedTransaction,
 } from "@thruputchain/protocol";
 import { Point, verifyAsync } from "@noble/ed25519";
 import { toHex0x } from "../actions/hex.js";
-import { derivePubkeyAccountAddress } from "../derivation/pubkeyAccount.js";
+import {
+  derivePubkeyAccountAddress,
+  pubkeyAccountPreimage,
+} from "../derivation/pubkeyAccount.js";
+import { derivePublicKeyHash } from "../derivation/publicKeyHash.js";
 import { hashSignedTransaction } from "../derivation/transactionHash.js";
 import { transactionSignaturePreimage } from "../transaction/preimage.js";
+import { pubkeySignatureEnvelopeBytes } from "../transaction/size.js";
 import {
   WalletProviderError,
   type WalletProviderErrorCode,
@@ -32,11 +38,15 @@ import {
 /** Maximum decoded signed XDR size: 1,048,576 bytes (1 MiB). */
 export const MAX_TRANSACTION_BYTES = 1_048_576;
 /**
- * Maximum unsigned XDR size: 1,048,500 bytes. Providers must enforce this before
- * requesting user approval. Reserves 76 bytes for the signature vector count,
- * key ID, scheme, and 64-byte Ed25519 signature within {@link MAX_TRANSACTION_BYTES}.
+ * Maximum unsigned XDR size: 1,048,460 bytes. Providers must enforce this before
+ * requesting user approval. Reserves 116 bytes within {@link MAX_TRANSACTION_BYTES}
+ * for the Ed25519 pubkey envelope: the signature vector count, key ID, scheme,
+ * and 64-byte signature, plus the present `pubkey_claim_key` option holding the
+ * scheme-tagged 32-byte key.
  */
-export const MAX_UNSIGNED_TRANSACTION_BYTES = MAX_TRANSACTION_BYTES - 76;
+export const MAX_UNSIGNED_TRANSACTION_BYTES =
+  MAX_TRANSACTION_BYTES -
+  pubkeySignatureEnvelopeBytes(CryptographicScheme.Ed25519);
 /** Maximum accounts in one session. */
 export const MAX_WALLET_ACCOUNTS = 32;
 /** Current native DefaultWallet execute call limit. */
@@ -141,10 +151,12 @@ export function parseWalletAccount(value: unknown): WalletAccount {
   } catch {
     invalid("Invalid Ed25519 public key");
   }
-  const derived = derivePubkeyAccountAddress({
-    pubkey: { scheme: CryptographicScheme.Ed25519, ed25519: key },
-    nonce: BigInt(nonce),
-  });
+  const derived = derivePubkeyAccountAddress(
+    pubkeyAccountPreimage(
+      { scheme: CryptographicScheme.Ed25519, ed25519: key },
+      BigInt(nonce),
+    ),
+  );
   if (toHex0x(derived) !== address)
     invalid("Account address derivation mismatch");
   return Object.freeze({ address, publicKey, nonce });
@@ -296,7 +308,7 @@ export function parseSignedTransactionHex(value: unknown): SignedTransaction {
  * Parse the exact request union into a new request object, including bounded,
  * canonical XDR. Unknown methods fail with 4200; malformed known requests fail
  * with -32602. This validates input, not origin permission or prior approval.
- * Bridges must bound raw messages before JSON parsing: at most 2,097,002 unsigned
+ * Bridges must bound raw messages before JSON parsing: at most 2,096,922 unsigned
  * or 2,097,154 signed transaction-hex characters, including 0x.
  */
 export function parseProviderRequest(value: unknown): ProviderRequest {
@@ -398,8 +410,8 @@ export function assertWalletTransaction(
   if (
     toHex0x(tx.invocation.invoked_address) !== expected.address ||
     claim.claim_type !== AuthClaimType.kPubkeySignature ||
-    claim.pubkey_preimage.pubkey.scheme !== CryptographicScheme.Ed25519 ||
-    toHex0x(claim.pubkey_preimage.pubkey.ed25519) !== expected.publicKey ||
+    toHex0x(claim.pubkey_preimage.pubkey_hash) !==
+      toHex0x(derivePublicKeyHash(walletPublicKey(expected))) ||
     claim.pubkey_preimage.nonce !== BigInt(expected.nonce)
   ) {
     throw new WalletProviderError(
@@ -409,10 +421,18 @@ export function assertWalletTransaction(
   }
 }
 
+function walletPublicKey(account: WalletAccount): PublicKey {
+  return {
+    scheme: CryptographicScheme.Ed25519,
+    ed25519: ed25519PublicKey(fromHex(account.publicKey.slice(2))),
+  };
+}
+
 /**
  * Verify unchanged XDR, a single strict network-bound signature, and receipt hash.
  * Requires the exact unsigned transaction bytes and matching root address/pubkey
- * claim. The signature must be Ed25519 with public-key ID zero, verified over
+ * claim, and an attached `pubkey_claim_key` equal to the account's Ed25519 key.
+ * The signature must be Ed25519 with public-key ID zero, verified over
  * `transactionSignaturePreimage(networkHash, tx)` with ZIP-215 disabled and both
  * key and signature point R non-small-order and prime-order. The hash is SHA-256
  * of unsigned XDR, excluding signatures and network.
@@ -453,6 +473,14 @@ export async function verifySignTransactionResult(
       signature.signature.scheme !== CryptographicScheme.Ed25519
     ) {
       throw new Error("Expected one Ed25519 signature with public-key ID zero");
+    }
+    const claimKey = signed.pubkey_claim_key;
+    if (
+      !claimKey ||
+      claimKey.scheme !== CryptographicScheme.Ed25519 ||
+      toHex0x(claimKey.ed25519) !== expected.publicKey
+    ) {
+      throw new Error("Expected the account's Ed25519 key as pubkey_claim_key");
     }
     // Noble's strict mode still uses a cofactored equation; reject torsion in R.
     const r = Point.fromBytes(

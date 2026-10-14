@@ -6,7 +6,12 @@ import {
 } from "@thruputchain/protocol";
 import { describe, expect, it } from "vitest";
 import { PrivateKeySigner } from "../signers/privateKey.js";
-import { derivePubkeyAccountAddress } from "../derivation/pubkeyAccount.js";
+import { MlDsa65Signer } from "../signers/mlDsa65.js";
+import {
+  derivePubkeyAccountAddress,
+  pubkeyAccountPreimage,
+} from "../derivation/pubkeyAccount.js";
+import { derivePublicKeyHash } from "../derivation/publicKeyHash.js";
 import { createPubkeyAccount, createSourceAddressAccount } from "./account.js";
 
 function signer(seed: number): PrivateKeySigner {
@@ -22,20 +27,48 @@ describe("createPubkeyAccount", () => {
 
     expect(account.kind).toBe("pubkey");
     expect(account.address).toEqual(
-      derivePubkeyAccountAddress({
-        pubkey: accountSigner.publicKey,
-        nonce: 7n,
-      }),
+      derivePubkeyAccountAddress(
+        pubkeyAccountPreimage(accountSigner.publicKey, 7n),
+      ),
     );
     expect(account.authClaim).toEqual({
       claim_type: AuthClaimType.kPubkeySignature,
-      pubkey_preimage: { pubkey: accountSigner.publicKey, nonce: 7n },
+      pubkey_preimage: {
+        pubkey_hash: derivePublicKeyHash(accountSigner.publicKey),
+        nonce: 7n,
+      },
     });
+    expect(account.publicKey).toEqual(accountSigner.publicKey);
     expect(account.signers).toEqual([
       { signer: accountSigner, publicKeyId: 0n },
     ]);
     expect(Object.isFrozen(account.signers)).toBe(true);
     expect(Object.isFrozen(account.signers[0])).toBe(true);
+  });
+
+  it("creates an ML-DSA-65 account with a distinct address", () => {
+    const mlDsa = MlDsa65Signer.fromSeed(new Uint8Array(32).fill(1));
+    const account = createPubkeyAccount({ signer: mlDsa });
+
+    expect(account.publicKey).toEqual(mlDsa.publicKey);
+    expect(account.authClaim.pubkey_preimage).toEqual({
+      pubkey_hash: derivePublicKeyHash(mlDsa.publicKey),
+      nonce: 0n,
+    });
+    expect(account.address).not.toEqual(
+      createPubkeyAccount({ signer: signer(1) }).address,
+    );
+  });
+
+  it("rejects an unknown key scheme", () => {
+    const base = signer(3);
+    const unknown = {
+      publicKey: { ...base.publicKey, scheme: 99 },
+      sign: base.sign.bind(base),
+    } as unknown as PrivateKeySigner;
+    expect(() => createPubkeyAccount({ signer: unknown })).toThrow(
+      "Ed25519 or ML-DSA-65",
+    );
   });
 
   it.each([-1n, 0x1_0000_0000_0000_0000n])(

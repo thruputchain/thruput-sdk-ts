@@ -1,10 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   AuthClaimType,
-  CryptographicScheme,
   bitMap,
   weight,
-  ed25519PublicKey,
+  publicKeyHash,
   contractAddress,
   contractEntrypointID,
   calldata,
@@ -32,10 +31,7 @@ function pubkey(nonce = 9007199254740993n): AuthClaim {
   return {
     claim_type: AuthClaimType.kPubkeySignature,
     pubkey_preimage: {
-      pubkey: {
-        scheme: CryptographicScheme.Ed25519,
-        ed25519: ed25519PublicKey(new Uint8Array(32).fill(7)),
-      },
+      pubkey_hash: publicKeyHash(new Uint8Array(32).fill(7)),
       nonce,
     },
   };
@@ -66,7 +62,7 @@ describe("optional view authorization", () => {
       pubkey(),
       {
         kind: "pubkeySignature",
-        publicKey: `0x${"07".repeat(32)}`,
+        pubkeyHash: `0x${"07".repeat(32)}`,
         nonce: "9007199254740993",
       },
     ],
@@ -124,17 +120,11 @@ describe("optional view authorization", () => {
     },
     {
       claim_type: AuthClaimType.kPubkeySignature,
-      pubkey_preimage: { pubkey: { scheme: 99 }, nonce: 0n },
+      pubkey_preimage: { nonce: 0n },
     },
     {
       claim_type: AuthClaimType.kPubkeySignature,
-      pubkey_preimage: {
-        pubkey: {
-          scheme: CryptographicScheme.Ed25519,
-          ed25519: new Uint8Array(31),
-        },
-        nonce: 0n,
-      },
+      pubkey_preimage: { pubkey_hash: new Uint8Array(31), nonce: 0n },
     },
     pubkey(1n << 64n),
   ])("rejects malformed claim %# before sending", async (invalid) => {

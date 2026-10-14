@@ -36,6 +36,7 @@ import type { ContractSpec } from "./contract/spec.js";
 import { MockTransport } from "./transport/mock.js";
 import { createThruputClient } from "./client.js";
 import { ERC20 } from "./contracts/erc20.js";
+import { ed25519Of } from "./testing/signatures.js";
 
 /** A spec id for a type declared at the root of a `fixture` crate. */
 function specId(declared: string): ContractSpecId {
@@ -147,8 +148,8 @@ describe("end-to-end: build, sign, serialize an ERC20 transfer", () => {
     expect(signed.signatures).toHaveLength(1);
     const signature = signed.signatures[0];
     assert.isDefined(signature);
-    const sig = signature.signature;
-    expect(verify(sig.ed25519, preimage, signer.publicKey.ed25519)).toBe(true);
+    const sig = ed25519Of(signature.signature);
+    expect(verify(sig, preimage, signer.publicKey.ed25519)).toBe(true);
 
     // Round-trip through serialization
     const wireBytes = serializeSignedTransaction(signed);
@@ -162,7 +163,7 @@ describe("end-to-end: build, sign, serialize an ERC20 transfer", () => {
     expect(restored.signatures).toHaveLength(1);
     const restoredSignature = restored.signatures[0];
     assert.isDefined(restoredSignature);
-    expect(restoredSignature.signature.ed25519).toEqual(sig.ed25519);
+    expect(ed25519Of(restoredSignature.signature)).toEqual(sig);
 
     // Decode calldata from the restored transaction
     const decoded = decodeCalldata(

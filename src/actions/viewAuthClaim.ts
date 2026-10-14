@@ -1,6 +1,5 @@
 import {
   AuthClaimType,
-  CryptographicScheme,
   codec,
   deserialize,
   serialize,
@@ -31,19 +30,13 @@ export function serializeViewAuthClaim(claim: AuthClaim) {
         ),
       };
     case AuthClaimType.kPubkeySignature: {
-      const { pubkey, nonce } = claim.pubkey_preimage;
-      if (pubkey.scheme !== CryptographicScheme.Ed25519) {
-        throw new TypeError("View authClaim requires an Ed25519 public key");
-      }
-      if (
-        !(pubkey.ed25519 instanceof Uint8Array) ||
-        pubkey.ed25519.length !== 32
-      ) {
-        throw new TypeError("View authClaim public key must be 32 bytes");
+      const { pubkey_hash, nonce } = claim.pubkey_preimage;
+      if (!(pubkey_hash instanceof Uint8Array) || pubkey_hash.length !== 32) {
+        throw new TypeError("View authClaim pubkey_hash must be 32 bytes");
       }
       return {
         kind: "pubkeySignature" as const,
-        publicKey: toHex0x(pubkey.ed25519),
+        pubkeyHash: toHex0x(pubkey_hash),
         nonce: serializeU64(nonce, "nonce"),
       };
     }

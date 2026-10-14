@@ -62,7 +62,7 @@ export function parseViewOutput(value: unknown): ViewOutput {
  *
  * `view` is useful for local reads and UI queries. The invocation is evaluated
  * by the gateway and does not enter the mempool.
- * Optional `authClaim` assumes authorization without signatures (RPC wire 11.2.0).
+ * Optional `authClaim` assumes authorization without signatures (RPC wire 12.0.0).
  * Contracts still run their normal checks.
  * `minHeight` requires the actual committed snapshot to be at least that height.
  * A lagging server returns ViewHeightUnavailable; this action never polls or retries.

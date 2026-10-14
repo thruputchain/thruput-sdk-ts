@@ -63,6 +63,12 @@ export class DomainSeparator {
   }
 }
 
+/**
+ * Domain separator for public-key hashes (`"PublicKey"`): a `PublicKeyHash` is
+ * `sha256(cxs(DomainSeparator("PublicKey")) || cxs(PublicKey))`.
+ */
+export const PUBLIC_KEY: DomainSeparator = DomainSeparator.make("PublicKey");
+
 /** Domain separator for pubkey account address derivation. */
 export const PUBKEY_ACCOUNT: DomainSeparator =
   DomainSeparator.make("PubkeyAccount");

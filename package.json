@@ -104,10 +104,11 @@
     "vitest": "4.1.11"
   },
   "dependencies": {
-    "@thruputchain/contract-spec": "0.15.0",
-    "@thruputchain/protocol": "0.15.0",
-    "@thruputchain/xdr": "0.15.0",
+    "@thruputchain/contract-spec": "0.16.0",
+    "@thruputchain/protocol": "0.16.0",
+    "@thruputchain/xdr": "0.16.0",
     "@noble/ed25519": "^3.1.0",
-    "@noble/hashes": "^2.2.0"
+    "@noble/hashes": "^2.2.0",
+    "@noble/post-quantum": "^0.7.1"
   }
 }
