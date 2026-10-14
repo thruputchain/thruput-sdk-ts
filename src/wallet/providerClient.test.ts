@@ -42,6 +42,7 @@ import { defaultWalletAdapter } from "./invocationAdapter.js";
 import { prepareContractDeployment } from "./deployment.js";
 import { DefaultWallet } from "../contracts/default_wallet.js";
 import { Counter } from "../../examples/generated/counter.js";
+import { ed25519Of } from "../testing/signatures.js";
 
 const networkHash = "ab".repeat(32);
 const signingNetwork = toNetworkHash(sha256Hash(new Uint8Array(32).fill(0xab)));
@@ -629,7 +630,7 @@ describe("external provider wallet", () => {
     const tx = await wallet.prepareExecution(input);
     const unsigned = toHex0x(serialize(tx, codec.Transaction));
     expect((unsigned.length - 2) / 2).toBe(MAX_UNSIGNED_TRANSACTION_BYTES);
-    expect(MAX_UNSIGNED_TRANSACTION_BYTES).toBe(1_048_500);
+    expect(MAX_UNSIGNED_TRANSACTION_BYTES).toBe(1_048_460);
     expect(
       serialize(parseTransactionHex(unsigned), codec.Transaction).length,
     ).toBe(MAX_UNSIGNED_TRANSACTION_BYTES);
@@ -829,6 +830,8 @@ describe("external provider wallet", () => {
   it.each([
     "changed transaction",
     "wrong key",
+    "missing claim key",
+    "wrong claim key",
     "wrong network",
     "wrong public key ID",
     "missing signature",
@@ -856,17 +859,17 @@ describe("external provider wallet", () => {
           signingNetwork,
         );
       }
-      if (fault === "wrong key")
-        signed = await signTransaction(
-          tx,
-          [
-            {
-              signer: new PrivateKeySigner(new Uint8Array(32).fill(2)),
-              publicKeyId: 0n,
-            },
-          ],
-          signingNetwork,
+      if (fault === "wrong key") {
+        const other = new PrivateKeySigner(new Uint8Array(32).fill(2));
+        signed.signatures[0]!.signature = await other.sign(
+          transactionSignaturePreimage(signingNetwork, signed.tx),
         );
+      }
+      if (fault === "missing claim key") signed.pubkey_claim_key = null;
+      if (fault === "wrong claim key")
+        signed.pubkey_claim_key = new PrivateKeySigner(
+          new Uint8Array(32).fill(2),
+        ).publicKey;
       if (fault === "wrong network")
         signed = await signTransaction(
           tx,
@@ -879,7 +882,7 @@ describe("external provider wallet", () => {
       if (fault === "extra signature")
         signed.signatures.push(signed.signatures[0]!);
       if (fault === "corrupt signature")
-        signed.signatures[0]!.signature.ed25519.fill(0);
+        ed25519Of(signed.signatures[0]!.signature).fill(0);
       const result = wireResult(signed);
       if (fault === "wrong hash") result.hash = "0x" + "00".repeat(32);
       if (fault === "uppercase hash") result.hash = result.hash.toUpperCase();
@@ -941,7 +944,7 @@ describe("external provider wallet", () => {
         new Uint8Array(32).fill(1),
       ).scalar;
       let s = (rScalar + k * secretScalar) % Point.CURVE().n;
-      const signature = signed.signatures[0]!.signature.ed25519;
+      const signature = ed25519Of(signed.signatures[0]!.signature);
       signature.set(rBytes);
       for (let i = 32; i < 64; i++) {
         signature[i] = Number(s & 255n);
@@ -1124,7 +1127,7 @@ describe("external provider wallet", () => {
     const changed = parseSignedTransactionHex(signed.signedTransaction);
     const signature = changed.signatures[0];
     assert.isDefined(signature);
-    const bytes = signature.signature.ed25519;
+    const bytes = ed25519Of(signature.signature);
     const firstByte = bytes[0];
     assert.isDefined(firstByte);
     bytes[0] = firstByte ^ 1;

@@ -370,6 +370,21 @@ sending; retry the same nonce after an uncertain response. The response carries
 the admitted hash and exact signed bytes. Wait for a receipt to learn execution.
 `requestAirdrop` retains its fixed amount and hosted behavior.
 
+Pubkey accounts can also be authorized by an ML-DSA-65 (FIPS 204) key. The
+account address commits to a hash of the scheme-tagged key, and each signed
+transaction carries the key itself, so signatures and keys are larger
+(3,309 and 1,952 bytes) but the flow is the same:
+
+```ts
+import { MlDsa65Signer, createPubkeyAccount } from "@thruputchain/client";
+
+const signer = MlDsa65Signer.fromSeed(seed); // 32-byte seed
+const account = createPubkeyAccount({ signer, nonce: 0n });
+```
+
+ML-DSA keys have no StrKey (`G...`/`S...`) form; those encodings remain
+Ed25519-only.
+
 Use `createSourceAddressAccount` with the appropriate invocation adapter for
 an existing account contract. Saved legacy contract-wallet identities remain
 separate from the native bootstrap accounts.
@@ -594,7 +609,7 @@ helpers, generated standard contracts, signers, and standalone actions.
 - `src/contract/` — reusable codecs, typed method and event descriptors, fixed-length values, and contract spec helpers.
 - `src/contracts/` — generated standard contract bindings exported through `@thruputchain/client/contracts`.
 - `src/transport/` — `HttpTransport` (JSON-RPC over HTTP) and `MockTransport` for tests.
-- `src/signers/` — `Signer` interface and `PrivateKeySigner` (ed25519 via `@noble/ed25519`).
+- `src/signers/` — `Signer` interface, `PrivateKeySigner` (ed25519 via `@noble/ed25519`), and `MlDsa65Signer` (ML-DSA-65 via `@noble/post-quantum`).
 - `src/signedOp/` — off-chain signing of `SignedOp` operations: preimage construction and payload binding, plus the generated `SignedOp` binding re-exported from `src/contracts/signed_op.ts`.
 - `src/types/rpc.ts` — typed RPC request/response shapes.
 - `specs/openrpc.json` — pinned Thruput OpenRPC spec; `scripts/regen-openrpc.sh` refreshes it. After a regen, `npm test` (specifically `src/actions/contract.test.ts`) names any TS action whose serialized request no longer matches the new spec.

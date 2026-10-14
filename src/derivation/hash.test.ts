@@ -51,6 +51,7 @@ function makeTestTransaction(): SignedTransaction {
         },
       },
     ],
+    pubkey_claim_key: null,
   };
 }
 

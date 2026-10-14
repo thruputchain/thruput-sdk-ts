@@ -18,6 +18,9 @@ describe("skeleton", () => {
         ed25519: ed25519PublicKey(new Uint8Array(32)),
       },
     };
-    expect(signer.publicKey.ed25519.length).toBe(32);
+    expect(signer.publicKey).toEqual({
+      scheme: CryptographicScheme.Ed25519,
+      ed25519: new Uint8Array(32),
+    });
   });
 });

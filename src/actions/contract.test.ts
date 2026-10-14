@@ -18,8 +18,6 @@ import Ajv, { type AnySchema, type ValidateFunction } from "ajv";
 import openrpcSpec from "../../specs/openrpc.json";
 import {
   AuthClaimType,
-  CryptographicScheme,
-  ed25519PublicKey,
   bitMap,
   blockHeight,
   calldata,
@@ -379,13 +377,10 @@ describe("contract tests against specs/openrpc.json", () => {
         calldata: input,
         gasLimit,
         authClaim: {
-          claim_type: AuthClaimType.kPubkeySignature,
-          pubkey_preimage: {
-            pubkey: {
-              scheme: CryptographicScheme.Ed25519,
-              ed25519: ed25519PublicKey(new Uint8Array(32)),
-            },
-            nonce: gasLimit,
+          claim_type: AuthClaimType.kSourceAddressAuthData,
+          source_address_claim: {
+            allowed_keys: bitMap(1n),
+            required_weight: weight(1n),
           },
         },
       });

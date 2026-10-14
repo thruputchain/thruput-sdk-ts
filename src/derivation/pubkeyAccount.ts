@@ -2,8 +2,24 @@ import { codec, contractAddress } from "@thruputchain/protocol";
 import type {
   ContractAddress,
   PubkeyAccountPreimage,
+  PublicKey,
 } from "@thruputchain/protocol";
 import { PUBKEY_ACCOUNT } from "./domainSeparator.js";
+import { derivePublicKeyHash } from "./publicKeyHash.js";
+
+/**
+ * Builds the preimage of a pubkey account's address from its key and nonce:
+ * `{ pubkey_hash: derivePublicKeyHash(pubkey), nonce }`.
+ *
+ * The preimage names the key by its scheme-inclusive hash for every scheme,
+ * Ed25519 included, so it is the same size whatever the key.
+ */
+export function pubkeyAccountPreimage(
+  pubkey: PublicKey,
+  nonce: bigint = 0n,
+): PubkeyAccountPreimage {
+  return { pubkey_hash: derivePublicKeyHash(pubkey), nonce };
+}
 
 /**
  * Derives the on-chain address of a pubkey account from its preimage:
@@ -15,13 +31,14 @@ import { PUBKEY_ACCOUNT } from "./domainSeparator.js";
  *
  * @example
  * ```ts
- * import { derivePubkeyAccountAddress } from "@thruputchain/client";
- * import { CryptographicScheme, ed25519PublicKey } from "@thruputchain/protocol";
+ * import {
+ *   derivePubkeyAccountAddress,
+ *   pubkeyAccountPreimage,
+ * } from "@thruputchain/client";
  *
- * const address = derivePubkeyAccountAddress({
- *   pubkey: { scheme: CryptographicScheme.Ed25519, ed25519: ed25519PublicKey(raw) },
- *   nonce: 0n,
- * });
+ * const address = derivePubkeyAccountAddress(
+ *   pubkeyAccountPreimage(signer.publicKey, 0n),
+ * );
  * ```
  */
 export function derivePubkeyAccountAddress(

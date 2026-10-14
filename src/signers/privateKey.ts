@@ -28,8 +28,8 @@ if (!hashes.sha512) {
  * ```
  */
 export class PrivateKeySigner implements Signer {
-  /** Public key derived from the constructor's private key. */
-  publicKey: PublicKey;
+  /** Ed25519 public key derived from the constructor's private key. */
+  publicKey: Extract<PublicKey, { scheme: CryptographicScheme.Ed25519 }>;
   #secretKey: Uint8Array;
 
   /** Create an Ed25519 signer from a 32-byte private key. */
@@ -42,7 +42,9 @@ export class PrivateKeySigner implements Signer {
   }
 
   /** Sign a message with the in-memory Ed25519 private key. */
-  async sign(message: Uint8Array): Promise<Signature> {
+  async sign(
+    message: Uint8Array,
+  ): Promise<Extract<Signature, { scheme: CryptographicScheme.Ed25519 }>> {
     return {
       scheme: CryptographicScheme.Ed25519,
       ed25519: ed25519Signature(new Uint8Array(sign(message, this.#secretKey))),

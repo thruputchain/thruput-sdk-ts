@@ -1,5 +1,6 @@
 import { assert, describe, expect, it } from "vitest";
 import { verify } from "@noble/ed25519";
+import { ml_dsa65 } from "@noble/post-quantum/ml-dsa.js";
 import {
   calldata,
   contractAddress,
@@ -14,14 +15,22 @@ import {
   codec,
   sha256Hash,
   ContractType,
+  CryptographicScheme,
+  mlDsa65Signature,
   networkHash,
 } from "@thruputchain/protocol";
-import type { Contract } from "@thruputchain/protocol";
+import type { Contract, Transaction } from "@thruputchain/protocol";
 import { PrivateKeySigner } from "../signers/privateKey.js";
+import type { Signer } from "../signers/types.js";
 import { signTransaction } from "./sign.js";
 import { transactionSignaturePreimage } from "./preimage.js";
 import { TRANSACTION } from "../derivation/domainSeparator.js";
 import { createInvocation, createTransaction } from "./build.js";
+import { MlDsa65Signer, verifyMlDsa65 } from "../signers/mlDsa65.js";
+import { pubkeyAccountPreimage } from "../derivation/pubkeyAccount.js";
+import { hashSignedTransaction } from "../derivation/transactionHash.js";
+import { pubkeySignatureEnvelopeBytes } from "./size.js";
+import { ed25519Of, mlDsa65Of } from "../testing/signatures.js";
 
 const testNetworkHash = networkHash(sha256Hash(new Uint8Array(32).fill(0x5a)));
 const otherNetworkHash = networkHash(sha256Hash(new Uint8Array(32).fill(0xa5)));
@@ -71,13 +80,13 @@ describe("signTransaction", () => {
     expect(signature.public_key_id).toBe(0n);
 
     const preimage = transactionSignaturePreimage(testNetworkHash, tx);
-    const sig = signature.signature;
-    expect(sig.scheme).toBe(0);
-    expect(verify(sig.ed25519, preimage, signer.publicKey.ed25519)).toBe(true);
+    expect(signature.signature.scheme).toBe(0);
+    const sig = ed25519Of(signature.signature);
+    expect(verify(sig, preimage, signer.publicKey.ed25519)).toBe(true);
 
     // The bare transaction is no longer what gets signed.
     const txBytes = serialize(tx, codec.Transaction);
-    expect(verify(sig.ed25519, txBytes, signer.publicKey.ed25519)).toBe(false);
+    expect(verify(sig, txBytes, signer.publicKey.ed25519)).toBe(false);
   });
 
   it("binds the signature to one network", async () => {
@@ -95,7 +104,7 @@ describe("signTransaction", () => {
     expect(signed.signatures).toHaveLength(1);
     const signature = signed.signatures[0];
     assert.isDefined(signature);
-    const sig = signature.signature.ed25519;
+    const sig = ed25519Of(signature.signature);
     const key = signer.publicKey.ed25519;
     expect(
       verify(sig, transactionSignaturePreimage(testNetworkHash, tx), key),
@@ -132,8 +141,8 @@ describe("signTransaction", () => {
     assert.isDefined(restoredSignature);
     assert.isDefined(originalSignature);
     expect(restoredSignature.public_key_id).toBe(0n);
-    expect(restoredSignature.signature.ed25519).toEqual(
-      originalSignature.signature.ed25519,
+    expect(ed25519Of(restoredSignature.signature)).toEqual(
+      ed25519Of(originalSignature.signature),
     );
   });
 
@@ -164,20 +173,20 @@ describe("signTransaction", () => {
 
     const preimage = transactionSignaturePreimage(testNetworkHash, tx);
     const valid1 = verify(
-      signature1.signature.ed25519,
+      ed25519Of(signature1.signature),
       preimage,
       signer1.publicKey.ed25519,
     );
     const valid2 = verify(
-      signature2.signature.ed25519,
+      ed25519Of(signature2.signature),
       preimage,
       signer2.publicKey.ed25519,
     );
     expect(valid1).toBe(true);
     expect(valid2).toBe(true);
 
-    expect(signature1.signature.ed25519).not.toEqual(
-      signature2.signature.ed25519,
+    expect(ed25519Of(signature1.signature)).not.toEqual(
+      ed25519Of(signature2.signature),
     );
   });
 
@@ -257,7 +266,7 @@ describe("signTransaction", () => {
     const transaction = makeDummyTransaction();
     transaction.auth_claim = {
       claim_type: AuthClaimType.kPubkeySignature,
-      pubkey_preimage: { pubkey: signer.publicKey, nonce: 0n },
+      pubkey_preimage: pubkeyAccountPreimage(signer.publicKey),
     };
 
     await expect(
@@ -295,11 +304,206 @@ describe("signTransaction", () => {
     expect(signed.signatures[0]!.public_key_id).toBe(0n);
     expect(
       verify(
-        signed.signatures[0]!.signature.ed25519,
+        ed25519Of(signed.signatures[0]!.signature),
         transactionSignaturePreimage(testNetworkHash, signed.tx),
         baseSigner.publicKey.ed25519,
       ),
     ).toBe(true);
+  });
+});
+
+function pubkeyTransaction(signer: Signer): Transaction {
+  const transaction = makeDummyTransaction();
+  transaction.auth_claim = {
+    claim_type: AuthClaimType.kPubkeySignature,
+    pubkey_preimage: pubkeyAccountPreimage(signer.publicKey, 3n),
+  };
+  return transaction;
+}
+
+describe("signTransaction pubkey envelope", () => {
+  const ed25519Signer = new PrivateKeySigner(new Uint8Array(32).fill(4));
+  const mlDsaSigner = MlDsa65Signer.fromSeed(new Uint8Array(32).fill(5));
+
+  it("attaches the Ed25519 key as pubkey_claim_key", async () => {
+    const tx = pubkeyTransaction(ed25519Signer);
+    const signed = await signTransaction(
+      tx,
+      [{ signer: ed25519Signer, publicKeyId: 0n }],
+      testNetworkHash,
+    );
+
+    expect(signed.pubkey_claim_key).toEqual(ed25519Signer.publicKey);
+    expect(signed.pubkey_claim_key).not.toBe(ed25519Signer.publicKey);
+    expect(
+      verify(
+        ed25519Of(signed.signatures[0]!.signature),
+        transactionSignaturePreimage(testNetworkHash, tx),
+        ed25519Signer.publicKey.ed25519,
+      ),
+    ).toBe(true);
+    const restored = deserialize(
+      serialize(signed, codec.SignedTransaction),
+      codec.SignedTransaction,
+    );
+    expect(restored).toEqual(signed);
+  });
+
+  it("signs an ML-DSA-65 pubkey claim over the same preimage", async () => {
+    const tx = pubkeyTransaction(mlDsaSigner);
+    const signed = await signTransaction(
+      tx,
+      [{ signer: mlDsaSigner, publicKeyId: 0n }],
+      testNetworkHash,
+    );
+
+    expect(signed.pubkey_claim_key).toEqual(mlDsaSigner.publicKey);
+    const signature = mlDsa65Of(signed.signatures[0]!.signature);
+    expect(signature).toHaveLength(3309);
+    const preimage = transactionSignaturePreimage(testNetworkHash, tx);
+    expect(
+      verifyMlDsa65(mlDsaSigner.publicKey.mldsa65, preimage, signature),
+    ).toBe(true);
+    expect(
+      verifyMlDsa65(
+        mlDsaSigner.publicKey.mldsa65,
+        transactionSignaturePreimage(otherNetworkHash, tx),
+        signature,
+      ),
+    ).toBe(false);
+
+    const bytes = serialize(signed, codec.SignedTransaction);
+    expect(bytes.length).toBe(
+      serialize(tx, codec.Transaction).length +
+        pubkeySignatureEnvelopeBytes(CryptographicScheme.MlDsa65),
+    );
+    expect(deserialize(bytes, codec.SignedTransaction)).toEqual(signed);
+  });
+
+  it("keeps the transaction hash when re-signing", async () => {
+    const tx = pubkeyTransaction(mlDsaSigner);
+    const first = await signTransaction(
+      tx,
+      [{ signer: mlDsaSigner, publicKeyId: 0n }],
+      testNetworkHash,
+    );
+    const second = await signTransaction(
+      tx,
+      [{ signer: mlDsaSigner, publicKeyId: 0n }],
+      testNetworkHash,
+    );
+
+    // Hedged ML-DSA signs differently each time; the identifier does not move.
+    expect(second.signatures).not.toEqual(first.signatures);
+    expect(hashSignedTransaction(second)).toEqual(hashSignedTransaction(first));
+    expect(
+      hashSignedTransaction({
+        ...first,
+        signatures: [],
+        pubkey_claim_key: null,
+      }),
+    ).toEqual(hashSignedTransaction(first));
+  });
+
+  it("rejects a signer whose key does not hash to the claim", async () => {
+    const tx = pubkeyTransaction(ed25519Signer);
+    await expect(
+      signTransaction(
+        tx,
+        [{ signer: mlDsaSigner, publicKeyId: 0n }],
+        testNetworkHash,
+      ),
+    ).rejects.toThrow("does not match the auth claim's pubkey_hash");
+  });
+
+  it("rejects a signature whose scheme differs from the key", async () => {
+    const lying: Signer = {
+      publicKey: mlDsaSigner.publicKey,
+      sign: (message) => ed25519Signer.sign(message),
+    };
+    await expect(
+      signTransaction(
+        pubkeyTransaction(mlDsaSigner),
+        [{ signer: lying, publicKeyId: 0n }],
+        testNetworkHash,
+      ),
+    ).rejects.toThrow("scheme does not match");
+  });
+
+  it("requires exactly one signer for pubkey authorization", async () => {
+    await expect(
+      signTransaction(pubkeyTransaction(ed25519Signer), [], testNetworkHash),
+    ).rejects.toThrow("requires only publicKeyId 0");
+  });
+
+  it("attaches no key to source-address claims", async () => {
+    const signed = await signTransaction(
+      makeDummyTransaction(),
+      [{ signer: ed25519Signer, publicKeyId: 0n }],
+      testNetworkHash,
+    );
+    expect(signed.pubkey_claim_key).toBeNull();
+  });
+});
+
+describe("MlDsa65Signer", () => {
+  it("derives the same key from the same seed", () => {
+    const seed = new Uint8Array(32).fill(9);
+    const a = MlDsa65Signer.fromSeed(seed);
+    const b = MlDsa65Signer.fromSeed(seed);
+    expect(a.publicKey.scheme).toBe(CryptographicScheme.MlDsa65);
+    expect(a.publicKey.mldsa65).toHaveLength(1952);
+    expect(b.publicKey).toEqual(a.publicKey);
+  });
+
+  it("signs deterministically on request", async () => {
+    const signer = MlDsa65Signer.fromSeed(new Uint8Array(32).fill(9), {
+      deterministic: true,
+    });
+    const message = new Uint8Array([1, 2, 3]);
+    expect(await signer.sign(message)).toEqual(await signer.sign(message));
+  });
+
+  it("uses pure ML-DSA with an empty context", async () => {
+    const signer = MlDsa65Signer.fromSeed(new Uint8Array(32).fill(9));
+    const message = new Uint8Array([1, 2, 3]);
+    const signature = mlDsa65Of(await signer.sign(message));
+    expect(
+      ml_dsa65.verify(signature, message, signer.publicKey.mldsa65, {
+        context: new Uint8Array(),
+      }),
+    ).toBe(true);
+    expect(
+      ml_dsa65.verify(signature, message, signer.publicKey.mldsa65, {
+        context: new Uint8Array([1]),
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects a seed of the wrong length", () => {
+    expect(() => MlDsa65Signer.fromSeed(new Uint8Array(31))).toThrow(
+      "32 bytes",
+    );
+  });
+
+  it("verifyMlDsa65 rejects a tampered signature", async () => {
+    const signer = MlDsa65Signer.fromSeed(new Uint8Array(32).fill(9));
+    const message = new Uint8Array([1, 2, 3]);
+    const signature = mlDsa65Of(await signer.sign(message));
+    const tampered = mlDsa65Signature(new Uint8Array(signature));
+    tampered[0] = tampered[0]! ^ 1;
+    expect(verifyMlDsa65(signer.publicKey.mldsa65, message, tampered)).toBe(
+      false,
+    );
+  });
+});
+
+describe("pubkeySignatureEnvelopeBytes", () => {
+  it("reserves room for the signature and the attached key", () => {
+    expect(pubkeySignatureEnvelopeBytes(CryptographicScheme.Ed25519)).toBe(116);
+    expect(pubkeySignatureEnvelopeBytes(CryptographicScheme.MlDsa65)).toBe(
+      5284,
+    );
   });
 });
 

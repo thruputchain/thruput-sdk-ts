@@ -1,10 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   AuthClaimType,
-  CryptographicScheme,
   bitMap,
   weight,
-  ed25519PublicKey,
   type AuthClaim,
   CxsReader,
   CxsWriter,
@@ -625,13 +623,10 @@ describe("contract method views", () => {
 
   it("snapshots authorization when preparing a view", () => {
     const authClaim: AuthClaim = {
-      claim_type: AuthClaimType.kPubkeySignature,
-      pubkey_preimage: {
-        pubkey: {
-          scheme: CryptographicScheme.Ed25519,
-          ed25519: ed25519PublicKey(new Uint8Array(32).fill(7)),
-        },
-        nonce: 9007199254740993n,
+      claim_type: AuthClaimType.kSourceAddressAuthData,
+      source_address_claim: {
+        allowed_keys: bitMap(5n),
+        required_weight: weight(3n),
       },
     };
     const expected = structuredClone(authClaim);
@@ -640,8 +635,7 @@ describe("contract method views", () => {
       args: { first: 1n, second: 2n },
       authClaim,
     });
-    authClaim.pubkey_preimage.nonce = 1n;
-    authClaim.pubkey_preimage.pubkey.ed25519.fill(0);
+    authClaim.source_address_claim.allowed_keys = bitMap(1n);
     expect(prepared.request.authClaim).toEqual(expected);
   });
 

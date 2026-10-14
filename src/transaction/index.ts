@@ -16,3 +16,4 @@ export {
 export { signTransaction } from "./sign.js";
 export type { SignerEntry } from "./sign.js";
 export { transactionSignaturePreimage } from "./preimage.js";
+export { pubkeySignatureEnvelopeBytes } from "./size.js";

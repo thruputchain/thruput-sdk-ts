@@ -4,6 +4,7 @@ import {
   codec,
   ed25519PublicKey,
   fromHex,
+  mlDsa65PublicKey,
   serializeCxs,
   toHex,
 } from "@thruputchain/protocol";
@@ -11,8 +12,16 @@ import type { PubkeyAccountPreimage } from "@thruputchain/protocol";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { DomainSeparator, PUBKEY_ACCOUNT } from "./domainSeparator.js";
-import { derivePubkeyAccountAddress } from "./pubkeyAccount.js";
+import {
+  DomainSeparator,
+  PUBKEY_ACCOUNT,
+  PUBLIC_KEY,
+} from "./domainSeparator.js";
+import { derivePublicKeyHash } from "./publicKeyHash.js";
+import {
+  derivePubkeyAccountAddress,
+  pubkeyAccountPreimage,
+} from "./pubkeyAccount.js";
 
 interface Vector {
   domain_separator: string;
@@ -41,13 +50,13 @@ const vectorFile: VectorFile = haveVectors
 const vectors: Vector[] = vectorFile.vectors;
 
 function preimageOf(v: Vector): PubkeyAccountPreimage {
-  return {
-    pubkey: {
+  return pubkeyAccountPreimage(
+    {
       scheme: CryptographicScheme.Ed25519,
       ed25519: ed25519PublicKey(fromHex(v.pubkey_hex)),
     },
-    nonce: BigInt(v.nonce),
-  };
+    BigInt(v.nonce),
+  );
 }
 
 describe.skipIf(!haveVectors)(
@@ -113,5 +122,48 @@ describe("DomainSeparator", () => {
   it("measures the name length in UTF-8 bytes, not code units", () => {
     // 128 four-byte code points: 128 UTF-16 length, 512 UTF-8 bytes.
     expect(() => DomainSeparator.make("\u{1F600}".repeat(128))).toThrow(/256/);
+  });
+});
+
+describe("derivePublicKeyHash", () => {
+  const ed25519Key = {
+    scheme: CryptographicScheme.Ed25519,
+    ed25519: ed25519PublicKey(new Uint8Array(32).fill(7)),
+  } as const;
+
+  it("hashes the PublicKey separator then the CXS-encoded key", () => {
+    expect(toHex(PUBLIC_KEY.bytes)).toBe(
+      toHex(
+        new Uint8Array([0x00, 0x09, ...new TextEncoder().encode("PublicKey")]),
+      ),
+    );
+    const objectCxs = serializeCxs(ed25519Key, codec.PublicKey);
+    const manual = new Uint8Array(PUBLIC_KEY.bytes.length + objectCxs.length);
+    manual.set(PUBLIC_KEY.bytes, 0);
+    manual.set(objectCxs, PUBLIC_KEY.bytes.length);
+    expect(toHex(derivePublicKeyHash(ed25519Key))).toBe(toHex(sha256(manual)));
+  });
+
+  it("commits to the scheme as well as the key bytes", () => {
+    const mlDsaKey = {
+      scheme: CryptographicScheme.MlDsa65,
+      mldsa65: mlDsa65PublicKey(new Uint8Array(1952).fill(7)),
+    } as const;
+    expect(toHex(derivePublicKeyHash(mlDsaKey))).not.toBe(
+      toHex(derivePublicKeyHash(ed25519Key)),
+    );
+  });
+
+  it("names the key by hash in the account preimage", () => {
+    expect(pubkeyAccountPreimage(ed25519Key, 5n)).toEqual({
+      pubkey_hash: derivePublicKeyHash(ed25519Key),
+      nonce: 5n,
+    });
+    expect(
+      serializeCxs(
+        pubkeyAccountPreimage(ed25519Key, 5n),
+        codec.PubkeyAccountPreimage,
+      ).subarray(0, 32),
+    ).toEqual(derivePublicKeyHash(ed25519Key));
   });
 });

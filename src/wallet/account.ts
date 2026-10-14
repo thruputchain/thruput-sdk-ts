@@ -2,18 +2,24 @@ import {
   AuthClaimType,
   CryptographicScheme,
   bitMap,
+  codec,
   contractAddress,
-  ed25519PublicKey,
+  deserialize,
   kMaxSigners,
+  serialize,
   weight,
   type AuthClaim,
   type BitMap,
   type ContractAddress,
+  type PublicKey,
   type Weight,
 } from "@thruputchain/protocol";
 import type { Signer } from "../signers/types.js";
 import type { SignerEntry } from "../transaction/sign.js";
-import { derivePubkeyAccountAddress } from "../derivation/pubkeyAccount.js";
+import {
+  derivePubkeyAccountAddress,
+  pubkeyAccountPreimage,
+} from "../derivation/pubkeyAccount.js";
 
 const uint32Max = 0xffff_ffffn;
 const uint64Max = 0xffff_ffff_ffff_ffffn;
@@ -25,10 +31,17 @@ interface WalletAccountBase {
   readonly signers: readonly SignerEntry[];
 }
 
-/** Protocol pubkey account authorized directly by one Ed25519 key. */
+/**
+ * Protocol pubkey account authorized directly by one Ed25519 or ML-DSA-65 key.
+ *
+ * The auth claim names the key by its scheme-inclusive hash; the key itself is
+ * attached to each signed transaction as `pubkey_claim_key`.
+ */
 export interface PubkeyAccount extends WalletAccountBase {
   readonly kind: "pubkey";
   readonly nonce: bigint;
+  /** Scheme-tagged key the account's address commits to. */
+  readonly publicKey: PublicKey;
   readonly authClaim: Extract<
     AuthClaim,
     { claim_type: AuthClaimType.kPubkeySignature }
@@ -69,20 +82,30 @@ export function createPubkeyAccount(
   validateSigner(options.signer);
   const nonce = options.nonce ?? 0n;
   validateUnsigned(nonce, uint64Max, "nonce");
-  if (options.signer.publicKey.scheme !== CryptographicScheme.Ed25519) {
-    throw new Error("Pubkey accounts require an Ed25519 signer");
+  const scheme: unknown = options.signer.publicKey.scheme;
+  if (
+    scheme !== CryptographicScheme.Ed25519 &&
+    scheme !== CryptographicScheme.MlDsa65
+  ) {
+    throw new Error("Pubkey accounts require an Ed25519 or ML-DSA-65 signer");
   }
 
-  const publicKey = {
-    scheme: CryptographicScheme.Ed25519,
-    ed25519: ed25519PublicKey(new Uint8Array(options.signer.publicKey.ed25519)),
-  } as const;
-  const preimage = { pubkey: publicKey, nonce };
+  let publicKey: PublicKey;
+  try {
+    publicKey = deserialize(
+      serialize(options.signer.publicKey, codec.PublicKey),
+      codec.PublicKey,
+    );
+  } catch {
+    throw new Error("Invalid signer public key");
+  }
+  const preimage = pubkeyAccountPreimage(publicKey, nonce);
 
   return {
     kind: "pubkey",
     address: derivePubkeyAccountAddress(preimage),
     nonce,
+    publicKey,
     authClaim: {
       claim_type: AuthClaimType.kPubkeySignature,
       pubkey_preimage: preimage,

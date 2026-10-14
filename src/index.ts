@@ -37,7 +37,11 @@ export type {
   TxInvalidDetail,
 } from "./transport/index.js";
 export type { Signer } from "./signers/index.js";
-export { PrivateKeySigner } from "./signers/index.js";
+export {
+  PrivateKeySigner,
+  MlDsa65Signer,
+  verifyMlDsa65,
+} from "./signers/index.js";
 export { createThruputClient } from "./client.js";
 export {
   devnet,
@@ -63,7 +67,11 @@ export type {
   ClusterHasCapability,
   PredefinedClusterOptions,
 } from "./cluster.js";
-export { derivePubkeyAccountAddress } from "./derivation/pubkeyAccount.js";
+export {
+  derivePubkeyAccountAddress,
+  pubkeyAccountPreimage,
+} from "./derivation/pubkeyAccount.js";
+export { derivePublicKeyHash } from "./derivation/publicKeyHash.js";
 export { hashSignedTransaction } from "./derivation/transactionHash.js";
 export {
   deriveEntrypointID,

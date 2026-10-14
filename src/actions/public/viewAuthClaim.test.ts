@@ -1,10 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   AuthClaimType,
-  CryptographicScheme,
   bitMap,
   weight,
-  ed25519PublicKey,
+  publicKeyHash,
   contractAddress,
   contractEntrypointID,
   calldata,
@@ -32,10 +31,7 @@ function pubkey(nonce = 9007199254740993n): AuthClaim {
   return {
     claim_type: AuthClaimType.kPubkeySignature,
     pubkey_preimage: {
-      pubkey: {
-        scheme: CryptographicScheme.Ed25519,
-        ed25519: ed25519PublicKey(new Uint8Array(32).fill(7)),
-      },
+      pubkey_hash: publicKeyHash(new Uint8Array(32).fill(7)),
       nonce,
     },
   };
@@ -62,14 +58,6 @@ function stub() {
 describe("optional view authorization", () => {
   it.each([
     [source, { kind: "sourceAddress", allowedKeys: 5, requiredWeight: 3 }],
-    [
-      pubkey(),
-      {
-        kind: "pubkeySignature",
-        publicKey: `0x${"07".repeat(32)}`,
-        nonce: "9007199254740993",
-      },
-    ],
   ] as const)(
     "uses the same wire claim for single and batch views",
     async (authClaim, expected) => {
@@ -91,11 +79,7 @@ describe("optional view authorization", () => {
     const { transport, request } = stub();
     await view(transport, call);
     await viewBatch(transport, {
-      calls: [
-        { ...call, caller: address, authClaim: source },
-        { ...call, authClaim: pubkey() },
-        call,
-      ],
+      calls: [{ ...call, caller: address, authClaim: source }, call],
     });
     expect((request.mock.calls[0]![1] as object[])[0]).not.toHaveProperty(
       "authClaim",
@@ -104,8 +88,7 @@ describe("optional view authorization", () => {
       request.mock.calls[1]![1] as [{ calls: Record<string, unknown>[] }]
     )[0].calls;
     expect(entries[0]!.caller).toBe(toHex0x(address));
-    expect(entries[1]!.authClaim).not.toEqual(entries[0]!.authClaim);
-    expect(entries[2]).not.toHaveProperty("authClaim");
+    expect(entries[1]).not.toHaveProperty("authClaim");
   });
 
   it.each([
@@ -122,20 +105,8 @@ describe("optional view authorization", () => {
       ...source,
       source_address_claim: { allowed_keys: 0n, required_weight: 1 },
     },
-    {
-      claim_type: AuthClaimType.kPubkeySignature,
-      pubkey_preimage: { pubkey: { scheme: 99 }, nonce: 0n },
-    },
-    {
-      claim_type: AuthClaimType.kPubkeySignature,
-      pubkey_preimage: {
-        pubkey: {
-          scheme: CryptographicScheme.Ed25519,
-          ed25519: new Uint8Array(31),
-        },
-        nonce: 0n,
-      },
-    },
+    // Hash-based pubkey claims have no view RPC form yet.
+    pubkey(),
     pubkey(1n << 64n),
   ])("rejects malformed claim %# before sending", async (invalid) => {
     const { transport, request } = stub();
