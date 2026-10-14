@@ -1,3 +1,4 @@
+import { toBase58 } from "../encoding.js";
 import { describe, expect, it } from "vitest";
 import { getBlockByNumber } from "./public/getBlockByNumber.js";
 import { getChainTip } from "./public/getChainTip.js";
@@ -38,7 +39,7 @@ describe("wide integer JSON boundaries", () => {
     "preserves height %s through JSON request and response encoding",
     async (height) => {
       const address = contractAddress(new Uint8Array(32));
-      const hash = "0x" + "00".repeat(32);
+      const hash = toBase58(new Uint8Array(32).fill(0x00));
       const transport: Transport = {
         async request<T>(method: string, params?: unknown[]): Promise<T> {
           const wire = JSON.parse(JSON.stringify(params ?? []));

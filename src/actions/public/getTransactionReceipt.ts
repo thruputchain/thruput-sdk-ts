@@ -1,3 +1,4 @@
+import { toBase58, hashFromBase58 } from "../../encoding.js";
 import type { SHA256Hash } from "@thruputchain/protocol";
 import { ExecResult } from "@thruputchain/protocol";
 import type {
@@ -6,7 +7,7 @@ import type {
 } from "../../transport/types.js";
 import type { TransactionReceipt, ExecutionStatus } from "../../types/rpc.js";
 import { parseEmittedEvent } from "../emittedEvent.js";
-import { toHex0x, hashFromHex, fromHex0x } from "../hex.js";
+import { fromHex0x } from "../hex.js";
 import { parseHeight as parseDecimalHeight, parseU64 } from "../decimal.js";
 
 interface RawExecStatus {
@@ -127,7 +128,7 @@ export async function getTransactionReceipt(
   options?: TransportRequestOptions,
 ): Promise<TransactionReceipt | null> {
   options?.signal?.throwIfAborted();
-  const requestedHash = toHex0x(txHash);
+  const requestedHash = toBase58(txHash);
   const result = await transport.request<unknown>(
     "groundhog_getTransactionReceipt",
     [requestedHash],
@@ -153,7 +154,7 @@ export async function getTransactionReceipt(
       );
     }
     return {
-      txHash: hashFromHex(receipt.txHash),
+      txHash: hashFromBase58(receipt.txHash),
       height: parseHeight(receipt.height),
       execResult: parseExecResult(receipt.status),
       executionStatus: parseExecutionStatus(receipt.status),

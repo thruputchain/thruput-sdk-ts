@@ -1,3 +1,4 @@
+import { toBase58 } from "../encoding.js";
 import {
   AuthClaimType,
   bitMap,
@@ -172,7 +173,7 @@ describe("wallet account defaults", () => {
             attemptStatus: "succeeded",
             recipient: request.recipient,
             rawAmount: "100",
-            txHash: "0x" + "22".repeat(32),
+            txHash: toBase58(new Uint8Array(32).fill(0x22)),
             height: "2",
             status: { result: "ok" },
           } as T;
@@ -189,9 +190,9 @@ describe("wallet account defaults", () => {
     await wallet.getBalance();
     await wallet.requestAirdrop();
 
-    expect(calls[0]!.params).toEqual(["0x" + "11".repeat(32)]);
+    expect(calls[0]!.params).toEqual([toBase58(address)]);
     expect(calls[1]!.params![0]).toMatchObject({
-      recipient: "0x" + "11".repeat(32),
+      recipient: toBase58(new Uint8Array(32).fill(0x11)),
     });
   });
 
@@ -205,7 +206,7 @@ describe("wallet account defaults", () => {
           attemptStatus: "succeeded",
           recipient: request.recipient,
           rawAmount: "100",
-          txHash: "0x" + "22".repeat(32),
+          txHash: toBase58(new Uint8Array(32).fill(0x22)),
           height: "2",
           status: { result: "ok" },
         } as T;
@@ -229,7 +230,7 @@ describe("wallet account defaults", () => {
     expect(wallet).not.toBe(client);
     expect(calls[0]!.params).toEqual([
       {
-        recipient: "0x" + "44".repeat(32),
+        recipient: toBase58(new Uint8Array(32).fill(0x44)),
         clientNonce: "0x010203",
       },
     ]);
@@ -296,7 +297,7 @@ describe("wallet account defaults", () => {
         async request<T>(method: string): Promise<T> {
           if (method === "groundhog_networkInfo") {
             return {
-              networkHash: "0x" + "11".repeat(32),
+              networkHash: toBase58(new Uint8Array(32).fill(0x11)),
             } as T;
           }
           throw new Error(`Unexpected method: ${method}`);

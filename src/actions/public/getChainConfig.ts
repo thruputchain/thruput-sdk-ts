@@ -1,3 +1,4 @@
+import { hashFromBase58 } from "../../encoding.js";
 import type {
   Transport,
   TransportRequestOptions,
@@ -9,7 +10,6 @@ import type {
   StorageCosts,
 } from "../../types/rpc.js";
 import { I64_MAX, U64_MAX, parseDecimal } from "../decimal.js";
-import { hashFromHex } from "../hex.js";
 
 const MAX_U32 = 0xffff_ffff;
 
@@ -92,9 +92,9 @@ function parseExecution(value: unknown): ExecutionConfig {
   return {
     observedTip: {
       height,
-      blockHash: hashFromHex(tip.blockHash),
+      blockHash: hashFromBase58(tip.blockHash),
     },
-    configHash: hashFromHex(config.configHash),
+    configHash: hashFromBase58(config.configHash),
     effectiveLimits: parseLimits(object(config.effectiveLimits)),
     storageCosts: {
       baseDataItemCost: price("baseDataItemCost"),

@@ -1,3 +1,4 @@
+import { toBase58 } from "../../encoding.js";
 import {
   sha256Hash,
   type SHA256Hash,
@@ -41,7 +42,7 @@ export class TransactionReceiptTimeoutError extends Error {
     cause?: unknown,
   ) {
     super(
-      `Timed out waiting for transaction receipt ${toHex0x(txHash)}` +
+      `Timed out waiting for transaction receipt ${toBase58(txHash)}` +
         (lastStatus?.status === "recentFailure"
           ? `. Last advisory failure at height ${lastStatus.attemptHeight}: ${failureMessage(lastStatus.cause)}`
           : "") +
@@ -58,7 +59,7 @@ export class TransactionRejectedError extends Error {
     readonly txHash: SHA256Hash,
     readonly reason: string,
   ) {
-    super(`Transaction ${toHex0x(txHash)} was rejected: ${reason}`);
+    super(`Transaction ${toBase58(txHash)} was rejected: ${reason}`);
     this.name = "TransactionRejectedError";
   }
 }
@@ -71,7 +72,7 @@ export class TransactionProcessingError extends Error {
     readonly error: SchedulerTransactionError,
   ) {
     super(
-      `Transaction ${toHex0x(txHash)} ${status}: ${error.source} code ${error.code}`,
+      `Transaction ${toBase58(txHash)} ${status}: ${error.source} code ${error.code}`,
     );
     this.name = "TransactionProcessingError";
   }
@@ -238,7 +239,7 @@ function errorMessage(cause: unknown): string {
 function failureMessage(cause: TransactionFailureCause): string {
   switch (cause.kind) {
     case "dbConflict":
-      return `${cause.conflict.code} conflict at ${toHex0x(cause.conflict.address)} key ${toHex0x(cause.conflict.key)}`;
+      return `${cause.conflict.code} conflict at ${toBase58(cause.conflict.address)} key ${toHex0x(cause.conflict.key)}`;
     case "contractRejected":
       return `${cause.code} rejection of new contract at index ${cause.contractIndex}`;
     case "other":

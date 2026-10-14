@@ -1,3 +1,4 @@
+import { toBase58 } from "../encoding.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createThruputClient } from "../client.js";
 import { HttpRequestError, HttpResponseError, HttpTransport } from "./http.js";
@@ -58,7 +59,10 @@ describe("HTTP batching", () => {
           id,
           result:
             method === "groundhog_chainTip"
-              ? { height: "7", blockHash: `0x${"00".repeat(32)}` }
+              ? {
+                  height: "7",
+                  blockHash: toBase58(new Uint8Array(32).fill(0x00)),
+                }
               : {
                   wireFormat: "6.0.0",
                   implementation: "test",

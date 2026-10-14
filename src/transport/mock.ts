@@ -1,5 +1,6 @@
 import type { Transport } from "./types.js";
-import { sha256Hash, toHex } from "@thruputchain/protocol";
+import { sha256Hash } from "@thruputchain/protocol";
+import { toBase58 } from "../encoding.js";
 import { parseHeight } from "../actions/decimal.js";
 
 /**
@@ -71,7 +72,7 @@ export class MockTransport implements Transport {
 
   #networkInfo(): { networkHash: string } {
     return {
-      networkHash: "0x" + "00".repeat(32),
+      networkHash: "1".repeat(32),
     };
   }
 
@@ -109,7 +110,7 @@ export class MockTransport implements Transport {
     const heightBytes = new Uint8Array(32);
     const view = new DataView(heightBytes.buffer);
     view.setBigUint64(24, height > 0n ? height : 0n);
-    return "0x" + toHex(sha256Hash(heightBytes));
+    return toBase58(sha256Hash(heightBytes));
   }
 
   #getBlockByNumber(params?: unknown[]): {
@@ -132,8 +133,8 @@ export class MockTransport implements Transport {
     return {
       blockHash: this.#blockHash(height),
       protocol: 0,
-      networkHash: "0x" + "00".repeat(32),
-      proposer: "0x" + "00".repeat(32),
+      networkHash: "1".repeat(32),
+      proposer: "1".repeat(32),
       blockTimepoint: "0",
       blockHeight: height.toString(),
       txsHash: this.#blockHash(height),
@@ -199,7 +200,7 @@ export class MockTransport implements Transport {
     const hashInput = new Uint8Array(32);
     const view = new DataView(hashInput.buffer);
     view.setUint32(0, this.#txCounter);
-    const hash = "0x" + toHex(sha256Hash(hashInput));
+    const hash = toBase58(sha256Hash(hashInput));
 
     this.#transactions.set(hash, {
       rawTx,

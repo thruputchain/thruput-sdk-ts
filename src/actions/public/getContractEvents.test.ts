@@ -1,3 +1,4 @@
+import { toBase58, hashFromBase58 } from "../../encoding.js";
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import { contractAddress, CxsWriter } from "@thruputchain/protocol";
 import { createThruputClient } from "../../client.js";
@@ -5,14 +6,14 @@ import { groundhog_erc20_if } from "../../contracts/index.js";
 import { ContractDecodeError } from "../../contract/errors.js";
 import { HttpTransport, JsonRpcError } from "../../transport/http.js";
 import type { Transport } from "../../transport/types.js";
-import { hashFromHex, toHex0x } from "../hex.js";
+import { toHex0x } from "../hex.js";
 import { getContractEvents } from "./getContractEvents.js";
 
 const { TransferEvent: ERC20TransferEvent } = groundhog_erc20_if.v0_1.events;
 const token = contractAddress(new Uint8Array(32).fill(1));
 const sender = contractAddress(new Uint8Array(32).fill(2));
 const receiver = contractAddress(new Uint8Array(32).fill(3));
-const hash = `0x${"04".repeat(32)}`;
+const hash = toBase58(new Uint8Array(32).fill(0x04));
 const writer = new CxsWriter();
 writer.writeInt128(42n);
 const rawEvent = {
@@ -20,7 +21,7 @@ const rawEvent = {
   blockHeight: "43",
   sequenceNumber: 7,
   event: {
-    contractAddress: toHex0x(token),
+    contractAddress: toBase58(token),
     topics: [
       toHex0x(ERC20TransferEvent.signature),
       toHex0x(sender),
@@ -74,7 +75,7 @@ describe("getContractEvents", () => {
         {
           filters: [
             {
-              contractAddresses: [toHex0x(token)],
+              contractAddresses: [toBase58(token)],
               topics: {
                 topic0: [toHex0x(ERC20TransferEvent.signature)],
                 topic1: [],
@@ -97,7 +98,7 @@ describe("getContractEvents", () => {
           topics: { from: sender, to: receiver },
           fields: { amount: 42n },
           contractAddress: token,
-          txHash: hashFromHex(hash),
+          txHash: hashFromBase58(hash),
           blockHeight: 43n,
           sequenceNumber: 7,
         },

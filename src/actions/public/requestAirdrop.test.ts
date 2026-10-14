@@ -1,3 +1,4 @@
+import { toBase58 } from "../../encoding.js";
 import { contractAddress } from "@thruputchain/protocol";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Transport } from "../../transport/types.js";
@@ -19,16 +20,16 @@ const recipient = contractAddress(new Uint8Array(32).fill(0x11));
 const clientNonce = new Uint8Array(16).fill(0x22);
 const pending = {
   attemptStatus: "pending",
-  recipient: "0x" + "11".repeat(32),
+  recipient: toBase58(new Uint8Array(32).fill(0x11)),
   rawAmount: "100000000",
-  txHash: "0x" + "33".repeat(32),
+  txHash: toBase58(new Uint8Array(32).fill(0x33)),
   retryAfterSeconds: "0",
 };
 const succeeded = {
   attemptStatus: "succeeded",
-  recipient: "0x" + "11".repeat(32),
+  recipient: toBase58(new Uint8Array(32).fill(0x11)),
   rawAmount: "100000000",
-  txHash: "0x" + "33".repeat(32),
+  txHash: toBase58(new Uint8Array(32).fill(0x33)),
   height: "42",
   status: { result: "ok" },
 };
@@ -55,7 +56,7 @@ describe("requestAirdropAttempt", () => {
         method: "groundhog_requestAirdrop",
         params: [
           {
-            recipient: "0x" + "11".repeat(32),
+            recipient: toBase58(new Uint8Array(32).fill(0x11)),
             clientNonce: "0x" + "22".repeat(16),
           },
         ],
@@ -114,7 +115,7 @@ describe("requestAirdropAttempt", () => {
     null,
     {},
     { ...pending, attemptStatus: "unknown" },
-    { ...pending, recipient: "0x" + "44".repeat(32) },
+    { ...pending, recipient: toBase58(new Uint8Array(32).fill(0x44)) },
     { ...pending, recipient: "0x" + "AA".repeat(32) },
     { ...pending, rawAmount: "-1" },
     { ...pending, retryAfterSeconds: -1 },
@@ -216,7 +217,7 @@ describe("requestAirdrop", () => {
     expect(requests[0]).toEqual(requests[1]);
     expect(requests[0]).toEqual([
       {
-        recipient: "0x" + "11".repeat(32),
+        recipient: toBase58(new Uint8Array(32).fill(0x11)),
         clientNonce: "0x" + "22".repeat(16),
       },
     ]);

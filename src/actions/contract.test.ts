@@ -1,3 +1,4 @@
+import { toBase58 } from "../encoding.js";
 // Contract tests: assert that the JSON each public action serializes to the
 // transport actually matches the gateway's declared request schema in
 // `specs/openrpc.json`.
@@ -201,7 +202,9 @@ async function makeDummySignedTx(): Promise<SignedTransaction> {
 
 describe("contract tests against specs/openrpc.json", () => {
   it("groundhog_sendRawTransaction — sends a signed transaction as hex XDR", async () => {
-    const { transport, calls } = spyTransport("0x" + "11".repeat(32));
+    const { transport, calls } = spyTransport(
+      toBase58(new Uint8Array(32).fill(0x11)),
+    );
     await sendTransaction(transport, await makeDummySignedTx());
     expect(calls).toHaveLength(1);
     assertCapturedParamsMatchSpec("groundhog_sendRawTransaction", calls[0]);
@@ -210,7 +213,7 @@ describe("contract tests against specs/openrpc.json", () => {
   it("groundhog_chainTip — sends an empty params array", async () => {
     const { transport, calls } = spyTransport({
       height: "0",
-      blockHash: "0x" + "00".repeat(32),
+      blockHash: toBase58(new Uint8Array(32).fill(0x00)),
     });
     await getChainTip(transport);
     expect(calls).toHaveLength(1);
@@ -230,7 +233,7 @@ describe("contract tests against specs/openrpc.json", () => {
 
   it("groundhog_networkInfo — sends an empty params array", async () => {
     const { transport, calls } = spyTransport({
-      networkHash: "0x" + "11".repeat(32),
+      networkHash: toBase58(new Uint8Array(32).fill(0x11)),
     });
     await getNetworkInfo(transport);
     expect(calls).toHaveLength(1);
@@ -241,7 +244,7 @@ describe("contract tests against specs/openrpc.json", () => {
     const recipient = contractAddress(new Uint8Array(32).fill(0xab));
     const { transport, calls } = spyTransport({
       attemptStatus: "pending",
-      recipient: "0x" + "ab".repeat(32),
+      recipient: toBase58(new Uint8Array(32).fill(0xab)),
       rawAmount: "100000000",
       retryAfterSeconds: "1",
     });
@@ -256,7 +259,7 @@ describe("contract tests against specs/openrpc.json", () => {
   it("groundhog_getBalance — sends a Hex0x_ContractAddress", async () => {
     const address = contractAddress(new Uint8Array(32).fill(0xab));
     const { transport, calls } = spyTransport({
-      address: "0x" + "ab".repeat(32),
+      address: toBase58(new Uint8Array(32).fill(0xab)),
       rawBalance: "0",
       height: "0",
     });
@@ -473,9 +476,9 @@ describe("contract tests against specs/openrpc.json", () => {
     const recipient = contractAddress(new Uint8Array(32).fill(0x55));
     const bytes = serializeSignedTransaction(signed);
     const { transport, calls } = spyTransport({
-      recipient: toHex0x(recipient),
+      recipient: toBase58(recipient),
       rawAmount: "1000000000",
-      txHash: toHex0x(hashSignedTransaction(signed)),
+      txHash: toBase58(hashSignedTransaction(signed)),
       signedTransaction: toHex0x(bytes),
     });
     const result = await fundAccount(transport, {
@@ -491,7 +494,7 @@ describe("contract tests against specs/openrpc.json", () => {
   it("local funding preserves unresolved transaction evidence from HTTP RPC errors", async () => {
     const signed = await makeDummySignedTx();
     const evidence = {
-      txHash: toHex0x(hashSignedTransaction(signed)),
+      txHash: toBase58(hashSignedTransaction(signed)),
       signedTransaction: toHex0x(serializeSignedTransaction(signed)),
     };
     let requests = 0;
@@ -534,9 +537,9 @@ describe("contract tests against specs/openrpc.json", () => {
       clientNonce: new Uint8Array([1, 2, 3]),
     };
     const response = {
-      recipient: toHex0x(request.recipient),
+      recipient: toBase58(request.recipient),
       rawAmount: "1000000000",
-      txHash: toHex0x(hashSignedTransaction(signed)),
+      txHash: toBase58(hashSignedTransaction(signed)),
       signedTransaction: toHex0x(serializeSignedTransaction(signed)),
     };
     const calls: unknown[] = [];
@@ -555,9 +558,9 @@ describe("contract tests against specs/openrpc.json", () => {
     });
     expect(calls[1]).toEqual(calls[0]);
     for (const patch of [
-      { recipient: "0x" + "66".repeat(32) },
+      { recipient: toBase58(new Uint8Array(32).fill(0x66)) },
       { rawAmount: "1" },
-      { txHash: "0x" + "77".repeat(32) },
+      { txHash: toBase58(new Uint8Array(32).fill(0x77)) },
       { signedTransaction: "0xBAD" },
     ]) {
       await expect(
@@ -584,7 +587,7 @@ describe("contract tests against specs/openrpc.json", () => {
   it("getAddressAuthData serializes its address and preserves absence", async () => {
     const address = contractAddress(new Uint8Array(32).fill(7));
     const spy = spyTransport({
-      address: toHex0x(address),
+      address: toBase58(address),
       height: "42",
       authData: null,
     });

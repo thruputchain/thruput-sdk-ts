@@ -14,8 +14,8 @@ trap 'rm -f "$TEMP_SPEC"' EXIT
 node --input-type=module - "$TEMP_SPEC" <<'JS'
 import { readFileSync } from "node:fs";
 const spec = JSON.parse(readFileSync(process.argv[2], "utf8"));
-if (spec.info.version !== "12.1.0") {
-  throw new Error(`Expected RPC wire 12.1.0, received ${spec.info.version}. Set THRUPUT_OPENRPC_GENERATOR to a matching generator.`);
+if (spec.info.version !== "13.0.0") {
+  throw new Error(`Expected RPC wire 13.0.0, received ${spec.info.version}. Set THRUPUT_OPENRPC_GENERATOR to a matching generator.`);
 }
 for (const name of ["groundhog_fundAccount", "groundhog_viewBatch", "groundhog_getTransactionsByBlock"]) {
   if (!spec.methods.some((method) => method.name === name)) {

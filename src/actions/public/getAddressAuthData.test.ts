@@ -1,3 +1,4 @@
+import { toBase58 } from "../../encoding.js";
 import { describe, expect, it } from "vitest";
 import { contractAddress } from "@thruputchain/protocol";
 import { getAddressAuthData } from "./getAddressAuthData.js";
@@ -7,11 +8,11 @@ import { createThruputClient } from "../../client.js";
 import { MockTransport } from "../../transport/mock.js";
 
 const address = contractAddress(new Uint8Array(32).fill(7));
-const key = `0x${"11".repeat(32)}`;
+const key = toBase58(new Uint8Array(32).fill(0x11));
 function transport(authData: unknown, height: unknown = "42"): Transport {
   return {
     async request<T>() {
-      return { address: toHex0x(address), height, authData } as T;
+      return { address: toBase58(address), height, authData } as T;
     },
   };
 }
@@ -98,7 +99,7 @@ describe("getAddressAuthData", () => {
     const options = { signal: new AbortController().signal };
     const failing: Transport = {
       async request(_method, params, received) {
-        expect(params).toEqual([toHex0x(address)]);
+        expect(params).toEqual([toBase58(address)]);
         expect(received).toBe(options);
         throw error;
       },

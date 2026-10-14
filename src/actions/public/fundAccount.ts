@@ -1,3 +1,4 @@
+import { toBase58, hashFromBase58, addressFromBase58 } from "../../encoding.js";
 import type { ContractAddress } from "@thruputchain/protocol";
 import type {
   FundAccountRequest,
@@ -7,7 +8,7 @@ import type {
   Transport,
   TransportRequestOptions,
 } from "../../transport/types.js";
-import { addressFromHex, fromHex0x, hashFromHex, toHex0x } from "../hex.js";
+import { fromHex0x, toHex0x } from "../hex.js";
 import { deserializeSignedTransaction } from "../../transaction/serialize.js";
 import { hashSignedTransaction } from "../../derivation/transactionHash.js";
 
@@ -42,8 +43,8 @@ export async function fundAccount(
     "groundhog_fundAccount",
     [
       {
-        recipient: toHex0x(recipient),
-        faucet: toHex0x(faucet),
+        recipient: toBase58(recipient),
+        faucet: toBase58(faucet),
         rawAmount: rawAmount.toString(),
         clientNonce: toHex0x(clientNonce),
       },
@@ -55,7 +56,7 @@ export async function fundAccount(
   }
   const raw = result as Record<string, unknown>;
   if (
-    raw.recipient !== toHex0x(recipient) ||
+    raw.recipient !== toBase58(recipient) ||
     raw.rawAmount !== rawAmount.toString()
   ) {
     throw new Error(
@@ -64,7 +65,6 @@ export async function fundAccount(
   }
   if (
     typeof raw.txHash !== "string" ||
-    !/^0x[0-9a-f]{64}$/.test(raw.txHash) ||
     typeof raw.signedTransaction !== "string" ||
     !/^0x(?:[0-9a-f]{2})+$/.test(raw.signedTransaction)
   ) {
@@ -72,7 +72,7 @@ export async function fundAccount(
   }
   const signedTransaction = fromHex0x(raw.signedTransaction);
   if (
-    toHex0x(
+    toBase58(
       hashSignedTransaction(deserializeSignedTransaction(signedTransaction)),
     ) !== raw.txHash
   ) {
@@ -81,9 +81,9 @@ export async function fundAccount(
     );
   }
   return {
-    recipient: addressFromHex(raw.recipient as string),
+    recipient: addressFromBase58(raw.recipient as string),
     rawAmount,
-    txHash: hashFromHex(raw.txHash),
+    txHash: hashFromBase58(raw.txHash),
     signedTransaction,
   };
 }

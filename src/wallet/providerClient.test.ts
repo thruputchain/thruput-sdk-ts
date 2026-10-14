@@ -18,6 +18,7 @@ import { Point, utils, verifyAsync } from "@noble/ed25519";
 import { sha512 } from "@noble/hashes/sha2.js";
 import { createThruputClient } from "../client.js";
 import { hashFromHex, toHex0x } from "../actions/hex.js";
+import { toBase58 } from "../encoding.js";
 import { hashSignedTransaction } from "../derivation/transactionHash.js";
 import { PrivateKeySigner } from "../signers/privateKey.js";
 import { signTransaction } from "../transaction/sign.js";
@@ -787,11 +788,11 @@ describe("external provider wallet", () => {
         ),
       ),
     ).toBe(signed.hash);
-    // The returned identifier is directly usable with existing RPC receipt actions.
+    // The provider's decoded identifier is usable with the base58 RPC boundary.
     const receiptRequest = vi
       .spyOn(transport, "request")
       .mockResolvedValueOnce({
-        txHash: signed.hash,
+        txHash: toBase58(hashFromHex(signed.hash)),
         height: "1",
         status: { result: "ok" },
         events: [],
@@ -802,7 +803,7 @@ describe("external provider wallet", () => {
     );
     expect(receiptRequest).toHaveBeenCalledWith(
       "groundhog_getTransactionReceipt",
-      [signed.hash],
+      [toBase58(hashFromHex(signed.hash))],
       undefined,
     );
     expect(toHex0x(receipt!.txHash)).toBe(signed.hash);

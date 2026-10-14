@@ -1,3 +1,4 @@
+import { toBase58 } from "../../encoding.js";
 import type {
   Transport,
   TransportRequestOptions,
@@ -103,10 +104,10 @@ export async function view(
     "groundhog_view",
     [
       {
-        contract: toHex0x(request.contract),
+        contract: toBase58(request.contract),
         entrypoint: toHex0x(request.entrypoint),
         calldata: toHex0x(request.calldata),
-        ...(request.caller ? { caller: toHex0x(request.caller) } : {}),
+        ...(request.caller ? { caller: toBase58(request.caller) } : {}),
         ...(request.authClaim === undefined
           ? {}
           : { authClaim: serializeViewAuthClaim(request.authClaim) }),
