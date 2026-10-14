@@ -397,11 +397,13 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         signer: new PrivateKeySigner(randomBytes(32)),
       });
       const wallet = createWalletClient({ client, account: sender });
-      const airdrop = await wallet.requestAirdrop({
-        recipient: sender.address,
-        timeoutMs: airdropTimeoutMs,
-      });
-      assert.equal(airdrop.status.result, "ok");
+      for (const account of [sender, recipient]) {
+        const airdrop = await wallet.requestAirdrop({
+          recipient: account.address,
+          timeoutMs: airdropTimeoutMs,
+        });
+        assert.equal(airdrop.status.result, "ok");
+      }
       const amount = 1_000n;
       const { receipt } = await wallet.executeCallsAndWait(
         {
