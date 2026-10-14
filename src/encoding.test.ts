@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
+import { fromHex0x, toHex0x } from "./actions/hex.js";
 import {
   toBase58,
   fromBase58,
@@ -14,7 +15,7 @@ import {
 } from "./encoding.js";
 
 describe("base58", () => {
-  it("matches the shared protocol vectors (7336530)", () => {
+  it("matches the base58 and hex protocol vectors (e9e5e64)", () => {
     const vectors = JSON.parse(
       readFileSync(
         new URL("../fixtures/text-encoding.json", import.meta.url),
@@ -24,6 +25,7 @@ describe("base58", () => {
       valid: {
         bytes: number[];
         base58: string;
+        hex: string;
         strkey?: { contract: string; publicKey: string; seed: string };
       }[];
       invalidBase58: string[];
@@ -33,6 +35,8 @@ describe("base58", () => {
       const bytes = Uint8Array.from(vector.bytes);
       expect(toBase58(bytes)).toBe(vector.base58);
       expect(fromBase58(vector.base58, bytes.length)).toEqual(bytes);
+      expect(toHex0x(bytes)).toBe(vector.hex);
+      expect(fromHex0x(vector.hex)).toEqual(bytes);
       if (vector.strkey) {
         expect(addressToStrkey(bytes)).toBe(vector.strkey.contract);
         expect(publicKeyToStrkey(bytes)).toBe(vector.strkey.publicKey);
