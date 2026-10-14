@@ -20,7 +20,7 @@ const SEED_BYTES = 32;
  *
  * Signatures are pure ML-DSA (not HashML-DSA) with an empty context string,
  * over the same transaction signature preimage an Ed25519 signer signs. Keys
- * are scheme-tagged {@link PublicKey} values; there is no StrKey form for them.
+ * are scheme-tagged `PublicKey` values; there is no StrKey form for them.
  *
  * Signing is hedged by default (fresh randomness mixed into each signature).
  * Pass `{ deterministic: true }` for the FIPS 204 deterministic variant, which
