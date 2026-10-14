@@ -5,6 +5,7 @@ import { test } from "node:test";
 import { setTimeout as sleep } from "node:timers/promises";
 import {
   HttpTransport,
+  MlDsa65Signer,
   PrivateKeySigner,
   createThruputClient,
   createPubkeyAccount,
@@ -381,6 +382,51 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       );
       assert.equal(snapshot.results[1].value, after.value);
       transfer = { sender, recipient, amount, hash, receipt };
+    },
+  );
+
+  await t.test(
+    "commits a DefaultWallet transfer signed in TS with a hedged ML-DSA-65 key",
+    async () => {
+      // hogd verifies with mldsa-native; this is the TS-sign, C++-verify path
+      // with real (hedged) randomness rather than the deterministic vectors.
+      const sender = createPubkeyAccount({
+        signer: MlDsa65Signer.fromSeed(randomBytes(32)),
+      });
+      const recipient = createPubkeyAccount({
+        signer: new PrivateKeySigner(randomBytes(32)),
+      });
+      const wallet = createWalletClient({ client, account: sender });
+      const airdrop = await wallet.requestAirdrop({
+        recipient: sender.address,
+        timeoutMs: airdropTimeoutMs,
+      });
+      assert.equal(airdrop.status.result, "ok");
+      const amount = 1_000n;
+      const { receipt } = await wallet.executeCallsAndWait(
+        {
+          calls: [
+            ERC20.v0_1.transfer.call({
+              contract: HOG_ADDRESS,
+              gasLimit: gasAmount(500_000n),
+              args: { receiver: recipient.address, amount },
+            }),
+          ],
+          gasLimit: gasAmount(1_000_000n),
+        },
+        { timeoutMs: receiptTimeoutMs },
+      );
+      assert.equal(receipt.execResult, ExecResult.ExecResultOK);
+      const event =
+        groundhog_erc20_if.v0_1.events.TransferEvent.singleFromReceipt(
+          receipt,
+          { contractAddress: HOG_ADDRESS },
+        );
+      assert.deepEqual(event.topics, {
+        from: sender.address,
+        to: recipient.address,
+      });
+      assert.equal(event.fields.amount, amount);
     },
   );
 

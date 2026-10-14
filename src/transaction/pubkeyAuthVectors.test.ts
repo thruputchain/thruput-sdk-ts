@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { verify as ed25519Verify } from "@noble/ed25519";
 import {
   AuthClaimType,
+  CryptographicScheme,
   codec,
   deserialize,
   fromHex,
@@ -10,7 +12,7 @@ import {
   sha256Hash,
   toHex,
 } from "@thruputchain/protocol";
-import type { PublicKey } from "@thruputchain/protocol";
+import type { PublicKey, SignedTransaction } from "@thruputchain/protocol";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { PrivateKeySigner } from "../signers/privateKey.js";
@@ -79,8 +81,10 @@ interface VectorFile {
   }[];
   negative: {
     name: string;
+    network_hash: string;
     signed_transaction_xdr: string;
     transaction_hash: string;
+    expected: { result: "reject"; error_code: AuthVerifyCode };
   }[];
 }
 
@@ -92,6 +96,53 @@ const vectors = JSON.parse(
     "utf-8",
   ),
 ) as VectorFile;
+
+/** hogd's `AuthVerifyErrorCode`, with 0 for an accepted transaction. */
+type AuthVerifyCode = 0 | 1 | 2;
+const kAuthMalformed = 1;
+const kSignatureVerificationFailed = 2;
+
+/**
+ * hogd's `kPubkeySignature` checks, built from this SDK's own derivation and
+ * signature verifiers. The vectors give hogd's code for each rejection, so a
+ * verifier here that accepts or rejects differently fails the matching case.
+ */
+function verifyPubkeyAuth(
+  signed: SignedTransaction,
+  networkHashHex: string,
+): AuthVerifyCode {
+  const { tx, signatures, pubkey_claim_key: key } = signed;
+  if (tx.auth_claim.claim_type !== AuthClaimType.kPubkeySignature) {
+    return key === null ? 0 : kAuthMalformed;
+  }
+  const preimage = tx.auth_claim.pubkey_preimage;
+  if (
+    key === null ||
+    toHex(derivePublicKeyHash(key)) !== toHex(preimage.pubkey_hash) ||
+    toHex(derivePubkeyAccountAddress(preimage)) !==
+      toHex(tx.invocation.invoked_address) ||
+    signatures.length !== 1 ||
+    signatures[0]!.public_key_id !== 0n ||
+    signatures[0]!.signature.scheme !== key.scheme
+  ) {
+    return kAuthMalformed;
+  }
+  const message = transactionSignaturePreimage(
+    toNetworkHash(sha256Hash(fromHex(networkHashHex))),
+    tx,
+  );
+  const signature = signatures[0]!.signature;
+  const valid =
+    key.scheme === CryptographicScheme.Ed25519 &&
+    signature.scheme === CryptographicScheme.Ed25519
+      ? ed25519Verify(signature.ed25519, message, key.ed25519, {
+          zip215: false,
+        })
+      : key.scheme === CryptographicScheme.MlDsa65 &&
+        signature.scheme === CryptographicScheme.MlDsa65 &&
+        verifyMlDsa65(key.mldsa65, message, signature.mldsa65);
+  return valid ? 0 : kSignatureVerificationFailed;
+}
 
 function keyByName(name: string): KeyVector {
   const key = vectors.keys.find((candidate) => candidate.name === name);
@@ -237,6 +288,45 @@ describe("pubkey_auth vectors", () => {
       ).toBe(true);
     },
   );
+
+  describe("verification matches hogd", () => {
+    it.each(vectors.signing.map((vector) => [vector.name, vector] as const))(
+      "accepts %s",
+      (_name, vector) => {
+        const signed = deserialize(
+          fromHex(vector.signed_transaction_xdr),
+          codec.SignedTransaction,
+        );
+        expect(verifyPubkeyAuth(signed, vector.network_hash)).toBe(0);
+      },
+    );
+
+    it.each(vectors.resigning.map((vector) => [vector.name, vector] as const))(
+      "accepts the hedged re-signature %s",
+      (_name, vector) => {
+        const base = vectors.signing.find((entry) => entry.name === vector.of)!;
+        const signed = deserialize(
+          fromHex(vector.signed_transaction_xdr),
+          codec.SignedTransaction,
+        );
+        expect(verifyPubkeyAuth(signed, base.network_hash)).toBe(0);
+      },
+    );
+
+    it.each(vectors.negative.map((vector) => [vector.name, vector] as const))(
+      "rejects %s with hogd's error code",
+      (_name, vector) => {
+        expect(vector.expected.result).toBe("reject");
+        const signed = deserialize(
+          fromHex(vector.signed_transaction_xdr),
+          codec.SignedTransaction,
+        );
+        expect(verifyPubkeyAuth(signed, vector.network_hash)).toBe(
+          vector.expected.error_code,
+        );
+      },
+    );
+  });
 
   it.each(vectors.negative.map((vector) => [vector.name, vector] as const))(
     "negative %s keeps the transaction hash of its Transaction",
