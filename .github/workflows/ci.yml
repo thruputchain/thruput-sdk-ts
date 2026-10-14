@@ -241,4 +241,4 @@ jobs:
         run: ./scripts/regen-test-vectors.sh
 
       - name: Run golden vector tests
-        run: npx vitest run src/derivation src/signedOp
+        run: npx vitest run src/derivation src/signedOp src/transaction/pubkeyAuthGolden.test.ts

@@ -8,7 +8,7 @@ import {
   serializeCxs,
   toHex,
 } from "@thruputchain/protocol";
-import type { PubkeyAccountPreimage } from "@thruputchain/protocol";
+import type { PubkeyAccountPreimage, PublicKey } from "@thruputchain/protocol";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -30,6 +30,12 @@ interface Vector {
   nonce: string;
   preimage_cxs_hex: string;
   pubkey_hex: string;
+  // Since vector version 2 (thruput-test-vectors 0.51.3): the preimage names
+  // the key by its scheme-inclusive hash.
+  scheme: "Ed25519" | "MlDsa65";
+  pubkey_cxs_hex: string;
+  pubkey_hash_hex: string;
+  pubkey_domain_separator_cxs_hex: string;
 }
 
 interface VectorFile {
@@ -49,14 +55,22 @@ const vectorFile: VectorFile = haveVectors
   : { version: 0, category: "", vectors: [] };
 const vectors: Vector[] = vectorFile.vectors;
 
-function preimageOf(v: Vector): PubkeyAccountPreimage {
-  return pubkeyAccountPreimage(
-    {
-      scheme: CryptographicScheme.Ed25519,
-      ed25519: ed25519PublicKey(fromHex(v.pubkey_hex)),
-    },
-    BigInt(v.nonce),
-  );
+function publicKeyOf(v: Pick<Vector, "scheme" | "pubkey_hex">): PublicKey {
+  return v.scheme === "MlDsa65"
+    ? {
+        scheme: CryptographicScheme.MlDsa65,
+        mldsa65: mlDsa65PublicKey(fromHex(v.pubkey_hex)),
+      }
+    : {
+        scheme: CryptographicScheme.Ed25519,
+        ed25519: ed25519PublicKey(fromHex(v.pubkey_hex)),
+      };
+}
+
+function preimageOf(
+  v: Pick<Vector, "scheme" | "pubkey_hex" | "nonce">,
+): PubkeyAccountPreimage {
+  return pubkeyAccountPreimage(publicKeyOf(v), BigInt(v.nonce));
 }
 
 describe.skipIf(!haveVectors)(
@@ -64,27 +78,41 @@ describe.skipIf(!haveVectors)(
   () => {
     it("loads the expected vector category", () => {
       expect(vectorFile.category).toBe("domain_separator_pubkey_account");
+      expect(vectorFile.version).toBe(2);
       expect(vectors.length).toBeGreaterThan(0);
+      expect(vectors.some((v) => v.scheme === "MlDsa65")).toBe(true);
     });
 
-    it.each(vectors.map((v) => [v.nonce, v] as const))(
-      "nonce=%s: separator prefix matches domain_separator_cxs_hex",
+    it.each(vectors.map((v) => [v.scheme, v.nonce, v] as const))(
+      "%s nonce=%s: key CXS, key hash prefix and key hash match",
+      (_scheme, _nonce, v) => {
+        const publicKey = publicKeyOf(v);
+        expect(toHex(PUBLIC_KEY.bytes)).toBe(v.pubkey_domain_separator_cxs_hex);
+        expect(toHex(serializeCxs(publicKey, codec.PublicKey))).toBe(
+          v.pubkey_cxs_hex,
+        );
+        expect(toHex(derivePublicKeyHash(publicKey))).toBe(v.pubkey_hash_hex);
+      },
+    );
+
+    it.each(vectors.map((v) => [`${v.scheme} ${v.nonce}`, v] as const))(
+      "%s: separator prefix matches domain_separator_cxs_hex",
       (_nonce, v) => {
         const sep = DomainSeparator.make(v.domain_separator);
         expect(toHex(sep.bytes)).toBe(v.domain_separator_cxs_hex);
       },
     );
 
-    it.each(vectors.map((v) => [v.nonce, v] as const))(
-      "nonce=%s: preimage CXS encoding matches preimage_cxs_hex",
+    it.each(vectors.map((v) => [`${v.scheme} ${v.nonce}`, v] as const))(
+      "%s: preimage CXS encoding matches preimage_cxs_hex",
       (_nonce, v) => {
         const bytes = serializeCxs(preimageOf(v), codec.PubkeyAccountPreimage);
         expect(toHex(bytes)).toBe(v.preimage_cxs_hex);
       },
     );
 
-    it.each(vectors.map((v) => [v.nonce, v] as const))(
-      "nonce=%s: derived address matches expected_address_hex",
+    it.each(vectors.map((v) => [`${v.scheme} ${v.nonce}`, v] as const))(
+      "%s: derived address matches expected_address_hex",
       (_nonce, v) => {
         const address = derivePubkeyAccountAddress(preimageOf(v));
         expect(toHex(address)).toBe(v.expected_address_hex);
@@ -96,11 +124,8 @@ describe.skipIf(!haveVectors)(
 describe("DomainSeparator", () => {
   it("hashObject equals sha256 of the manual prefix || cxs concatenation", () => {
     const preimage = preimageOf({
-      domain_separator: "PubkeyAccount",
-      domain_separator_cxs_hex: "",
-      expected_address_hex: "",
+      scheme: "Ed25519",
       nonce: "42",
-      preimage_cxs_hex: "",
       pubkey_hex: "07".repeat(32),
     });
     const objectCxs = serializeCxs(preimage, codec.PubkeyAccountPreimage);
