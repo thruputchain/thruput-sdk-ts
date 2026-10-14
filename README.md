@@ -743,7 +743,7 @@ npm run test:integration
 # Or qualify matching source builds:
 THRUPUT_CLI=/absolute/path/to/thruput \
 THRUPUT_DEVNODE_BINARY=/absolute/path/to/hog-devnode \
-THRUPUT_EXPECTED_WIRE_FORMAT=11.2.0 \
+THRUPUT_EXPECTED_WIRE_FORMAT=12.0.0 \
 npm run test:integration
 ```
 
@@ -754,10 +754,11 @@ CI uses the same Ubuntu 26.04 Namespace profile as the RPC repository. Tests
 import the built package and check connection, local funding, a HOG transfer, receipts,
 events, contract views, and RPC errors. `npm test` remains node-independent.
 
-The transfer workflow also checks grouped reads and view freshness. Matching
-wire-11.2.0 source builds additionally test an authenticated wallet simulation
-and recovery of admitted local-funding bytes after a lost response. The pinned
-CLI 0.27.0 uses wire 11.1.0 and skips those two probes explicitly.
+The transfer workflow also checks grouped reads and view freshness, an
+authenticated wallet simulation, and recovery of admitted local-funding bytes
+after a lost response. The pinned CLI 0.30.0 and hog-devnode 0.1.31-rc.7 use
+wire 12.0.0, which carries ML-DSA-65 pubkey accounts. A wire-11.1.0 node skips
+the last two probes explicitly.
 
 An explicit CLI overrides the release pin; tests verify that the RPC server
 reports that executable's version. The expected wire version defaults to
