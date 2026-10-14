@@ -21,7 +21,7 @@ import type {
   Transaction,
 } from "@thruputchain/protocol";
 import { ml_dsa65 } from "@noble/post-quantum/ml-dsa.js";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { TRANSACTION } from "../derivation/domainSeparator.js";
 import { derivePublicKeyHash } from "../derivation/publicKeyHash.js";
@@ -82,16 +82,7 @@ interface VectorFile {
 const vectorsPath = fileURLToPath(
   new URL("../../specs/test-vectors/pubkey-auth.json", import.meta.url),
 );
-const haveVectors = existsSync(vectorsPath);
-const vectorFile: VectorFile = haveVectors
-  ? (JSON.parse(readFileSync(vectorsPath, "utf-8")) as VectorFile)
-  : {
-      version: 0,
-      category: "",
-      transaction_domain_separator_cxs_hex: "",
-      pubkey_claim_key_id: 0,
-      vectors: [],
-    };
+const vectorFile = JSON.parse(readFileSync(vectorsPath, "utf-8")) as VectorFile;
 
 function signerFor(v: Vector): Signer {
   const seed = fromHex(v.seed_hex);
@@ -128,7 +119,7 @@ function buildTransaction(v: Vector, publicKey: PublicKey): Transaction {
   };
 }
 
-describe.skipIf(!haveVectors)("golden vectors (pubkey_auth)", () => {
+describe("golden vectors (pubkey_auth)", () => {
   it("loads the expected vector category", () => {
     expect(vectorFile.version).toBe(1);
     expect(vectorFile.category).toBe("pubkey_auth");
