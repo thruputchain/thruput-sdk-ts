@@ -8,7 +8,7 @@ jobs:
     permissions:
       contents: write
       packages: write
-    runs-on: ubuntu-latest
+    runs-on: namespace-profile-hogd-linux-2604
     env:
       CARGO_REGISTRIES_THRUPUT_INDEX: "sparse+https://crates.thruput.network/api/v1/crates/"
       CARGO_REGISTRIES_THRUPUT_TOKEN: ${{ secrets.GROUNDHOG_REGISTRY_TOKEN }}
@@ -28,13 +28,25 @@ jobs:
         with:
           toolchain: stable
 
+      # Same key as CI's `integration` job (same runner profile and CLI pin),
+      # so a release normally restores the binary main already built.
+      - name: Cache contract binding generator
+        id: thruput-cli-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cargo/bin/thruput
+          key: thruput-cli-${{ runner.os }}-${{ runner.arch }}-namespace-hogd-linux-2604-${{ env.THRUPUT_CLI_VERSION }}
+
       - run: npm ci
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install contract binding generator
+        if: steps.thruput-cli-cache.outputs.cache-hit != 'true'
+        run: cargo install "thruput-cli@${THRUPUT_CLI_VERSION}" --registry thruput --locked --force
+
+      - name: Configure contract binding generator
         run: |
-          cargo install "thruput-cli@${THRUPUT_CLI_VERSION}" --registry thruput --locked
           echo "THRUPUT_CLI=$(command -v thruput)" >> "$GITHUB_ENV"
 
       - name: Read version
