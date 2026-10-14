@@ -104,3 +104,17 @@ export {
   type Transaction,
   type SignedTransaction,
 } from "@thruputchain/protocol";
+export {
+  toBase58,
+  fromBase58,
+  fixedFromBase58,
+  maxBase58Length,
+  addressFromBase58,
+  hashFromBase58,
+  parseAddress,
+  parsePublicKey,
+  parseSecretSeed,
+  addressToStrkey,
+  publicKeyToStrkey,
+  secretSeedToStrkey,
+} from "./encoding.js";
