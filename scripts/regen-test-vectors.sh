@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cargo install thruput-test-vectors@0.51.0 --registry thruput --locked
+cargo install thruput-test-vectors@0.51.3 --registry thruput --locked
 VECTORS_DIR="$(git rev-parse --show-toplevel)/specs/test-vectors"
 mkdir -p "$VECTORS_DIR"
 thruput-test-vectors domain-separator > "$VECTORS_DIR/domain-separator.json"
