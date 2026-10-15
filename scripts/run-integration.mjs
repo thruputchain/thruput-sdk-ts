@@ -11,6 +11,7 @@ import { harnessTimeoutMs, runnerTimeoutMs } from "./integration-timeouts.mjs";
 
 const exec = promisify(execFile);
 const repo = fileURLToPath(new URL("../", import.meta.url));
+const blocks = process.argv.includes("--blocks");
 const abort = new AbortController();
 const children = [];
 let work;
@@ -173,6 +174,14 @@ async function stop(task) {
 }
 
 async function main() {
+  if (
+    blocks &&
+    (!process.env.THRUPUT_CLI || !process.env.THRUPUT_DEVNODE_BINARY)
+  ) {
+    throw new Error(
+      "Block qualification requires explicit THRUPUT_CLI and THRUPUT_DEVNODE_BINARY builds from tools #557 and hogd #4475",
+    );
+  }
   if (process.platform !== "linux") {
     throw new Error("The live-node harness currently supports Linux only");
   }
@@ -252,6 +261,9 @@ async function main() {
     [
       "--json",
       "node",
+      "--startup-timeout-secs",
+      "45",
+      "--verbose",
       "--host",
       "127.0.0.1",
       "--port",
@@ -264,7 +276,10 @@ async function main() {
         : []),
       "--offline",
       "--block-driver",
-      "instant",
+      blocks ? "interval" : "instant",
+      ...(blocks
+        ? ["--block-interval-ms", "2000", "--ramdb-bytes", "128M"]
+        : []),
       "--data-dir",
       join(work, "node"),
     ],
@@ -281,8 +296,12 @@ async function main() {
       "--test",
       "--test-concurrency=1",
       `--test-timeout=${runnerTimeoutMs}`,
-      join(repo, "tests/integration/live-node.test.mjs"),
-      join(repo, "tests/integration/local-funding.test.mjs"),
+      ...(blocks
+        ? [join(repo, "tests/integration/block-queries.test.mjs")]
+        : [
+            join(repo, "tests/integration/live-node.test.mjs"),
+            join(repo, "tests/integration/local-funding.test.mjs"),
+          ]),
     ],
     {
       ...env,

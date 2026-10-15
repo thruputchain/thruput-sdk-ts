@@ -29,7 +29,10 @@ interface RawBlockInfo {
   upgrades: string[];
 }
 
-/** Return block metadata for a height, or `null` when the block is unknown. */
+/**
+ * Return committed block metadata, or null outside indexed coverage, including
+ * genesis. Backend unavailability is an error, not a missing or empty block.
+ */
 export async function getBlockByNumber(
   transport: Transport,
   height: bigint,
@@ -47,6 +50,10 @@ export async function getBlockByNumber(
     throw new Error("Invalid block response");
   }
   const block = result as RawBlockInfo;
+  const returnedHeight = parseHeight(block.blockHeight, "blockHeight");
+  if (returnedHeight !== height) {
+    throw new Error("Invalid block response: height does not match request");
+  }
 
   return {
     blockHash: parseHash(block.blockHash, "blockHash"),
@@ -54,7 +61,7 @@ export async function getBlockByNumber(
     networkHash: networkHash(parseHash(block.networkHash, "networkHash")),
     proposer: validatorID(parseFixedBytes(block.proposer, "proposer")),
     blockTimepoint: timePoint(parseU64(block.blockTimepoint, "blockTimepoint")),
-    blockHeight: blockHeight(parseHeight(block.blockHeight, "blockHeight")),
+    blockHeight: blockHeight(returnedHeight),
     txsHash: parseHash(block.txsHash, "txsHash"),
     storageHash: parseHash(block.storageHash, "storageHash"),
     eventsHash: parseHash(block.eventsHash, "eventsHash"),

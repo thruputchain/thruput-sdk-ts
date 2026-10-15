@@ -4,23 +4,11 @@ import type {
 } from "../../transport/types.js";
 import type {
   AddressTransactionQuery,
-  TransactionRef,
   TransactionRefPage,
 } from "../../types/rpc.js";
-import { fromHex0x, hashFromHex, toHex0x } from "../hex.js";
-import { parseHeight, serializeHeight } from "../decimal.js";
-
-interface RawTransactionRef {
-  txHash: string;
-  height: string;
-}
-
-interface RawTransactionRefPage {
-  refs: unknown[];
-  cursor: string;
-  latestBlock: string;
-  oldestBlock: string;
-}
+import { toHex0x } from "../hex.js";
+import { serializeHeight } from "../decimal.js";
+import { parseTransactionRefPage } from "../transactionRefPage.js";
 
 function serializeQuery(query: AddressTransactionQuery): unknown {
   const anchor =
@@ -38,21 +26,6 @@ function serializeQuery(query: AddressTransactionQuery): unknown {
     anchor,
     cursor: query.cursor ? toHex0x(query.cursor) : "0x",
     limit: query.limit ?? 50,
-  };
-}
-
-function parseTransactionRef(value: unknown): TransactionRef {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("Invalid transaction refs response: expected ref");
-  }
-  const ref = value as Record<string, unknown>;
-
-  if (typeof ref.txHash !== "string") {
-    throw new Error("Invalid transaction refs response: expected ref.txHash");
-  }
-  return {
-    txHash: hashFromHex(ref.txHash),
-    height: parseHeight(ref.height),
   };
 }
 
@@ -78,19 +51,5 @@ export async function getTransactionsByAddress(
     [serializeQuery(query)],
     options,
   );
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    throw new Error("Invalid transaction refs response");
-  }
-  const result = raw as RawTransactionRefPage;
-
-  if (!Array.isArray(result.refs)) {
-    throw new Error("Invalid transaction refs response: expected refs");
-  }
-
-  return {
-    refs: result.refs.map(parseTransactionRef),
-    cursor: fromHex0x(result.cursor),
-    latestBlock: parseHeight(result.latestBlock, "latestBlock"),
-    oldestBlock: parseHeight(result.oldestBlock, "oldestBlock"),
-  };
+  return parseTransactionRefPage(raw);
 }

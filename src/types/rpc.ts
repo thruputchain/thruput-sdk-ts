@@ -557,6 +557,18 @@ export interface EventQuery {
   limit?: number;
 }
 
+/** Paginated hash-ordered transaction references from one committed block. */
+export interface BlockTransactionQuery {
+  /** Exact committed height. Non-negative int64, kept as bigint. */
+  height: bigint;
+  /** Unsigned hash order, not execution order. Defaults to ascending. */
+  order?: IterationOrder;
+  /** Opaque continuation. Keep the same height; the cursor retains its order. */
+  cursor?: Uint8Array;
+  /** Positive page size, at most 200 and subject to endpoint limits. Defaults to 50. */
+  limit?: number;
+}
+
 /** Paginated transaction-history query for transactions rooted at one address. */
 export interface AddressTransactionQuery {
   /** Contract address whose transaction history should be queried. */

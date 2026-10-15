@@ -19,12 +19,15 @@ token with `read:packages`. See [Registry auth](#registry-auth-one-time-setup).
 
 ## Usage
 
-This checkout pins RPC wire format **11.1.0**. All 64-bit and wider integers
+This checkout pins RPC wire format **12.1.0** from tools #557 (commit
+`07d2c945f340b55aa84ed44dba535fcc3e1e782c`), pending its release. Block queries
+require that RPC implementation and a node with the block-query index. All 64-bit and wider integers
 are canonical decimal strings in JSON and `bigint` in the client API, including
 heights, nanosecond timestamps, gas, mempool counts, wide server limits, and
 airdrop retry intervals. Smaller bounded fields, such as page limits and event
 sequence numbers, remain JSON numbers. Numeric JSON for wide fields is rejected,
-even when the value is small; older RPC wire formats are not supported.
+even when the value is small. Existing actions remain usable with the pinned
+12.0.0 integration runtime; block queries require the newer backend above.
 
 Pass heights as `bigint` (for example, `42n`). The actions serialize them as
 decimal strings and validate protocol bounds. When persisting client results,
@@ -41,6 +44,38 @@ const client = await createThruputClient({
 const tip = await client.getChainTip();
 const txHash = await client.sendTransaction(signedTransaction);
 ```
+
+### Read a committed block
+
+```ts
+const height = 42n;
+const block = await client.getBlockByNumber(height);
+if (block !== null) {
+  let cursor: Uint8Array = new Uint8Array();
+  do {
+    const page = await client.getTransactionsByBlock({
+      height,
+      order: "ascending",
+      cursor,
+      limit: 50,
+    });
+    console.log(page.refs); // transaction hashes and bigint heights
+    cursor = page.cursor;
+  } while (cursor.length !== 0);
+}
+```
+
+References use unsigned hash order, not execution order. Keep the height and
+opaque cursor unchanged when continuing. Omitted limits send 50; explicit limits
+must be 1–200 and must respect the endpoint's `getServerLimits()` cap. Zero is
+invalid. Coverage starts at 1 and can lag behind the chain tip; genesis metadata
+is unavailable. Block lookup returns `null` outside coverage. An empty reference
+page alone does not prove an empty block. Backend failures remain errors.
+
+Malformed or stale cursors currently return empty terminal pages. A matching
+continuation above a lagging index's tip reports unavailable; retry after that
+index catches up. This is the current-wire contract, not the native history
+contract proposed in tools #555. Both actions accept `{ signal }` for cancellation.
 
 Enable HTTP batching to group concurrent calls into one JSON-RPC array:
 
@@ -785,6 +820,24 @@ node --test --test-concurrency=1 tests/integration/live-node.test.mjs
 ```
 
 The tests do not perform capability discovery or fall back on unsupported runtimes.
+
+Block-query qualification uses explicit source builds until tools #557 and hogd
+#4475 are released. It starts an isolated interval-driven node, submits known
+transactions, compares both page orders with their receipts, checks empty blocks,
+parent linkage and the canonical tip hash, and rejects zero limits:
+
+```sh
+THRUPUT_CLI=/absolute/path/to/thruput \
+THRUPUT_DEVNODE_BINARY=/absolute/path/to/hog-devnode \
+npm run test:integration:blocks
+```
+
+Use the same optional `HOGD_PROTOCOL_OVERRIDE` rule as above. This profile requires
+wire 12.1.0 and fails on unsupported nodes; the ordinary integration profile keeps
+its published pins. The schema regeneration script pins tools commit
+`07d2c945f340b55aa84ed44dba535fcc3e1e782c` until a matching generator is published.
+Its default source install requires GitHub repository and private Cargo registry
+access. `THRUPUT_OPENRPC_GENERATOR` can select a generator built from that commit.
 
 For local funding recovery, retain the original request before sending it.
 A `LocalFundingUnresolved` RPC error preserves the original `txHash` and

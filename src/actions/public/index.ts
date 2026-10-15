@@ -24,6 +24,7 @@ export {
   type WaitForTransactionReceiptOptions,
 } from "./waitForTransactionReceipt.js";
 export { getTransactionsByAddress } from "./getTransactionsByAddress.js";
+export { getTransactionsByBlock } from "./getTransactionsByBlock.js";
 export { getEvents } from "./getEvents.js";
 export {
   getContractEvents,

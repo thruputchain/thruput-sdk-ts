@@ -47,6 +47,7 @@ import { getStorageAt } from "./public/getStorageAt.js";
 import { getTransactionReceipt } from "./public/getTransactionReceipt.js";
 import { getTransactionStatus } from "./public/getTransactionStatus.js";
 import { getTransactionsByAddress } from "./public/getTransactionsByAddress.js";
+import { getTransactionsByBlock } from "./public/getTransactionsByBlock.js";
 import { getVersion } from "./public/getVersion.js";
 import { view } from "./public/view.js";
 import { viewBatch } from "./public/viewBatch.js";
@@ -321,6 +322,23 @@ describe("contract tests against specs/openrpc.json", () => {
       "groundhog_getTransactionsByAddress",
       calls[0],
     );
+  });
+
+  it("groundhog_getTransactionsByBlock — sends a positive-limit exact-height query", async () => {
+    const { transport, calls } = spyTransport({
+      refs: [],
+      cursor: "0x",
+      latestBlock: "9223372036854775807",
+      oldestBlock: "1",
+    });
+    await getTransactionsByBlock(transport, {
+      height: 9223372036854775807n,
+      order: "descending",
+      cursor: new Uint8Array([0, 255, 128]),
+      limit: 200,
+    });
+    expect(calls).toHaveLength(1);
+    assertCapturedParamsMatchSpec("groundhog_getTransactionsByBlock", calls[0]);
   });
 
   it("groundhog_getStorageAt — sends (Hex0x_ContractAddress, HexBytes)", async () => {
