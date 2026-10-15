@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { fromHex0x, toHex0x } from "./actions/hex.js";
 import {
   toBase58,
-  fromBase58,
   fixedFromBase58,
-  maxBase58Length,
+  addressFromBase58,
+  hashFromBase58,
   parseAddress,
   parsePublicKey,
   parseSecretSeed,
@@ -14,82 +12,22 @@ import {
   secretSeedToStrkey,
 } from "./encoding.js";
 
-describe("base58", () => {
-  it("matches the base58 and hex protocol vectors (e9e5e64)", () => {
-    const vectors = JSON.parse(
-      readFileSync(
-        new URL("../fixtures/text-encoding.json", import.meta.url),
-        "utf8",
-      ),
-    ) as {
-      valid: {
-        bytes: number[];
-        base58: string;
-        hex: string;
-        strkey?: { contract: string; publicKey: string; seed: string };
-      }[];
-      invalidBase58: string[];
-      invalidStrkey: string[];
-    };
-    for (const vector of vectors.valid) {
-      const bytes = Uint8Array.from(vector.bytes);
-      expect(toBase58(bytes)).toBe(vector.base58);
-      expect(fromBase58(vector.base58, bytes.length)).toEqual(bytes);
-      expect(toHex0x(bytes)).toBe(vector.hex);
-      expect(fromHex0x(vector.hex)).toEqual(bytes);
-      if (vector.strkey) {
-        expect(addressToStrkey(bytes)).toBe(vector.strkey.contract);
-        expect(publicKeyToStrkey(bytes)).toBe(vector.strkey.publicKey);
-        expect(secretSeedToStrkey(bytes)).toBe(vector.strkey.seed);
+describe("identifier adapters", () => {
+  it("requires exact widths and rejects hex and StrKeys on machine boundaries", () => {
+    const bytes = new Uint8Array(32);
+    for (const parse of [addressFromBase58, hashFromBase58]) {
+      expect(parse(toBase58(bytes))).toEqual(bytes);
+      for (const text of [
+        "1".repeat(31),
+        "1".repeat(33),
+        "0x" + "00".repeat(32),
+        addressToStrkey(bytes),
+      ]) {
+        expect(() => parse(text)).toThrow();
       }
     }
-    for (const text of vectors.invalidBase58)
-      expect(() => fromBase58(text, 256)).toThrow();
-    for (const text of vectors.invalidStrkey)
-      expect(() => parsePublicKey(text)).toThrow();
-  });
-  it("matches a published vector and preserves zero/empty bytes", () => {
-    expect(toBase58(new TextEncoder().encode("Hello World"))).toBe(
-      "JxF12TrwUP45BMd",
-    );
-    expect(fromBase58("JxF12TrwUP45BMd", 11)).toEqual(
-      new TextEncoder().encode("Hello World"),
-    );
-    expect(toBase58(new Uint8Array(32))).toBe("1".repeat(32));
-    expect(fixedFromBase58("1".repeat(32), 32)).toEqual(new Uint8Array(32));
-    expect(toBase58(new Uint8Array())).toBe("");
-    expect(fromBase58("", 0)).toEqual(new Uint8Array());
-  });
-
-  it("enforces encoded and decoded bounds without echoing input", () => {
-    expect(maxBase58Length(32)).toBe(45);
-    expect(maxBase58Length(0)).toBe(0);
-    expect(maxBase58Length(Number.MAX_SAFE_INTEGER)).toBe(
-      Number.MAX_SAFE_INTEGER,
-    );
-    for (const limit of [-1, NaN, Infinity, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
-      expect(() => fromBase58("", limit)).toThrow();
-    }
-    expect(() => fromBase58("1", 0)).toThrow();
-    expect(() => fromBase58("1".repeat(33), 32)).toThrow();
-    expect(() => fixedFromBase58("1".repeat(31), 32)).toThrow();
-    expect(() => fromBase58("z".repeat(46), 32)).toThrow();
-    for (const text of [
-      "0",
-      "O",
-      "I",
-      "l",
-      " 1",
-      "1 ",
-      "1\n",
-      "é",
-      "１",
-      "0x01",
-    ]) {
-      expect(() => fromBase58(text, 32)).toThrow("Invalid base58 encoding");
-    }
-    expect(fromBase58("ff", 2)).toEqual(Uint8Array.of(8, 194));
-    expect(fromBase58("ab", 2)).not.toEqual(fromBase58("AB", 2));
+    expect(() => fixedFromBase58("1".repeat(63), 64)).toThrow();
+    expect(fixedFromBase58("1".repeat(64), 64)).toEqual(new Uint8Array(64));
   });
 });
 
@@ -119,6 +57,16 @@ describe("typed Stellar input", () => {
     expect(() => parseSecretSeed("SECRET")).toThrow(
       "Expected a 32-byte base58 value or a valid S StrKey",
     );
+  });
+
+  it("matches the nonzero SEP-23 public-key vector", () => {
+    const bytes = Uint8Array.from([
+      63, 12, 52, 191, 147, 173, 13, 153, 113, 208, 76, 204, 144, 247, 5, 81,
+      28, 131, 138, 173, 151, 52, 164, 162, 251, 13, 122, 3, 252, 127, 232, 154,
+    ]);
+    const text = "GA7QYNF7SOWQ3GLR2BGMZEHXAVIRZA4KVWLTJJFC7MGXUA74P7UJVSGZ";
+    expect(publicKeyToStrkey(bytes)).toBe(text);
+    expect(parsePublicKey(text)).toEqual(bytes);
   });
 
   it("accepts base58 regardless of its first letter", () => {

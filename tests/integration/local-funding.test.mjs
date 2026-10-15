@@ -12,7 +12,8 @@ import {
   createWalletClient,
   localnet,
   fundAccount,
-  addressFromHex,
+  addressFromBase58,
+  toBase58,
   toHex0x,
 } from "@thruputchain/client";
 import { ERC20 } from "@thruputchain/client/contracts";
@@ -21,23 +22,16 @@ import { HOG_ADDRESS, gasAmount, ExecResult } from "@thruputchain/protocol";
 test(
   "local funding preserves admitted bytes after a lost response",
   { timeout: 120_000 },
-  async (t) => {
+  async () => {
     const rpcUrl = process.env.THRUPUT_RPC_URL;
     assert.ok(rpcUrl, "Set THRUPUT_RPC_URL to a GH-462 local node");
     const transport = new HttpTransport(rpcUrl, { timeoutMs: 30_000 });
     const version = await transport.request("groundhog_version", []);
-    if (version.wireFormat === "11.1.0") {
-      t.skip("Published CLI 0.27.0 predates wire-11.2 local funding");
-      return;
-    }
+    assert.equal(version.wireFormat, "12.0.0");
     const manifest = JSON.parse(
       await readFile(process.env.THRUPUT_RUNTIME_MANIFEST, "utf8"),
     );
-    if (manifest.schemaVersion === 3 && manifest.kind === "hogd-dev-runtime") {
-      t.skip("Published runtime predates schema-4 local funding");
-      return;
-    }
-    assert.ok([4, 5].includes(manifest.schemaVersion));
+    assert.equal(manifest.schemaVersion, 5);
     assert.equal(manifest.kind, "hogd-dev-runtime");
     assert.equal(manifest.bootstrapAccountDerivation, undefined);
     const faucets = manifest.bootstrapAccounts.filter(
@@ -51,7 +45,7 @@ test(
       recipient: account.address,
       rawAmount: 1_000_000_000n,
       clientNonce: randomBytes(16),
-      faucet: addressFromHex(faucets[0].walletAddress),
+      faucet: addressFromBase58(faucets[0].walletAddress),
     };
     const work = await mkdtemp(
       join(tmpdir(), "groundhog-client-local-funding-"),
@@ -59,10 +53,10 @@ test(
     try {
       const intent = {
         networkHash: manifest.networkHash,
-        recipient: toHex0x(request.recipient),
+        recipient: toBase58(request.recipient),
         rawAmount: request.rawAmount.toString(),
         clientNonce: toHex0x(request.clientNonce),
-        faucet: toHex0x(request.faucet),
+        faucet: toBase58(request.faucet),
       };
       const file = await open(join(work, "request.json"), "wx", 0o600);
       await file.writeFile(JSON.stringify(intent));
@@ -80,7 +74,7 @@ test(
       };
       await assert.rejects(fundAccount(lostResponse, request), /lost response/);
       const recovered = await fundAccount(transport, request);
-      assert.equal(toHex0x(recovered.txHash), admitted.txHash);
+      assert.equal(toBase58(recovered.txHash), admitted.txHash);
       assert.equal(
         toHex0x(recovered.signedTransaction),
         admitted.signedTransaction,

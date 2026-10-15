@@ -177,6 +177,38 @@ async function main() {
   if (process.platform !== "linux") {
     throw new Error("The live-node harness currently supports Linux only");
   }
+  // The CLI harness owns the node lifecycle for cross-client readback.
+  if (process.env.THRUPUT_CLI_TRANSFER_RESULT) {
+    const tests = launch(
+      process.execPath,
+      [
+        "--test",
+        `--test-timeout=${runnerTimeoutMs}`,
+        join(repo, "tests/integration/cli-transfer.test.mjs"),
+      ],
+      {
+        ...process.env,
+        THRUPUT_CLI_TRANSFER_RESULT: resolve(
+          process.env.THRUPUT_CLI_TRANSFER_RESULT,
+        ),
+      },
+      "cli-transfer",
+      true,
+    );
+    requireSuccess(
+      tests,
+      await bounded(tests.done, harnessTimeoutMs, "CLI transfer readback"),
+    );
+    return;
+  }
+  if (
+    versions.requiresLocalBuilds &&
+    (!process.env.THRUPUT_CLI || !process.env.THRUPUT_DEVNODE_BINARY)
+  ) {
+    throw new Error(
+      "Wire 12 integration requires matching local builds. Set THRUPUT_CLI and THRUPUT_DEVNODE_BINARY; the published pins do not support base58 identifiers.",
+    );
+  }
   const requestedCli = process.env.THRUPUT_CLI ?? "thruput";
   const cli = requestedCli.includes("/") ? resolve(requestedCli) : requestedCli;
   const { stdout } = await exec(cli, ["--version"], { timeout: 10_000 });

@@ -1,5 +1,6 @@
 {
   "cli": "0.31.0",
   "devnode": "0.1.31-rc.8",
-  "wireFormat": "12.1.0"
+  "wireFormat": "13.0.0",
+  "requiresLocalBuilds": true
 }

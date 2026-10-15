@@ -1,48 +1,13 @@
-import { base58, base32nopad } from "@scure/base";
+import { base32nopad } from "@scure/base";
+import { fromBase58 } from "@thruputchain/protocol/utils";
 import { contractAddress, sha256Hash } from "@thruputchain/protocol";
 import type { ContractAddress, SHA256Hash } from "@thruputchain/protocol";
 
-/** Conservative text bound for a maximum decoded byte length. */
-export function maxBase58Length(maxBytes: number): number {
-  if (!Number.isSafeInteger(maxBytes) || maxBytes < 0) {
-    throw new RangeError("Byte limit must be a nonnegative safe integer");
-  }
-  if (maxBytes === 0) return 0;
-  // Saturate before the arithmetic could lose integer precision.
-  if (maxBytes > Math.floor((Number.MAX_SAFE_INTEGER - 1) / 138)) {
-    return Number.MAX_SAFE_INTEGER;
-  }
-  return Math.floor((maxBytes * 138) / 100) + 1;
-}
-
-/** Encode bytes with the Bitcoin/Solana alphabet, preserving leading zeros. */
-export function toBase58(bytes: Uint8Array): string {
-  return base58.encode(bytes);
-}
-
-/**
- * Decode machine text, requiring a caller-selected decoded byte limit.
- * Whitespace, prefixes, and non-alphabet characters are rejected, not normalized.
- * This limit bounds size, not conversion time; large payloads need separate
- * performance qualification. Errors never include the supplied text.
- */
-export function fromBase58(text: string, maxBytes: number): Uint8Array {
-  const maxLength = maxBase58Length(maxBytes);
-  if (typeof text !== "string") throw new TypeError("Expected base58 text");
-  if (text.length > maxLength)
-    throw new Error("Base58 value exceeds byte limit");
-  let bytes: Uint8Array;
-  try {
-    bytes = base58.decode(text);
-  } catch {
-    throw new Error("Invalid base58 encoding");
-  }
-  if (bytes.length > maxBytes) {
-    bytes.fill(0);
-    throw new Error("Base58 value exceeds byte limit");
-  }
-  return bytes;
-}
+export {
+  toBase58,
+  fromBase58,
+  maxBase58Length,
+} from "@thruputchain/protocol/utils";
 
 /** Decode exactly the expected number of bytes, with no format fallback. */
 export function fixedFromBase58(text: string, byteLength: number): Uint8Array {
