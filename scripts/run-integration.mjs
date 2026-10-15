@@ -263,7 +263,6 @@ async function main() {
       "node",
       "--startup-timeout-secs",
       "45",
-      "--verbose",
       "--host",
       "127.0.0.1",
       "--port",
