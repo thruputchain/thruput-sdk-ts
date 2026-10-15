@@ -836,6 +836,9 @@ Use the same optional `HOGD_PROTOCOL_OVERRIDE` rule as above. This profile requi
 wire 12.1.0 and fails on unsupported nodes; the ordinary integration profile keeps
 its published pins. The schema regeneration script pins tools commit
 `07d2c945f340b55aa84ed44dba535fcc3e1e782c` until a matching generator is published.
+This is temporary. Before publishing the SDK, GH-520 must replace the source pin
+with the exact released registry version, regenerate the schema, and rerun the
+contract tests. Keep the wire-version and positive-limit guards when switching.
 Its default source install requires GitHub repository and private Cargo registry
 access. `THRUPUT_OPENRPC_GENERATOR` can select a generator built from that commit.
 
