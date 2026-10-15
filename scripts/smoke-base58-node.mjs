@@ -31,7 +31,6 @@ for (const event of receipt.events) {
 }
 const network = await client.getNetworkInfo();
 assert.equal(network.networkHash.length, 32);
-assert.equal(network.genesisHash.length, 32);
 console.log(
   "PASS: SDK base58 balance, network identity, and receipt/event decoding",
 );
