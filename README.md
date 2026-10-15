@@ -19,9 +19,8 @@ token with `read:packages`. See [Registry auth](#registry-auth-one-time-setup).
 
 ## Usage
 
-This checkout pins RPC wire format **12.1.0** from tools #557 (commit
-`07d2c945f340b55aa84ed44dba535fcc3e1e782c`), pending its release. Block queries
-require that RPC implementation and a node with the block-query index. All 64-bit and wider integers
+This checkout pins RPC wire format **12.1.0**. Block queries require a compatible
+RPC server and a node with the block-query index. All 64-bit and wider integers
 are canonical decimal strings in JSON and `bigint` in the client API, including
 heights, nanosecond timestamps, gas, mempool counts, wide server limits, and
 airdrop retry intervals. Smaller bounded fields, such as page limits and event
@@ -82,8 +81,7 @@ page alone does not prove an empty block. Backend failures remain errors.
 
 Malformed or stale cursors currently return empty terminal pages. A matching
 continuation above a lagging index's tip reports unavailable; retry after that
-index catches up. This is the current-wire contract, not the native history
-contract proposed in tools #555. Both actions accept `{ signal }` for cancellation.
+index catches up. Both actions accept `{ signal }` for cancellation.
 
 Enable HTTP batching to group concurrent calls into one JSON-RPC array:
 
@@ -829,8 +827,8 @@ node --test --test-concurrency=1 tests/integration/live-node.test.mjs
 
 The tests do not perform capability discovery or fall back on unsupported runtimes.
 
-Block-query qualification uses explicit source builds until tools #557 and hogd
-#4475 are released. It starts an isolated interval-driven node, submits known
+Block-query qualification requires explicit compatible CLI and node binaries.
+It starts an isolated interval-driven node, submits known
 transactions, compares both page orders with their receipts, checks empty blocks,
 parent linkage and the canonical tip hash, and rejects zero limits:
 
@@ -842,13 +840,9 @@ npm run test:integration:blocks
 
 Use the same optional `HOGD_PROTOCOL_OVERRIDE` rule as above. This profile requires
 wire 12.1.0 and fails on unsupported nodes; the ordinary integration profile keeps
-its published pins. The schema regeneration script pins tools commit
-`07d2c945f340b55aa84ed44dba535fcc3e1e782c` until a matching generator is published.
-This is temporary. Before publishing the SDK, GH-520 must replace the source pin
-with the exact released registry version, regenerate the schema, and rerun the
-contract tests. Keep the wire-version and positive-limit guards when switching.
-Its default source install requires GitHub repository and private Cargo registry
-access. `THRUPUT_OPENRPC_GENERATOR` can select a generator built from that commit.
+its published pins. See `scripts/regen-openrpc.sh` for the exact schema-generator
+source. Its default install requires GitHub repository and private Cargo registry
+access. `THRUPUT_OPENRPC_GENERATOR` can select a compatible local generator.
 
 For local funding recovery, retain the original request before sending it.
 A `LocalFundingUnresolved` RPC error preserves the original `txHash` and
