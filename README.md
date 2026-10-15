@@ -48,10 +48,13 @@ const txHash = await client.sendTransaction(signedTransaction);
 ### Read a committed block
 
 ```ts
+import { toHex0x } from "@thruputchain/client";
+
 const height = 42n;
 const block = await client.getBlockByNumber(height);
 if (block !== null) {
   let cursor: Uint8Array = new Uint8Array();
+  const seen = new Set<string>();
   do {
     const page = await client.getTransactionsByBlock({
       height,
@@ -59,6 +62,11 @@ if (block !== null) {
       cursor,
       limit: 50,
     });
+    if (page.cursor.length !== 0) {
+      const next = toHex0x(page.cursor);
+      if (seen.has(next)) throw new Error("Repeated block pagination cursor");
+      seen.add(next);
+    }
     console.log(page.refs); // transaction hashes and bigint heights
     cursor = page.cursor;
   } while (cursor.length !== 0);
