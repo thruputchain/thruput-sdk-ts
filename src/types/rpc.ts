@@ -426,7 +426,8 @@ export interface TransactionRef {
 
 /** One page of transaction-history references. */
 export interface TransactionRefPage {
-  /** Matched transaction references in the requested order. */
+  /** Matched references in the walk's order. Block continuations retain the
+   * cursor's original order, even when the request specifies a different order. */
   refs: TransactionRef[];
 
   /** Cursor to pass into the next query for pagination. */
