@@ -62,6 +62,12 @@ import {
   type SignedTransaction,
 } from "@thruputchain/client";
 import type { Transport } from "@thruputchain/client/transport";
+import { getTransactionsByBlock } from "@thruputchain/client/actions";
+import type {
+  BlockTransactionQuery,
+  TransactionRefPage,
+} from "@thruputchain/client";
+
 import { ERC20 as BatchERC20Versions } from "@thruputchain/client/contracts";
 import {
   getContractEvents,
@@ -187,6 +193,18 @@ import {
   type ProviderWalletClient,
   type WalletAccount as LocalWalletAccount,
 } from "@thruputchain/client/wallet";
+
+function blockQueryBoundary(
+  transport: Transport,
+  client: ThruputClient,
+): Promise<TransactionRefPage>[] {
+  const query: BlockTransactionQuery = { height: 1n, limit: 50 };
+  return [
+    getTransactionsByBlock(transport, query),
+    client.getTransactionsByBlock(query),
+  ];
+}
+void blockQueryBoundary;
 
 async function eventPagesBoundary(
   client: ThruputClient,

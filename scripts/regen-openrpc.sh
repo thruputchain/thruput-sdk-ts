@@ -3,7 +3,13 @@ set -euo pipefail
 
 GENERATOR="${THRUPUT_OPENRPC_GENERATOR:-}"
 if [[ -z "$GENERATOR" ]]; then
-  cargo install thruput-open-rpc-spec@0.30.0 --registry thruput --locked
+  # Temporary source pin while the tools #557 generator is unreleased.
+  # Release follow-up (GH-520): once a matching generator is published, replace
+  # this with an exact registry version: cargo install thruput-open-rpc-spec@<version>
+  # --registry thruput --locked. Regenerate the schema and rerun contract tests
+  # before publishing the SDK. Keep the wire-version and page-limit checks below.
+  cargo install --git https://github.com/thruputchain/thruput-tools \
+    --rev 07d2c945f340b55aa84ed44dba535fcc3e1e782c thruput-open-rpc-spec --locked
   GENERATOR="thruput-open-rpc-spec"
 fi
 SPEC="$(git rev-parse --show-toplevel)/specs/openrpc.json"
@@ -14,13 +20,17 @@ trap 'rm -f "$TEMP_SPEC"' EXIT
 node --input-type=module - "$TEMP_SPEC" <<'JS'
 import { readFileSync } from "node:fs";
 const spec = JSON.parse(readFileSync(process.argv[2], "utf8"));
-if (spec.info.version !== "12.0.0") {
-  throw new Error(`Expected RPC wire 12.0.0, received ${spec.info.version}. Set THRUPUT_OPENRPC_GENERATOR to a matching generator.`);
+if (spec.info.version !== "12.1.0") {
+  throw new Error(`Expected RPC wire 12.1.0, received ${spec.info.version}. Set THRUPUT_OPENRPC_GENERATOR to a matching generator.`);
 }
-for (const name of ["groundhog_fundAccount", "groundhog_viewBatch"]) {
+for (const name of ["groundhog_fundAccount", "groundhog_viewBatch", "groundhog_getTransactionsByBlock"]) {
   if (!spec.methods.some((method) => method.name === name)) {
     throw new Error(`Generator is missing ${name}. Set THRUPUT_OPENRPC_GENERATOR to a matching generator.`);
   }
+}
+const limit = spec.components.schemas.BlockTransactionQuery?.properties?.limit;
+if (limit?.minimum !== 1 || limit?.maximum !== 200) {
+  throw new Error("Generator does not enforce the reviewed positive block-page limit contract.");
 }
 JS
 cp "$TEMP_SPEC" "$SPEC"

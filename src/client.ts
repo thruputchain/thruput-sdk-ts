@@ -18,6 +18,7 @@ import type {
   TransactionReceipt,
   TransactionStatus,
   AddressTransactionQuery,
+  BlockTransactionQuery,
   TransactionRefPage,
   EventQuery,
   EventPage,
@@ -51,6 +52,7 @@ import {
   type WaitForTransactionReceiptOptions,
 } from "./actions/public/waitForTransactionReceipt.js";
 import { getTransactionsByAddress } from "./actions/public/getTransactionsByAddress.js";
+import { getTransactionsByBlock } from "./actions/public/getTransactionsByBlock.js";
 import { getEvents } from "./actions/public/getEvents.js";
 import {
   getContractEvents,
@@ -165,6 +167,12 @@ export interface CoreThruputClient {
     options?: TransportRequestOptions,
   ): Promise<TransactionRefPage>;
 
+  /** Read hash-ordered transaction references for one committed height. */
+  getTransactionsByBlock(
+    query: BlockTransactionQuery,
+    options?: TransportRequestOptions,
+  ): Promise<TransactionRefPage>;
+
   /** Query emitted contract events with the gateway's paginated event API. */
   getEvents(
     query: EventQuery,
@@ -234,6 +242,8 @@ function createCoreThruputClient(transport: Transport): CoreThruputClient {
       waitForTransactionReceipt(transport, txHash, options),
     getTransactionsByAddress: (query, options) =>
       getTransactionsByAddress(transport, query, options),
+    getTransactionsByBlock: (query, options) =>
+      getTransactionsByBlock(transport, query, options),
     getEvents: (query, options) => getEvents(transport, query, options),
     getContractEvents: (query, options) =>
       getContractEvents(transport, query, options),

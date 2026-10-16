@@ -426,7 +426,8 @@ export interface TransactionRef {
 
 /** One page of transaction-history references. */
 export interface TransactionRefPage {
-  /** Matched transaction references in the requested order. */
+  /** Matched references in the walk's order. Block continuations retain the
+   * cursor's original order, even when the request specifies a different order. */
   refs: TransactionRef[];
 
   /** Cursor to pass into the next query for pagination. */
@@ -554,6 +555,18 @@ export interface EventQuery {
   cursor?: Uint8Array;
 
   /** Maximum number of events to return. */
+  limit?: number;
+}
+
+/** Paginated hash-ordered transaction references from one committed block. */
+export interface BlockTransactionQuery {
+  /** Exact committed height. Non-negative int64, kept as bigint. */
+  height: bigint;
+  /** Unsigned hash order, not execution order. Defaults to ascending. */
+  order?: IterationOrder;
+  /** Opaque continuation. Keep the same height; the cursor retains its order. */
+  cursor?: Uint8Array;
+  /** Positive page size, at most 200 and subject to endpoint limits. Defaults to 50. */
   limit?: number;
 }
 
