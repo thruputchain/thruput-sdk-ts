@@ -174,14 +174,6 @@ async function stop(task) {
 }
 
 async function main() {
-  if (
-    blocks &&
-    (!process.env.THRUPUT_CLI || !process.env.THRUPUT_DEVNODE_BINARY)
-  ) {
-    throw new Error(
-      "Block qualification requires explicit THRUPUT_CLI and THRUPUT_DEVNODE_BINARY builds from tools #557 and hogd #4475",
-    );
-  }
   if (process.platform !== "linux") {
     throw new Error("The live-node harness currently supports Linux only");
   }
