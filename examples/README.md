@@ -56,10 +56,11 @@ thruput node
 ```
 
 Read an ordinary account's HOG balance through the generated ERC-20 binding.
-Supply its public address; this read does not need a signer:
+Supply its unprefixed, case-sensitive base58 public address; this read does not
+need a signer. Replace the example address below with the account to inspect:
 
 ```bash
-THRUPUT_ADDRESS=0x... npm run example view-hog-balance
+THRUPUT_ADDRESS=29d2S7vB453rNYFdR5Ycwt7y9haRT5fwVwL9zTmBhfV2 npm run example view-hog-balance
 ```
 
 Local manifests contain public accounts only. Each signing example owns its key
