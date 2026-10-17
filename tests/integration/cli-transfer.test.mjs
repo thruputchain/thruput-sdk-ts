@@ -34,9 +34,17 @@ test("reads a CLI transfer through the SDK", async () => {
   );
   assert.equal(toBase58(event.topics.from), result.sender);
   assert.equal(toBase58(event.topics.to), result.recipient);
+  // Evidence records the requested amount and independently known deposit.
+  // A first credit may reserve storage instead of making all tokens spendable.
+  assert.match(result.rawAmount, /^[1-9][0-9]*$/);
+  assert.match(result.storageDepositRaw, /^(0|[1-9][0-9]*)$/);
+  const amount = BigInt(result.rawAmount);
+  const deposit = BigInt(result.storageDepositRaw);
+  assert.ok(deposit <= amount);
+  assert.equal(event.fields.amount, amount);
   assert.equal(
-    event.fields.amount,
     BigInt(result.after.rawBalance) - BigInt(result.before.rawBalance),
+    amount - deposit,
   );
   const manifest = JSON.parse(await readFile(result.manifest, "utf8"));
   const network = await client.getNetworkInfo();
