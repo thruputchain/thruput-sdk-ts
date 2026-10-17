@@ -113,13 +113,13 @@ Pass a cluster to fetch the endpoint's network identity during connection and
 verify it against the cluster's `networkHash`, if supplied:
 
 ```ts
-import { createThruputClient, devnet, toHex0x } from "@thruputchain/client";
+import { createThruputClient, devnet, toBase58 } from "@thruputchain/client";
 
 const client = await createThruputClient({
   cluster: devnet(),
 });
 
-console.log(toHex0x(client.network.networkHash));
+console.log(toBase58(client.network.networkHash));
 ```
 
 `devnet()` uses `https://rpc.thruput.network`. Applications with an explicit

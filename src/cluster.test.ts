@@ -232,10 +232,7 @@ describe("createThruputClient", () => {
 
     await expect(connection).rejects.toBeInstanceOf(NetworkMismatchError);
     await expect(connection).rejects.toThrow(
-      "Network mismatch for mainnet: expected network 0x" +
-        "11".repeat(32) +
-        ", received network 0x" +
-        "44".repeat(32),
+      "Network mismatch for mainnet: expected network 29d2S7vB453rNYFdR5Ycwt7y9haRT5fwVwL9zTmBhfV2, received network 5bV6jUfhDHCQVA1WfKBUnXUsboJgoKgkzkKcxr3joew5",
     );
   });
 
@@ -243,8 +240,7 @@ describe("createThruputClient", () => {
     const actual = { networkHash: protocolNetworkHash("44") };
 
     expect(new NetworkMismatchError(mainnet(), actual).message).toBe(
-      "Network mismatch for mainnet: expected an unpinned network, received network 0x" +
-        "44".repeat(32),
+      "Network mismatch for mainnet: expected an unpinned network, received network 5bV6jUfhDHCQVA1WfKBUnXUsboJgoKgkzkKcxr3joew5",
     );
   });
 });

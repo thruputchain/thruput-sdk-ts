@@ -32,6 +32,7 @@ import {
 } from "./codec.js";
 import { ContractDecodeError } from "./errors.js";
 import { toHex0x } from "../actions/hex.js";
+import { toBase58 } from "../encoding.js";
 import { serializeHeight } from "../actions/decimal.js";
 import { assertViewFreshness } from "../actions/viewFreshness.js";
 import { copyViewAuthClaim } from "../actions/viewAuthClaim.js";
@@ -147,10 +148,10 @@ export class ContractReceiptError<TException> extends Error {
         : undefined;
     super(
       outcome.kind === "abort"
-        ? `Contract transaction ${toHex0x(outcome.txHash)} aborted with ${formatException(outcome.exception, selector)}`
+        ? `Contract transaction ${toBase58(outcome.txHash)} aborted with ${formatException(outcome.exception, selector)}`
         : outcome.execResult === ExecResult.ExecResultOK
-          ? `Contract transaction did not include return data (tx ${toHex0x(outcome.txHash)})`
-          : `Contract transaction failed with ${ExecResult[outcome.execResult] ?? outcome.execResult} (tx ${toHex0x(outcome.txHash)})`,
+          ? `Contract transaction did not include return data (tx ${toBase58(outcome.txHash)})`
+          : `Contract transaction failed with ${ExecResult[outcome.execResult] ?? outcome.execResult} (tx ${toBase58(outcome.txHash)})`,
     );
     this.name = "ContractReceiptError";
     this.outcome = outcome;

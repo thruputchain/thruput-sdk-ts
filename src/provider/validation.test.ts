@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toHex0x } from "../actions/hex.js";
+import { toBase58 } from "../encoding.js";
 import { PrivateKeySigner } from "../signers/privateKey.js";
 import { createPubkeyAccount } from "../wallet/account.js";
 import {
@@ -9,7 +9,7 @@ import {
   parseSignedTransactionHex,
   parseTransactionHex,
   parseWalletAccount,
-  parseWalletHex32,
+  parseWalletIdentifier,
   parseWalletNetworkHash,
   parseWalletProvider,
   parseWalletProviderError,
@@ -20,16 +20,29 @@ import {
 const signer = new PrivateKeySigner(new Uint8Array(32).fill(1));
 const localAccount = createPubkeyAccount({ signer, nonce: 7n });
 const account = {
-  address: toHex0x(localAccount.address),
-  publicKey: toHex0x(signer.publicKey.ed25519),
+  address: toBase58(localAccount.address),
+  publicKey: toBase58(signer.publicKey.ed25519),
   nonce: "7",
 };
-const networkHash = "ab".repeat(32);
+const networkHash = toBase58(new Uint8Array(32).fill(171));
+
+it("preserves case and leading zero bytes in provider identifiers", () => {
+  const first = "29d2S7vB453rNYFdR5Ycwt7y9haRT5fwVwL9zTmBhfV2";
+  const second = "29D2S7vB453rNYFdR5Ycwt7y9haRT5fwVwL9zTmBhfV2";
+  expect(parseWalletIdentifier(first)).toBe(first);
+  expect(parseWalletIdentifier(second)).toBe(second);
+  expect(parseWalletNetworkHash("1".repeat(32))).toBe("1".repeat(32));
+  for (const size of [0, 31, 33]) {
+    expect(() =>
+      parseWalletIdentifier(toBase58(new Uint8Array(size))),
+    ).toThrow();
+  }
+});
 
 describe("provider boundary validation", () => {
   it("accepts opaque extension names alongside the recognized capability method", () => {
     const provider = {
-      info: { id: "wallet", name: "Wallet", version: "1.0.0" as const },
+      info: { id: "wallet", name: "Wallet", version: "2.0.0" as const },
       supportedMethods: [
         "vendor_method",
         "vendor.method",
@@ -56,7 +69,7 @@ describe("provider boundary validation", () => {
   )("rejects malformed optional method lists: %j", ({ supportedMethods }) => {
     expect(() =>
       parseWalletProvider({
-        info: { id: "wallet", name: "Wallet", version: "1.0.0" },
+        info: { id: "wallet", name: "Wallet", version: "2.0.0" },
         supportedMethods,
         request: async () => null,
         on: () => () => {},
@@ -65,7 +78,7 @@ describe("provider boundary validation", () => {
   });
   it("preserves the live provider identity, metadata, and method receiver", async () => {
     const provider = {
-      info: { id: "wallet", name: "Wallet", version: "1.0.0" as const },
+      info: { id: "wallet", name: "Wallet", version: "2.0.0" as const },
       session: { networkHash, accounts: [account] },
       async request() {
         return this.session;
@@ -109,7 +122,7 @@ describe("provider boundary validation", () => {
 
   it.each([
     "0x" + networkHash,
-    networkHash.toUpperCase(),
+    "ab".repeat(32),
     "a".repeat(63),
     "g".repeat(64),
     networkHash + "\n",
@@ -119,13 +132,13 @@ describe("provider boundary validation", () => {
   });
 
   it.each([
-    networkHash,
+    "ab".repeat(32),
     "0x" + networkHash.toUpperCase(),
     "0x1",
     "0x" + "aa".repeat(33),
     "0x" + networkHash + "\n",
-  ])("rejects noncanonical 32-byte hex: %s", (value) => {
-    expect(() => parseWalletHex32(value)).toThrow();
+  ])("rejects invalid base58 identifiers: %s", (value) => {
+    expect(() => parseWalletIdentifier(value)).toThrow();
   });
 
   it.each([
@@ -150,7 +163,7 @@ describe("provider boundary validation", () => {
       expect(
         parseWalletAccount({
           ...account,
-          address: toHex0x(derived.address),
+          address: toBase58(derived.address),
           nonce: String(nonce),
         }).nonce,
       ).toBe(String(nonce));
@@ -158,9 +171,9 @@ describe("provider boundary validation", () => {
   });
 
   it.each([
-    "0x" + "00".repeat(32),
-    "0x01" + "00".repeat(31),
-    "0x" + "ff".repeat(32),
+    toBase58(new Uint8Array(32)),
+    toBase58(Uint8Array.from([1, ...new Uint8Array(31)])),
+    toBase58(new Uint8Array(32).fill(255)),
   ])("rejects invalid or small-order public keys", (publicKey) => {
     expect(() => parseWalletAccount({ ...account, publicKey })).toThrow(
       "Invalid Ed25519 public key",
@@ -169,7 +182,7 @@ describe("provider boundary validation", () => {
 
   it("rejects a mismatched address or derivation nonce", () => {
     expect(() =>
-      parseWalletAccount({ ...account, address: "0x" + "00".repeat(32) }),
+      parseWalletAccount({ ...account, address: toBase58(new Uint8Array(32)) }),
     ).toThrow("derivation mismatch");
     expect(() => parseWalletAccount({ ...account, nonce: "8" })).toThrow(
       "derivation mismatch",
@@ -177,14 +190,14 @@ describe("provider boundary validation", () => {
   });
 
   it.each([
-    { id: "", name: "Wallet", version: "1.0.0" },
-    { id: "a".repeat(65), name: "Wallet", version: "1.0.0" },
-    { id: "a b", name: "Wallet", version: "1.0.0" },
-    { id: "a\n", name: "Wallet", version: "1.0.0" },
-    { id: "a", name: "x".repeat(81), version: "1.0.0" },
-    { id: "a", name: " Wallet", version: "1.0.0" },
-    { id: "a", name: "Wallet\n", version: "1.0.0" },
-    { id: "a", name: "Wallet", version: "2.0.0" },
+    { id: "", name: "Wallet", version: "2.0.0" },
+    { id: "a".repeat(65), name: "Wallet", version: "2.0.0" },
+    { id: "a b", name: "Wallet", version: "2.0.0" },
+    { id: "a\n", name: "Wallet", version: "2.0.0" },
+    { id: "a", name: "x".repeat(81), version: "2.0.0" },
+    { id: "a", name: " Wallet", version: "2.0.0" },
+    { id: "a", name: "Wallet\n", version: "2.0.0" },
+    { id: "a", name: "Wallet", version: "1.0.0" },
   ])("rejects invalid discovery info %j", (info) => {
     expect(() => parseWalletProviderInfo(info)).toThrow();
   });

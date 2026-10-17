@@ -17,8 +17,8 @@ import { assert, describe, expect, it, vi } from "vitest";
 import { Point, utils, verifyAsync } from "@noble/ed25519";
 import { sha512 } from "@noble/hashes/sha2.js";
 import { createThruputClient } from "../client.js";
-import { hashFromHex, toHex0x } from "../actions/hex.js";
-import { toBase58 } from "../encoding.js";
+import { toHex0x } from "../actions/hex.js";
+import { hashFromBase58, toBase58 } from "../encoding.js";
 import { hashSignedTransaction } from "../derivation/transactionHash.js";
 import { PrivateKeySigner } from "../signers/privateKey.js";
 import { signTransaction } from "../transaction/sign.js";
@@ -45,13 +45,13 @@ import { DefaultWallet } from "../contracts/default_wallet.js";
 import { Counter } from "../../examples/generated/counter.js";
 import { ed25519Of } from "../testing/signatures.js";
 
-const networkHash = "ab".repeat(32);
+const networkHash = toBase58(new Uint8Array(32).fill(171));
 const signingNetwork = toNetworkHash(sha256Hash(new Uint8Array(32).fill(0xab)));
 const signer = new PrivateKeySigner(new Uint8Array(32).fill(1));
 const localAccount = createPubkeyAccount({ signer, nonce: 7n });
 const account = {
-  address: toHex0x(localAccount.address),
-  publicKey: toHex0x(signer.publicKey.ed25519),
+  address: toBase58(localAccount.address),
+  publicKey: toBase58(signer.publicKey.ed25519),
   nonce: "7",
 };
 const execution = {
@@ -119,7 +119,7 @@ async function setup(
   });
   const unsubscribe = vi.fn();
   const provider: WalletProvider = {
-    info: { id: "test", name: "Test Wallet", version: "1.0.0" },
+    info: { id: "test", name: "Test Wallet", version: "2.0.0" },
     supportedMethods: ["getCapabilities"],
     request,
     on(event, listener) {
@@ -156,7 +156,7 @@ async function setup(
 function wireResult(signed: SignedTransaction): SignTransactionResult {
   return {
     signedTransaction: toHex0x(serialize(signed, codec.SignedTransaction)),
-    hash: toHex0x(hashSignedTransaction(signed)),
+    hash: toBase58(hashSignedTransaction(signed)),
   };
 }
 
@@ -460,7 +460,7 @@ describe("provider atomic batches", () => {
     { account: account.address, networkHash, atomicBatch: { maxCalls: 0 } },
     {
       account: account.address,
-      networkHash: "cd".repeat(32),
+      networkHash: toBase58(new Uint8Array(32).fill(205)),
       atomicBatch: null,
     },
     { account: "0x" + "cd".repeat(32), networkHash, atomicBatch: null },
@@ -782,7 +782,7 @@ describe("external provider wallet", () => {
       },
     });
     expect(
-      toHex0x(
+      toBase58(
         hashSignedTransaction(
           parseSignedTransactionHex(signed.signedTransaction),
         ),
@@ -792,21 +792,21 @@ describe("external provider wallet", () => {
     const receiptRequest = vi
       .spyOn(transport, "request")
       .mockResolvedValueOnce({
-        txHash: toBase58(hashFromHex(signed.hash)),
+        txHash: signed.hash,
         height: "1",
         status: { result: "ok" },
         events: [],
         gasUsed: "0",
       });
     const receipt = await client.getTransactionReceipt(
-      hashFromHex(signed.hash),
+      hashFromBase58(signed.hash),
     );
     expect(receiptRequest).toHaveBeenCalledWith(
       "groundhog_getTransactionReceipt",
-      [toBase58(hashFromHex(signed.hash))],
+      [signed.hash],
       undefined,
     );
-    expect(toHex0x(receipt!.txHash)).toBe(signed.hash);
+    expect(toBase58(receipt!.txHash)).toBe(signed.hash);
     expect(send).not.toHaveBeenCalled();
     await expect(wallet.submitTransaction(signed)).rejects.toMatchObject({
       code: 4100,
@@ -974,7 +974,10 @@ describe("external provider wallet", () => {
     "rejects account/network changes with emitted event: %s",
     async (emit) => {
       for (const session of [
-        { networkHash: "cd".repeat(32), accounts: [account] },
+        {
+          networkHash: toBase58(new Uint8Array(32).fill(205)),
+          accounts: [account],
+        },
         { networkHash, accounts: [] },
       ]) {
         const { wallet, request, change } = await setup();

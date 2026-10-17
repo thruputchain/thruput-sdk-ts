@@ -14,6 +14,7 @@ import {
 } from "@thruputchain/protocol";
 import { Point, verifyAsync } from "@noble/ed25519";
 import { toHex0x } from "../actions/hex.js";
+import { fixedFromBase58, toBase58 } from "../encoding.js";
 import {
   derivePubkeyAccountAddress,
   pubkeyAccountPreimage,
@@ -56,7 +57,7 @@ export const MAX_DEFAULT_WALLET_CALLS = 16;
 export function parseWalletCapabilities(value: unknown): WalletCapabilities {
   const data = record(value);
   fields(data, ["account", "networkHash", "atomicBatch"]);
-  const account = parseWalletHex32(data.account);
+  const account = parseWalletIdentifier(data.account);
   const networkHash = parseWalletNetworkHash(data.networkHash);
   if (data.atomicBatch === null)
     return { account, networkHash, atomicBatch: null };
@@ -97,28 +98,21 @@ function fields(
   }
 }
 
-/** Validate a canonical 32-byte 0x-prefixed address, key, or hash. */
-export function parseWalletHex32(value: unknown): string {
-  if (
-    typeof value !== "string" ||
-    value.length !== 66 ||
-    !/^0x[0-9a-f]{64}$/.test(value)
-  ) {
-    invalid("Expected 32-byte lowercase 0x hex");
+/** Validate an unprefixed, case-sensitive base58 address, public key, or hash. */
+export function parseWalletIdentifier(value: unknown): string {
+  if (typeof value !== "string")
+    invalid("Expected a 32-byte base58 identifier");
+  try {
+    fixedFromBase58(value, 32);
+  } catch {
+    invalid("Expected a 32-byte base58 identifier");
   }
   return value;
 }
 
-/** Validate the environment-compatible network hash (no 0x prefix). */
+/** Validate a case-sensitive, unprefixed base58 network hash. */
 export function parseWalletNetworkHash(value: unknown): string {
-  if (
-    typeof value !== "string" ||
-    value.length !== 64 ||
-    !/^[0-9a-f]{64}$/.test(value)
-  ) {
-    invalid("Expected 64 lowercase network hash hex characters without 0x");
-  }
-  return value;
+  return parseWalletIdentifier(value);
 }
 
 /**
@@ -130,8 +124,8 @@ export function parseWalletNetworkHash(value: unknown): string {
 export function parseWalletAccount(value: unknown): WalletAccount {
   const data = record(value);
   fields(data, ["address", "publicKey", "nonce"]);
-  const address = parseWalletHex32(data.address);
-  const publicKey = parseWalletHex32(data.publicKey);
+  const address = parseWalletIdentifier(data.address);
+  const publicKey = parseWalletIdentifier(data.publicKey);
   const nonce = data.nonce;
   if (
     typeof nonce !== "string" ||
@@ -142,7 +136,7 @@ export function parseWalletAccount(value: unknown): WalletAccount {
   ) {
     invalid("Expected a canonical decimal u64 account nonce");
   }
-  const key = ed25519PublicKey(fromHex(publicKey.slice(2)));
+  const key = ed25519PublicKey(fixedFromBase58(publicKey, 32));
   try {
     const point = Point.fromBytes(key, false);
     if (point.isSmallOrder() || !point.isTorsionFree()) {
@@ -157,7 +151,7 @@ export function parseWalletAccount(value: unknown): WalletAccount {
       BigInt(nonce),
     ),
   );
-  if (toHex0x(derived) !== address)
+  if (toBase58(derived) !== address)
     invalid("Account address derivation mismatch");
   return Object.freeze({ address, publicKey, nonce });
 }
@@ -209,7 +203,7 @@ export function parseWalletProviderInfo(value: unknown): WalletProviderInfo {
   ) {
     invalid("Invalid provider name");
   }
-  if (version !== "1.0.0") invalid("Unsupported provider version");
+  if (version !== "2.0.0") invalid("Unsupported provider version");
   return Object.freeze({ id, name, version });
 }
 
@@ -328,7 +322,7 @@ export function parseProviderRequest(value: unknown): ProviderRequest {
       return {
         method,
         params: {
-          account: parseWalletHex32(params.account),
+          account: parseWalletIdentifier(params.account),
           networkHash: parseWalletNetworkHash(params.networkHash),
         },
       };
@@ -340,7 +334,7 @@ export function parseProviderRequest(value: unknown): ProviderRequest {
       const payload =
         method === "signTransaction" ? "transaction" : "signedTransaction";
       fields(params, ["account", "networkHash", payload]);
-      const account = parseWalletHex32(params.account);
+      const account = parseWalletIdentifier(params.account);
       const networkHash = parseWalletNetworkHash(params.networkHash);
       if (method === "signTransaction") {
         const transaction = params.transaction;
@@ -384,7 +378,7 @@ export function parseSignTransactionResult(
   parseSignedTransactionHex(signedTransaction);
   return {
     signedTransaction: signedTransaction as string,
-    hash: parseWalletHex32(hash),
+    hash: parseWalletIdentifier(hash),
   };
 }
 
@@ -397,7 +391,7 @@ export function parseSubmitTransactionResult(
 ): SubmitTransactionResult {
   const data = record(value);
   fields(data, ["hash"]);
-  return { hash: parseWalletHex32(data.hash) };
+  return { hash: parseWalletIdentifier(data.hash) };
 }
 
 /** Require the root address and complete pubkey claim to match a wire account. */
@@ -408,7 +402,7 @@ export function assertWalletTransaction(
   const expected = parseWalletAccount(account);
   const claim = tx.auth_claim;
   if (
-    toHex0x(tx.invocation.invoked_address) !== expected.address ||
+    toBase58(tx.invocation.invoked_address) !== expected.address ||
     claim.claim_type !== AuthClaimType.kPubkeySignature ||
     toHex0x(claim.pubkey_preimage.pubkey_hash) !==
       toHex0x(derivePublicKeyHash(walletPublicKey(expected))) ||
@@ -424,7 +418,7 @@ export function assertWalletTransaction(
 function walletPublicKey(account: WalletAccount): PublicKey {
   return {
     scheme: CryptographicScheme.Ed25519,
-    ed25519: ed25519PublicKey(fromHex(account.publicKey.slice(2))),
+    ed25519: ed25519PublicKey(fixedFromBase58(account.publicKey, 32)),
   };
 }
 
@@ -437,7 +431,7 @@ function walletPublicKey(account: WalletAccount): PublicKey {
  * key and signature point R non-small-order and prime-order. The hash is SHA-256
  * of unsigned XDR, excluding signatures and network.
  *
- * @param networkHash - 64 lowercase hex characters without 0x, from the authorized session.
+ * @param networkHash - A 32-byte base58 identifier from the authorized session.
  * @returns A frozen verified result. This does not establish origin permission
  * or a retained approval to submit; the provider must enforce both separately.
  *
@@ -455,7 +449,7 @@ export async function verifySignTransactionResult(
 ): Promise<SignTransactionResult> {
   const expected = parseWalletAccount(account);
   const network = toNetworkHash(
-    sha256Hash(fromHex(parseWalletNetworkHash(networkHash))),
+    sha256Hash(fixedFromBase58(parseWalletNetworkHash(networkHash), 32)),
   );
   const tx = parseTransactionHex(transaction);
   assertWalletTransaction(tx, expected);
@@ -478,7 +472,7 @@ export async function verifySignTransactionResult(
     if (
       !claimKey ||
       claimKey.scheme !== CryptographicScheme.Ed25519 ||
-      toHex0x(claimKey.ed25519) !== expected.publicKey
+      toBase58(claimKey.ed25519) !== expected.publicKey
     ) {
       throw new Error("Expected the account's Ed25519 key as pubkey_claim_key");
     }
@@ -493,13 +487,13 @@ export async function verifySignTransactionResult(
       !(await verifyAsync(
         signature.signature.ed25519,
         transactionSignaturePreimage(network, tx),
-        fromHex(expected.publicKey.slice(2)),
+        fixedFromBase58(expected.publicKey, 32),
         { zip215: false },
       ))
     ) {
       throw new Error("Invalid provider transaction signature");
     }
-    if (result.hash !== toHex0x(hashSignedTransaction(signed))) {
+    if (result.hash !== toBase58(hashSignedTransaction(signed))) {
       throw new Error("Provider transaction hash mismatch");
     }
     return Object.freeze(result);
