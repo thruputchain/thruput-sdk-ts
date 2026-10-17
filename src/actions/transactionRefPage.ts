@@ -1,5 +1,6 @@
 import type { TransactionRef, TransactionRefPage } from "../types/rpc.js";
-import { fromHex0x, hashFromHex } from "./hex.js";
+import { fromHex0x } from "./hex.js";
+import { hashFromBase58 } from "../encoding.js";
 import { parseHeight } from "./decimal.js";
 
 function parseTransactionRef(value: unknown): TransactionRef {
@@ -10,7 +11,10 @@ function parseTransactionRef(value: unknown): TransactionRef {
   if (typeof ref.txHash !== "string") {
     throw new Error("Invalid transaction refs response: expected ref.txHash");
   }
-  return { txHash: hashFromHex(ref.txHash), height: parseHeight(ref.height) };
+  return {
+    txHash: hashFromBase58(ref.txHash),
+    height: parseHeight(ref.height),
+  };
 }
 
 export function parseTransactionRefPage(raw: unknown): TransactionRefPage {
