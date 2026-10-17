@@ -8,7 +8,7 @@ import {
   createWalletClient,
   devnet,
   parseUnits,
-  toHex0x,
+  toBase58,
 } from "../src/index.js";
 import { ERC20 } from "../src/contracts/index.js";
 
@@ -74,15 +74,15 @@ const [senderBalance, recipientBalance] = await Promise.all([
 
 console.log({
   rpcUrl: client.cluster.rpcUrl,
-  networkHash: toHex0x(client.network.networkHash),
-  sender: toHex0x(sender.address),
-  recipient: toHex0x(recipient.address),
+  networkHash: toBase58(client.network.networkHash),
+  sender: toBase58(sender.address),
+  recipient: toBase58(recipient.address),
   senderAirdropAmount: senderAirdrop.rawAmount.toString(),
-  senderAirdropTxHash: toHex0x(senderAirdrop.txHash),
+  senderAirdropTxHash: toBase58(senderAirdrop.txHash),
   recipientAirdropAmount: recipientAirdrop.rawAmount.toString(),
-  recipientAirdropTxHash: toHex0x(recipientAirdrop.txHash),
+  recipientAirdropTxHash: toBase58(recipientAirdrop.txHash),
   transferAmount: amount.toString(),
-  transferTxHash: toHex0x(txHash),
+  transferTxHash: toBase58(txHash),
   senderBalance: senderBalance.toString(),
   recipientBalance: recipientBalance.toString(),
 });

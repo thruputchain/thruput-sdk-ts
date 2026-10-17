@@ -4,17 +4,17 @@ import {
   createThruputClient,
   formatUnits,
   localnet,
-  toHex0x,
-  addressFromHex,
+  toBase58,
+  addressFromBase58,
 } from "../src/index.js";
 import { ERC20 } from "../src/contracts/index.js";
 const rpcUrl = process.env.THRUPUT_RPC_URL;
-const addressHex = process.env.THRUPUT_ADDRESS;
-if (!addressHex)
+const addressText = process.env.THRUPUT_ADDRESS;
+if (!addressText)
   throw new Error(
     "Set THRUPUT_ADDRESS to the public account address to inspect",
   );
-const address = addressFromHex(addressHex);
+const address = addressFromBase58(addressText);
 
 const client = await createThruputClient({
   cluster: localnet(rpcUrl ? { rpcUrl } : {}),
@@ -30,8 +30,8 @@ const response = await ERC20.v0_1.getBalanceOf.view({
 
 console.log({
   rpcUrl: client.cluster.rpcUrl,
-  hogToken: toHex0x(HOG_ADDRESS),
-  account: toHex0x(address),
+  hogToken: toBase58(HOG_ADDRESS),
+  account: toBase58(address),
   balance: response.value.toString(),
   hog: formatUnits(response.value, 7),
   height: response.height.toString(),
