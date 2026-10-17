@@ -206,7 +206,7 @@ async function main() {
     (!process.env.THRUPUT_CLI || !process.env.THRUPUT_DEVNODE_BINARY)
   ) {
     throw new Error(
-      "Wire 12 integration requires matching local builds. Set THRUPUT_CLI and THRUPUT_DEVNODE_BINARY; the published pins do not support base58 identifiers.",
+      `Wire ${versions.wireFormat} integration requires matching local builds. Set THRUPUT_CLI and THRUPUT_DEVNODE_BINARY; the published pins do not support base58 identifiers.`,
     );
   }
   const requestedCli = process.env.THRUPUT_CLI ?? "thruput";
