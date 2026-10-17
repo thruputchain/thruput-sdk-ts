@@ -57,10 +57,7 @@
               "description": "Canonical hash of the retained transaction body."
             }
           },
-          "required": [
-            "txHash",
-            "signedTransaction"
-          ],
+          "required": ["txHash", "signedTransaction"],
           "title": "LocalFundingErrorData",
           "type": "object"
         },
@@ -105,11 +102,7 @@
                   "type": "string"
                 }
               },
-              "required": [
-                "reason",
-                "attached",
-                "max"
-              ],
+              "required": ["reason", "attached", "max"],
               "type": "object"
             },
             {
@@ -138,12 +131,7 @@
                   "type": "integer"
                 }
               },
-              "required": [
-                "reason",
-                "index",
-                "sizeBytes",
-                "maxBytes"
-              ],
+              "required": ["reason", "index", "sizeBytes", "maxBytes"],
               "type": "object"
             },
             {
@@ -166,11 +154,7 @@
                   "type": "string"
                 }
               },
-              "required": [
-                "reason",
-                "index",
-                "firstIndex"
-              ],
+              "required": ["reason", "index", "firstIndex"],
               "type": "object"
             },
             {
@@ -199,12 +183,7 @@
                   "type": "string"
                 }
               },
-              "required": [
-                "reason",
-                "index",
-                "memoryBytes",
-                "maxBytes"
-              ],
+              "required": ["reason", "index", "memoryBytes", "maxBytes"],
               "type": "object"
             },
             {
@@ -233,12 +212,7 @@
                   "type": "string"
                 }
               },
-              "required": [
-                "reason",
-                "index",
-                "codeBytes",
-                "maxBytes"
-              ],
+              "required": ["reason", "index", "codeBytes", "maxBytes"],
               "type": "object"
             }
           ],
@@ -282,10 +256,7 @@
               "$ref": "#/$defs/DecimalBlockHeight"
             }
           },
-          "required": [
-            "requested",
-            "observed"
-          ],
+          "required": ["requested", "observed"],
           "title": "ViewHeightUnavailable",
           "type": "object"
         },
@@ -311,10 +282,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "signers",
-          "requiredWeight"
-        ],
+        "required": ["signers", "requiredWeight"],
         "type": "object"
       },
       "AddressAuthDataResponse": {
@@ -340,10 +308,7 @@
             "description": "Committed block height used for the read, reported whether or not\nthe address has a registered configuration."
           }
         },
-        "required": [
-          "address",
-          "height"
-        ],
+        "required": ["address", "height"],
         "type": "object"
       },
       "AddressTransactionQuery": {
@@ -370,13 +335,7 @@
             "$ref": "#/components/schemas/IterationOrder"
           }
         },
-        "required": [
-          "address",
-          "order",
-          "anchor",
-          "cursor",
-          "limit"
-        ],
+        "required": ["address", "order", "anchor", "cursor", "limit"],
         "type": "object"
       },
       "AirdropAttemptResponse": {
@@ -474,10 +433,7 @@
             "description": "Address receiving the native HOG transfer."
           }
         },
-        "required": [
-          "recipient",
-          "clientNonce"
-        ],
+        "required": ["recipient", "clientNonce"],
         "type": "object"
       },
       "AuthPublicKey": {
@@ -495,10 +451,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "scheme",
-              "key"
-            ],
+            "required": ["scheme", "key"],
             "type": "object"
           },
           {
@@ -514,10 +467,7 @@
                 "type": "integer"
               }
             },
-            "required": [
-              "scheme",
-              "schemeId"
-            ],
+            "required": ["scheme", "schemeId"],
             "type": "object"
           }
         ]
@@ -542,11 +492,7 @@
             "description": "The registered public key."
           }
         },
-        "required": [
-          "keyId",
-          "publicKey",
-          "maxWeight"
-        ],
+        "required": ["keyId", "publicKey", "maxWeight"],
         "type": "object"
       },
       "BalanceResponse": {
@@ -565,11 +511,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "address",
-          "rawBalance",
-          "height"
-        ],
+        "required": ["address", "rawBalance", "height"],
         "type": "object"
       },
       "Base58_ContractAddress": {
@@ -618,9 +560,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "kind"
-            ],
+            "required": ["kind"],
             "type": "object"
           },
           {
@@ -631,9 +571,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "kind"
-            ],
+            "required": ["kind"],
             "type": "object"
           },
           {
@@ -647,10 +585,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "kind",
-              "height"
-            ],
+            "required": ["kind", "height"],
             "type": "object"
           }
         ]
@@ -745,12 +680,7 @@
             "$ref": "#/components/schemas/IterationOrder"
           }
         },
-        "required": [
-          "height",
-          "order",
-          "cursor",
-          "limit"
-        ],
+        "required": ["height", "order", "cursor", "limit"],
         "type": "object"
       },
       "ChainConfig": {
@@ -771,82 +701,55 @@
             "description": "Levels of node nesting an auth token may carry.",
             "format": "uint32",
             "minimum": 0,
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "maxBytestringLen": {
             "description": "Bytes one bytestring storage item may hold.",
             "format": "uint32",
             "minimum": 0,
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "maxContractSizeBytes": {
             "description": "Bytes one attached contract's code blob may hold. The protocol fixes\n`kDefaultMaxContractSizeBytes` as the value in force when unstated.",
             "format": "uint32",
             "minimum": 0,
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "maxCrossInvokeDepth": {
             "description": "Invocation frames one transaction may have open at once.",
             "format": "uint32",
             "minimum": 0,
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "maxNewContractsPerTx": {
             "description": "Contracts one transaction may attach in `contractsToDeploy`.",
             "format": "uint32",
             "minimum": 0,
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "maxRv32CodeBytes": {
             "description": "Code bytes an RV32 artifact may carry to be attached. The protocol\nfixes `kDefaultMaxRv32CodeBytes` as the value in force when unstated.",
             "format": "uint32",
             "minimum": 0,
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "maxRv32MemoryBytes": {
             "description": "Guest data memory bytes an RV32 artifact may declare to be attached.\nThe protocol fixes `kDefaultMaxRv32MemoryBytes` as the value in force\nwhen unstated.",
             "format": "uint32",
             "minimum": 0,
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "maxSavepointDepth": {
             "description": "Storage savepoints one transaction may have open at once.",
             "format": "uint32",
             "minimum": 0,
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "maxSha256Buffers": {
             "description": "Concurrently open incremental SHA-256 buffers permitted per\ninvocation frame.",
             "format": "uint32",
             "minimum": 0,
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           }
         },
         "type": "object"
@@ -862,10 +765,7 @@
             "description": "Signed protocol block height, encoded as a decimal string."
           }
         },
-        "required": [
-          "height",
-          "blockHash"
-        ],
+        "required": ["height", "blockHash"],
         "type": "object"
       },
       "ClientNonce": {
@@ -943,11 +843,7 @@
             "description": "XDR-encoded `StorageKey` bytes."
           }
         },
-        "required": [
-          "address",
-          "key",
-          "code"
-        ],
+        "required": ["address", "key", "code"],
         "type": "object"
       },
       "ContractAddressList": {
@@ -1030,11 +926,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "contractAddress",
-          "topics",
-          "data"
-        ],
+        "required": ["contractAddress", "topics", "data"],
         "type": "object"
       },
       "EventFilter": {
@@ -1048,10 +940,7 @@
             "$ref": "#/components/schemas/EventTopicFilter"
           }
         },
-        "required": [
-          "contractAddresses",
-          "topics"
-        ],
+        "required": ["contractAddresses", "topics"],
         "type": "object"
       },
       "EventFilterList": {
@@ -1086,12 +975,7 @@
             "description": "Oldest block height the indexer still retains data for at\nresponse time.  Today always 0; meaningful once retention/\npruning lands."
           }
         },
-        "required": [
-          "events",
-          "cursor",
-          "latestBlock",
-          "oldestBlock"
-        ],
+        "required": ["events", "cursor", "latestBlock", "oldestBlock"],
         "type": "object"
       },
       "EventQuery": {
@@ -1119,13 +1003,7 @@
             "$ref": "#/components/schemas/IterationOrder"
           }
         },
-        "required": [
-          "filters",
-          "order",
-          "anchor",
-          "cursor",
-          "limit"
-        ],
+        "required": ["filters", "order", "anchor", "cursor", "limit"],
         "type": "object"
       },
       "EventTopicFilter": {
@@ -1142,11 +1020,7 @@
             "$ref": "#/components/schemas/TopicList"
           }
         },
-        "required": [
-          "topic0",
-          "topic1",
-          "topic2"
-        ],
+        "required": ["topic0", "topic1", "topic2"],
         "type": "object"
       },
       "ExecStatus": {
@@ -1160,9 +1034,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "result"
-            ],
+            "required": ["result"],
             "type": "object"
           },
           {
@@ -1170,19 +1042,14 @@
             "properties": {
               "message": {
                 "description": "Abort buffer from the contract, if any.",
-                "type": [
-                  "string",
-                  "null"
-                ]
+                "type": ["string", "null"]
               },
               "result": {
                 "const": "reverted",
                 "type": "string"
               }
             },
-            "required": [
-              "result"
-            ],
+            "required": ["result"],
             "type": "object"
           },
           {
@@ -1197,10 +1064,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "result",
-              "kind"
-            ],
+            "required": ["result", "kind"],
             "type": "object"
           },
           {
@@ -1211,9 +1075,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "result"
-            ],
+            "required": ["result"],
             "type": "object"
           },
           {
@@ -1224,9 +1086,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "result"
-            ],
+            "required": ["result"],
             "type": "object"
           },
           {
@@ -1237,9 +1097,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "result"
-            ],
+            "required": ["result"],
             "type": "object"
           }
         ]
@@ -1293,12 +1151,7 @@
             "description": "Native HOG transfer recipient."
           }
         },
-        "required": [
-          "recipient",
-          "rawAmount",
-          "clientNonce",
-          "faucet"
-        ],
+        "required": ["recipient", "rawAmount", "clientNonce", "faucet"],
         "type": "object"
       },
       "FundAccountResponse": {
@@ -1321,12 +1174,7 @@
             "description": "Canonical body hash for status and receipt queries."
           }
         },
-        "required": [
-          "recipient",
-          "rawAmount",
-          "txHash",
-          "signedTransaction"
-        ],
+        "required": ["recipient", "rawAmount", "txHash", "signedTransaction"],
         "type": "object"
       },
       "HexBytes": {
@@ -1355,20 +1203,12 @@
             "description": "Transaction that emitted this event."
           }
         },
-        "required": [
-          "txHash",
-          "blockHeight",
-          "sequenceNumber",
-          "event"
-        ],
+        "required": ["txHash", "blockHeight", "sequenceNumber", "event"],
         "type": "object"
       },
       "IterationOrder": {
         "description": "Direction to walk a paginated event stream.",
-        "enum": [
-          "ascending",
-          "descending"
-        ],
+        "enum": ["ascending", "descending"],
         "type": "string"
       },
       "NetworkConfigParams": {
@@ -1378,82 +1218,55 @@
             "description": "Levels of node nesting an auth token may carry.",
             "format": "uint32",
             "minimum": 0,
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "maxBytestringLen": {
             "description": "Bytes one bytestring storage item may hold.",
             "format": "uint32",
             "minimum": 0,
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "maxContractSizeBytes": {
             "description": "Bytes one attached contract's code blob may hold. The protocol fixes\n`kDefaultMaxContractSizeBytes` as the value in force when unstated.",
             "format": "uint32",
             "minimum": 0,
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "maxCrossInvokeDepth": {
             "description": "Invocation frames one transaction may have open at once.",
             "format": "uint32",
             "minimum": 0,
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "maxNewContractsPerTx": {
             "description": "Contracts one transaction may attach in `contractsToDeploy`.",
             "format": "uint32",
             "minimum": 0,
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "maxRv32CodeBytes": {
             "description": "Code bytes an RV32 artifact may carry to be attached. The protocol\nfixes `kDefaultMaxRv32CodeBytes` as the value in force when unstated.",
             "format": "uint32",
             "minimum": 0,
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "maxRv32MemoryBytes": {
             "description": "Guest data memory bytes an RV32 artifact may declare to be attached.\nThe protocol fixes `kDefaultMaxRv32MemoryBytes` as the value in force\nwhen unstated.",
             "format": "uint32",
             "minimum": 0,
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "maxSavepointDepth": {
             "description": "Storage savepoints one transaction may have open at once.",
             "format": "uint32",
             "minimum": 0,
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           },
           "maxSha256Buffers": {
             "description": "Concurrently open incremental SHA-256 buffers permitted per\ninvocation frame.",
             "format": "uint32",
             "minimum": 0,
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": ["integer", "null"]
           }
         },
         "type": "object"
@@ -1466,9 +1279,7 @@
             "description": "Hash of the network name, bound into every transaction signature."
           }
         },
-        "required": [
-          "networkHash"
-        ],
+        "required": ["networkHash"],
         "type": "object"
       },
       "PaginationCursor": {
@@ -1495,10 +1306,7 @@
                 "$ref": "#/components/schemas/HexBytes"
               }
             },
-            "required": [
-              "result",
-              "returnData"
-            ],
+            "required": ["result", "returnData"],
             "type": "object"
           },
           {
@@ -1512,10 +1320,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "result",
-              "abortData"
-            ],
+            "required": ["result", "abortData"],
             "type": "object"
           },
           {
@@ -1526,9 +1331,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "result"
-            ],
+            "required": ["result"],
             "type": "object"
           }
         ]
@@ -1547,10 +1350,7 @@
             "description": "Subsystem that reported the failure."
           }
         },
-        "required": [
-          "source",
-          "code"
-        ],
+        "required": ["source", "code"],
         "type": "object"
       },
       "SchedulerTransactionErrorSource": {
@@ -1689,10 +1489,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "kind",
-              "value"
-            ],
+            "required": ["kind", "value"],
             "type": "object"
           },
           {
@@ -1707,10 +1504,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "kind",
-              "bytes"
-            ],
+            "required": ["kind", "bytes"],
             "type": "object"
           },
           {
@@ -1721,9 +1515,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "kind"
-            ],
+            "required": ["kind"],
             "type": "object"
           },
           {
@@ -1734,9 +1526,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "kind"
-            ],
+            "required": ["kind"],
             "type": "object"
           },
           {
@@ -1747,9 +1537,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "kind"
-            ],
+            "required": ["kind"],
             "type": "object"
           },
           {
@@ -1775,12 +1563,7 @@
                 "type": "integer"
               }
             },
-            "required": [
-              "kind",
-              "hash",
-              "size",
-              "contractType"
-            ],
+            "required": ["kind", "hash", "size", "contractType"],
             "type": "object"
           },
           {
@@ -1796,10 +1579,7 @@
                 "type": "integer"
               }
             },
-            "required": [
-              "kind",
-              "typeId"
-            ],
+            "required": ["kind", "typeId"],
             "type": "object"
           }
         ]
@@ -1823,9 +1603,7 @@
             "description": "The item stored at the requested key, or `null` if the key\nhas no committed value at this snapshot."
           }
         },
-        "required": [
-          "blockHeight"
-        ],
+        "required": ["blockHeight"],
         "type": "object"
       },
       "Topic": {
@@ -1854,10 +1632,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "kind",
-              "conflict"
-            ],
+            "required": ["kind", "conflict"],
             "type": "object"
           },
           {
@@ -1877,11 +1652,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "kind",
-              "contractIndex",
-              "code"
-            ],
+            "required": ["kind", "contractIndex", "code"],
             "type": "object"
           },
           {
@@ -1892,9 +1663,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "kind"
-            ],
+            "required": ["kind"],
             "type": "object"
           }
         ]
@@ -1948,13 +1717,7 @@
             "description": "Canonical transaction hash."
           }
         },
-        "required": [
-          "txHash",
-          "height",
-          "status",
-          "events",
-          "gasUsed"
-        ],
+        "required": ["txHash", "height", "status", "events", "gasUsed"],
         "type": "object"
       },
       "TransactionRef": {
@@ -1967,10 +1730,7 @@
             "$ref": "#/components/schemas/TxHash"
           }
         },
-        "required": [
-          "txHash",
-          "height"
-        ],
+        "required": ["txHash", "height"],
         "type": "object"
       },
       "TransactionRefPage": {
@@ -1996,12 +1756,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "refs",
-          "cursor",
-          "latestBlock",
-          "oldestBlock"
-        ],
+        "required": ["refs", "cursor", "latestBlock", "oldestBlock"],
         "type": "object"
       },
       "TransactionStatus": {
@@ -2015,9 +1770,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "status"
-            ],
+            "required": ["status"],
             "type": "object"
           },
           {
@@ -2032,10 +1785,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "status",
-              "height"
-            ],
+            "required": ["status", "height"],
             "type": "object"
           },
           {
@@ -2049,10 +1799,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "status",
-              "reason"
-            ],
+            "required": ["status", "reason"],
             "type": "object"
           },
           {
@@ -2071,11 +1818,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "status",
-              "attemptHeight",
-              "cause"
-            ],
+            "required": ["status", "attemptHeight", "cause"],
             "type": "object"
           },
           {
@@ -2089,10 +1832,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "status",
-              "error"
-            ],
+            "required": ["status", "error"],
             "type": "object"
           },
           {
@@ -2106,10 +1846,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "status",
-              "error"
-            ],
+            "required": ["status", "error"],
             "type": "object"
           },
           {
@@ -2120,9 +1857,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "status"
-            ],
+            "required": ["status"],
             "type": "object"
           },
           {
@@ -2133,9 +1868,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "status"
-            ],
+            "required": ["status"],
             "type": "object"
           }
         ]
@@ -2149,17 +1882,11 @@
         "properties": {
           "bundleManifestDigest": {
             "description": "Digest of the validated installed bundle manifest, when release identity is available.\nConsumers must not branch on this field.",
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "commitHash": {
             "description": "Diagnostic-only Git commit hash this server was built from, when available.\nConsumers must not branch on this field.",
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "implementation": {
             "description": "Diagnostic-only implementation version of the binary serving this RPC endpoint.\nConsumers must not branch on this field.",
@@ -2167,27 +1894,18 @@
           },
           "platformVersion": {
             "description": "Platform release this binary was packaged for, when available.\nConsumers must not branch on this field.",
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "releaseVersion": {
             "description": "Release containing this binary, after validation against its installed bundle manifest.\nConsumers must not branch on this field.",
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "wireFormat": {
             "description": "Wire-format `SemVer` of the `OpenRPC` spec this node implements.",
             "type": "string"
           }
         },
-        "required": [
-          "wireFormat",
-          "implementation"
-        ],
+        "required": ["wireFormat", "implementation"],
         "type": "object"
       },
       "ViewAuthClaim": {
@@ -2213,11 +1931,7 @@
                 "type": "integer"
               }
             },
-            "required": [
-              "kind",
-              "allowedKeys",
-              "requiredWeight"
-            ],
+            "required": ["kind", "allowedKeys", "requiredWeight"],
             "type": "object"
           },
           {
@@ -2235,11 +1949,7 @@
                 "description": "Hash naming the account's public key, scheme included:\n`sha256(cxs(DomainSeparator(\"PublicKey\")) || cxs(PublicKey))`."
               }
             },
-            "required": [
-              "kind",
-              "pubkeyHash",
-              "nonce"
-            ],
+            "required": ["kind", "pubkeyHash", "nonce"],
             "type": "object"
           }
         ]
@@ -2303,9 +2013,7 @@
             "description": "Freshness floor on the selected snapshot. Does not wait or request a refresh."
           }
         },
-        "required": [
-          "calls"
-        ],
+        "required": ["calls"],
         "type": "object"
       },
       "ViewBatchResponse": {
@@ -2321,10 +2029,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "height",
-          "results"
-        ],
+        "required": ["height", "results"],
         "type": "object"
       },
       "ViewCall": {
@@ -2374,11 +2079,7 @@
             "description": "Optional per-call gas budget. The endpoint's per-call and aggregate limits apply."
           }
         },
-        "required": [
-          "contract",
-          "entrypoint",
-          "calldata"
-        ],
+        "required": ["contract", "entrypoint", "calldata"],
         "type": "object"
       },
       "ViewCallResult": {
@@ -2398,11 +2099,7 @@
             "$ref": "#/components/schemas/RootInvocationOutput"
           }
         },
-        "required": [
-          "output",
-          "events",
-          "gasUsed"
-        ],
+        "required": ["output", "events", "gasUsed"],
         "type": "object"
       },
       "ViewRequest": {
@@ -2466,11 +2163,7 @@
             "description": "Minimum committed snapshot height. Does not wait or force a refresh."
           }
         },
-        "required": [
-          "contract",
-          "entrypoint",
-          "calldata"
-        ],
+        "required": ["contract", "entrypoint", "calldata"],
         "type": "object"
       },
       "ViewResponse": {
@@ -2496,12 +2189,7 @@
             "description": "Root invocation output."
           }
         },
-        "required": [
-          "output",
-          "events",
-          "height",
-          "gasUsed"
-        ],
+        "required": ["output", "events", "height", "gasUsed"],
         "type": "object"
       }
     }
