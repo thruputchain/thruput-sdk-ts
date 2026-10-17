@@ -3,13 +3,7 @@ set -euo pipefail
 
 GENERATOR="${THRUPUT_OPENRPC_GENERATOR:-}"
 if [[ -z "$GENERATOR" ]]; then
-  # Temporary source pin while the tools #557 generator is unreleased.
-  # Release follow-up (GH-520): once a matching generator is published, replace
-  # this with an exact registry version: cargo install thruput-open-rpc-spec@<version>
-  # --registry thruput --locked. Regenerate the schema and rerun contract tests
-  # before publishing the SDK. Keep the wire-version and page-limit checks below.
-  cargo install --git https://github.com/thruputchain/thruput-tools \
-    --rev 07d2c945f340b55aa84ed44dba535fcc3e1e782c thruput-open-rpc-spec --locked
+  cargo install thruput-open-rpc-spec@0.31.0 --registry thruput --locked
   GENERATOR="thruput-open-rpc-spec"
 fi
 SPEC="$(git rev-parse --show-toplevel)/specs/openrpc.json"

@@ -25,8 +25,8 @@ are canonical decimal strings in JSON and `bigint` in the client API, including
 heights, nanosecond timestamps, gas, mempool counts, wide server limits, and
 airdrop retry intervals. Smaller bounded fields, such as page limits and event
 sequence numbers, remain JSON numbers. Numeric JSON for wide fields is rejected,
-even when the value is small. Existing actions remain usable with the pinned
-12.0.0 integration runtime; block queries require the newer backend above.
+even when the value is small. The pinned integration runtime supports block
+queries and uses the same wire format.
 
 Pass heights as `bigint` (for example, `42n`). The actions serialize them as
 decimal strings and validate protocol bounds. When persisting client results,
@@ -784,7 +784,7 @@ npm run test:integration
 # Or qualify matching source builds:
 THRUPUT_CLI=/absolute/path/to/thruput \
 THRUPUT_DEVNODE_BINARY=/absolute/path/to/hog-devnode \
-THRUPUT_EXPECTED_WIRE_FORMAT=12.0.0 \
+THRUPUT_EXPECTED_WIRE_FORMAT=12.1.0 \
 npm run test:integration
 ```
 
@@ -797,8 +797,8 @@ events, contract views, and RPC errors. `npm test` remains node-independent.
 
 The transfer workflow also checks grouped reads and view freshness, an
 authenticated wallet simulation, and recovery of admitted local-funding bytes
-after a lost response. The pinned CLI 0.30.0 and hog-devnode 0.1.31-rc.7 use
-wire 12.0.0, which carries ML-DSA-65 pubkey accounts. A wire-11.1.0 node skips
+after a lost response. The pinned CLI 0.31.0 and hog-devnode 0.1.31-rc.8 use
+wire 12.1.0, which carries ML-DSA-65 pubkey accounts. A wire-11.1.0 node skips
 the last two probes explicitly.
 
 An explicit CLI overrides the release pin; tests verify that the RPC server
@@ -827,21 +827,19 @@ node --test --test-concurrency=1 tests/integration/live-node.test.mjs
 
 The tests do not perform capability discovery or fall back on unsupported runtimes.
 
-Block-query qualification requires explicit compatible CLI and node binaries.
+Block-query qualification uses the same published CLI and node pins.
 It starts an isolated interval-driven node, submits known
 transactions, compares both page orders with their receipts, checks empty blocks,
 parent linkage and the canonical tip hash, and rejects zero limits:
 
 ```sh
-THRUPUT_CLI=/absolute/path/to/thruput \
-THRUPUT_DEVNODE_BINARY=/absolute/path/to/hog-devnode \
 npm run test:integration:blocks
 ```
 
 Use the same optional `HOGD_PROTOCOL_OVERRIDE` rule as above. This profile requires
-wire 12.1.0 and fails on unsupported nodes; the ordinary integration profile keeps
-its published pins. See `scripts/regen-openrpc.sh` for the exact schema-generator
-source. Its default install requires GitHub repository and private Cargo registry
+wire 12.1.0 and fails on unsupported nodes. Both profiles run in CI. See
+`scripts/regen-openrpc.sh` for the exact published schema-generator version.
+Its default install requires private Cargo registry
 access. `THRUPUT_OPENRPC_GENERATOR` can select a compatible local generator.
 
 For local funding recovery, retain the original request before sending it.
