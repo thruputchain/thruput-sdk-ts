@@ -236,13 +236,6 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       const amount = 1_000n;
       await t.test(
         "simulates an authenticated wallet transfer and reads its temporary balance",
-        {
-          skip:
-            (process.env.THRUPUT_EXPECTED_WIRE_FORMAT ??
-              versions.wireFormat) === "11.1.0"
-              ? "The pinned node predates view auth; use matching source builds with wire 11.2.0"
-              : false,
-        },
         async () => {
           const invocation = defaultWalletAdapter.createBatchRootInvocation(
             sender.address,

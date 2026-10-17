@@ -782,6 +782,12 @@ that's your reminder.
 
 ### Live integration tests
 
+The wallet provider contract is now version `2.0.0`. Account addresses, public
+keys, network hashes and transaction hashes use case-sensitive, unprefixed
+base58. Version 1 providers and legacy hex identifiers are rejected. Reset
+pre-launch wallet sessions when adopting this contract. Transaction and
+signed-transaction XDR remain canonical `0x` hex, with binary signatures intact.
+
 This base58 branch requires matching wire-13 source builds on Linux with Node 24.
 The release pins in [`scripts/integration-versions.json`](scripts/integration-versions.json)
 still describe the wire-12.1 baseline and must be replaced after compatible releases exist.
