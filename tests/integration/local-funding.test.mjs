@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import versions from "../../scripts/integration-versions.json" with { type: "json" };
 import { randomBytes } from "node:crypto";
 import { mkdtemp, open, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -27,7 +28,10 @@ test(
     assert.ok(rpcUrl, "Set THRUPUT_RPC_URL to a GH-462 local node");
     const transport = new HttpTransport(rpcUrl, { timeoutMs: 30_000 });
     const version = await transport.request("groundhog_version", []);
-    assert.equal(version.wireFormat, "12.0.0");
+    assert.equal(
+      version.wireFormat,
+      process.env.THRUPUT_EXPECTED_WIRE_FORMAT ?? versions.wireFormat,
+    );
     const manifest = JSON.parse(
       await readFile(process.env.THRUPUT_RUNTIME_MANIFEST, "utf8"),
     );
