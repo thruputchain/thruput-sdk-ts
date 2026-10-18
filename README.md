@@ -774,6 +774,7 @@ that's your reminder.
 - `npm run test:package-boundary` — compile a consumer fixture against the built package declarations.
 - `npm run test:smoke` — load every built package entrypoint as ESM and CommonJS.
 - `npm run test:integration` — build the package and test it against an isolated real local node (Linux).
+- `npm run test:integration:cli-transfer` — build the package and read back a CLI transfer from an existing node.
 - `npm run contracts:generate` — regenerate all checked-in contract bindings from pinned specs.
 - `npm run contracts:check` — verify generated bindings match their pinned specs and generator.
 - `npm run docs` — generate TypeDoc API reference HTML in `docs/api/`.
@@ -784,9 +785,8 @@ that's your reminder.
 
 The wallet provider contract is now version `2.0.0`. Account addresses, public
 keys, network hashes and transaction hashes use case-sensitive, unprefixed
-base58. Version 1 providers and legacy hex identifiers are rejected. Reset
-pre-launch wallet sessions when adopting this contract. Transaction and
-signed-transaction XDR remain canonical `0x` hex, with binary signatures intact.
+base58. Transaction and signed-transaction XDR remain canonical `0x` hex,
+with binary signatures intact.
 
 This base58 branch requires matching wire-13 source builds on Linux with Node 24.
 The release pins in [`scripts/integration-versions.json`](scripts/integration-versions.json)
@@ -804,6 +804,17 @@ loopback port. The host must provide the devnode's native runtime libraries;
 CI uses the same Ubuntu 26.04 Namespace profile as the RPC repository. Tests
 import the built package and check connection, local funding, a HOG transfer, receipts,
 events, contract views, and RPC errors. `npm test` remains node-independent.
+
+The tools smoke harness can also create a transfer and run the SDK readback
+check against its existing node:
+
+```sh
+THRUPUT_CLI_TRANSFER_RESULT=/absolute/path/to/result.json npm run test:integration:cli-transfer
+```
+
+This command reads the harness's transfer evidence and checks the receipt,
+event, balance and network identity. The tools harness owns the node lifecycle;
+the normal integration command always starts its own node and runs its suite.
 
 The transfer workflow also checks grouped reads and view freshness, an
 authenticated wallet simulation, and recovery of admitted local-funding bytes

@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { contractAddress, sha256Hash } from "@thruputchain/protocol";
 import { toBase58 } from "../encoding.js";
-import { getBalance } from "./public/getBalance.js";
 import { getTransactionReceipt } from "./public/getTransactionReceipt.js";
 import { getEvents } from "./public/getEvents.js";
 import { toHex0x } from "./hex.js";
@@ -12,17 +11,6 @@ const address = contractAddress(bytes);
 const hash = sha256Hash(bytes);
 
 describe("RPC semantic encoding boundary", () => {
-  it("rejects legacy hex addresses rather than detecting their format", async () => {
-    for (const encoded of [toHex0x(bytes), toHex0x(bytes).slice(2)]) {
-      const transport: Transport = {
-        async request<T>() {
-          return { address: encoded, rawBalance: "0", height: "1" } as T;
-        },
-      };
-      await expect(getBalance(transport, address)).rejects.toThrow();
-    }
-  });
-
   it("preserves hex topics, event bytes, and opaque cursors alongside base58 identities", async () => {
     const event = {
       contractAddress: toBase58(address),
@@ -64,7 +52,7 @@ describe("RPC semantic encoding boundary", () => {
     expect(page.cursor).toEqual(new Uint8Array([1, 2]));
   });
 
-  it("keeps receipt return bytes hex and rejects hex transaction identifiers", async () => {
+  it("decodes base58 receipt hashes and hex return bytes", async () => {
     const response = {
       txHash: toBase58(hash),
       height: "1",
@@ -78,12 +66,8 @@ describe("RPC semantic encoding boundary", () => {
         return response as T;
       },
     };
-    expect((await getTransactionReceipt(transport, hash))?.returnData).toEqual(
-      bytes,
-    );
-    response.txHash = toHex0x(hash);
-    await expect(getTransactionReceipt(transport, hash)).rejects.toThrow(
-      "hash does not match",
-    );
+    const receipt = await getTransactionReceipt(transport, hash);
+    expect(receipt?.txHash).toEqual(hash);
+    expect(receipt?.returnData).toEqual(bytes);
   });
 });

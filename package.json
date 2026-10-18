@@ -81,6 +81,7 @@
     "test:watch": "vitest",
     "test:smoke": "node scripts/smoke-test.mjs",
     "test:integration": "npm run build && node scripts/run-integration.mjs",
+    "test:integration:cli-transfer": "npm run build && node --test --test-timeout=30000 tests/integration/cli-transfer.test.mjs",
     "test:integration:blocks": "npm run build && node scripts/run-integration.mjs --blocks",
     "test:package-boundary": "tsc -p scripts/tsconfig.package-boundary.json",
     "typecheck": "tsc --noEmit",

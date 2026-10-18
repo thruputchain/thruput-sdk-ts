@@ -13,7 +13,7 @@ import {
 } from "./encoding.js";
 
 describe("identifier adapters", () => {
-  it("requires exact widths and rejects hex and StrKeys on machine boundaries", () => {
+  it("requires base58 identifiers of the exact byte width", () => {
     const bytes = new Uint8Array(32);
     for (const parse of [addressFromBase58, hashFromBase58]) {
       expect(parse(toBase58(bytes))).toEqual(bytes);

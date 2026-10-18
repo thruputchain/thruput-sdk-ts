@@ -177,30 +177,6 @@ async function main() {
   if (process.platform !== "linux") {
     throw new Error("The live-node harness currently supports Linux only");
   }
-  // The CLI harness owns the node lifecycle for cross-client readback.
-  if (process.env.THRUPUT_CLI_TRANSFER_RESULT) {
-    const tests = launch(
-      process.execPath,
-      [
-        "--test",
-        `--test-timeout=${runnerTimeoutMs}`,
-        join(repo, "tests/integration/cli-transfer.test.mjs"),
-      ],
-      {
-        ...process.env,
-        THRUPUT_CLI_TRANSFER_RESULT: resolve(
-          process.env.THRUPUT_CLI_TRANSFER_RESULT,
-        ),
-      },
-      "cli-transfer",
-      true,
-    );
-    requireSuccess(
-      tests,
-      await bounded(tests.done, harnessTimeoutMs, "CLI transfer readback"),
-    );
-    return;
-  }
   if (
     versions.requiresLocalBuilds &&
     (!process.env.THRUPUT_CLI || !process.env.THRUPUT_DEVNODE_BINARY)

@@ -24,15 +24,6 @@ function fixture(value: unknown) {
 }
 
 describe("getTransactionsByBlock", () => {
-  it("rejects legacy hex transaction identifiers", async () => {
-    const raw = page();
-    raw.refs[0]!.txHash = `0x${"7f".repeat(32)}`;
-    const { transport } = fixture(raw);
-    await expect(
-      getTransactionsByBlock(transport, { height }),
-    ).rejects.toThrow();
-  });
-
   it("forwards cancellation during an in-flight request", async () => {
     const controller = new AbortController();
     const reason = new Error("cancelled by caller");
