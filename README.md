@@ -270,7 +270,7 @@ const balance = await ERC20.v0_1.getBalanceOf.view({
 });
 ```
 
-This requires a matching RPC wire format 12 endpoint and also works with `.viewOutcome()`, bound
+This requires a matching RPC wire format 13.0.0 endpoint and also works with `.viewOutcome()`, bound
 views, and raw `client.view()`. The result must come from a committed snapshot at
 or above that height. An older snapshot produces `ViewHeightUnavailable`
 (`-32011`) with requested and observed heights. It does not undo transaction
