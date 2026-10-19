@@ -177,14 +177,6 @@ async function main() {
   if (process.platform !== "linux") {
     throw new Error("The live-node harness currently supports Linux only");
   }
-  if (
-    versions.requiresLocalBuilds &&
-    (!process.env.THRUPUT_CLI || !process.env.THRUPUT_DEVNODE_BINARY)
-  ) {
-    throw new Error(
-      `Wire ${versions.wireFormat} integration requires matching local builds. Set THRUPUT_CLI and THRUPUT_DEVNODE_BINARY; the published pins do not support base58 identifiers.`,
-    );
-  }
   const requestedCli = process.env.THRUPUT_CLI ?? "thruput";
   const cli = requestedCli.includes("/") ? resolve(requestedCli) : requestedCli;
   const { stdout } = await exec(cli, ["--version"], { timeout: 10_000 });

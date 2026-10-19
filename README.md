@@ -788,14 +788,11 @@ keys, network hashes and transaction hashes use case-sensitive, unprefixed
 base58. Transaction and signed-transaction XDR remain canonical `0x` hex,
 with binary signatures intact.
 
-This base58 branch requires matching wire-13 source builds on Linux with Node 24.
-The release pins in [`scripts/integration-versions.json`](scripts/integration-versions.json)
-still describe the wire-12.1 baseline and must be replaced after compatible releases exist.
+Run on Linux with Node 24 and the published CLI version pinned in
+[`scripts/integration-versions.json`](scripts/integration-versions.json) on `PATH`.
+The harness installs the pinned runtime into an isolated cache.
 
 ```sh
-THRUPUT_CLI=/absolute/path/to/thruput \
-THRUPUT_DEVNODE_BINARY=/absolute/path/to/hog-devnode \
-THRUPUT_EXPECTED_WIRE_FORMAT=13.0.0 \
 npm run test:integration
 ```
 
@@ -818,9 +815,8 @@ the normal integration command always starts its own node and runs its suite.
 
 The transfer workflow also checks grouped reads and view freshness, an
 authenticated wallet simulation, and recovery of admitted local-funding bytes
-after a lost response. The pinned CLI 0.31.0 and hog-devnode 0.1.31-rc.8 use
-wire 12.1.0, which carries ML-DSA-65 pubkey accounts but still uses hex identifiers.
-Those release pins do not qualify this branch's base58 boundary.
+after a lost response. The pinned CLI 0.32.0 and hog-devnode 0.1.31-rc.10 use
+wire 13.0.0 with base58 identifiers and ML-DSA-65 pubkey accounts.
 
 An explicit CLI overrides the release pin; tests verify that the RPC server
 reports that executable's version. The expected wire version defaults to

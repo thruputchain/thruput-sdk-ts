@@ -3,7 +3,7 @@ set -euo pipefail
 
 GENERATOR="${THRUPUT_OPENRPC_GENERATOR:-}"
 if [[ -z "$GENERATOR" ]]; then
-  cargo install thruput-open-rpc-spec@0.31.0 --registry thruput --locked
+  cargo install thruput-open-rpc-spec@0.32.0 --registry thruput --locked
   GENERATOR="thruput-open-rpc-spec"
 fi
 SPEC="$(git rev-parse --show-toplevel)/specs/openrpc.json"
