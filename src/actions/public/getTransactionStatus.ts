@@ -1,3 +1,4 @@
+import { toBase58, addressFromBase58 } from "../../encoding.js";
 import type { SHA256Hash } from "@thruputchain/protocol";
 import type {
   Transport,
@@ -11,7 +12,7 @@ import type {
   TransactionStatus,
   SchedulerTransactionError,
 } from "../../types/rpc.js";
-import { addressFromHex, fromHex0x, toHex0x } from "../hex.js";
+import { fromHex0x } from "../hex.js";
 import { parseHeight } from "../decimal.js";
 
 const conflictCodes = new Set<string>([
@@ -53,7 +54,7 @@ function parseConflictDiagnostic(value: unknown): ConflictDiagnostic {
   }
 
   return {
-    address: addressFromHex(conflict.address),
+    address: addressFromBase58(conflict.address),
     key: fromHex0x(conflict.key),
     code: parseConflictCode(conflict.code),
   };
@@ -156,7 +157,7 @@ export async function getTransactionStatus(
   options?.signal?.throwIfAborted();
   const raw = await transport.request<unknown>(
     "groundhog_getTransactionStatus",
-    [toHex0x(txHash)],
+    [toBase58(txHash)],
     options,
   );
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {

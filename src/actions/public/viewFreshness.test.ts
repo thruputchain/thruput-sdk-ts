@@ -1,3 +1,4 @@
+import { toBase58 } from "../../encoding.js";
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import {
   calldata,
@@ -35,7 +36,7 @@ const response = {
   height: "42",
   gasUsed: "17",
   output: { result: "return", returnData: toHex0x(writer.finish()) },
-  events: [{ contractAddress: toHex0x(address), topics: [], data: "0x0102" }],
+  events: [{ contractAddress: toBase58(address), topics: [], data: "0x0102" }],
 };
 function stub(result: unknown = response) {
   const request = vi.fn(
@@ -69,10 +70,10 @@ describe("single-view freshness", () => {
         "groundhog_view",
         [
           {
-            contract: toHex0x(address),
+            contract: toBase58(address),
             entrypoint: toHex0x(call.entrypoint),
             calldata: "0x",
-            caller: toHex0x(address),
+            caller: toBase58(address),
             gasLimit: "123",
             ...(minHeight === undefined
               ? {}

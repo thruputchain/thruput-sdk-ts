@@ -1,24 +1,24 @@
-/** Public identity advertised by a version 1 provider. Not an attestation. */
+/** Public identity advertised by a version 2 provider. Not an attestation. */
 export interface WalletProviderInfo {
   /** Stable discovery ID: 1–64 ASCII letters, digits, dots, underscores, or hyphens. */
   id: string;
   /** Display text: 1–80 characters, without controls or surrounding whitespace. */
   name: string;
   /** Supported wire contract version. */
-  version: "1.0.0";
+  version: "2.0.0";
 }
 
-/** Wire pubkey account: canonical 0x hex and a decimal u64 derivation nonce. */
+/** Wire pubkey account: unprefixed base58 and a decimal u64 derivation nonce. */
 export interface WalletAccount {
-  /** Derived pubkey account address: 32 bytes of lowercase, 0x-prefixed hex. */
+  /** Derived pubkey account address: 32 bytes of case-sensitive base58. */
   address: string;
-  /** Non-small-order, prime-order Ed25519 key in the same 32-byte hex format. */
+  /** Non-small-order, prime-order Ed25519 key in the same 32-byte base58 format. */
   publicKey: string;
   /** Canonical decimal u64 account-derivation nonce, not a transaction nonce. */
   nonce: string;
 }
 
-/** Origin-authorized accounts on a network (64 lowercase hex, no 0x). */
+/** Origin-authorized accounts on a network identified by a 32-byte base58 hash. */
 export interface WalletSession {
   /** Current network identity, retained even when the origin has no permission. */
   networkHash: string;
@@ -30,7 +30,7 @@ export interface WalletSession {
 export interface WalletCapabilities {
   /** Canonical account address used in the capability request. */
   account: string;
-  /** Network identity: 64 lowercase hex characters, without 0x. */
+  /** Network identity: unprefixed, case-sensitive 32-byte base58. */
   networkHash: string;
   /** Ordered, all-or-nothing DefaultWallet calls; null means unsupported. */
   atomicBatch: { maxCalls: number } | null;
@@ -41,7 +41,7 @@ export interface WalletCapabilities {
  * See {@link WalletProvider.request} for each method's result and permission rules.
  *
  * Signing parameters select an authorized account address and the current session's
- * network hash (64 lowercase hex characters without 0x). Transaction payloads are
+ * network hash (unprefixed, case-sensitive base58). Transaction payloads are
  * lowercase, even-length, 0x-prefixed canonical classic XDR, with no trailing bytes.
  * Providers must enforce {@link MAX_UNSIGNED_TRANSACTION_BYTES} before user approval;
  * signed payloads are bounded by {@link MAX_TRANSACTION_BYTES}.
@@ -78,7 +78,7 @@ export type ProviderRequest =
 export interface SignTransactionResult {
   /** Canonical signed XDR preserving the approved unsigned bytes, with one signature. */
   signedTransaction: string;
-  /** 0x-prefixed lowercase SHA-256 of unsigned transaction XDR; excludes signatures and network. */
+  /** Base58 SHA-256 of unsigned transaction XDR; excludes signatures and network. */
   hash: string;
 }
 

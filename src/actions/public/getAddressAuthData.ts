@@ -1,3 +1,8 @@
+import {
+  toBase58,
+  addressFromBase58,
+  fixedFromBase58,
+} from "../../encoding.js";
 import type { ContractAddress } from "@thruputchain/protocol";
 import type {
   Transport,
@@ -8,7 +13,6 @@ import type {
   AuthPublicKey,
 } from "../../types/rpc.js";
 import { parseHeight } from "../decimal.js";
-import { addressFromHex, fromHex0x, toHex0x } from "../hex.js";
 
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -45,11 +49,15 @@ function publicKey(value: unknown): AuthPublicKey {
   if (key.scheme !== "ed25519" || typeof key.key !== "string") {
     throw new Error("Invalid address auth response: publicKey");
   }
-  const bytes = fromHex0x(key.key);
-  if (bytes.length !== 32)
+  let bytes: Uint8Array;
+  try {
+    bytes = fixedFromBase58(key.key, 32);
+  } catch (cause) {
     throw new Error(
       "Invalid address auth response: expected 32-byte public key",
+      { cause },
     );
+  }
   return { scheme: "ed25519", key: bytes };
 }
 
@@ -63,14 +71,14 @@ export async function getAddressAuthData(
   const raw = object(
     await transport.request<unknown>(
       "groundhog_getAddressAuthData",
-      [toHex0x(address)],
+      [toBase58(address)],
       options,
     ),
   );
   if (typeof raw.address !== "string")
     throw new Error("Invalid address auth response: address");
-  const returnedAddress = addressFromHex(raw.address);
-  if (toHex0x(returnedAddress) !== toHex0x(address))
+  const returnedAddress = addressFromBase58(raw.address);
+  if (toBase58(returnedAddress) !== toBase58(address))
     throw new Error("Invalid address auth response: address mismatch");
   const height = parseHeight(raw.height, "address auth height");
   if (raw.authData === null)

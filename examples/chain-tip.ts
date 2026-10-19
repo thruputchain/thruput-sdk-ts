@@ -1,5 +1,5 @@
 // Repository-local import; applications use "@thruputchain/client".
-import { createThruputClient, devnet, toHex0x } from "../src/index.js";
+import { createThruputClient, devnet, toBase58 } from "../src/index.js";
 
 const rpcUrl = process.env.THRUPUT_RPC_URL;
 const client = await createThruputClient({
@@ -13,9 +13,9 @@ const [tip, version] = await Promise.all([
 
 console.log({
   rpcUrl: client.cluster.rpcUrl,
-  networkHash: toHex0x(client.network.networkHash),
+  networkHash: toBase58(client.network.networkHash),
   height: tip.height.toString(),
-  blockHash: toHex0x(tip.blockHash),
+  blockHash: toBase58(tip.blockHash),
   wireFormat: version.wireFormat,
   implementation: version.implementation,
   releaseVersion: version.releaseVersion,

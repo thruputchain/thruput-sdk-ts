@@ -1,6 +1,7 @@
+import { addressFromBase58 } from "../encoding.js";
 import { kMaxEventLength, kMaxTopics } from "@thruputchain/protocol";
 import type { EmittedEvent } from "../types/rpc.js";
-import { addressFromHex, fromHex0x } from "./hex.js";
+import { fromHex0x } from "./hex.js";
 
 interface RawEmittedEvent {
   contractAddress?: unknown;
@@ -55,7 +56,7 @@ export function parseEmittedEvent(value: unknown): EmittedEvent {
   }
 
   return {
-    contractAddress: addressFromHex(event.contractAddress),
+    contractAddress: addressFromBase58(event.contractAddress),
     topics,
     data,
   };

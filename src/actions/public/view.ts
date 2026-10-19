@@ -1,3 +1,4 @@
+import { toBase58 } from "../../encoding.js";
 import type {
   Transport,
   TransportRequestOptions,
@@ -62,7 +63,7 @@ export function parseViewOutput(value: unknown): ViewOutput {
  *
  * `view` is useful for local reads and UI queries. The invocation is evaluated
  * by the gateway and does not enter the mempool.
- * Optional `authClaim` assumes authorization without signatures (RPC wire 12.0.0).
+ * Optional `authClaim` assumes authorization without signatures (RPC wire 13.0.0).
  * Contracts still run their normal checks.
  * `minHeight` requires the actual committed snapshot to be at least that height.
  * A lagging server returns ViewHeightUnavailable; this action never polls or retries.
@@ -103,10 +104,10 @@ export async function view(
     "groundhog_view",
     [
       {
-        contract: toHex0x(request.contract),
+        contract: toBase58(request.contract),
         entrypoint: toHex0x(request.entrypoint),
         calldata: toHex0x(request.calldata),
-        ...(request.caller ? { caller: toHex0x(request.caller) } : {}),
+        ...(request.caller ? { caller: toBase58(request.caller) } : {}),
         ...(request.authClaim === undefined
           ? {}
           : { authClaim: serializeViewAuthClaim(request.authClaim) }),

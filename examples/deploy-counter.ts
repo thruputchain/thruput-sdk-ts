@@ -9,6 +9,7 @@ import {
   localnet,
   prepareContractDeployment,
   toHex0x,
+  toBase58,
 } from "../src/index.js";
 import { Counter } from "./generated/counter.js";
 
@@ -72,12 +73,12 @@ if (view.value !== 47n) {
 
 console.log({
   rpcUrl: client.cluster.rpcUrl,
-  account: toHex0x(account.address),
-  airdropTxHash: toHex0x(airdrop.txHash),
-  contractHash: toHex0x(deployment.contractHash),
+  account: toBase58(account.address),
+  airdropTxHash: toBase58(airdrop.txHash),
+  contractHash: toBase58(deployment.contractHash),
   deploymentNonce: toHex0x(deployment.deploymentNonce),
-  contractAddress: toHex0x(address),
-  deployTxHash: toHex0x(deployHash),
-  callTxHash: toHex0x(callHash),
+  contractAddress: toBase58(address),
+  deployTxHash: toBase58(deployHash),
+  callTxHash: toBase58(callHash),
   value: view.value.toString(),
 });

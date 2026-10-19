@@ -1,3 +1,4 @@
+import { toBase58, hashFromBase58 } from "../../encoding.js";
 import type {
   Transport,
   TransportRequestOptions,
@@ -8,7 +9,7 @@ import type {
   IdentifiedEvent,
 } from "../../types/rpc.js";
 import { parseEmittedEvent } from "../emittedEvent.js";
-import { toHex0x, fromHex0x, hashFromHex } from "../hex.js";
+import { toHex0x, fromHex0x } from "../hex.js";
 import { parseHeight, serializeHeight } from "../decimal.js";
 
 interface RawIdentifiedEvent {
@@ -37,7 +38,7 @@ function serializeQuery(query: EventQuery): unknown {
 
   return {
     filters: query.filters.map((f) => ({
-      contractAddresses: f.contractAddresses.map((a) => toHex0x(a)),
+      contractAddresses: f.contractAddresses.map((a) => toBase58(a)),
       topics: {
         topic0: (f.topics?.topic0 ?? []).map((t) => toHex0x(t)),
         topic1: (f.topics?.topic1 ?? []).map((t) => toHex0x(t)),
@@ -62,7 +63,7 @@ function parseIdentifiedEvent(value: unknown): IdentifiedEvent {
   }
 
   return {
-    txHash: hashFromHex(entry.txHash),
+    txHash: hashFromBase58(entry.txHash),
     blockHeight: parseHeight(entry.blockHeight, "blockHeight"),
     sequenceNumber: entry.sequenceNumber,
     event: parseEmittedEvent(entry.event),

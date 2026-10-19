@@ -4,9 +4,11 @@ import type { Transport } from "../../transport/types.js";
 import { getTransactionsByBlock } from "./getTransactionsByBlock.js";
 import { getBlockByNumber } from "./getBlockByNumber.js";
 import { MockTransport } from "../../transport/mock.js";
+import { toBase58 } from "../../encoding.js";
 
 const height = 9223372036854775807n;
-const hash = (byte: string) => `0x${byte.repeat(32)}`;
+const hash = (byte: string) =>
+  toBase58(new Uint8Array(32).fill(Number.parseInt(byte, 16)));
 const page = () => ({
   refs: [
     { txHash: hash("7f"), height: height.toString() },

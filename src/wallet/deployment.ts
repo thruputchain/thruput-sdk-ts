@@ -18,7 +18,7 @@ import { bytesEqual } from "../contract/event.js";
 import type { TransactionReceipt } from "../types/rpc.js";
 import type { WalletInvocationAdapter } from "./invocationAdapter.js";
 import type { PrepareTransactionRequest } from "../actions/wallet/prepareTransaction.js";
-import { toHex0x } from "../actions/hex.js";
+import { toBase58 } from "../encoding.js";
 
 /** Stable deployment identity, available before transaction preparation. */
 export interface ContractDeployment {
@@ -122,7 +122,7 @@ export function decodeDeployment(
   const address = adapter.decodeDeploymentReceipt(receipt);
   if (!bytesEqual(address, deployment.address))
     throw new Error(
-      `Deployment ${toHex0x(receipt.txHash)} returned ${toHex0x(address)}, expected ${toHex0x(deployment.address)}`,
+      `Deployment ${toBase58(receipt.txHash)} returned ${toBase58(address)}, expected ${toBase58(deployment.address)}`,
     );
   return address;
 }

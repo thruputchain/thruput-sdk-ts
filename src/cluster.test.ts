@@ -1,3 +1,4 @@
+import { toBase58 } from "./encoding.js";
 import { describe, expect, it, vi } from "vitest";
 import { hashFromHex } from "./actions/hex.js";
 import { networkHash } from "@thruputchain/protocol";
@@ -21,13 +22,15 @@ function networkTransport(networkByte: string): Transport {
     async request<T>(method: string): Promise<T> {
       if (method === "groundhog_networkInfo") {
         return {
-          networkHash: "0x" + networkByte.repeat(32),
+          networkHash: toBase58(
+            new Uint8Array(32).fill(Number.parseInt(networkByte, 16)),
+          ),
         } as T;
       }
       if (method === "groundhog_chainTip") {
         return {
           height: "0",
-          blockHash: "0x" + "00".repeat(32),
+          blockHash: toBase58(new Uint8Array(32).fill(0x00)),
         } as T;
       }
       throw new Error(`Unexpected method: ${method}`);
@@ -161,7 +164,7 @@ describe("createThruputClient", () => {
         jsonrpc: "2.0",
         id: 1,
         result: {
-          networkHash: "0x" + "00".repeat(32),
+          networkHash: toBase58(new Uint8Array(32).fill(0x00)),
         },
       }),
     );
@@ -207,7 +210,7 @@ describe("createThruputClient", () => {
         async request<T>(): Promise<T> {
           await gate;
           return {
-            networkHash: "0x" + "11".repeat(32),
+            networkHash: toBase58(new Uint8Array(32).fill(0x11)),
           } as T;
         },
       },
@@ -229,10 +232,7 @@ describe("createThruputClient", () => {
 
     await expect(connection).rejects.toBeInstanceOf(NetworkMismatchError);
     await expect(connection).rejects.toThrow(
-      "Network mismatch for mainnet: expected network 0x" +
-        "11".repeat(32) +
-        ", received network 0x" +
-        "44".repeat(32),
+      "Network mismatch for mainnet: expected network 29d2S7vB453rNYFdR5Ycwt7y9haRT5fwVwL9zTmBhfV2, received network 5bV6jUfhDHCQVA1WfKBUnXUsboJgoKgkzkKcxr3joew5",
     );
   });
 
@@ -240,8 +240,7 @@ describe("createThruputClient", () => {
     const actual = { networkHash: protocolNetworkHash("44") };
 
     expect(new NetworkMismatchError(mainnet(), actual).message).toBe(
-      "Network mismatch for mainnet: expected an unpinned network, received network 0x" +
-        "44".repeat(32),
+      "Network mismatch for mainnet: expected an unpinned network, received network 5bV6jUfhDHCQVA1WfKBUnXUsboJgoKgkzkKcxr3joew5",
     );
   });
 });

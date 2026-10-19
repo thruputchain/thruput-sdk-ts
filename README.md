@@ -19,8 +19,14 @@ token with `read:packages`. See [Registry auth](#registry-auth-one-time-setup).
 
 ## Usage
 
-This checkout pins RPC wire format **12.1.0**. Block queries require a compatible
-RPC server and a node with the block-query index. All 64-bit and wider integers
+This checkout pins RPC wire format **13.0.0**. Block queries require a compatible
+RPC server and a node with the block-query index. RPC addresses, public keys,
+validator IDs and hashes use unprefixed, case-sensitive base58. Opaque payloads
+(including signed transactions, calldata, return data, storage keys, raw event
+topics and cursors) retain `0x`-prefixed hex. Actions continue to accept and return
+typed byte arrays; they apply the encoding at the transport boundary.
+
+All 64-bit and wider integers
 are canonical decimal strings in JSON and `bigint` in the client API, including
 heights, nanosecond timestamps, gas, mempool counts, wide server limits, and
 airdrop retry intervals. Smaller bounded fields, such as page limits and event
@@ -107,13 +113,13 @@ Pass a cluster to fetch the endpoint's network identity during connection and
 verify it against the cluster's `networkHash`, if supplied:
 
 ```ts
-import { createThruputClient, devnet, toHex0x } from "@thruputchain/client";
+import { createThruputClient, devnet, toBase58 } from "@thruputchain/client";
 
 const client = await createThruputClient({
   cluster: devnet(),
 });
 
-console.log(toHex0x(client.network.networkHash));
+console.log(toBase58(client.network.networkHash));
 ```
 
 `devnet()` uses `https://rpc.thruput.network`. Applications with an explicit
@@ -264,7 +270,7 @@ const balance = await ERC20.v0_1.getBalanceOf.view({
 });
 ```
 
-This requires RPC wire format 11.1.0 and also works with `.viewOutcome()`, bound
+This requires a matching RPC wire format 13.0.0 endpoint and also works with `.viewOutcome()`, bound
 views, and raw `client.view()`. The result must come from a committed snapshot at
 or above that height. An older snapshot produces `ViewHeightUnavailable`
 (`-32011`) with requested and observed heights. It does not undo transaction
@@ -280,7 +286,7 @@ its normal permission checks. Omitting the claim keeps the current default.
 
 Pass `authClaim` to `client.view`, generated or bound `.view()` / `.viewOutcome()`,
 or `.viewRequest()` for a grouped read. Each `viewBatch` entry has its own claim.
-This requires matching RPC (wire 12.0.0) and hogd builds with view auth support.
+This requires matching RPC (wire 13.0.0) and hogd builds with view auth support.
 
 `caller` is separate: it supplies a parent-contract address. To simulate a root
 invocation such as `DefaultWallet.execute`, use the account address as `contract`,
@@ -316,7 +322,7 @@ behind, the server returns `ViewHeightUnavailable` with requested and observed
 heights. The request neither waits for a block nor forces a refresh; your
 application decides whether and when to retry.
 
-This requires `groundhog_viewBatch` (RPC wire format 11.1.0). Existing generated
+This requires `groundhog_viewBatch` (RPC wire format 13.0.0). Existing generated
 bindings gain `viewRequest` through the runtime. The low-level API is
 `client.viewBatch({ calls, minHeight })`. Neither API splits calls or falls back
 to separate views. HTTP transport batching alone does not share snapshots.
@@ -768,6 +774,7 @@ that's your reminder.
 - `npm run test:package-boundary` — compile a consumer fixture against the built package declarations.
 - `npm run test:smoke` — load every built package entrypoint as ESM and CommonJS.
 - `npm run test:integration` — build the package and test it against an isolated real local node (Linux).
+- `npm run test:integration:cli-transfer` — build the package and read back a CLI transfer from an existing node.
 - `npm run contracts:generate` — regenerate all checked-in contract bindings from pinned specs.
 - `npm run contracts:check` — verify generated bindings match their pinned specs and generator.
 - `npm run docs` — generate TypeDoc API reference HTML in `docs/api/`.
@@ -776,30 +783,40 @@ that's your reminder.
 
 ### Live integration tests
 
-On Linux with Node 24, install the CLI version pinned in
-[`scripts/integration-versions.json`](scripts/integration-versions.json), then run:
+The wallet provider contract is now version `2.0.0`. Account addresses, public
+keys, network hashes and transaction hashes use case-sensitive, unprefixed
+base58. Transaction and signed-transaction XDR remain canonical `0x` hex,
+with binary signatures intact.
+
+Run on Linux with Node 24 and the published CLI version pinned in
+[`scripts/integration-versions.json`](scripts/integration-versions.json) on `PATH`.
+The harness installs the pinned runtime into an isolated cache.
 
 ```sh
 npm run test:integration
-# Or qualify matching source builds:
-THRUPUT_CLI=/absolute/path/to/thruput \
-THRUPUT_DEVNODE_BINARY=/absolute/path/to/hog-devnode \
-THRUPUT_EXPECTED_WIRE_FORMAT=12.1.0 \
-npm run test:integration
 ```
 
-The harness installs the pinned devnode through the CLI’s checksum-verified
-runtime catalog. It checks that the executable runs and starts a fresh node on an OS-assigned
+The harness checks that the executable runs and starts a fresh node on an OS-assigned
 loopback port. The host must provide the devnode's native runtime libraries;
 CI uses the same Ubuntu 26.04 Namespace profile as the RPC repository. Tests
 import the built package and check connection, local funding, a HOG transfer, receipts,
 events, contract views, and RPC errors. `npm test` remains node-independent.
 
+The tools smoke harness can also create a transfer and run the SDK readback
+check against its existing node:
+
+```sh
+THRUPUT_CLI_TRANSFER_RESULT=/absolute/path/to/result.json npm run test:integration:cli-transfer
+```
+
+This command reads the harness's transfer evidence and checks the receipt,
+event, balance and network identity. The tools harness owns the node lifecycle;
+the normal integration command always starts its own node and runs its suite.
+
 The transfer workflow also checks grouped reads and view freshness, an
 authenticated wallet simulation, and recovery of admitted local-funding bytes
-after a lost response. The pinned CLI 0.31.0 and hog-devnode 0.1.31-rc.8 use
-wire 12.1.0, which carries ML-DSA-65 pubkey accounts. A wire-11.1.0 node skips
-the last two probes explicitly.
+after a lost response. The pinned CLI 0.32.0 and hog-devnode 0.1.31-rc.10 use
+wire 13.0.0 with base58 identifiers and ML-DSA-65 pubkey accounts.
 
 An explicit CLI overrides the release pin; tests verify that the RPC server
 reports that executable's version. The expected wire version defaults to
@@ -813,7 +830,7 @@ retains logs and node state on failure at the printed temporary path. Set
 `THRUPUT_INTEGRATION_LOG_DIR` to retain logs at a chosen location; CI uploads
 them as `live-node-logs`.
 
-The pinned devnode supports unified native deployment. The standard integration
+The matching devnode must support unified native deployment. The standard integration
 run requires atomic funding, deployment, initialization and state readback to
 pass. To qualify another matching runtime, start a disposable node and run the
 built package tests against its reported URL and manifest:
@@ -827,7 +844,7 @@ node --test --test-concurrency=1 tests/integration/live-node.test.mjs
 
 The tests do not perform capability discovery or fall back on unsupported runtimes.
 
-Block-query qualification uses the same published CLI and node pins.
+Block-query qualification requires the same matching source builds.
 It starts an isolated interval-driven node, submits known
 transactions, compares both page orders with their receipts, checks empty blocks,
 parent linkage and the canonical tip hash, and rejects zero limits:
@@ -837,14 +854,15 @@ npm run test:integration:blocks
 ```
 
 Use the same optional `HOGD_PROTOCOL_OVERRIDE` rule as above. This profile requires
-wire 12.1.0 and fails on unsupported nodes. Both profiles run in CI. See
+wire 13.0.0 and fails on unsupported nodes. Both profiles run in CI; their release
+pins remain a qualification blocker for this branch. See
 `scripts/regen-openrpc.sh` for the exact published schema-generator version.
 Its default install requires private Cargo registry
 access. `THRUPUT_OPENRPC_GENERATOR` can select a compatible local generator.
 
 For local funding recovery, retain the original request before sending it.
-A `LocalFundingUnresolved` RPC error preserves the original `txHash` and
-`signedTransaction` hex strings in `JsonRpcError.data`. These are transaction
+A `LocalFundingUnresolved` RPC error preserves the original base58 `txHash` and
+hex `signedTransaction` in `JsonRpcError.data`. These are transaction
 evidence, not confirmation. Inspect that hash and retry the same request; do not
 replace its nonce or amount while the outcome is uncertain.
 

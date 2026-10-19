@@ -4,7 +4,7 @@ import {
   type NetworkHash,
 } from "@thruputchain/protocol";
 import type { NetworkInfo } from "./types/rpc.js";
-import { toHex0x } from "./actions/hex.js";
+import { toBase58 } from "./encoding.js";
 
 /** Public Thruput Devnet JSON-RPC endpoint. */
 export const DEVNET_RPC_URL = "https://rpc.thruput.network";
@@ -126,9 +126,9 @@ export class NetworkMismatchError extends Error {
     const expected =
       cluster.networkHash === undefined
         ? "an unpinned network"
-        : `network ${toHex0x(cluster.networkHash)}`;
+        : `network ${toBase58(cluster.networkHash)}`;
     super(
-      `Network mismatch${cluster.name ? ` for ${cluster.name}` : ""}: expected ${expected}, received network ${toHex0x(actual.networkHash)}`,
+      `Network mismatch${cluster.name ? ` for ${cluster.name}` : ""}: expected ${expected}, received network ${toBase58(actual.networkHash)}`,
     );
     this.name = "NetworkMismatchError";
     this.cluster = cluster;

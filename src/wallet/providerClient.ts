@@ -5,12 +5,11 @@ import {
   contractAddress,
   deserialize,
   ed25519PublicKey,
-  fromHex,
   serialize,
   type Transaction,
   type GasAmount,
 } from "@thruputchain/protocol";
-import { hashFromHex } from "../actions/hex.js";
+import { fixedFromBase58, hashFromBase58, toBase58 } from "../encoding.js";
 import {
   submitAndObserve,
   assertTransactionSuccess,
@@ -83,7 +82,7 @@ export interface ExecuteCallsRequest<T extends readonly ContractCall[]> {
   expiryBlocks?: bigint;
 }
 
-/** External wallet binding. Network hash uses the provider wire format, without 0x. */
+/** External wallet binding. Network hash uses unprefixed, case-sensitive base58. */
 export interface CreateProviderWalletClientOptions {
   /**
    * RPC client connected to and verified against the application's expected network.
@@ -95,7 +94,7 @@ export interface CreateProviderWalletClientOptions {
   provider: WalletProvider;
   /** Wire pubkey account from the provider subpath, snapshotted at construction. */
   account: WalletAccount;
-  /** Trusted application network identity: 64 lowercase hex characters without 0x; must match the session. */
+  /** Trusted application network identity: 32-byte base58; must match the session exactly. */
   networkHash: string;
 }
 
@@ -264,7 +263,7 @@ export function createProviderWalletClient(
       typeof network !== "object" ||
       !("networkHash" in network) ||
       !(network.networkHash instanceof Uint8Array) ||
-      toHex0x(network.networkHash) !== `0x${networkHash}`
+      toBase58(network.networkHash) !== networkHash
     ) {
       throw new WalletProviderError(
         4901,
@@ -273,13 +272,13 @@ export function createProviderWalletClient(
     }
   }
   const preparationAccount = {
-    address: contractAddress(fromHex(account.address.slice(2))),
+    address: contractAddress(fixedFromBase58(account.address, 32)),
     authClaim: {
       claim_type: AuthClaimType.kPubkeySignature,
       pubkey_preimage: pubkeyAccountPreimage(
         {
           scheme: CryptographicScheme.Ed25519,
-          ed25519: ed25519PublicKey(fromHex(account.publicKey.slice(2))),
+          ed25519: ed25519PublicKey(fixedFromBase58(account.publicKey, 32)),
         },
         BigInt(account.nonce),
       ),
@@ -620,15 +619,15 @@ export function createProviderWalletClient(
       let submissionDispatched = false;
       const result = await submitAndObserve(
         client,
-        hashFromHex(signed.hash),
+        hashFromBase58(signed.hash),
         () =>
           submitTransaction(signed, () => {
             submissionDispatched = true;
           }),
         {
           ...options.wait,
-          expectedNetworkHash: hashFromHex(
-            `0x${networkHash}`,
+          expectedNetworkHash: hashFromBase58(
+            networkHash,
           ) as import("@thruputchain/protocol").NetworkHash,
         },
         () => submissionDispatched,

@@ -1,3 +1,4 @@
+import { toBase58 } from "../../encoding.js";
 import { describe, expect, it, vi } from "vitest";
 import { contractAddress } from "@thruputchain/protocol";
 import { createThruputClient } from "../../client.js";
@@ -59,7 +60,7 @@ describe("iterateEventPages", () => {
         {
           filters: [
             {
-              contractAddresses: [toHex0x(address)],
+              contractAddresses: [toBase58(address)],
               topics: { topic0: [], topic1: [], topic2: [] },
             },
           ],
@@ -77,10 +78,10 @@ describe("iterateEventPages", () => {
       ...rawPage("0x"),
       events: [
         {
-          txHash: toHex0x(address),
+          txHash: toBase58(address),
           blockHeight: "42",
           sequenceNumber: 0,
-          event: { contractAddress: toHex0x(address), topics: [], data: "0x" },
+          event: { contractAddress: toBase58(address), topics: [], data: "0x" },
         },
       ],
     });
@@ -117,7 +118,7 @@ describe("iterateEventPages", () => {
     expect(request.mock.calls[0]![1]![0]).toMatchObject({
       cursor: "0x09",
       order: "descending",
-      filters: [{ contractAddresses: [toHex0x(address)] }],
+      filters: [{ contractAddresses: [toBase58(address)] }],
     });
     expect(request.mock.calls[1]![1]![0]).toMatchObject({
       cursor: "0x01",

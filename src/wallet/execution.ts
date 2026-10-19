@@ -12,13 +12,13 @@ import {
   defaultWalletAdapter,
   type WalletInvocationAdapter,
 } from "./invocationAdapter.js";
-import { toHex0x } from "../actions/hex.js";
+import { toBase58 } from "../encoding.js";
 
 /** A committed execution failure, retaining the original receipt. */
 export class TransactionExecutionError extends Error {
   constructor(readonly receipt: TransactionReceipt) {
     super(
-      `Transaction ${toHex0x(receipt.txHash)} failed with ${ExecResult[receipt.execResult] ?? receipt.execResult}`,
+      `Transaction ${toBase58(receipt.txHash)} failed with ${ExecResult[receipt.execResult] ?? receipt.execResult}`,
     );
     this.name = "TransactionExecutionError";
   }
@@ -44,7 +44,7 @@ export class TransactionObservationError extends Error {
     readonly submissionCause?: unknown,
   ) {
     super(
-      `Could not observe transaction ${toHex0x(txHash)}: ${cause instanceof Error ? cause.message : String(cause)}`,
+      `Could not observe transaction ${toBase58(txHash)}: ${cause instanceof Error ? cause.message : String(cause)}`,
       { cause },
     );
     this.name = "TransactionObservationError";
@@ -132,7 +132,7 @@ export class ExecutionDecodeError extends Error {
     cause: unknown,
   ) {
     super(
-      `Transaction ${toHex0x(receipt.txHash)} committed, but result decoding failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+      `Transaction ${toBase58(receipt.txHash)} committed, but result decoding failed: ${cause instanceof Error ? cause.message : String(cause)}`,
       { cause },
     );
     this.name = "ExecutionDecodeError";
@@ -143,7 +143,7 @@ export class ExecutionDecodeError extends Error {
 export class ExecutionReturnUnavailableError extends Error {
   constructor(readonly receipt: TransactionReceipt) {
     super(
-      `Transaction ${toHex0x(receipt.txHash)} committed successfully, but its wallet does not expose child return data`,
+      `Transaction ${toBase58(receipt.txHash)} committed successfully, but its wallet does not expose child return data`,
     );
     this.name = "ExecutionReturnUnavailableError";
   }

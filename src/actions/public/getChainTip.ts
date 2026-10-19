@@ -1,9 +1,10 @@
+import { hashFromBase58 } from "../../encoding.js";
 import type {
   Transport,
   TransportRequestOptions,
 } from "../../transport/types.js";
 import type { ChainTip } from "../../types/rpc.js";
-import { hashFromHex } from "../hex.js";
+
 import { parseHeight } from "../decimal.js";
 
 interface RawChainTip {
@@ -30,6 +31,6 @@ export async function getChainTip(
 
   return {
     height: parseHeight(tip.height),
-    blockHash: hashFromHex(tip.blockHash),
+    blockHash: hashFromBase58(tip.blockHash),
   };
 }

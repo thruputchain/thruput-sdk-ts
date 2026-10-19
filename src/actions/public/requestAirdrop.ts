@@ -1,3 +1,4 @@
+import { toBase58, hashFromBase58, addressFromBase58 } from "../../encoding.js";
 import type { ContractAddress, SHA256Hash } from "@thruputchain/protocol";
 import type {
   Transport,
@@ -11,7 +12,7 @@ import type {
   AirdropSucceeded,
   AirdropExecutionStatus,
 } from "../../types/rpc.js";
-import { addressFromHex, hashFromHex, toHex0x } from "../hex.js";
+import { toHex0x } from "../hex.js";
 import { parseDecimal, parseHeight, parseU64, U128_MAX } from "../decimal.js";
 
 const maxTimerDelayMs = 2_147_483_647;
@@ -54,7 +55,7 @@ export async function requestAirdropAttempt(
     "groundhog_requestAirdrop",
     [
       {
-        recipient: toHex0x(recipient),
+        recipient: toBase58(recipient),
         clientNonce: toHex0x(clientNonce),
       },
     ],
@@ -87,7 +88,9 @@ export async function requestAirdrop(
 
   const deadline = performance.now() + timeoutMs;
   const timeoutError = () =>
-    new Error(`Timed out waiting for airdrop to ${toHex0x(request.recipient)}`);
+    new Error(
+      `Timed out waiting for airdrop to ${toBase58(request.recipient)}`,
+    );
 
   while (true) {
     let response: AirdropResponse;
@@ -181,10 +184,10 @@ function parseRecipient(
   value: unknown,
   expected: ContractAddress,
 ): ContractAddress {
-  if (typeof value !== "string" || !/^0x[0-9a-f]{64}$/.test(value)) {
+  if (typeof value !== "string") {
     throw new Error("expected canonical recipient");
   }
-  const recipient = addressFromHex(value);
+  const recipient = addressFromBase58(value);
   if (!bytesEqual(recipient, expected)) {
     throw new Error("response recipient does not match request");
   }
@@ -192,10 +195,10 @@ function parseRecipient(
 }
 
 function parseHash(value: unknown, field: string): SHA256Hash {
-  if (typeof value !== "string" || !/^0x[0-9a-f]{64}$/.test(value)) {
+  if (typeof value !== "string") {
     throw new Error(`expected canonical ${field}`);
   }
-  return hashFromHex(value);
+  return hashFromBase58(value);
 }
 
 function parseExecutionStatus(value: unknown): AirdropExecutionStatus {

@@ -1,3 +1,4 @@
+import { toBase58 } from "../encoding.js";
 import { assert, describe, expect, it } from "vitest";
 import {
   contractAddress,
@@ -103,7 +104,7 @@ describe("getNetworkInfo", () => {
       async request<T>(method: string, params?: unknown[]): Promise<T> {
         calls.push({ method, params });
         return {
-          networkHash: "0x" + "cd".repeat(32),
+          networkHash: toBase58(new Uint8Array(32).fill(0xcd)),
           futureField: true,
         } as T;
       },
@@ -166,7 +167,7 @@ describe("getBalance", () => {
       async request<T>(method: string, params?: unknown[]): Promise<T> {
         calls.push({ method, params });
         return {
-          address: "0x" + "ab".repeat(32),
+          address: toBase58(new Uint8Array(32).fill(0xab)),
           rawBalance: "9007199254740993",
           height: "42",
         } as T;
@@ -176,7 +177,7 @@ describe("getBalance", () => {
     const balance = await getBalance(transport, address);
 
     expect(calls).toEqual([
-      { method: "groundhog_getBalance", params: ["0x" + "ab".repeat(32)] },
+      { method: "groundhog_getBalance", params: [toBase58(address)] },
     ]);
     expect(balance.address).toEqual(address);
     expect(balance.rawBalance).toBe(9007199254740993n);
@@ -358,7 +359,7 @@ describe("view", () => {
           gasUsed: "42",
           events: [
             {
-              contractAddress: "0x" + "11".repeat(32),
+              contractAddress: toBase58(new Uint8Array(32).fill(0x11)),
               topics: ["0x" + "22".repeat(32)],
               data: "0x0304",
             },
@@ -381,10 +382,10 @@ describe("view", () => {
     expect(call.method).toBe("groundhog_view");
     expect(call.params).toEqual([
       {
-        contract: "0x" + "ab".repeat(32),
+        contract: toBase58(new Uint8Array(32).fill(0xab)),
         entrypoint: "0x" + "cd".repeat(8),
         calldata: "0x010203",
-        caller: "0x" + "ef".repeat(32),
+        caller: toBase58(new Uint8Array(32).fill(0xef)),
       },
     ]);
     expect(response.output).toEqual({
@@ -427,7 +428,7 @@ describe("view", () => {
     assert.isDefined(call);
     expect(call.params).toEqual([
       {
-        contract: "0x" + "ab".repeat(32),
+        contract: toBase58(new Uint8Array(32).fill(0xab)),
         entrypoint: "0x" + "cd".repeat(8),
         calldata: "0x010203",
       },
@@ -490,11 +491,17 @@ describe("view", () => {
     },
     {
       field: "topics",
-      event: { contractAddress: "0x" + "11".repeat(32), data: "0x" },
+      event: {
+        contractAddress: toBase58(new Uint8Array(32).fill(0x11)),
+        data: "0x",
+      },
     },
     {
       field: "data",
-      event: { contractAddress: "0x" + "11".repeat(32), topics: [] },
+      event: {
+        contractAddress: toBase58(new Uint8Array(32).fill(0x11)),
+        topics: [],
+      },
     },
   ])("rejects an event missing $field", async ({ field, event }) => {
     const transport: Transport = {
@@ -542,13 +549,13 @@ describe("getTransactionReceipt", () => {
     const transport: Transport = {
       async request<T>(): Promise<T> {
         return {
-          txHash: "0x" + "aa".repeat(32),
+          txHash: toBase58(new Uint8Array(32).fill(0xaa)),
           height: "42",
           status: { result: "ok" },
           gasUsed: "7",
           events: [
             {
-              contractAddress: "0x" + "11".repeat(32),
+              contractAddress: toBase58(new Uint8Array(32).fill(0x11)),
               topics: ["0x" + "22".repeat(32)],
               data: "0x0304",
             },
@@ -574,7 +581,7 @@ describe("getTransactionReceipt", () => {
       const transport: Transport = {
         async request<T>(): Promise<T> {
           return {
-            txHash: "0x" + "aa".repeat(32),
+            txHash: toBase58(new Uint8Array(32).fill(0xaa)),
             height: "42",
             status: { result: "ok" },
             events: [],
@@ -614,7 +621,7 @@ describe("getTransactionReceipt", () => {
       const transport: Transport = {
         async request<T>(): Promise<T> {
           return {
-            txHash: "0x" + "aa".repeat(32),
+            txHash: toBase58(new Uint8Array(32).fill(0xaa)),
             height: "42",
             status: { result: "ok" },
             events: [],
@@ -633,13 +640,13 @@ describe("getTransactionReceipt", () => {
     const transport: Transport = {
       async request<T>(): Promise<T> {
         return {
-          txHash: "0x" + "aa".repeat(32),
+          txHash: toBase58(new Uint8Array(32).fill(0xaa)),
           height: "42",
           status: { result: "ok" },
           gasUsed: "7",
           events: [
             {
-              contractAddress: "0x" + "11".repeat(32),
+              contractAddress: toBase58(new Uint8Array(32).fill(0x11)),
               topics: ["0x" + "22".repeat(31)],
               data: "0x",
             },
@@ -755,7 +762,7 @@ describe("getTransactionStatus", () => {
             cause: {
               kind: "dbConflict",
               conflict: {
-                address: "0x" + "ab".repeat(32),
+                address: toBase58(new Uint8Array(32).fill(0xab)),
                 key: "0x010203",
                 code,
               },
@@ -793,7 +800,7 @@ describe("getTransactionStatus", () => {
           cause: {
             kind: "dbConflict",
             conflict: {
-              address: "0x" + "ab".repeat(32),
+              address: toBase58(new Uint8Array(32).fill(0xab)),
               key: "0x",
               code: "newerConflictCode",
             },
@@ -963,7 +970,7 @@ describe("getTransactionsByAddress", () => {
         method: "groundhog_getTransactionsByAddress",
         params: [
           {
-            address: "0x" + "ab".repeat(32),
+            address: toBase58(new Uint8Array(32).fill(0xab)),
             order: "descending",
             anchor: { kind: "atHeight", height: "42" },
             cursor: "0x010203",
@@ -979,7 +986,10 @@ describe("getTransactionsByAddress", () => {
       async request<T>(): Promise<T> {
         return {
           refs: [
-            { txHash: "0x" + "cd".repeat(32), height: "9007199254740993" },
+            {
+              txHash: toBase58(new Uint8Array(32).fill(0xcd)),
+              height: "9007199254740993",
+            },
           ],
           cursor: "0x0a0b",
           latestBlock: "9007199254740994",
@@ -1088,7 +1098,7 @@ describe("getEvents", () => {
           {
             filters: [
               {
-                contractAddresses: ["0x" + "ab".repeat(32)],
+                contractAddresses: [toBase58(addr)],
                 topics: {
                   topic0: ["0x" + "cd".repeat(32)],
                   topic1: [],
@@ -1112,11 +1122,11 @@ describe("getEvents", () => {
         return {
           events: [
             {
-              txHash: "0x" + "aa".repeat(32),
+              txHash: toBase58(new Uint8Array(32).fill(0xaa)),
               blockHeight: "42",
               sequenceNumber: 7,
               event: {
-                contractAddress: "0x" + "11".repeat(32),
+                contractAddress: toBase58(new Uint8Array(32).fill(0x11)),
                 topics: ["0x" + "22".repeat(32)],
                 data: "0x0304",
               },
@@ -1151,11 +1161,11 @@ describe("getEvents", () => {
         return {
           events: [
             {
-              txHash: "0x" + "aa".repeat(32),
+              txHash: toBase58(new Uint8Array(32).fill(0xaa)),
               blockHeight: "42",
               sequenceNumber: 7,
               event: {
-                contractAddress: "0x" + "11".repeat(32),
+                contractAddress: toBase58(new Uint8Array(32).fill(0x11)),
                 topics: Array.from({ length: 4 }, () => "0x" + "22".repeat(32)),
                 data: "0x",
               },
@@ -1179,11 +1189,11 @@ describe("getEvents", () => {
         return {
           events: [
             {
-              txHash: "0x" + "aa".repeat(32),
+              txHash: toBase58(new Uint8Array(32).fill(0xaa)),
               blockHeight: "42",
               sequenceNumber: 7,
               event: {
-                contractAddress: "0x" + "11".repeat(32),
+                contractAddress: toBase58(new Uint8Array(32).fill(0x11)),
                 topics: Array.from({ length: 3 }, () => "0x" + "22".repeat(32)),
                 data: "0x" + "33".repeat(929),
               },
@@ -1289,7 +1299,7 @@ describe("getStorageAt", () => {
         blockHeight: "12",
         item: {
           kind: "deployedContract",
-          hash: "0x" + "ab".repeat(32),
+          hash: toBase58(new Uint8Array(32).fill(0xab)),
           size: 4096,
           contractType: 1,
         },

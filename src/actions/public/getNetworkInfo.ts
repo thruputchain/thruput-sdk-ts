@@ -1,12 +1,10 @@
+import { hashFromBase58 } from "../../encoding.js";
 import type {
   Transport,
   TransportRequestOptions,
 } from "../../transport/types.js";
 import type { NetworkInfo } from "../../types/rpc.js";
 import { networkHash } from "@thruputchain/protocol";
-import { hashFromHex } from "../hex.js";
-
-const CANONICAL_SHA256_HASH = /^0x[0-9a-f]{64}$/;
 
 /** Return the immutable identity configured for an RPC endpoint. */
 export async function getNetworkInfo(
@@ -24,15 +22,14 @@ export async function getNetworkInfo(
   }
 
   const network = result as Record<string, unknown>;
-  if (
-    typeof network.networkHash !== "string" ||
-    !CANONICAL_SHA256_HASH.test(network.networkHash)
-  ) {
+  try {
+    return {
+      networkHash: networkHash(hashFromBase58(network.networkHash as string)),
+    };
+  } catch (cause) {
     throw new Error(
       "Invalid network info response: expected canonical networkHash",
+      { cause },
     );
   }
-  return {
-    networkHash: networkHash(hashFromHex(network.networkHash)),
-  };
 }

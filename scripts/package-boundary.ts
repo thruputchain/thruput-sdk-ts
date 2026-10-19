@@ -414,7 +414,7 @@ async function providerBoundaryTypecheck(
   persist: (signed: SignTransactionResult) => Promise<void>,
 ): Promise<void> {
   const stop = discoverWalletProviders((discovered) => {
-    const version: "1.0.0" = discovered.info.version;
+    const version: "2.0.0" = discovered.info.version;
     void version;
   }, new EventTarget());
   const unregister = registerWalletProvider(provider, new EventTarget());

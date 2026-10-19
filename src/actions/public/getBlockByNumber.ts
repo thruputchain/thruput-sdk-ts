@@ -1,3 +1,4 @@
+import { fixedFromBase58 } from "../../encoding.js";
 import type {
   Transport,
   TransportRequestOptions,
@@ -8,9 +9,10 @@ import {
   protocol,
   timePoint,
   validatorID,
+  sha256Hash,
 } from "@thruputchain/protocol";
 import type { BlockInfo } from "../../types/rpc.js";
-import { fromHex0x, hashFromHex } from "../hex.js";
+import { fromHex0x } from "../hex.js";
 import { parseHeight, parseU64, serializeHeight } from "../decimal.js";
 
 interface RawBlockInfo {
@@ -73,23 +75,21 @@ export async function getBlockByNumber(
 }
 
 function parseHash(value: unknown, field: string) {
-  return hashFromHex(parseCanonicalHex(value, field, 32));
+  return sha256Hash(parseFixedBytes(value, field));
 }
 
 function parseFixedBytes(value: unknown, field: string): Uint8Array {
-  return fromHex0x(parseCanonicalHex(value, field, 32));
+  try {
+    return fixedFromBase58(value as string, 32);
+  } catch (cause) {
+    throw new Error(`Invalid block response: expected canonical ${field}`, {
+      cause,
+    });
+  }
 }
 
-function parseCanonicalHex(
-  value: unknown,
-  field: string,
-  byteLength?: number,
-): string {
-  const pattern =
-    byteLength === undefined
-      ? /^0x(?:[0-9a-f]{2})*$/
-      : new RegExp(`^0x[0-9a-f]{${byteLength * 2}}$`);
-  if (typeof value !== "string" || !pattern.test(value)) {
+function parseCanonicalHex(value: unknown, field: string): string {
+  if (typeof value !== "string" || !/^0x(?:[0-9a-f]{2})*$/.test(value)) {
     throw new Error(`Invalid block response: expected canonical ${field}`);
   }
   return value;

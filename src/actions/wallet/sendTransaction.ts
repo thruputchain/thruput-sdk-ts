@@ -1,7 +1,8 @@
+import { hashFromBase58 } from "../../encoding.js";
 import type { SignedTransaction, SHA256Hash } from "@thruputchain/protocol";
 import { serialize, codec } from "@thruputchain/protocol";
 import type { Transport } from "../../transport/types.js";
-import { toHex0x, hashFromHex } from "../hex.js";
+import { toHex0x } from "../hex.js";
 
 /**
  * Submit a signed transaction and return its transaction hash.
@@ -27,5 +28,5 @@ export async function sendTransaction(
   if (typeof result !== "string") {
     throw new Error("Invalid send transaction response: expected tx hash");
   }
-  return hashFromHex(result);
+  return hashFromBase58(result);
 }

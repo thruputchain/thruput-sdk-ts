@@ -1,3 +1,4 @@
+import { toBase58 } from "../../encoding.js";
 import type {
   Transport,
   TransportRequestOptions,
@@ -21,7 +22,7 @@ function serializeQuery(query: AddressTransactionQuery): unknown {
           : { kind: "atBeginning" };
 
   return {
-    address: toHex0x(query.address),
+    address: toBase58(query.address),
     order: query.order ?? "ascending",
     anchor,
     cursor: query.cursor ? toHex0x(query.cursor) : "0x",

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MockTransport } from "./mock.js";
+import { fixedFromBase58, toBase58 } from "../encoding.js";
 
 describe("MockTransport", () => {
   it("returns chain tip at height 0 when empty", async () => {
@@ -8,12 +9,12 @@ describe("MockTransport", () => {
       "groundhog_chainTip",
     );
     expect(tip.height).toBe("0");
-    expect(tip.blockHash).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(fixedFromBase58(tip.blockHash, 32)).toEqual(new Uint8Array(32));
   });
 
   it("returns zero native HOG balance for requested address", async () => {
     const transport = new MockTransport();
-    const address = "0x" + "ab".repeat(32);
+    const address = toBase58(new Uint8Array(32).fill(0xab));
     const balance = await transport.request<{
       address: string;
       rawBalance: string;
@@ -29,7 +30,7 @@ describe("MockTransport", () => {
       "groundhog_sendRawTransaction",
       ["0xdeadbeef"],
     );
-    expect(hash).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(fixedFromBase58(hash, 32)).toHaveLength(32);
 
     const tip = await transport.request<{ height: string }>(
       "groundhog_chainTip",

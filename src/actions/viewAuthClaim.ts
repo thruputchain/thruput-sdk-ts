@@ -1,3 +1,4 @@
+import { toBase58 } from "../encoding.js";
 import {
   AuthClaimType,
   codec,
@@ -5,7 +6,7 @@ import {
   serialize,
   type AuthClaim,
 } from "@thruputchain/protocol";
-import { toHex0x } from "./hex.js";
+
 import { serializeU64 } from "./decimal.js";
 
 function u32(value: bigint, name: string): number {
@@ -36,7 +37,7 @@ export function serializeViewAuthClaim(claim: AuthClaim) {
       }
       return {
         kind: "pubkeySignature" as const,
-        pubkeyHash: toHex0x(pubkey_hash),
+        pubkeyHash: toBase58(pubkey_hash),
         nonce: serializeU64(nonce, "nonce"),
       };
     }

@@ -1,10 +1,11 @@
+import { toBase58, hashFromBase58 } from "../../encoding.js";
 import type { ContractAddress } from "@thruputchain/protocol";
 import type {
   Transport,
   TransportRequestOptions,
 } from "../../transport/types.js";
 import type { StorageItemInfo, StorageItemRead } from "../../types/rpc.js";
-import { fromHex0x, hashFromHex, toHex0x } from "../hex.js";
+import { fromHex0x, toHex0x } from "../hex.js";
 import { parseDecimal, parseHeight, I128_MAX } from "../decimal.js";
 
 interface RawStorageItemRead {
@@ -34,7 +35,7 @@ export async function getStorageAt(
   }
   const result = await transport.request<unknown>(
     "groundhog_getStorageAt",
-    [toHex0x(address), toHex0x(key)],
+    [toBase58(address), toHex0x(key)],
     options,
   );
 
@@ -74,7 +75,7 @@ function parseStorageItemInfo(raw: unknown): StorageItemInfo {
     case "deployedContract":
       return {
         kind: "deployedContract",
-        hash: hashFromHex(r.hash as string),
+        hash: hashFromBase58(r.hash as string),
         size: Number(r.size),
         contractType: Number(r.contractType),
       };

@@ -1,3 +1,4 @@
+import { toBase58 } from "../../encoding.js";
 import { ExecResult, networkHash } from "@thruputchain/protocol";
 import { describe, expect, it, vi } from "vitest";
 import type { Transport } from "../../transport/types.js";
@@ -16,7 +17,7 @@ import {
 
 const txHash = hashFromHex("0x" + "11".repeat(32));
 const rawReceipt = {
-  txHash: "0x" + "11".repeat(32),
+  txHash: toBase58(new Uint8Array(32).fill(0x11)),
   height: "42",
   status: { result: "ok" },
   events: [],
@@ -121,7 +122,7 @@ describe("waitForTransactionReceipt", () => {
   it("rejects a receipt for a different hash", async () => {
     const request = vi.fn(async () => ({
       ...rawReceipt,
-      txHash: "0x" + "22".repeat(32),
+      txHash: toBase58(new Uint8Array(32).fill(0x22)),
     }));
     await expect(
       waitForTransactionReceipt(
@@ -168,7 +169,7 @@ describe("waitForTransactionReceipt", () => {
     {
       kind: "dbConflict",
       conflict: {
-        address: "0x" + "22".repeat(32),
+        address: toBase58(new Uint8Array(32).fill(0x22)),
         key: "0x0102",
         code: "exclusiveLock",
       },
@@ -340,7 +341,7 @@ describe("waitForTransactionReceipt", () => {
 
     await expect(
       waitForTransactionReceipt(transport, txHash, { timeoutMs: 100 }),
-    ).rejects.toThrow(`Transaction 0x${"11".repeat(32)} was rejected: expired`);
+    ).rejects.toThrow(`Transaction ${toBase58(txHash)} was rejected: expired`);
   });
 
   it.each([
@@ -348,7 +349,7 @@ describe("waitForTransactionReceipt", () => {
       {
         kind: "dbConflict",
         conflict: {
-          address: "0x" + "22".repeat(32),
+          address: toBase58(new Uint8Array(32).fill(0x22)),
           key: "0x0102",
           code: "exclusiveLock",
         },

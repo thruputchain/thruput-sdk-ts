@@ -1,3 +1,4 @@
+import { toBase58 } from "../../encoding.js";
 import { describe, expect, it } from "vitest";
 import type { Transport } from "../../transport/types.js";
 import { createThruputClient } from "../../client.js";
@@ -9,8 +10,11 @@ function returning(result: unknown): Transport {
 
 describe("getChainConfig", () => {
   const execution = {
-    observedTip: { height: "42", blockHash: `0x${"11".repeat(32)}` },
-    configHash: `0x${"22".repeat(32)}`,
+    observedTip: {
+      height: "42",
+      blockHash: toBase58(new Uint8Array(32).fill(0x11)),
+    },
+    configHash: toBase58(new Uint8Array(32).fill(0x22)),
     effectiveLimits: { maxContractSizeBytes: 100_000 },
     storageCosts: {
       baseDataItemCost: "12000",

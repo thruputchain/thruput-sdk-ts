@@ -9,7 +9,7 @@ import {
 
 function provider(id: string): WalletProvider {
   return {
-    info: { id, name: "Test Wallet", version: "1.0.0" },
+    info: { id, name: "Test Wallet", version: "2.0.0" },
     request: vi.fn(),
     on: () => () => {},
   };
@@ -113,7 +113,7 @@ describe("wallet provider discovery", () => {
     );
     expect(() =>
       registerWalletProvider(
-        { ...provider("a"), info: { id: "", name: "x", version: "1.0.0" } },
+        { ...provider("a"), info: { id: "", name: "x", version: "2.0.0" } },
         new EventTarget(),
       ),
     ).toThrow();

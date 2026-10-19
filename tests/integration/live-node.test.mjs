@@ -15,6 +15,7 @@ import {
   prepareContractDeployment,
   createContractCodecContext,
   defineContractEvent,
+  toBase58,
   deriveEntrypointID,
   encodeCalldata,
 } from "@thruputchain/client";
@@ -72,8 +73,11 @@ function assertChainConfig({ execution, ...stated }) {
 test("chain config integration assertions accept stated and execution readings", async () => {
   const stated = { maxContractSizeBytes: 524288 };
   const execution = {
-    observedTip: { height: "42", blockHash: `0x${"11".repeat(32)}` },
-    configHash: `0x${"22".repeat(32)}`,
+    observedTip: {
+      height: "42",
+      blockHash: toBase58(new Uint8Array(32).fill(0x11)),
+    },
+    configHash: toBase58(new Uint8Array(32).fill(0x22)),
     effectiveLimits: { ...stated, maxRv32MemoryBytes: 65536 },
     storageCosts: {
       baseDataItemCost: "12000",
@@ -112,10 +116,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       const manifest = JSON.parse(
         await readFile(process.env.THRUPUT_RUNTIME_MANIFEST, "utf8"),
       );
-      assert.equal(
-        Buffer.from(client.network.networkHash).toString("hex"),
-        manifest.networkHash.replace(/^0x/, ""),
-      );
+      assert.equal(toBase58(client.network.networkHash), manifest.networkHash);
       const version = await client.getVersion();
       assert.equal(
         version.implementation,
@@ -179,7 +180,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
     const batchedClient = await createThruputClient({
       transport: batchedTransport,
     });
-    const hash = `0x${"00".repeat(32)}`;
+    const hash = toBase58(new Uint8Array(32));
     const [version, tip, missing, duplicate, invalid] =
       await Promise.allSettled([
         batchedClient.getVersion(),
@@ -235,13 +236,6 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       const amount = 1_000n;
       await t.test(
         "simulates an authenticated wallet transfer and reads its temporary balance",
-        {
-          skip:
-            (process.env.THRUPUT_EXPECTED_WIRE_FORMAT ??
-              versions.wireFormat) === "11.1.0"
-              ? "The pinned node predates view auth; use matching source builds with wire 11.2.0"
-              : false,
-        },
         async () => {
           const invocation = defaultWalletAdapter.createBatchRootInvocation(
             sender.address,

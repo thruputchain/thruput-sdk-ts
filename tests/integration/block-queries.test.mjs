@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import versions from "../../scripts/integration-versions.json" with { type: "json" };
 import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
@@ -9,7 +10,7 @@ import {
   createPubkeyAccount,
   createThruputClient,
   fundAccount,
-  addressFromHex,
+  addressFromBase58,
   toHex0x,
 } from "@thruputchain/client";
 
@@ -31,11 +32,14 @@ test(
       timeoutMs: 5000,
     });
     const client = await createThruputClient({ transport });
-    assert.equal((await client.getVersion()).wireFormat, "12.1.0");
+    assert.equal(
+      (await client.getVersion()).wireFormat,
+      process.env.THRUPUT_EXPECTED_WIRE_FORMAT ?? versions.wireFormat,
+    );
     const manifest = JSON.parse(
       await readFile(process.env.THRUPUT_RUNTIME_MANIFEST, "utf8"),
     );
-    const faucet = addressFromHex(
+    const faucet = addressFromBase58(
       manifest.bootstrapAccounts.find((account) => account.role === "faucet")
         .walletAddress,
     );

@@ -1,10 +1,11 @@
+import { toBase58, addressFromBase58 } from "../../encoding.js";
 import type { ContractAddress } from "@thruputchain/protocol";
 import type {
   Transport,
   TransportRequestOptions,
 } from "../../transport/types.js";
 import type { BalanceResponse } from "../../types/rpc.js";
-import { addressFromHex, toHex0x } from "../hex.js";
+
 import { parseDecimal, parseHeight, I128_MAX } from "../decimal.js";
 
 interface RawBalanceResponse {
@@ -27,7 +28,7 @@ export async function getBalance(
   options?.signal?.throwIfAborted();
   const result = await transport.request<unknown>(
     "groundhog_getBalance",
-    [toHex0x(address)],
+    [toBase58(address)],
     options,
   );
 
@@ -38,7 +39,7 @@ export async function getBalance(
   const balance = result as RawBalanceResponse;
 
   return {
-    address: addressFromHex(balance.address),
+    address: addressFromBase58(balance.address),
     rawBalance: parseDecimal(balance.rawBalance, "rawBalance", 0n, I128_MAX),
     height: parseHeight(balance.height),
   };

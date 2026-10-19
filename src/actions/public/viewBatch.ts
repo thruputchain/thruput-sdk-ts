@@ -1,3 +1,4 @@
+import { toBase58 } from "../../encoding.js";
 import type {
   Transport,
   TransportRequestOptions,
@@ -30,7 +31,7 @@ export class ViewBatchResultError extends Error {
 /**
  * Simulate independent calls at one committed height, in input order.
  * Requires groundhog_viewBatch (wire format 11.1.0). No fallback or chunking is used.
- * Each call may supply an optional authClaim (RPC wire 12.0.0); it is an
+ * Each call may supply an optional authClaim (RPC wire 13.0.0); it is an
  * assumption for simulation, not verified authorization.
  * Simulated writes do not pass between calls. The server retries abandoned
  * snapshots as a whole group; aborts and faults remain per-call results.
@@ -59,10 +60,10 @@ export async function viewBatch(
     if (call.entrypoint.length !== 8)
       throw new RangeError("view entrypoint must be exactly 8 bytes");
     return {
-      contract: toHex0x(call.contract),
+      contract: toBase58(call.contract),
       entrypoint: toHex0x(call.entrypoint),
       calldata: toHex0x(call.calldata),
-      ...(call.caller ? { caller: toHex0x(call.caller) } : {}),
+      ...(call.caller ? { caller: toBase58(call.caller) } : {}),
       ...(call.authClaim === undefined
         ? {}
         : { authClaim: serializeViewAuthClaim(call.authClaim) }),

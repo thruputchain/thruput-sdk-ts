@@ -1,3 +1,4 @@
+import { toBase58 } from "../../encoding.js";
 import { describe, expect, it, vi } from "vitest";
 import {
   AuthClaimType,
@@ -62,7 +63,7 @@ describe("optional view authorization", () => {
       pubkey(),
       {
         kind: "pubkeySignature",
-        pubkeyHash: `0x${"07".repeat(32)}`,
+        pubkeyHash: toBase58(new Uint8Array(32).fill(0x07)),
         nonce: "9007199254740993",
       },
     ],
@@ -99,7 +100,7 @@ describe("optional view authorization", () => {
     const entries = (
       request.mock.calls[1]![1] as [{ calls: Record<string, unknown>[] }]
     )[0].calls;
-    expect(entries[0]!.caller).toBe(toHex0x(address));
+    expect(entries[0]!.caller).toBe(toBase58(address));
     expect(entries[1]!.authClaim).not.toEqual(entries[0]!.authClaim);
     expect(entries[2]).not.toHaveProperty("authClaim");
   });
