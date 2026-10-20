@@ -19,10 +19,15 @@ export {
   hashFromHex,
   addressFromHex,
 } from "./actions/hex.js";
-export type { Transport, TransportRequestOptions } from "./transport/index.js";
+export type {
+  Transport,
+  TransportRequestOptions,
+  RpcParams,
+} from "./transport/index.js";
 export {
   ThruputRpcErrorCode,
   HttpResponseError,
+  RpcResponseError,
   HttpRequestError,
   HttpTransport,
   JsonRpcError,
@@ -118,3 +123,5 @@ export {
   publicKeyToStrkey,
   secretSeedToStrkey,
 } from "./encoding.js";
+
+export * from "./rpc/index.js";

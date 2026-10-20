@@ -723,3 +723,48 @@ void packageBoundaryTypecheck;
 void clusterBoundaryTypecheck;
 void walletBoundaryTypecheck;
 void providerBoundaryTypecheck;
+
+// Native calls retain named requests and byte/bigint results across the built boundary.
+import {
+  createRpcClient,
+  UnsupportedRpcValue,
+  type RpcClient,
+  type RpcParams,
+  RpcResponseError,
+  NativeRpcError,
+} from "@thruputchain/client";
+async function nativeConsumer(rpc: RpcClient) {
+  const receipt = await rpc.getTransactionReceipt({
+    transactionHash: new Uint8Array(32),
+  });
+  if (
+    receipt &&
+    !(receipt.execution instanceof UnsupportedRpcValue) &&
+    receipt.execution.result === "return"
+  ) {
+    const bytes: Uint8Array = receipt.execution.returnData;
+    const height: bigint = receipt.blockHeight;
+    void [bytes, height];
+  }
+  await rpc.getTransactionsByRootAddress({
+    address: new Uint8Array(32),
+    cursor: "0x01",
+  });
+  const conflictingPosition = {
+    address: new Uint8Array(32),
+    cursor: "0x01",
+    start: { order: "ascending", anchor: { kind: "atBeginning" } },
+  } as const;
+  // @ts-expect-error Initial and continuation positions are exclusive.
+  await rpc.getTransactionsByRootAddress(conflictingPosition);
+  // @ts-expect-error Wide values are bigints in the SDK.
+  await rpc.getBlockByHeight({ blockHeight: 1 });
+}
+const namedParams: RpcParams = { blockHeight: "1" };
+void [
+  createRpcClient,
+  nativeConsumer,
+  namedParams,
+  RpcResponseError,
+  NativeRpcError,
+];

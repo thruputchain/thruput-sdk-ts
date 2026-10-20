@@ -85,6 +85,8 @@
     "test:integration:blocks": "npm run build && node scripts/run-integration.mjs --blocks",
     "test:package-boundary": "tsc -p scripts/tsconfig.package-boundary.json",
     "typecheck": "tsc --noEmit",
+    "rpc:generate": "node scripts/generate-native-rpc.mjs",
+    "rpc:check": "node scripts/generate-native-rpc.mjs --check",
     "docs": "typedoc",
     "docs:check": "typedoc --emit none",
     "example": "node scripts/run-example.mjs",
@@ -110,8 +112,8 @@
     "@noble/hashes": "^2.2.0",
     "@noble/post-quantum": "^0.7.1",
     "@scure/base": "2.0.0",
-    "@thruputchain/contract-spec": "0.17.0",
-    "@thruputchain/protocol": "0.17.0",
-    "@thruputchain/xdr": "0.17.0"
+    "@thruputchain/contract-spec": "0.18.0",
+    "@thruputchain/protocol": "0.18.0",
+    "@thruputchain/xdr": "0.18.0"
   }
 }

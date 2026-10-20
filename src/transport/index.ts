@@ -6,7 +6,7 @@
  *
  * @module
  */
-export type { Transport, TransportRequestOptions } from "./types.js";
+export type { Transport, TransportRequestOptions, RpcParams } from "./types.js";
 export {
   ThruputRpcErrorCode,
   HttpResponseError,
@@ -18,3 +18,7 @@ export type { HttpTransportOptions, HttpBatchOptions } from "./http.js";
 export { MockTransport } from "./mock.js";
 export { classifyReadError, type ReadErrorKind } from "./readError.js";
 export { txInvalidDetail, type TxInvalidDetail } from "./txInvalidDetail.js";
+
+export * from "../rpc/index.js";
+
+export { RpcResponseError } from "./responseError.js";

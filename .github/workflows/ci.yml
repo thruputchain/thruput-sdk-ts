@@ -55,6 +55,7 @@ jobs:
       - run: npm run format:check
       - run: npm run docs:check
       - run: npm run contracts:check
+      - run: npm run rpc:check
       - run: npm run typecheck
       - run: npm run build
       - run: npm run test:package-boundary

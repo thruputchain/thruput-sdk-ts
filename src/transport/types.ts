@@ -3,7 +3,7 @@
  *
  * Implement this interface to plug the SDK into a custom runtime, test harness,
  * or request pipeline. The transport is responsible for sending a JSON-RPC
- * method name and params array, then returning the raw decoded `result` value.
+ * method name and named params object, then returning the raw decoded `result` value.
  */
 export interface Transport {
   /**
@@ -13,7 +13,7 @@ export interface Transport {
    */
   request<T = unknown>(
     method: string,
-    params?: unknown[],
+    params?: RpcParams,
     options?: TransportRequestOptions,
   ): Promise<T>;
 }
@@ -27,3 +27,6 @@ export interface TransportRequestOptions {
    */
   readonly signal?: AbortSignal;
 }
+
+/** Named native parameters; arrays remain accepted by the general JSON-RPC transport. */
+export type RpcParams = Record<string, unknown> | unknown[];

@@ -314,7 +314,7 @@ describe("HttpTransport", () => {
   it.each([
     {
       name: "success",
-      response: () => Response.json({ result: "ok" }),
+      response: () => Response.json({ jsonrpc: "2.0", id: 1, result: "ok" }),
       error: null,
     },
     {
@@ -325,7 +325,11 @@ describe("HttpTransport", () => {
     {
       name: "JSON-RPC error",
       response: () =>
-        Response.json({ error: { code: -32602, message: "invalid params" } }),
+        Response.json({
+          jsonrpc: "2.0",
+          id: 1,
+          error: { code: -32602, message: "invalid params" },
+        }),
       error: JsonRpcError,
     },
     {

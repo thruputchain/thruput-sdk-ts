@@ -115,12 +115,12 @@ describe("iterateEventPages", () => {
     const first = await pages.next();
     first.value!.cursor.fill(8);
     await pages.next();
-    expect(request.mock.calls[0]![1]![0]).toMatchObject({
+    expect((request.mock.calls[0]![1] as unknown[])[0]).toMatchObject({
       cursor: "0x09",
       order: "descending",
       filters: [{ contractAddresses: [toBase58(address)] }],
     });
-    expect(request.mock.calls[1]![1]![0]).toMatchObject({
+    expect((request.mock.calls[1]![1] as unknown[])[0]).toMatchObject({
       cursor: "0x01",
       order: "descending",
     });

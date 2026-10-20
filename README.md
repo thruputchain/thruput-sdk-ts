@@ -389,6 +389,36 @@ Use `PrivateKeySigner` with `createPubkeyAccount`, then request an airdrop or
 supply its public key in the node's initial allocations. Stored CLI keys can be
 exported explicitly through `thruput keys export`; never log that output.
 
+## Native RPC client
+
+`createRpcClient` exposes the native wire-14 methods directly. It validates the
+wire version, configured methods and optional expected network before returning.
+Requests use byte arrays and bigints; cursors remain opaque strings.
+
+```ts
+import { createRpcClient, HttpTransport } from "@thruputchain/client";
+
+const rpc = await createRpcClient({
+  transport: new HttpTransport("http://127.0.0.1:9545"),
+  requiredMethods: ["getChainTip", "getBalance"],
+});
+const tip = await rpc.getChainTip();
+const balance = await rpc.getBalance({ address: accountAddress });
+```
+
+Each method makes one RPC call. There are no retries, transaction signing or
+receipt waits in this layer. Unknown response variants retain their original
+payload in `UnsupportedRpcValue`; malformed known results throw
+`RpcDecodingError`. Invalid local inputs throw `RpcRequestValidationError`
+before dispatch. `NativeRpcError.decoded` distinguishes known, valid evidence
+from unclassified errors; both retain the complete raw error. Neither classification
+authorizes retries. Transaction evidence is compared with the requested hash.
+Malformed HTTP reply envelopes throw `RpcResponseError` with the raw reply.
+`refreshDiscovery()` performs only discovery reads and never replays writes.
+
+The composed wallet and contract workflows below are still being migrated.
+This intermediate checkout is not a publishable SDK release.
+
 ## Wallet clients
 
 A wallet client binds account authorization and signers to an existing client:
