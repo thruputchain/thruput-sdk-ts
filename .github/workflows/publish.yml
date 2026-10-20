@@ -13,7 +13,6 @@ jobs:
       CARGO_REGISTRIES_THRUPUT_INDEX: "sparse+https://crates.thruput.network/api/v1/crates/"
       CARGO_REGISTRIES_THRUPUT_TOKEN: ${{ secrets.GROUNDHOG_REGISTRY_TOKEN }}
       CARGO_REGISTRY_GLOBAL_CREDENTIAL_PROVIDERS: cargo:token
-      THRUPUT_CLI_VERSION: "0.32.0"
 
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -24,30 +23,15 @@ jobs:
           registry-url: https://npm.pkg.github.com
           scope: "@thruputchain"
 
-      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # master as of 2026-06
+      - name: Set up integration CLI
+        uses: ./.github/actions/setup-integration-cli
         with:
-          toolchain: stable
-
-      # Same key as CI's `integration` job (same runner profile and CLI pin),
-      # so a release normally restores the binary main already built.
-      - name: Cache contract binding generator
-        id: thruput-cli-cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.cargo/bin/thruput
-          key: thruput-cli-${{ runner.os }}-${{ runner.arch }}-namespace-hogd-linux-2604-${{ env.THRUPUT_CLI_VERSION }}
+          app-id: ${{ vars.COMPONENT_READER_APP_ID }}
+          private-key: ${{ secrets.COMPONENT_READER_PRIVATE_KEY }}
 
       - run: npm ci
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install contract binding generator
-        if: steps.thruput-cli-cache.outputs.cache-hit != 'true'
-        run: cargo install "thruput-cli@${THRUPUT_CLI_VERSION}" --registry thruput --locked --force
-
-      - name: Configure contract binding generator
-        run: |
-          echo "THRUPUT_CLI=$(command -v thruput)" >> "$GITHUB_ENV"
 
       - name: Read version
         run: |
@@ -61,11 +45,29 @@ jobs:
       - run: npm run format:check
       - run: npm run docs:check
       - run: npm run contracts:check
+      - run: npm run rpc:check
+      - run: npm run test:integration-config
       - run: npm run typecheck
       - run: npm run test
       - run: npm run build
       - run: npm run test:smoke
       - run: npm run test:package-boundary
+
+      - run: npm run test:integration
+        env:
+          THRUPUT_INTEGRATION_LOG_DIR: ${{ runner.temp }}/integration-logs
+      - run: npm run test:integration:blocks
+        env:
+          THRUPUT_INTEGRATION_LOG_DIR: ${{ runner.temp }}/integration-logs/blocks
+
+      - name: Upload node diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-integration-logs
+          path: ${{ runner.temp }}/integration-logs
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Tag commit with version
         id: tag

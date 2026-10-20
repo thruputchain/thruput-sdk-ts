@@ -43,8 +43,12 @@
 
 ## Release
 
-- Publishing is manual via `.github/workflows/publish.yml`; a version bump does not authorize publishing. The workflow repeats formatting, docs, type, test, build, smoke, and package-boundary checks before tagging and publishing to GitHub Packages.
+- Publishing is manual via `.github/workflows/publish.yml`; a version bump does not authorize publishing. The workflow repeats formatting, docs, generated-contract, RPC, type, test, build, smoke, package-boundary and both live-node suites before tagging and publishing to GitHub Packages.
 
 ## Native RPC boundary
 
 `createRpcClient` is the low-level wire-14 client. Its generated types and compact codecs derive from the Rust-owned `specs/native-openrpc.json`; run `npm run rpc:generate` after refreshing that fixture and `npm run rpc:check` to verify it. `scripts/regen-native-openrpc.sh` requires a reviewed native generator or its generated source snapshot until the native generator release is pinned. Set `THRUPUT_NATIVE_OPENRPC_COMMIT` to the full reviewed tools commit; regeneration records its semantic JSON digest in `specs/native-openrpc.provenance.json`. Do not hand-edit generated files. The composed client uses the same native boundary. Before publishing, qualify the built SDK against the exact native CLI/runtime artifact set and update the integration pins; unit tests do not establish runtime compatibility.
+
+Integration CI normally installs `cli` from `scripts/integration-versions.json`. During a coordinated release, optional `cliSourceCommit` selects a full reviewed tools commit: the shared action obtains a repository-scoped read-only App token, builds with that source's toolchain and lockfile, and runs the same suites against the pinned published devnode. Remove the source pin after the corresponding CLI release is qualified. Integration logs record the tested source and runtime pins; a source build is not installed-release artifact qualification.
+
+An explicit `THRUPUT_CLI` path still must match the configured version and source SHA. For a local unpinned candidate only, set `THRUPUT_ALLOW_LOCAL_CANDIDATE=1` with that path; this mode is recorded separately in the qualification metadata and rejected in CI.

@@ -1,14 +1,20 @@
 import { execFile, spawn } from "node:child_process";
 import { closeSync, openSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import versions from "./integration-versions.json" with { type: "json" };
+import versionPins from "./integration-versions.json" with { type: "json" };
 import { harnessTimeoutMs, runnerTimeoutMs } from "./integration-timeouts.mjs";
 
+import {
+  validateIntegrationVersions,
+  qualifyIntegrationCli,
+} from "./integration-config.mjs";
+
+const versions = validateIntegrationVersions(versionPins);
 const exec = promisify(execFile);
 const repo = fileURLToPath(new URL("../", import.meta.url));
 const blocks = process.argv.includes("--blocks");
@@ -177,30 +183,38 @@ async function main() {
   if (process.platform !== "linux") {
     throw new Error("The live-node harness currently supports Linux only");
   }
-  // Replace the release pins after the native artifact set passes qualification.
-  if (!process.env.THRUPUT_CLI || !process.env.THRUPUT_DEVNODE_BINARY) {
-    throw new Error(
-      "Wire-14 qualification requires explicit THRUPUT_CLI and THRUPUT_DEVNODE_BINARY candidates until native release pins are set",
-    );
-  }
   const requestedCli = process.env.THRUPUT_CLI ?? "thruput";
   const cli = requestedCli.includes("/") ? resolve(requestedCli) : requestedCli;
   const { stdout } = await exec(cli, ["--version"], { timeout: 10_000 });
   const cliVersion = /^thruput (\d+\.\d+\.\d+(?:-[^\s]+)?)(?:\s|$)/.exec(
     stdout,
   )?.[1];
-  if (
-    !cliVersion ||
-    (!process.env.THRUPUT_CLI && cliVersion !== versions.cli)
-  ) {
-    throw new Error(
-      `Expected Thruput CLI ${versions.cli}, received ${stdout.trim()}`,
-    );
-  }
+  if (!cliVersion) throw new Error(`Invalid CLI version: ${stdout.trim()}`);
+  const qualification = qualifyIntegrationCli(
+    versions,
+    process.env,
+    cliVersion,
+  );
 
   work = await mkdtemp(join(tmpdir(), "thruput-client-integration-"));
   logs = resolve(process.env.THRUPUT_INTEGRATION_LOG_DIR ?? join(work, "logs"));
   await mkdir(logs, { recursive: true });
+  await writeFile(
+    join(logs, "qualification.json"),
+    JSON.stringify(
+      {
+        cliVersion,
+        cliMode: qualification.mode,
+        cliSourceCommit: qualification.sourceCommit,
+        devnodeVersion: versions.devnode,
+        devnodeOverride: process.env.THRUPUT_DEVNODE_BINARY ?? null,
+        wireFormat: versions.wireFormat,
+        suite: blocks ? "blocks" : "transactions-and-funding",
+      },
+      null,
+      2,
+    ) + "\n",
+  );
   console.log(`Integration logs: ${logs}`);
   const env = { ...process.env };
   for (const key of Object.keys(env)) {
