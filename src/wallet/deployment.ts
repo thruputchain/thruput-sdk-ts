@@ -122,7 +122,7 @@ export function decodeDeployment(
   const address = adapter.decodeDeploymentReceipt(receipt);
   if (!bytesEqual(address, deployment.address))
     throw new Error(
-      `Deployment ${toBase58(receipt.txHash)} returned ${toBase58(address)}, expected ${toBase58(deployment.address)}`,
+      `Deployment ${toBase58(receipt.transactionHash)} returned ${toBase58(address)}, expected ${toBase58(deployment.address)}`,
     );
   return address;
 }

@@ -1,9 +1,5 @@
-import {
-  ThruputRpcErrorCode,
-  HttpRequestError,
-  HttpResponseError,
-  JsonRpcError,
-} from "./http.js";
+import { NativeRpcError } from "../rpc/errorReader.js";
+import { HttpRequestError, HttpResponseError } from "./http.js";
 import type { TransportRequestOptions } from "./types.js";
 
 /** Infrastructure failure classification; retry budgets remain with the caller. */
@@ -33,17 +29,19 @@ export function classifyReadError(
         ? "transient"
         : "permanent";
     }
-    if (error instanceof JsonRpcError) {
-      switch (error.code) {
-        case ThruputRpcErrorCode.BackendUnavailable:
-        case ThruputRpcErrorCode.ViewHeightUnavailable:
-        case ThruputRpcErrorCode.BackendTimeout:
-        case ThruputRpcErrorCode.Overloaded:
+    if (error instanceof NativeRpcError) {
+      if (error.decoded.classification !== "known") return "unknown";
+      switch (error.decoded.data.kind) {
+        case "backendUnavailable":
+        case "stateHeightUnavailable":
+        case "backendTimeout":
+        case "overloaded":
           return "transient";
-        case ThruputRpcErrorCode.InvalidParams:
-        case ThruputRpcErrorCode.TxInvalid:
-        case ThruputRpcErrorCode.TxRejected:
-        case ThruputRpcErrorCode.NotImplemented:
+        case "invalidParams":
+        case "invalidCursor":
+        case "transactionInvalid":
+        case "transactionRejected":
+        case "historyUnavailable":
           return "permanent";
         default:
           return "unknown";

@@ -66,13 +66,13 @@ export type ContractEventFilterValue<T> = T | { oneOf: readonly [T, ...T[]] };
 
 /** Generated named topic constraints plus required emitter addresses. */
 export interface ContractEventFilterInput<TFilter> {
-  contractAddresses: readonly ContractAddress[];
+  addresses: readonly ContractAddress[];
   topics?: TFilter;
 }
 
 /** Emitter scope for receipt extraction. */
 export interface ContractEventReceiptOptions {
-  contractAddress: ContractAddress;
+  address: ContractAddress;
 }
 
 /** Canonical value returned by generated event decoders. */
@@ -88,7 +88,7 @@ export type ContractReceiptEvent<
   TTopics,
   TFields,
 > = DecodedContractEvent<TName, TTopics, TFields> & {
-  contractAddress: ContractAddress;
+  address: ContractAddress;
 };
 
 /** Complete generated event API. */
@@ -243,15 +243,15 @@ export function defineContractEvent<
     },
 
     filter(input) {
-      if (input.contractAddresses.length === 0) {
+      if (input.addresses.length === 0) {
         throw new Error(`${eventName} filter requires a contract address`);
       }
-      if (input.contractAddresses.length > maxFilterContractAddresses) {
+      if (input.addresses.length > maxFilterContractAddresses) {
         throw new Error(
           `${eventName} filter supports at most ${maxFilterContractAddresses} contract addresses`,
         );
       }
-      for (const address of input.contractAddresses) fixedBytes(address, 32);
+      for (const address of input.addresses) fixedBytes(address, 32);
 
       const filterTopics: NonNullable<EventFilter["topics"]> = {
         topic0: [Uint8Array.from(signature)],
@@ -280,7 +280,7 @@ export function defineContractEvent<
         }
       }
       return {
-        contractAddresses: [...input.contractAddresses],
+        addresses: [...input.addresses],
         topics: filterTopics,
       };
     },
@@ -288,12 +288,15 @@ export function defineContractEvent<
     allFromReceipt(receipt, options) {
       const matches: ContractReceiptEvent<TName, TTopics, TFields>[] = [];
       for (const event of receipt.events) {
-        if (!bytesEqual(event.contractAddress, options.contractAddress)) {
+        if (!bytesEqual(event.address, options.address)) {
           continue;
         }
         const decoded = descriptor.decode(event);
         if (decoded !== null) {
-          matches.push({ ...decoded, contractAddress: event.contractAddress });
+          matches.push({
+            ...decoded,
+            address: contractAddress(event.address.slice()),
+          });
         }
       }
       return matches;

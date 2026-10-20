@@ -194,7 +194,7 @@ describe("end-to-end: full pipeline via MockTransport client", () => {
 
     // Initial chain tip should be at height 0
     const initialTip = await client.getChainTip();
-    expect(initialTip.height).toBe(0n);
+    expect(initialTip.blockHeight).toBe(0n);
 
     // Build an ERC20 transfer invocation
     const tokenAddress = contractAddress(new Uint8Array(32).fill(0xaa));
@@ -236,19 +236,23 @@ describe("end-to-end: full pipeline via MockTransport client", () => {
     );
 
     // Send via client
-    const txHash = await client.sendTransaction(signedTx);
+    const { transactionHash: txHash } = await client.sendTransaction({
+      signedTransaction: serializeSignedTransaction(signedTx),
+    });
     expect(txHash).toBeInstanceOf(Uint8Array);
     expect(txHash.length).toBe(32);
 
     // Get receipt via client
-    const receipt = await client.getTransactionReceipt(txHash);
+    const receipt = await client.getTransactionReceipt({
+      transactionHash: txHash,
+    });
     expect(receipt).not.toBeNull();
-    expect(receipt!.txHash).toEqual(txHash);
-    expect(receipt!.execResult).toBe(ExecResult.ExecResultOK);
-    expect(receipt!.height).toBe(1n);
+    expect(receipt!.transactionHash).toEqual(txHash);
+    expect(receipt!.execution).toMatchObject({ result: "return" });
+    expect(receipt!.blockHeight).toBe(1n);
 
     // Chain tip should reflect the new block
     const newTip = await client.getChainTip();
-    expect(newTip.height).toBe(1n);
+    expect(newTip.blockHeight).toBe(1n);
   });
 });

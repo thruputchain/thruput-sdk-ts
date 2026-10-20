@@ -5,6 +5,7 @@ import { test } from "node:test";
 import { setTimeout as sleep } from "node:timers/promises";
 import {
   HttpTransport,
+  MockTransport,
   MlDsa65Signer,
   PrivateKeySigner,
   createThruputClient,
@@ -21,7 +22,7 @@ import {
 } from "@thruputchain/client";
 import { codec as specCodec, deserialize } from "@thruputchain/contract-spec";
 import {
-  ThruputRpcErrorCode,
+  NativeRpcErrorCode,
   JsonRpcError,
 } from "@thruputchain/client/transport";
 import {
@@ -46,20 +47,26 @@ import {
   suiteTimeoutMs as timeout,
 } from "../../scripts/integration-timeouts.mjs";
 
-function assertChainConfig({ execution, ...stated }) {
+function assumed(account) {
+  const { pubkey_hash, nonce } = account.authClaim.pubkey_preimage;
+  return {
+    kind: "pubkeySignature",
+    pubkeyHash: pubkey_hash,
+    accountNonce: nonce,
+  };
+}
+
+function assertChainConfig({ execution, stated }) {
   const assertLimits = (limits) => {
     for (const value of Object.values(limits)) {
-      assert.ok(
-        value === null ||
-          (Number.isInteger(value) && value >= 0 && value <= 0xffff_ffff),
-      );
+      assert.ok(Number.isInteger(value) && value >= 0 && value <= 0xffff_ffff);
     }
   };
   assertLimits(stated);
   if (execution === undefined) return;
 
-  assert.equal(typeof execution.observedTip.height, "bigint");
-  assert.ok(execution.observedTip.height >= 0n);
+  assert.equal(typeof execution.observedTip.blockHeight, "bigint");
+  assert.ok(execution.observedTip.blockHeight >= 0n);
   assert.equal(execution.observedTip.blockHash.length, 32);
   assert.equal(execution.configHash.length, 32);
   assertLimits(execution.effectiveLimits);
@@ -74,7 +81,7 @@ test("chain config integration assertions accept stated and execution readings",
   const stated = { maxContractSizeBytes: 524288 };
   const execution = {
     observedTip: {
-      height: "42",
+      blockHeight: "42",
       blockHash: toBase58(new Uint8Array(32).fill(0x11)),
     },
     configHash: toBase58(new Uint8Array(32).fill(0x22)),
@@ -90,9 +97,15 @@ test("chain config integration assertions accept stated and execution readings",
       balanceCost: "1234",
     },
   };
-  for (const result of [stated, { ...stated, execution }]) {
+  for (const result of [{ stated }, { stated, execution }]) {
+    const discovery = new MockTransport();
     const client = await createThruputClient({
-      transport: { request: async () => result },
+      transport: {
+        request: (method, params, options) =>
+          method === "getChainConfig"
+            ? Promise.resolve(result)
+            : discovery.request(method, params, options),
+      },
     });
     assertChainConfig(await client.getChainConfig());
   }
@@ -117,20 +130,19 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         await readFile(process.env.THRUPUT_RUNTIME_MANIFEST, "utf8"),
       );
       assert.equal(toBase58(client.network.networkHash), manifest.networkHash);
-      const version = await client.getVersion();
+      const version = await client.getVersionInfo();
       assert.equal(
         version.implementation,
         process.env.THRUPUT_EXPECTED_CLI_VERSION ?? versions.cli,
       );
       assert.match(version.wireFormat, /^\d+\.\d+\.\d+$/);
-      // The released node can predate optional additions in the SDK's schema.
       assert.equal(
         version.wireFormat,
         process.env.THRUPUT_EXPECTED_WIRE_FORMAT ?? versions.wireFormat,
       );
       const tip = await client.getChainTip();
-      assert.equal(typeof tip.height, "bigint");
-      assert.ok(tip.height >= 1n);
+      assert.equal(typeof tip.blockHeight, "bigint");
+      assert.ok(tip.blockHeight >= 1n);
       assert.equal(tip.blockHash.length, 32);
       const config = await client.getChainConfig();
       assertChainConfig(config);
@@ -138,7 +150,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         config.execution,
         "the pinned runtime must return execution rules",
       );
-      assert.ok(config.execution.observedTip.height >= tip.height);
+      assert.ok(config.execution.observedTip.blockHeight >= tip.blockHeight);
       for (const limit of Object.values(config.execution.effectiveLimits)) {
         assert.notEqual(
           limit,
@@ -160,10 +172,12 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       const account = createPubkeyAccount({
         signer: new PrivateKeySigner(randomBytes(32)),
       });
-      const result = await client.getAddressAuthData(account.address);
+      const result = await client.getRegisteredAuth({
+        address: account.address,
+      });
       assert.deepEqual(result.address, account.address);
-      assert.equal(result.authData, null);
-      assert.ok(result.height >= 1n);
+      assert.equal(result.configuration, null);
+      assert.ok(result.stateBlockHeight >= 1n);
     },
   );
 
@@ -180,28 +194,33 @@ test("built SDK against a real local node", { timeout }, async (t) => {
     const batchedClient = await createThruputClient({
       transport: batchedTransport,
     });
+    bodies.length = 0; // Discovery is already complete.
     const hash = toBase58(new Uint8Array(32));
     const [version, tip, missing, duplicate, invalid] =
       await Promise.allSettled([
-        batchedClient.getVersion(),
+        batchedClient.getVersionInfo(),
         batchedClient.getChainTip(),
-        batchedTransport.request("groundhog_getTransactionReceipt", [hash]),
-        batchedTransport.request("groundhog_getTransactionReceipt", [hash]),
-        batchedTransport.request("groundhog_getTransactionReceipt", [
-          "bad-hash",
-        ]),
+        batchedTransport.request("getTransactionReceipt", {
+          transactionHash: hash,
+        }),
+        batchedTransport.request("getTransactionReceipt", {
+          transactionHash: hash,
+        }),
+        batchedTransport.request("getTransactionReceipt", {
+          transactionHash: "bad-hash",
+        }),
       ]);
     assert.equal(bodies.length, 1);
     assert.equal(bodies[0].length, 5);
     assert.equal(version.status, "fulfilled");
-    assert.deepEqual(version.value, await client.getVersion());
+    assert.deepEqual(version.value, await client.getVersionInfo());
     assert.equal(tip.status, "fulfilled");
-    assert.equal(typeof tip.value.height, "bigint");
+    assert.equal(typeof tip.value.blockHeight, "bigint");
     assert.deepEqual(missing, { status: "fulfilled", value: null });
     assert.deepEqual(duplicate, missing);
     assert.equal(invalid.status, "rejected");
     assert.ok(invalid.reason instanceof JsonRpcError);
-    assert.equal(invalid.reason.code, ThruputRpcErrorCode.InvalidParams);
+    assert.equal(invalid.reason.code, NativeRpcErrorCode.InvalidParams);
   });
 
   await t.test(
@@ -219,17 +238,17 @@ test("built SDK against a real local node", { timeout }, async (t) => {
           recipient: account.address,
           timeoutMs: airdropTimeoutMs,
         });
-        assert.equal(airdrop.status.result, "ok");
+        assert.equal(airdrop.execution.result, "return");
         assert.ok(airdrop.rawAmount > 0n);
         assert.deepEqual(airdrop.recipient, account.address);
       }
-      const balance = (minHeight, signal) =>
+      const balance = (minStateBlockHeight, signal) =>
         ERC20.v0_1.getBalanceOf.view({
           client: wallet,
-          contract: HOG_ADDRESS,
+          address: HOG_ADDRESS,
           caller: sender.address,
           args: { addr: recipient.address },
-          minHeight,
+          minStateBlockHeight,
           signal,
         });
       const before = await balance();
@@ -261,29 +280,32 @@ test("built SDK against a real local node", { timeout }, async (t) => {
             },
           );
           const root = {
-            contract: sender.address,
+            address: sender.address,
             entrypoint: invocation.entrypoint,
             calldata: invocation.calldata,
             gasLimit: invocation.gas_limit,
-            minHeight: before.height,
+            minStateBlockHeight: before.stateBlockHeight,
           };
-          assert.equal((await client.view(root)).output.result, "abort");
-          const simulated = await client.view({
+          assert.equal(
+            (await client.simulateInvocation(root)).output.result,
+            "abort",
+          );
+          const simulated = await client.simulateInvocation({
             ...root,
-            authClaim: sender.authClaim,
+            assumedAuth: assumed(sender),
           });
           const values = DefaultWallet.v0_1.execute.decodeView(simulated).value;
           assert.equal(
             ERC20.v0_1.getBalanceOf.decodeReturn(values[1]),
             before.value + amount,
           );
-          const { minHeight, ...call } = root;
-          const batch = await client.viewBatch({
-            minHeight,
-            calls: [
-              { ...call, authClaim: sender.authClaim },
-              { ...call, authClaim: recipient.authClaim },
-              { ...call, authClaim: sender.authClaim },
+          const { minStateBlockHeight, ...call } = root;
+          const batch = await client.simulateInvocations({
+            minStateBlockHeight,
+            invocations: [
+              { ...call, assumedAuth: assumed(sender) },
+              { ...call, assumedAuth: assumed(recipient) },
+              { ...call, assumedAuth: assumed(sender) },
             ],
           });
           assert.deepEqual(
@@ -293,18 +315,21 @@ test("built SDK against a real local node", { timeout }, async (t) => {
           for (const index of [0, 2]) {
             assert.deepEqual(batch.results[index].output, simulated.output);
           }
-          assert.equal((await balance(before.height)).value, before.value);
+          assert.equal(
+            (await balance(before.stateBlockHeight)).value,
+            before.value,
+          );
         },
       );
       const {
-        txHash: hash,
+        transactionHash: hash,
         receipt,
         values,
       } = await wallet.executeCallsAndWait(
         {
           calls: [
             ERC20.v0_1.transfer.call({
-              contract: HOG_ADDRESS,
+              address: HOG_ADDRESS,
               gasLimit: gasAmount(500_000n),
               args: {
                 receiver: recipient.address,
@@ -318,8 +343,8 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       );
       assert.equal(hash.length, 32);
       assert.deepEqual(values, [undefined]);
-      assert.deepEqual(receipt.txHash, hash);
-      assert.equal(receipt.execResult, ExecResult.ExecResultOK);
+      assert.deepEqual(receipt.transactionHash, hash);
+      assert.equal(receipt.execution.result, "return");
       assert.deepEqual(
         DefaultWallet.v0_1.execute.decodeReceipt(receipt).value,
         [new Uint8Array()],
@@ -328,7 +353,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         groundhog_erc20_if.v0_1.events.TransferEvent.singleFromReceipt(
           receipt,
           {
-            contractAddress: HOG_ADDRESS,
+            address: HOG_ADDRESS,
           },
         );
       assert.deepEqual(receiptEvent.topics, {
@@ -345,33 +370,34 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       let after;
       for (;;) {
         try {
-          after = await balance(receipt.height, freshnessDeadline);
+          after = await balance(receipt.blockHeight, freshnessDeadline);
           break;
         } catch (error) {
           if (
             !(error instanceof JsonRpcError) ||
-            error.code !== ThruputRpcErrorCode.ViewHeightUnavailable
+            error.code !== NativeRpcErrorCode.StateHeightUnavailable
           ) {
             throw error;
           }
           await sleep(100, undefined, { signal: freshnessDeadline });
         }
       }
-      assert.ok(after.height >= receipt.height);
+      assert.ok(after.stateBlockHeight >= receipt.blockHeight);
       assert.equal(after.value - before.value, amount);
       const snapshot = await client.readViews({
         calls: [sender, recipient].map(({ address }) =>
           ERC20.v0_1.getBalanceOf.viewRequest({
-            contract: HOG_ADDRESS,
+            address: HOG_ADDRESS,
             args: { addr: address },
           }),
         ),
-        minHeight: receipt.height,
+        minStateBlockHeight: receipt.blockHeight,
       });
       assert.ok(
         snapshot.results.every(
           (result) =>
-            result.kind === "return" && result.height === snapshot.height,
+            result.kind === "return" &&
+            result.stateBlockHeight === snapshot.stateBlockHeight,
         ),
       );
       assert.equal(snapshot.results[1].value, after.value);
@@ -396,14 +422,14 @@ test("built SDK against a real local node", { timeout }, async (t) => {
           recipient: account.address,
           timeoutMs: airdropTimeoutMs,
         });
-        assert.equal(airdrop.status.result, "ok");
+        assert.equal(airdrop.execution.result, "return");
       }
       const amount = 1_000n;
       const { receipt } = await wallet.executeCallsAndWait(
         {
           calls: [
             ERC20.v0_1.transfer.call({
-              contract: HOG_ADDRESS,
+              address: HOG_ADDRESS,
               gasLimit: gasAmount(500_000n),
               args: { receiver: recipient.address, amount },
             }),
@@ -412,11 +438,11 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         },
         { timeoutMs: receiptTimeoutMs },
       );
-      assert.equal(receipt.execResult, ExecResult.ExecResultOK);
+      assert.equal(receipt.execution.result, "return");
       const event =
         groundhog_erc20_if.v0_1.events.TransferEvent.singleFromReceipt(
           receipt,
-          { contractAddress: HOG_ADDRESS },
+          { address: HOG_ADDRESS },
         );
       assert.deepEqual(event.topics, {
         from: sender.address,
@@ -431,20 +457,16 @@ test("built SDK against a real local node", { timeout }, async (t) => {
     async () => {
       assert.ok(transfer, "requires the transfer subtest to have passed");
       const { sender, recipient, amount, hash, receipt } = transfer;
-      // Exercises the request shape the node actually requires (a full
-      // EventTopicFilter with a populated topic0/topic1) and the nested
-      // IdentifiedEvent response envelope, against a real node rather than a
-      // hand-written fixture.  A fresh random sender has exactly one outgoing
-      // transfer, so the filter must match exactly one event.
+      // A fresh sender has exactly one outgoing transfer. Exercise address
+      // and encoded topic filtering through the real indexer.
       const query = {
         filters: [
           groundhog_erc20_if.v0_1.events.TransferEvent.filter({
-            contractAddresses: [HOG_ADDRESS],
+            addresses: [HOG_ADDRESS],
             topics: { from: sender.address },
           }),
         ],
-        order: "ascending",
-        anchor: "beginning",
+        start: { order: "ascending", anchor: { kind: "atBeginning" } },
         limit: 50,
       };
       // The indexer may trail consensus; poll until it has processed the
@@ -454,26 +476,30 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       let events;
       for (;;) {
         events = [];
-        let cursor = new Uint8Array();
-        let latestBlock;
+        let cursor;
+        let latestIndexedBlockHeight;
         do {
-          const page = await client.getEvents({ ...query, cursor });
+          const { start, ...continued } = query;
+          const page = await client.getEvents(
+            cursor === undefined ? query : { ...continued, cursor },
+          );
           events.push(...page.events);
-          ({ cursor, latestBlock } = page);
-        } while (cursor.length > 0);
-        if (latestBlock >= receipt.height) break;
+          cursor = page.nextCursor;
+          latestIndexedBlockHeight = page.latestIndexedBlockHeight;
+        } while (cursor !== null);
+        if (latestIndexedBlockHeight >= receipt.blockHeight) break;
         assert.ok(
           Date.now() < deadline,
-          `indexer did not reach block ${receipt.height} within ${eventsTimeoutMs}ms (at ${latestBlock})`,
+          `indexer did not reach block ${receipt.blockHeight} within ${eventsTimeoutMs}ms (at ${latestIndexedBlockHeight})`,
         );
         await sleep(250);
       }
       assert.equal(events.length, 1);
       const [identified] = events;
-      assert.deepEqual(identified.txHash, hash);
-      assert.equal(identified.blockHeight, receipt.height);
+      assert.deepEqual(identified.transactionHash, hash);
+      assert.equal(identified.blockHeight, receipt.blockHeight);
       assert.equal(typeof identified.sequenceNumber, "number");
-      assert.deepEqual(identified.event.contractAddress, HOG_ADDRESS);
+      assert.deepEqual(identified.event.address, HOG_ADDRESS);
       assert.deepEqual(
         groundhog_erc20_if.v0_1.events.TransferEvent.decode(identified.event),
         {
@@ -493,7 +519,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       const wallet = createWalletClient({ client, account: sender });
       const secondAmount = 2_000n;
       const call = ERC20.v0_1.transfer.call({
-        contract: HOG_ADDRESS,
+        address: HOG_ADDRESS,
         gasLimit: gasAmount(500_000n),
         args: { receiver: recipient.address, amount: secondAmount },
       });
@@ -507,17 +533,19 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       );
       const query = {
         event: groundhog_erc20_if.v0_1.events.TransferEvent,
-        contractAddresses: [HOG_ADDRESS],
+        addresses: [HOG_ADDRESS],
         topics: { from: sender.address },
-        order: "ascending",
-        anchor: { height: receipt.height },
+        start: {
+          order: "ascending",
+          anchor: { kind: "atHeight", blockHeight: receipt.blockHeight },
+        },
         limit: 1,
       };
       const deadline = Date.now() + eventsTimeoutMs;
       let first;
       for (;;) {
         first = await client.getContractEvents(query);
-        if (first.latestBlock >= second.receipt.height) break;
+        if (first.latestIndexedBlockHeight >= second.receipt.blockHeight) break;
         assert.ok(
           Date.now() < deadline,
           "event indexer did not reach the second transfer",
@@ -526,26 +554,26 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       }
       assert.equal(first.events.length, 1);
       assert.equal(first.events[0].fields.amount, amount);
-      assert.deepEqual(first.events[0].txHash, hash);
-      assert.deepEqual(first.events[0].contractAddress, HOG_ADDRESS);
+      assert.deepEqual(first.events[0].transactionHash, hash);
+      assert.deepEqual(first.events[0].address, HOG_ADDRESS);
       assert.deepEqual(first.events[0].topics.to, recipient.address);
       assert.ok(
-        first.cursor.length > 0,
+        first.nextCursor !== null,
         "limit: 1 should return a continuation cursor",
       );
+      const { start, ...continuedQuery } = query;
       const next = await client.getContractEvents({
-        ...query,
-        cursor: first.cursor,
+        ...continuedQuery,
+        cursor: first.nextCursor,
       });
       assert.equal(next.events.length, 1);
       assert.equal(next.events[0].fields.amount, secondAmount);
-      assert.deepEqual(next.events[0].txHash, second.txHash);
-      assert.ok(next.cursor.length > 0);
+      assert.deepEqual(next.events[0].transactionHash, second.transactionHash);
+      assert.ok(next.nextCursor !== null);
 
       const rawQuery = {
         filters: [groundhog_erc20_if.v0_1.events.TransferEvent.filter(query)],
-        order: query.order,
-        anchor: query.anchor,
+        start: query.start,
         limit: 1,
       };
       const found = [];
@@ -557,22 +585,23 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       }
       assert.ok(pageCount >= 3);
       assert.deepEqual(
-        found.map((event) => event.txHash),
-        [hash, second.txHash, second.txHash],
+        found.map((event) => event.transactionHash),
+        [hash, second.transactionHash, second.transactionHash],
       );
 
       const third = await wallet.executeAndWait(
         { invocation: call.invocation, gasLimit: gasAmount(1_000_000n) },
         { timeoutMs: receiptTimeoutMs },
       );
-      assert.ok(third.receipt.height > second.receipt.height);
+      assert.ok(third.receipt.blockHeight > second.receipt.blockHeight);
 
       // Wait for indexer readiness before testing either walk. Reusing the old
       // cursor below must still exclude the now-indexed third transfer.
       const thirdIndexDeadline = Date.now() + eventsTimeoutMs;
       for (;;) {
         const indexed = await client.getContractEvents(query);
-        if (indexed.latestBlock >= third.receipt.height) break;
+        if (indexed.latestIndexedBlockHeight >= third.receipt.blockHeight)
+          break;
         assert.ok(
           Date.now() < thirdIndexDeadline,
           "event indexer did not reach the third transfer",
@@ -580,27 +609,35 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         await sleep(250);
       }
 
-      // A saved cursor finishes its original walk, excluding the later block.
+      // A raw saved cursor finishes its original walk, excluding the later block.
+      // The iterator requires an explicit start so its completion watermark is known.
       const resumed = [];
-      for await (const page of client.iterateEventPages({
-        ...rawQuery,
-        cursor: next.cursor,
-      })) {
+      let cursor = next.nextCursor;
+      do {
+        const page = await client.getEvents({
+          filters: rawQuery.filters,
+          limit: 1,
+          cursor,
+        });
         resumed.push(...page.events);
-      }
+        cursor = page.nextCursor;
+      } while (cursor !== null);
       assert.deepEqual(resumed, [found[2]]);
 
       // A fresh row-height scan includes the whole saved block and newer rows.
       const fresh = [];
       for await (const page of client.iterateEventPages({
         ...rawQuery,
-        anchor: { height: second.receipt.height },
+        start: {
+          order: "ascending",
+          anchor: { kind: "atHeight", blockHeight: second.receipt.blockHeight },
+        },
       })) {
         fresh.push(...page.events);
       }
       assert.deepEqual(
-        fresh.map((event) => event.txHash),
-        [second.txHash, second.txHash, third.txHash],
+        fresh.map((event) => event.transactionHash),
+        [second.transactionHash, second.transactionHash, third.transactionHash],
       );
       assert.deepEqual(fresh.slice(0, 2), found.slice(1));
     },
@@ -653,7 +690,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         { timeoutMs: receiptTimeoutMs },
       );
       assert.deepEqual(result.address, deployment.address);
-      assert.equal(result.receipt.execResult, ExecResult.ExecResultOK);
+      assert.equal(result.receipt.execution.result, "return");
       assert.equal("account" in client, false);
       const initialized = await wallet.executeAndWait(
         {
@@ -671,8 +708,8 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         DefaultWallet.v0_1.execute.decodeReceipt(initialized.receipt).value,
         [new Uint8Array([42])],
       );
-      const view = await client.view({
-        contract: result.address,
+      const view = await client.simulateInvocation({
+        address: result.address,
         entrypoint: deriveEntrypointID(iface.name, iface.vers, "get"),
         calldata: encodeCalldata(spec, iface.name, "get", [], {}),
         caller: sender.address,
@@ -707,12 +744,11 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         { timeoutMs: receiptTimeoutMs },
       );
       assert.equal(
-        ping.singleFromReceipt(receipt, { contractAddress: result.address })
-          .topics.tag,
+        ping.singleFromReceipt(receipt, { address: result.address }).topics.tag,
         tag,
       );
       const filter = ping.filter({
-        contractAddresses: [result.address],
+        addresses: [result.address],
         topics: { tag },
       });
       const raw = receipt.events.find(
@@ -725,21 +761,20 @@ test("built SDK against a real local node", { timeout }, async (t) => {
     },
   );
 
-  await t.test(
-    "preserves a real JSON-RPC transaction validation error",
-    async () => {
-      await assert.rejects(
-        transport.request("groundhog_sendRawTransaction", ["not-valid-hex"]),
-        (error) => {
-          assert.ok(error instanceof JsonRpcError);
-          assert.equal(error.code, ThruputRpcErrorCode.TxInvalid);
-          assert.equal(error.method, "groundhog_sendRawTransaction");
-          assert.match(error.message, /invalid hex/i);
-          return true;
-        },
-      );
-    },
-  );
+  await t.test("preserves a real JSON-RPC invalid-params error", async () => {
+    await assert.rejects(
+      transport.request("sendTransaction", {
+        signedTransaction: "not-valid-hex",
+      }),
+      (error) => {
+        assert.ok(error instanceof JsonRpcError);
+        assert.equal(error.code, NativeRpcErrorCode.InvalidParams);
+        assert.equal(error.method, "sendTransaction");
+        assert.equal(typeof error.message, "string");
+        return true;
+      },
+    );
+  });
 });
 
 test(
@@ -762,7 +797,7 @@ test(
     const funding = await funder.requestAirdrop({
       timeoutMs: airdropTimeoutMs,
     });
-    assert.equal(funding.status.result, "ok");
+    assert.equal(funding.execution.result, "return");
     const freshAccount = () =>
       createPubkeyAccount({ signer: new PrivateKeySigner(randomBytes(32)) });
     const sender = freshAccount();
@@ -777,7 +812,8 @@ test(
         ),
         gasLimit: gasAmount(1_000_000n),
       });
-    const balance = (account) => client.getBalance(account.address);
+    const balance = (account) =>
+      client.getBalance({ address: account.address });
     async function until(read, ready) {
       const deadline = Date.now() + receiptTimeoutMs;
       for (;;) {
@@ -800,7 +836,7 @@ test(
     const wallet = createWalletClient({ client, account: sender });
     const smallHash = await send(wallet, smallRecipient.address, 1_000n);
     const failure = await until(
-      () => client.getTransactionStatus(smallHash),
+      () => client.getTransactionStatus({ transactionHash: smallHash }),
       (status) => status.status !== "pending" && status.status !== "unknown",
     );
     assert.deepEqual(failure, {

@@ -42,16 +42,6 @@ const [senderAirdrop, recipientAirdrop] = await Promise.all([
   wallet.requestAirdrop(),
   client.requestAirdrop({ recipient: recipient.address }),
 ]);
-if (senderAirdrop.status.result !== "ok") {
-  throw new Error(
-    `Sender airdrop transaction failed with ${senderAirdrop.status.result}`,
-  );
-}
-if (recipientAirdrop.status.result !== "ok") {
-  throw new Error(
-    `Recipient airdrop transaction failed with ${recipientAirdrop.status.result}`,
-  );
-}
 if (senderAirdrop.rawAmount < amount) {
   throw new Error(
     `Airdrop supplied ${senderAirdrop.rawAmount} base units, fewer than the ${amount} requested for transfer`,
@@ -62,7 +52,7 @@ const transfer = ERC20.v0_1.transfer.invocation(HOG_ADDRESS, callGasLimit, {
   receiver: recipient.address,
   amount,
 });
-const { txHash } = await wallet.executeAndWait({
+const { transactionHash } = await wallet.executeAndWait({
   invocation: transfer,
   gasLimit: walletGasLimit,
 });
@@ -78,11 +68,11 @@ console.log({
   sender: toBase58(sender.address),
   recipient: toBase58(recipient.address),
   senderAirdropAmount: senderAirdrop.rawAmount.toString(),
-  senderAirdropTxHash: toBase58(senderAirdrop.txHash),
+  senderAirdropTxHash: toBase58(senderAirdrop.transactionHash),
   recipientAirdropAmount: recipientAirdrop.rawAmount.toString(),
-  recipientAirdropTxHash: toBase58(recipientAirdrop.txHash),
+  recipientAirdropTxHash: toBase58(recipientAirdrop.transactionHash),
   transferAmount: amount.toString(),
-  transferTxHash: toBase58(txHash),
+  transferTxHash: toBase58(transactionHash),
   senderBalance: senderBalance.toString(),
   recipientBalance: recipientBalance.toString(),
 });
@@ -90,7 +80,7 @@ console.log({
 async function readHogBalance(address: typeof sender.address): Promise<bigint> {
   const response = await ERC20.v0_1.getBalanceOf.view({
     client: wallet,
-    contract: HOG_ADDRESS,
+    address: HOG_ADDRESS,
     caller: sender.address,
     args: { addr: address },
   });

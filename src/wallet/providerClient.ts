@@ -12,6 +12,8 @@ import {
 import { fixedFromBase58, hashFromBase58, toBase58 } from "../encoding.js";
 import {
   submitAndObserve,
+  createSubmissionEvidence,
+  TransactionObservationError,
   assertTransactionSuccess,
   decodeExecution,
   type CallResults,
@@ -35,6 +37,7 @@ import {
   parseSignTransactionResult,
   parseSubmitTransactionResult,
   parseTransactionHex,
+  parseSignedTransactionHex,
   parseWalletAccount,
   parseWalletNetworkHash,
   parseWalletProvider,
@@ -66,11 +69,11 @@ export interface PendingWalletTransaction extends SignTransactionResult {
   readonly networkHash: string;
 }
 
-/** Lifecycle controls. Cancellation applies to observation, never cancels a broadcast. */
+/** Lifecycle controls. Cancellation can prevent dispatch; it never cancels a broadcast already sent. */
 export interface ProviderExecutionOptions {
   /** Await durable application persistence before submitting; rejection prevents broadcast. */
   onSigned: (pending: PendingWalletTransaction) => void | Promise<void>;
-  /** Receipt waiting options; network identity is pinned by the wallet client. */
+  /** Shared submission/receipt budget after signing and persistence; network identity is pinned. */
   wait?: WaitForTransactionReceiptOptions;
 }
 
@@ -188,15 +191,15 @@ export interface ProviderWalletClient {
  * derivation and any validated client network identity, and subscribes to changes.
  * Supply the application's trusted expected network hash, not a value adopted from
  * the wallet. The RPC client must be connected to and verified against that same
- * network. An unqualified CoreThruputClient carries no validated network identity;
- * the caller must verify its RPC network separately before creating this adapter.
+ * network. Every native client carries a discovered network identity, checked here.
  * See {@link ProviderWalletClient} for invalidation and concurrency rules.
- * Providers own request deadlines; this adapter adds no UI timeout or cancellation.
+ * Providers own signing UI deadlines. Execution controls bound submission and
+ * observation after signing; they cannot cancel a broadcast already sent.
  *
  * @example
  * Await an application-owned `onSigned` callback to durably save the signed result
  * and its original account/network before broadcasting. If saving fails, submission
- * is never requested. `onSigned` is an application callback, not an SDK option.
+ * is never requested.
  * `expectedNetworkHash` comes from trusted application configuration, and `client`
  * must already be connected to and verified against that network.
  *
@@ -256,6 +259,11 @@ export function createProviderWalletClient(
   const provider = parseWalletProvider(options.provider);
   const account = parseWalletAccount(options.account);
   const networkHash = parseWalletNetworkHash(options.networkHash);
+  if (toBase58(client.discovery.network.networkHash) !== networkHash)
+    throw new WalletProviderError(
+      4901,
+      "Client and provider network hashes differ",
+    );
   if ("network" in client) {
     const network = client.network;
     if (
@@ -315,7 +323,9 @@ export function createProviderWalletClient(
   async function request(
     value: ProviderRequest,
     onDispatch?: () => void,
+    signal?: AbortSignal,
   ): Promise<unknown> {
+    signal?.throwIfAborted();
     assertActive();
     try {
       // Mark the handoff only after local guards, with no await before the provider call.
@@ -429,8 +439,16 @@ export function createProviderWalletClient(
   function submitTransaction(
     input: SignTransactionResult,
     onDispatch?: () => void,
+    signal?: AbortSignal,
   ): Promise<SubmitTransactionResult> {
+    const checkCancellation = () => {
+      if (signal?.aborted) {
+        approved = undefined;
+        signal.throwIfAborted();
+      }
+    };
     return run(async () => {
+      checkCancellation();
       const signed = parseSignTransactionResult(input);
       if (
         !approved ||
@@ -443,6 +461,7 @@ export function createProviderWalletClient(
         );
       }
       await checkSession();
+      checkCancellation();
       // Consume before crossing the broadcast boundary, including ambiguous failures.
       approved = undefined;
       const value = await request(
@@ -455,6 +474,7 @@ export function createProviderWalletClient(
           },
         },
         onDispatch,
+        signal,
       );
       assertActive();
       let result: SubmitTransactionResult;
@@ -468,6 +488,7 @@ export function createProviderWalletClient(
           "Provider submission hash mismatch; broadcast may have occurred",
         );
       }
+      checkCancellation();
       await checkSession();
       return Object.freeze(result);
     });
@@ -602,7 +623,20 @@ export function createProviderWalletClient(
     executing = true;
     try {
       options.wait?.signal?.throwIfAborted();
+      client.requireMethods([
+        "getChainTip",
+        "getNetworkInfo",
+        "getTransactionReceipt",
+        "getTransactionStatus",
+      ]);
       const signed = await base.signTransaction(await prepare());
+      const evidence = createSubmissionEvidence(
+        serialize(
+          parseSignedTransactionHex(signed.signedTransaction),
+          codec.SignedTransaction,
+        ),
+        hashFromBase58(networkHash),
+      );
       try {
         await options.onSigned(
           Object.freeze({
@@ -614,16 +648,26 @@ export function createProviderWalletClient(
         options.wait?.signal?.throwIfAborted();
       } catch (cause) {
         approved = undefined;
-        throw cause;
+        throw new TransactionObservationError(
+          evidence,
+          cause,
+          undefined,
+          undefined,
+          "beforeSubmission",
+        );
       }
       let submissionDispatched = false;
       const result = await submitAndObserve(
         client,
-        hashFromBase58(signed.hash),
-        () =>
-          submitTransaction(signed, () => {
-            submissionDispatched = true;
-          }),
+        evidence,
+        (signal) =>
+          submitTransaction(
+            signed,
+            () => {
+              submissionDispatched = true;
+            },
+            signal,
+          ),
         {
           ...options.wait,
           expectedNetworkHash: hashFromBase58(

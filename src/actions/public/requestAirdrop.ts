@@ -1,328 +1,154 @@
-import { toBase58, hashFromBase58, addressFromBase58 } from "../../encoding.js";
-import type { ContractAddress, SHA256Hash } from "@thruputchain/protocol";
-import type {
-  Transport,
-  TransportRequestOptions,
-} from "../../transport/types.js";
-import { classifyReadError } from "../../transport/readError.js";
+import type { RpcClient } from "../../rpc/client.js";
+import { NativeRpcError } from "../../rpc/errorReader.js";
+import { RpcCompatibilityError } from "../../rpc/client.js";
+import { UnsupportedRpcValue } from "../../rpc/codec.js";
+import type { TransportRequestOptions } from "../../transport/types.js";
 import type {
   AirdropAttemptRequest,
-  AirdropPending,
   AirdropResponse,
   AirdropSucceeded,
-  AirdropExecutionStatus,
 } from "../../types/rpc.js";
-import { toHex0x } from "../hex.js";
-import { parseDecimal, parseHeight, parseU64, U128_MAX } from "../decimal.js";
+import {
+  waitForTransactionReceipt,
+  TransactionReceiptObservationError,
+  type KnownCommitment,
+} from "./waitForTransactionReceipt.js";
+import {
+  TransactionExecutionError,
+  assertTransactionSuccess,
+} from "../../wallet/execution.js";
+import { beforeDeadline, validateTimer } from "../deadline.js";
 
-const maxTimerDelayMs = 2_147_483_647;
-const defaultTimeoutMs = 60_000;
-const transientRetryDelayMs = 250;
-
-/** Options for the high-level {@link requestAirdrop} action. */
 export interface RequestAirdropOptions {
-  /** Address to fund. */
-  readonly recipient: ContractAddress;
-
-  /** Existing 1-32 byte idempotency nonce, or 16 random bytes when omitted. */
+  readonly recipient: Uint8Array;
   readonly clientNonce?: Uint8Array;
-
-  /** Maximum time to wait for success. Defaults to 60 seconds. */
+  readonly expectedNetworkHash?: Uint8Array;
   readonly timeoutMs?: number;
-
-  /** Stop waiting when this signal is aborted. */
   readonly signal?: AbortSignal;
 }
-
-/** Error thrown when an airdrop result does not match the RPC contract. */
-export class InvalidAirdropResponseError extends Error {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options);
-    this.name = "InvalidAirdropResponseError";
+/** Funding stopped without permission to call the faucet again. */
+export class FundingObservationError extends Error {
+  constructor(
+    readonly request: AirdropAttemptRequest & { networkHash: Uint8Array },
+    readonly lastResponse: AirdropResponse | undefined,
+    cause: unknown,
+    readonly knownCommitment?: KnownCommitment,
+  ) {
+    super("Funding observation stopped", { cause });
+    this.name = "FundingObservationError";
   }
 }
-
-/** Perform one `groundhog_requestAirdrop` attempt without polling. */
+/** Perform exactly one faucet call. It neither polls nor repeats an ambiguous attempt. */
 export async function requestAirdropAttempt(
-  transport: Transport,
+  client: Pick<RpcClient, "faucet_requestAirdrop">,
   request: AirdropAttemptRequest,
   options: TransportRequestOptions = {},
 ): Promise<AirdropResponse> {
-  validateRequest(request);
-  const recipient = new Uint8Array(request.recipient) as ContractAddress;
-  const clientNonce = new Uint8Array(request.clientNonce);
-  const result = await transport.request<unknown>(
-    "groundhog_requestAirdrop",
-    [
-      {
-        recipient: toBase58(recipient),
-        clientNonce: toHex0x(clientNonce),
-      },
-    ],
-    options,
-  );
-  return parseResponse(result, recipient);
+  return client.faucet_requestAirdrop(request, options);
 }
-
-/**
- * Request an airdrop and wait for it to commit.
- *
- * The action generates one nonce when omitted and reuses it for every pending
- * poll and ambiguous retry. A timeout or abort stops waiting but does not prove
- * that the airdrop failed.
- */
+/** Call the faucet once, then observe a returned pending hash using read-only calls. */
 export async function requestAirdrop(
-  transport: Transport,
+  client: RpcClient,
   options: RequestAirdropOptions,
 ): Promise<AirdropSucceeded> {
-  const timeoutMs = options.timeoutMs ?? defaultTimeoutMs;
+  const timeoutMs = options.timeoutMs ?? 60000;
   validateTimer(timeoutMs, "timeoutMs");
-  const request: AirdropAttemptRequest = {
-    recipient: new Uint8Array(options.recipient) as ContractAddress,
+  const request = {
+    recipient: options.recipient.slice(),
     clientNonce:
-      options.clientNonce === undefined
-        ? crypto.getRandomValues(new Uint8Array(16))
-        : new Uint8Array(options.clientNonce),
+      options.clientNonce?.slice() ??
+      crypto.getRandomValues(new Uint8Array(16)),
+    networkHash: (
+      options.expectedNetworkHash ?? client.discovery.network.networkHash
+    ).slice(),
   };
-  validateRequest(request);
-
+  if (
+    request.recipient.length !== 32 ||
+    request.networkHash.length !== 32 ||
+    request.clientNonce.length < 1 ||
+    request.clientNonce.length > 32
+  )
+    throw new RangeError(
+      "Funding requires 32-byte addresses/hashes and a 1–32 byte nonce",
+    );
+  client.requireMethods([
+    "faucet_requestAirdrop",
+    "getNetworkInfo",
+    "getTransactionReceipt",
+    "getTransactionStatus",
+  ]);
   const deadline = performance.now() + timeoutMs;
-  const timeoutError = () =>
-    new Error(
-      `Timed out waiting for airdrop to ${toBase58(request.recipient)}`,
-    );
-
-  while (true) {
-    let response: AirdropResponse;
-    try {
-      response = await beforeDeadline(
-        (signal) => requestAirdropAttempt(transport, request, { signal }),
-        deadline,
-        options.signal,
-        timeoutError,
-      );
-    } catch (cause) {
-      if (options.signal?.aborted) throw abortReason(options.signal);
-      if (classifyReadError(cause) !== "transient") throw cause;
-      await sleepBeforeDeadline(
-        transientRetryDelayMs,
-        deadline,
-        options.signal,
-        timeoutError,
-      );
-      continue;
-    }
-
-    if (response.attemptStatus === "succeeded") return response;
-    await sleepBeforeDeadline(
-      Number(
-        response.retryAfterSeconds > BigInt(Math.floor(maxTimerDelayMs / 1_000))
-          ? BigInt(maxTimerDelayMs)
-          : response.retryAfterSeconds * 1_000n,
-      ),
-      deadline,
-      options.signal,
-      timeoutError,
-    );
-  }
-}
-
-function validateRequest(request: AirdropAttemptRequest): void {
-  if (request.recipient.length !== 32) {
-    throw new RangeError("recipient must be 32 bytes");
-  }
-  if (request.clientNonce.length < 1 || request.clientNonce.length > 32) {
-    throw new RangeError("clientNonce must contain between 1 and 32 bytes");
-  }
-}
-
-function parseResponse(
-  result: unknown,
-  expectedRecipient: ContractAddress,
-): AirdropResponse {
-  if (!result || typeof result !== "object" || Array.isArray(result)) {
-    throw new InvalidAirdropResponseError("Invalid airdrop response");
-  }
-  const raw = result as Record<string, unknown>;
-
+  let lastResponse: AirdropResponse | undefined;
+  const timeout = () => new Error("Funding observation timed out");
+  const run = <T>(operation: (signal: AbortSignal) => Promise<T>) =>
+    beforeDeadline(operation, deadline, options.signal, timeout);
   try {
-    const recipient = parseRecipient(raw.recipient, expectedRecipient);
-    const rawAmount = parseDecimal(raw.rawAmount, "rawAmount", 0n, U128_MAX);
-    if (raw.attemptStatus === "pending") {
-      const pending: AirdropPending = {
-        attemptStatus: "pending",
-        recipient,
-        rawAmount,
-        retryAfterSeconds: parseU64(raw.retryAfterSeconds, "retryAfterSeconds"),
-      };
-      if (raw.txHash !== undefined && raw.txHash !== null) {
-        pending.txHash = parseHash(raw.txHash, "txHash");
-      }
-      return pending;
-    }
-    if (raw.attemptStatus === "succeeded") {
-      return {
-        attemptStatus: "succeeded",
-        recipient,
-        rawAmount,
-        txHash: parseHash(raw.txHash, "txHash"),
-        height: parseHeight(raw.height),
-        status: parseExecutionStatus(raw.status),
-      };
-    }
-    throw new Error("expected attemptStatus");
-  } catch (cause) {
-    if (cause instanceof InvalidAirdropResponseError) throw cause;
-    const detail = cause instanceof Error ? `: ${cause.message}` : "";
-    throw new InvalidAirdropResponseError(`Invalid airdrop response${detail}`, {
-      cause,
-    });
-  }
-}
-
-function parseRecipient(
-  value: unknown,
-  expected: ContractAddress,
-): ContractAddress {
-  if (typeof value !== "string") {
-    throw new Error("expected canonical recipient");
-  }
-  const recipient = addressFromBase58(value);
-  if (!bytesEqual(recipient, expected)) {
-    throw new Error("response recipient does not match request");
-  }
-  return recipient;
-}
-
-function parseHash(value: unknown, field: string): SHA256Hash {
-  if (typeof value !== "string") {
-    throw new Error(`expected canonical ${field}`);
-  }
-  return hashFromBase58(value);
-}
-
-function parseExecutionStatus(value: unknown): AirdropExecutionStatus {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("expected status");
-  }
-  const status = value as Record<string, unknown>;
-  switch (status.result) {
-    case "ok":
-    case "nonDeterministicError":
-    case "failedGasSponsorship":
-    case "other":
-      return { result: status.result };
-    case "reverted":
-      if (
-        status.message !== undefined &&
-        status.message !== null &&
-        typeof status.message !== "string"
-      ) {
-        throw new Error("expected status.message");
-      }
-      return status.message === undefined
-        ? { result: "reverted" }
-        : { result: "reverted", message: status.message };
-    case "deterministicError":
-      if (typeof status.kind !== "string") {
-        throw new Error("expected status.kind");
-      }
-      return { result: "deterministicError", kind: status.kind };
-    default:
-      if (typeof status.result !== "string") {
-        throw new Error("expected status.result");
-      }
-      return { result: "other" };
-  }
-}
-
-async function beforeDeadline<T>(
-  operation: (signal: AbortSignal) => Promise<T>,
-  deadline: number,
-  signal: AbortSignal | undefined,
-  timeoutError: () => Error,
-): Promise<T> {
-  throwIfAborted(signal);
-  const remainingMs = deadline - performance.now();
-  if (remainingMs <= 0) throw timeoutError();
-
-  return new Promise<T>((resolve, reject) => {
-    const abort = new AbortController();
-    const timer = setTimeout(() => {
-      const cause = timeoutError();
-      abort.abort(cause);
-      settle(reject, cause);
-    }, Math.ceil(remainingMs));
-    const onAbort = () => {
-      const cause = abortReason(signal);
-      abort.abort(cause);
-      settle(reject, cause);
-    };
-    const cleanup = () => {
-      clearTimeout(timer);
-      signal?.removeEventListener("abort", onAbort);
-    };
-    const settle = <TValue>(
-      callback: (value: TValue) => void,
-      value: TValue,
-    ) => {
-      cleanup();
-      callback(value);
-    };
-
-    signal?.addEventListener("abort", onAbort, { once: true });
-    operation(abort.signal).then(
-      (value) => settle(resolve, value),
-      (cause) => settle(reject, cause),
+    const network = await run((signal) =>
+      client.getNetworkInfo({}, { signal }),
     );
-  });
-}
-
-async function sleepBeforeDeadline(
-  requestedMs: number,
-  deadline: number,
-  signal: AbortSignal | undefined,
-  timeoutError: () => Error,
-): Promise<void> {
-  throwIfAborted(signal);
-  const remainingMs = deadline - performance.now();
-  if (remainingMs <= 0) throw timeoutError();
-  const delayMs = Math.min(requestedMs, remainingMs, maxTimerDelayMs);
-
-  await new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(() => settle(resolve), Math.ceil(delayMs));
-    const onAbort = () => settle(reject, abortReason(signal));
-    const cleanup = () => {
-      clearTimeout(timer);
-      signal?.removeEventListener("abort", onAbort);
+    if (network.networkHash.some((v, i) => v !== request.networkHash[i]))
+      throw new RpcCompatibilityError(
+        "Funding endpoint network does not match",
+      );
+    lastResponse = await run((signal) =>
+      requestAirdropAttempt(
+        client,
+        { recipient: request.recipient, clientNonce: request.clientNonce },
+        { signal },
+      ),
+    );
+    if (lastResponse instanceof UnsupportedRpcValue) throw lastResponse;
+    if (lastResponse.attemptStatus === "succeeded") {
+      if (lastResponse.execution instanceof UnsupportedRpcValue)
+        throw lastResponse.execution;
+      return lastResponse;
+    }
+    if (!lastResponse.transactionHash)
+      throw new Error("Pending funding did not identify a transaction");
+    const receipt = await waitForTransactionReceipt(
+      client,
+      lastResponse.transactionHash,
+      {
+        expectedNetworkHash: request.networkHash,
+        timeoutMs: Math.max(0, deadline - performance.now()),
+        signal: options.signal,
+      },
+    );
+    assertTransactionSuccess(receipt);
+    return {
+      attemptStatus: "succeeded",
+      recipient: lastResponse.recipient,
+      rawAmount: lastResponse.rawAmount,
+      transactionHash: receipt.transactionHash,
+      blockHeight: receipt.blockHeight,
+      execution: receipt.execution,
     };
-    const settle = <T>(callback: (value: T) => void, value?: T) => {
-      cleanup();
-      callback(value as T);
-    };
-
-    signal?.addEventListener("abort", onAbort, { once: true });
-  });
-}
-
-function throwIfAborted(signal: AbortSignal | undefined): void {
-  if (signal?.aborted) throw abortReason(signal);
-}
-
-function abortReason(signal: AbortSignal | undefined): unknown {
-  if (signal?.reason !== undefined) return signal.reason;
-  return Object.assign(new Error("The operation was aborted"), {
-    name: "AbortError",
-  });
-}
-
-function validateTimer(value: number, name: string): void {
-  if (!Number.isFinite(value) || value < 0 || value > maxTimerDelayMs) {
-    throw new RangeError(`${name} must be between 0 and ${maxTimerDelayMs}`);
+  } catch (cause) {
+    const nativeReceipt =
+      cause instanceof NativeRpcError &&
+      cause.decoded.classification === "known" &&
+      "receipt" in cause.decoded.data
+        ? cause.decoded.data.receipt
+        : undefined;
+    throw new FundingObservationError(
+      request,
+      lastResponse,
+      cause,
+      cause instanceof TransactionReceiptObservationError
+        ? cause.knownCommitment
+        : cause instanceof TransactionExecutionError
+          ? {
+              networkHash: request.networkHash.slice(),
+              transactionHash: cause.receipt.transactionHash.slice(),
+              blockHeight: cause.receipt.blockHeight,
+            }
+          : nativeReceipt
+            ? {
+                networkHash: request.networkHash.slice(),
+                transactionHash: nativeReceipt.transactionHash.slice(),
+                blockHeight: nativeReceipt.blockHeight,
+              }
+            : undefined,
+    );
   }
-}
-
-function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
-  if (left.length !== right.length) return false;
-  return left.every((byte, index) => byte === right[index]);
 }

@@ -1,3 +1,4 @@
+import { UnsupportedRpcValue } from "../../rpc/codec.js";
 import {
   createThruputClient,
   defineCluster,
@@ -101,11 +102,12 @@ function assertClusterTypes(
 void assertClusterTypes;
 
 function assertAirdropResponseNarrowing(response: AirdropResponse): bigint {
+  if (response instanceof UnsupportedRpcValue) throw response;
   switch (response.attemptStatus) {
     case "pending":
       return BigInt(response.retryAfterSeconds);
     case "succeeded":
-      return response.height;
+      return response.blockHeight;
     default: {
       const exhaustive: never = response;
       return exhaustive;
@@ -114,21 +116,8 @@ function assertAirdropResponseNarrowing(response: AirdropResponse): bigint {
 }
 
 function assertAirdropStatusExhaustive(status: AirdropExecutionStatus): string {
-  switch (status.result) {
-    case "ok":
-    case "nonDeterministicError":
-    case "failedGasSponsorship":
-    case "other":
-      return status.result;
-    case "reverted":
-      return status.message ?? status.result;
-    case "deterministicError":
-      return status.kind;
-    default: {
-      const exhaustive: never = status;
-      return exhaustive;
-    }
-  }
+  if (status instanceof UnsupportedRpcValue) return "unsupported";
+  return status.result;
 }
 
 void assertAirdropResponseNarrowing;

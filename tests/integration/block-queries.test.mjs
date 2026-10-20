@@ -9,7 +9,6 @@ import {
   PrivateKeySigner,
   createPubkeyAccount,
   createThruputClient,
-  fundAccount,
   addressFromBase58,
   toHex0x,
 } from "@thruputchain/client";
@@ -33,7 +32,7 @@ test(
     });
     const client = await createThruputClient({ transport });
     assert.equal(
-      (await client.getVersion()).wireFormat,
+      (await client.getVersionInfo()).wireFormat,
       process.env.THRUPUT_EXPECTED_WIRE_FORMAT ?? versions.wireFormat,
     );
     const manifest = JSON.parse(
@@ -49,7 +48,7 @@ test(
     // Submit together during the interval driver so a block has multiple refs.
     const admitted = await Promise.all(
       Array.from({ length: 6 }, () =>
-        fundAccount(transport, {
+        client.dev_fundAccount({
           recipient: account.address,
           faucet,
           rawAmount: 100000000n,
@@ -59,47 +58,49 @@ test(
     );
     const receipts = await Promise.all(
       admitted.map((tx) =>
-        eventually(() => client.getTransactionReceipt(tx.txHash)),
+        eventually(() =>
+          client.getTransactionReceipt({ transactionHash: tx.transactionHash }),
+        ),
       ),
     );
     const byHeight = new Map();
     for (const receipt of receipts) {
-      const hashes = byHeight.get(receipt.height) ?? [];
-      hashes.push(toHex0x(receipt.txHash));
-      byHeight.set(receipt.height, hashes);
+      const hashes = byHeight.get(receipt.blockHeight) ?? [];
+      hashes.push(toHex0x(receipt.transactionHash));
+      byHeight.set(receipt.blockHeight, hashes);
     }
     assert.ok(
       [...byHeight.values()].some((hashes) => hashes.length > 1),
       "corpus must exercise continuation pages",
     );
     for (const [height, expected] of byHeight) {
-      const block = await eventually(() => client.getBlockByNumber(height));
+      const block = await eventually(() =>
+        client.getBlockByHeight({ blockHeight: height }),
+      );
       assert.equal(block.blockHeight, height);
       if (height > 1n) {
-        const parent = await client.getBlockByNumber(height - 1n);
+        const parent = await client.getBlockByHeight({
+          blockHeight: height - 1n,
+        });
         assert.equal(toHex0x(block.prevBlockHash), toHex0x(parent.blockHash));
       }
       for (const order of ["ascending", "descending"]) {
         const found = [];
-        let cursor = new Uint8Array();
-        do {
-          const page = await client.getTransactionsByBlock({
-            height,
-            order,
-            cursor,
-            limit: 1,
-          });
-          assert.equal(page.oldestBlock, 1n);
-          assert.ok(page.latestBlock >= height);
-          assert.equal(page.refs.length, 1);
-          assert.equal(page.refs[0].height, height);
-          found.push(toHex0x(page.refs[0].txHash));
+        for await (const page of client.iterateTransactionsByBlock({
+          blockHeight: height,
+          start: { order },
+          limit: 1,
+        })) {
+          assert.ok(page.oldestIndexedBlockHeight <= height);
+          assert.ok(page.latestIndexedBlockHeight >= height);
+          assert.equal(page.transactions.length, 1);
+          assert.equal(page.transactions[0].blockHeight, height);
+          found.push(toHex0x(page.transactions[0].transactionHash));
           assert.ok(
             found.length <= expected.length,
             "walk repeated or included unrelated refs",
           );
-          cursor = page.cursor;
-        } while (cursor.length !== 0);
+        }
         const sorted = [...expected].sort();
         if (order === "descending") sorted.reverse();
         assert.deepEqual(found, sorted);
@@ -107,27 +108,37 @@ test(
     }
     const lastFunded = [...byHeight.keys()].reduce((a, b) => (a > b ? a : b));
     const empty = await eventually(() =>
-      client.getBlockByNumber(lastFunded + 1n),
+      client.getBlockByHeight({ blockHeight: lastFunded + 1n }),
     );
     assert.equal(empty.blockHeight, lastFunded + 1n);
     assert.equal(
       toHex0x(empty.prevBlockHash),
-      toHex0x((await client.getBlockByNumber(lastFunded)).blockHash),
+      toHex0x(
+        (await client.getBlockByHeight({ blockHeight: lastFunded })).blockHash,
+      ),
     );
     const emptyPage = await client.getTransactionsByBlock({
-      height: empty.blockHeight,
+      blockHeight: empty.blockHeight,
+      start: { order: "ascending" },
     });
-    assert.equal(emptyPage.refs.length, 0);
-    assert.equal(emptyPage.cursor.length, 0);
-    assert.equal(await client.getBlockByNumber(0n), null);
-    assert.equal(await client.getBlockByNumber((1n << 63n) - 1n), null);
+    assert.equal(emptyPage.transactions.length, 0);
+    assert.equal(emptyPage.nextCursor, null);
+    assert.equal(await client.getBlockByHeight({ blockHeight: 0n }), null);
+    assert.equal(
+      await client.getBlockByHeight({ blockHeight: (1n << 63n) - 1n }),
+      null,
+    );
     await assert.rejects(
-      client.getTransactionsByBlock({ height: empty.blockHeight, limit: 0 }),
+      client.getTransactionsByBlock({
+        blockHeight: empty.blockHeight,
+        start: { order: "ascending" },
+        limit: 0,
+      }),
       /limit/,
     );
     const tip = await client.getChainTip();
     const tipBlock = await eventually(() =>
-      client.getBlockByNumber(tip.height),
+      client.getBlockByHeight({ blockHeight: tip.blockHeight }),
     );
     assert.equal(toHex0x(tipBlock.blockHash), toHex0x(tip.blockHash));
   },

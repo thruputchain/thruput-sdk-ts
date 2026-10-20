@@ -31,9 +31,6 @@ const account = createPubkeyAccount({
 });
 const wallet = createWalletClient({ client, account });
 const airdrop = await wallet.requestAirdrop();
-if (airdrop.status.result !== "ok") {
-  throw new Error(`Airdrop transaction failed with ${airdrop.status.result}`);
-}
 
 // Prepare the address first so the initializer can target the new contract.
 const deployment = prepareContractDeployment({
@@ -42,9 +39,8 @@ const deployment = prepareContractDeployment({
     new URL("./fixtures/counter.rv32a", import.meta.url),
   ),
 });
-const { address, txHash: deployHash } = await wallet.deployContractAndWait(
-  deployment,
-  {
+const { address, transactionHash: deployHash } =
+  await wallet.deployContractAndWait(deployment, {
     gasLimit: walletGasLimit,
     // Explicit storage funding in raw HOG units; calibrated for this fixture.
     amount: 50_000_000n,
@@ -53,10 +49,9 @@ const { address, txHash: deployHash } = await wallet.deployContractAndWait(
       counterGasLimit,
       { initialValue: 42n },
     ),
-  },
-);
+  });
 
-const { txHash: callHash } = await wallet.executeAndWait({
+const { transactionHash: callHash } = await wallet.executeAndWait({
   invocation: Counter.v0_1.increment.invocation(address, counterGasLimit, {
     amount: 5n,
   }),
@@ -64,7 +59,7 @@ const { txHash: callHash } = await wallet.executeAndWait({
 });
 const view = await Counter.v0_1.get.view({
   client: wallet,
-  contract: address,
+  address: address,
   caller: account.address,
 });
 if (view.value !== 47n) {
@@ -74,7 +69,7 @@ if (view.value !== 47n) {
 console.log({
   rpcUrl: client.cluster.rpcUrl,
   account: toBase58(account.address),
-  airdropTxHash: toBase58(airdrop.txHash),
+  airdropTxHash: toBase58(airdrop.transactionHash),
   contractHash: toBase58(deployment.contractHash),
   deploymentNonce: toHex0x(deployment.deploymentNonce),
   contractAddress: toBase58(address),

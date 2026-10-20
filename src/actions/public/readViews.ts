@@ -1,13 +1,10 @@
+import type { RpcClient } from "../../rpc/client.js";
 import type {
   ContractViewRequest,
   ContractViewOutcome,
   ContractException,
 } from "../../contract/method.js";
-import type {
-  Transport,
-  TransportRequestOptions,
-} from "../../transport/types.js";
-import { viewBatch, ViewBatchResultError } from "./viewBatch.js";
+import type { TransportRequestOptions } from "../../transport/types.js";
 import { ContractDecodeError } from "../../contract/errors.js";
 
 /** Typed calls and an optional minimum committed height for one snapshot read. */
@@ -15,14 +12,14 @@ export interface ReadViewsRequest<
   TCalls extends readonly ContractViewRequest[],
 > {
   calls: TCalls;
-  minHeight?: bigint;
+  minStateBlockHeight?: bigint;
 }
 
 /** Ordered typed outcomes, preserving each tuple position's return and exception types. */
 export interface ReadViewsResponse<
   TCalls extends readonly ContractViewRequest[],
 > {
-  height: bigint;
+  stateBlockHeight: bigint;
   results: {
     [K in keyof TCalls]: TCalls[K] extends ContractViewRequest<infer R, infer E>
       ? ContractViewOutcome<R, ContractException<E>>
@@ -38,24 +35,26 @@ export interface ReadViewsResponse<
  * @example
  * ```ts
  * const result = await client.readViews({ calls: [
- *   ERC20.v0_1.totalSupply.viewRequest({ contract: token }),
- *   ERC20.v0_1.getBalanceOf.viewRequest({ contract: token, args: { addr: owner } }),
+ *   ERC20.v0_1.totalSupply.viewRequest({ address: token }),
+ *   ERC20.v0_1.getBalanceOf.viewRequest({ address: token, args: { addr: owner } }),
  * ] });
  * ```
  */
 export async function readViews<
   const TCalls extends readonly ContractViewRequest[],
 >(
-  transport: Transport,
+  client: Pick<RpcClient, "simulateInvocations">,
   request: ReadViewsRequest<TCalls>,
   options?: TransportRequestOptions,
 ): Promise<ReadViewsResponse<TCalls>> {
   options?.signal?.throwIfAborted();
   // Retain the decoder order across the asynchronous request even if the caller
-  // later edits its array. viewBatch serializes the byte inputs before yielding.
+  // later edits its array. simulateInvocations serializes the byte inputs before yielding.
   const calls = request.calls.map((call) => {
-    if ("minHeight" in call) {
-      throw new TypeError("Set minHeight on readViews, not on a prepared call");
+    if ("minStateBlockHeight" in call) {
+      throw new TypeError(
+        "Set minStateBlockHeight on readViews, not on a prepared call",
+      );
     }
     return {
       request: call.request,
@@ -63,29 +62,20 @@ export async function readViews<
       decode: call.method.decodeViewOutcome,
     };
   });
-  const response = await viewBatch(
-    transport,
+  const response = await client.simulateInvocations(
     {
-      calls: calls.map((call) => call.request),
-      ...(request.minHeight === undefined
+      invocations: calls.map((call) => call.request),
+      ...(request.minStateBlockHeight === undefined
         ? {}
-        : { minHeight: request.minHeight }),
+        : { minStateBlockHeight: request.minStateBlockHeight }),
     },
     options,
-  ).catch((cause: unknown) => {
-    if (cause instanceof ViewBatchResultError) {
-      throw new ContractDecodeError(
-        `Failed to decode readViews result ${cause.index} (${calls[cause.index]!.name})`,
-        { cause },
-      );
-    }
-    throw cause;
-  });
+  );
   const results = calls.map((call, index) => {
     try {
       return call.decode({
         ...response.results[index]!,
-        height: response.height,
+        stateBlockHeight: response.stateBlockHeight,
       });
     } catch (cause) {
       throw new ContractDecodeError(
@@ -94,9 +84,9 @@ export async function readViews<
       );
     }
   });
-  // viewBatch validates the exact count; each position uses its retained decoder.
+  // simulateInvocations validates the exact count; each position uses its retained decoder.
   return {
-    height: response.height,
+    stateBlockHeight: response.stateBlockHeight,
     results: results as ReadViewsResponse<TCalls>["results"],
   };
 }

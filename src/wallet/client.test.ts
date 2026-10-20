@@ -1,5 +1,8 @@
+import { withNativeDiscovery } from "../testing/nativeRpc.js";
 import { toBase58 } from "../encoding.js";
 import {
+  codec,
+  deserialize,
   AuthClaimType,
   bitMap,
   blockHeight,
@@ -61,6 +64,28 @@ function invocation(invokedAddress = address): Invocation {
 }
 
 describe("wallet account defaults", () => {
+  it("keeps the live discovery getter after wallet decoration", async () => {
+    const transport = new MockTransport();
+    const client = await createThruputClient({ transport });
+    const wallet = createWalletClient({
+      client,
+      account: account(),
+      networkHash: testNetworkHash,
+    });
+    const original = transport.request.bind(transport);
+    vi.spyOn(transport, "request").mockImplementation(
+      async (method, params, options) => {
+        const result = await original(method, params, options);
+        return method === "getVersionInfo"
+          ? ({ ...(result as object), implementation: "refreshed" } as never)
+          : result;
+      },
+    );
+    await wallet.refreshDiscovery();
+    expect(wallet.discovery.version.implementation).toBe("refreshed");
+    expect(wallet.discovery).toEqual(client.discovery);
+  });
+
   it("prepares explicit atomic deployment through the native wallet", async () => {
     const client = await createThruputClient({
       transport: new MockTransport(),
@@ -160,29 +185,39 @@ describe("wallet account defaults", () => {
   );
 
   it("defaults balance and airdrop recipients to the account address", async () => {
-    const calls: Array<{ method: string; params?: unknown[] }> = [];
+    const calls: Array<{ method: string; params?: Record<string, unknown> }> =
+      [];
     const transport: Transport = {
-      async request<T>(method: string, params?: unknown[]): Promise<T> {
+      async request<T>(
+        method: string,
+        params?: Record<string, unknown>,
+      ): Promise<T> {
         calls.push({ method, params });
-        if (method === "groundhog_getBalance") {
-          return { address: params![0], rawBalance: "7", height: "1" } as T;
+        if (method === "getBalance") {
+          return {
+            address: params?.address,
+            rawBalance: "7",
+            stateBlockHeight: "1",
+          } as T;
         }
-        if (method === "groundhog_requestAirdrop") {
-          const request = params![0] as { recipient: string };
+        if (method === "faucet_requestAirdrop") {
+          const request = params as { recipient: string };
           return {
             attemptStatus: "succeeded",
             recipient: request.recipient,
             rawAmount: "100",
-            txHash: toBase58(new Uint8Array(32).fill(0x22)),
-            height: "2",
-            status: { result: "ok" },
+            transactionHash: toBase58(new Uint8Array(32).fill(0x22)),
+            blockHeight: "2",
+            execution: { result: "return", returnData: "0x" },
           } as T;
         }
         throw new Error(`Unexpected method: ${method}`);
       },
     };
     const wallet = createWalletClient({
-      client: await createThruputClient({ transport }),
+      client: await createThruputClient({
+        transport: withNativeDiscovery(transport, "1".repeat(32)),
+      }),
       account: account(),
       networkHash: testNetworkHash,
     });
@@ -190,29 +225,34 @@ describe("wallet account defaults", () => {
     await wallet.getBalance();
     await wallet.requestAirdrop();
 
-    expect(calls[0]!.params).toEqual([toBase58(address)]);
-    expect(calls[1]!.params![0]).toMatchObject({
+    expect(calls[0]!.params).toEqual({ address: toBase58(address) });
+    expect(calls[1]!.params).toMatchObject({
       recipient: toBase58(new Uint8Array(32).fill(0x11)),
     });
   });
 
   it("forwards funding overrides", async () => {
-    const calls: Array<{ params?: unknown[] }> = [];
+    const calls: Array<{ params?: Record<string, unknown> }> = [];
     const transport: Transport = {
-      async request<T>(_method: string, params?: unknown[]): Promise<T> {
+      async request<T>(
+        _method: string,
+        params?: Record<string, unknown>,
+      ): Promise<T> {
         calls.push({ params });
-        const request = params![0] as { recipient: string };
+        const request = params as { recipient: string };
         return {
           attemptStatus: "succeeded",
           recipient: request.recipient,
           rawAmount: "100",
-          txHash: toBase58(new Uint8Array(32).fill(0x22)),
-          height: "2",
-          status: { result: "ok" },
+          transactionHash: toBase58(new Uint8Array(32).fill(0x22)),
+          blockHeight: "2",
+          execution: { result: "return", returnData: "0x" },
         } as T;
       },
     };
-    const client = await createThruputClient({ transport });
+    const client = await createThruputClient({
+      transport: withNativeDiscovery(transport, "1".repeat(32)),
+    });
     const wallet = createWalletClient({
       client,
       account: account(),
@@ -228,12 +268,10 @@ describe("wallet account defaults", () => {
     });
 
     expect(wallet).not.toBe(client);
-    expect(calls[0]!.params).toEqual([
-      {
-        recipient: toBase58(new Uint8Array(32).fill(0x44)),
-        clientNonce: "0x010203",
-      },
-    ]);
+    expect(calls[0]!.params).toEqual({
+      recipient: toBase58(new Uint8Array(32).fill(0x44)),
+      clientNonce: "0x010203",
+    });
   });
 
   it("forwards funding cancellation and timeout options", async () => {
@@ -242,22 +280,28 @@ describe("wallet account defaults", () => {
     abort.abort(new Error("cancelled"));
 
     const cancelledWallet = createWalletClient({
-      client: await createThruputClient({ transport: { request } }),
+      client: await createThruputClient({
+        transport: withNativeDiscovery({ request }, "1".repeat(32)),
+      }),
       account: account(),
       networkHash: testNetworkHash,
     });
     await expect(
       cancelledWallet.requestAirdrop({ signal: abort.signal }),
-    ).rejects.toThrow("cancelled");
+    ).rejects.toMatchObject({ cause: { message: "cancelled" } });
 
     const timedOutWallet = createWalletClient({
-      client: await createThruputClient({ transport: { request } }),
+      client: await createThruputClient({
+        transport: withNativeDiscovery({ request }, "1".repeat(32)),
+      }),
       account: account(),
       networkHash: testNetworkHash,
     });
     await expect(
       timedOutWallet.requestAirdrop({ timeoutMs: 0 }),
-    ).rejects.toThrow("Timed out waiting for airdrop");
+    ).rejects.toMatchObject({
+      cause: { message: "Funding observation timed out" },
+    });
     expect(request).not.toHaveBeenCalled();
   });
 
@@ -269,7 +313,7 @@ describe("wallet account defaults", () => {
     });
     const other = contractAddress(new Uint8Array(32).fill(0x44));
 
-    await expect(wallet.getBalance(other)).resolves.toMatchObject({
+    await expect(wallet.getBalance({ address: other })).resolves.toMatchObject({
       address: other,
     });
     await expect(
@@ -293,16 +337,16 @@ describe("wallet account defaults", () => {
 
     const mainnetClient = await createThruputClient({
       cluster: mainnet(),
-      transport: {
+      transport: withNativeDiscovery({
         async request<T>(method: string): Promise<T> {
-          if (method === "groundhog_networkInfo") {
+          if (method === "getNetworkInfo") {
             return {
               networkHash: toBase58(new Uint8Array(32).fill(0x11)),
             } as T;
           }
           throw new Error(`Unexpected method: ${method}`);
         },
-      },
+      }),
     });
     const mainnetWallet = createWalletClient({
       client: mainnetClient,
@@ -401,7 +445,7 @@ describe("wallet transactions", () => {
       async getChainTip() {
         await tipGate;
         return {
-          height: 10n,
+          blockHeight: 10n,
           blockHash: new Uint8Array(32) as never,
         };
       },
@@ -479,11 +523,17 @@ describe("wallet transactions", () => {
       ...(await createThruputClient({ transport: new MockTransport() })),
       async getChainTip() {
         await tipGate;
-        return { height: 10n, blockHash: new Uint8Array(32) as never };
+        return { blockHeight: 10n, blockHash: new Uint8Array(32) as never };
       },
-      async sendTransaction(signed: typeof submitted) {
-        submitted = signed;
-        return new Uint8Array(32) as never;
+      async sendTransaction(request: { signedTransaction: Uint8Array }) {
+        submitted = deserialize(
+          request.signedTransaction,
+          codec.SignedTransaction,
+        );
+        return {
+          transactionHash: new Uint8Array(32),
+          admission: "accepted" as const,
+        };
       },
     };
     const wallet = createWalletClient({
@@ -589,5 +639,69 @@ describe("wallet execution adapters", () => {
     });
 
     expect(receivedMarker).toBe(7);
+  });
+});
+
+describe("local wallet submission evidence", () => {
+  it("awaits persistence before submit-only execution and retains bytes if it fails", async () => {
+    const client = await createThruputClient({
+      transport: new MockTransport(),
+    });
+    const submit = vi.spyOn(client, "sendTransaction");
+    let captured: import("./execution.js").SubmissionEvidence | undefined;
+    const wallet = createWalletClient({
+      client,
+      account: account(),
+      networkHash: testNetworkHash,
+      onSigned: (evidence) => {
+        captured = evidence;
+        throw Error("disk full");
+      },
+    });
+    const error = await wallet
+      .sendInvocation({
+        invocation: invocation(),
+        blockExpiryHeight: blockHeight(100n),
+      })
+      .catch((e) => e);
+    expect(error).toMatchObject({
+      phase: "beforeSubmission",
+      cause: { message: "disk full" },
+    });
+    expect(error.submission.signedTransaction).toEqual(
+      captured!.signedTransaction,
+    );
+    expect(submit).not.toHaveBeenCalled();
+  });
+  it("preserves approved bytes if cancelled during the persistence hook", async () => {
+    const client = await createThruputClient({
+        transport: new MockTransport(),
+      }),
+      controller = new AbortController();
+    const submit = vi.spyOn(client, "sendTransaction");
+    const wallet = createWalletClient({
+      client,
+      account: createPubkeyAccount({ signer: signer() }),
+      networkHash: testNetworkHash,
+      onSigned: () => {
+        controller.abort(Error("cancelled"));
+      },
+    });
+    const error = await wallet
+      .executeAndWait(
+        {
+          invocation: invocation(),
+          gasLimit: gasAmount(100n),
+          blockExpiryHeight: blockHeight(100n),
+        },
+        { signal: controller.signal },
+      )
+      .catch((e) => e);
+    expect(error).toMatchObject({
+      phase: "beforeSubmission",
+      cause: { message: "cancelled" },
+    });
+    expect(error.submission.signedTransaction.length).toBeGreaterThan(0);
+    expect(submit).not.toHaveBeenCalled();
   });
 });

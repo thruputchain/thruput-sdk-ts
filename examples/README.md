@@ -44,8 +44,8 @@ Any HOG left in either account becomes inaccessible when the process exits.
 Each run consumes two Devnet faucet allocations.
 
 These examples require an RPC deployment that supports
-`groundhog_networkInfo`. The transfer also requires
-`groundhog_requestAirdrop`.
+`getNetworkInfo`. The transfer also requires
+`faucet_requestAirdrop`.
 
 ## Localnet
 

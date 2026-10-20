@@ -2,25 +2,10 @@ import type { Transport, TransportRequestOptions, RpcParams } from "./types.js";
 import { RpcResponseError } from "./responseError.js";
 import { HttpBatch } from "./httpBatch.js";
 
-/** JSON-RPC error codes currently returned by Thruput gateways. */
-export const ThruputRpcErrorCode = {
-  InvalidParams: -32602,
-  TxInvalid: -32000,
-  TxRejected: -32001,
-  TxNotFound: -32002,
-  LocalFundingUnresolved: -32003,
-  BlockNotFound: -32010,
-  ViewHeightUnavailable: -32011,
-  BackendUnavailable: -32050,
-  BackendTimeout: -32051,
-  NotImplemented: -32052,
-  Overloaded: -32053,
-} as const;
-
 /**
  * Error thrown when a JSON-RPC response contains an `error` object.
  *
- * Malformed envelopes throw regular `Error` instances instead.
+ * Malformed envelopes throw `RpcResponseError`, preserving the raw reply.
  */
 export class JsonRpcError extends Error {
   /** JSON-RPC numeric error code. */
@@ -142,7 +127,7 @@ export interface HttpTransportOptions {
  *   timeoutMs: 10_000,
  * });
  *
- * const tip = await transport.request("groundhog_chainTip");
+ * const tip = await transport.request("getChainTip");
  * ```
  */
 export class HttpTransport implements Transport {

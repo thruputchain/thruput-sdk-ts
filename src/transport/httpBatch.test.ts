@@ -1,3 +1,4 @@
+import { MockTransport } from "./mock.js";
 import { toBase58 } from "../encoding.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createThruputClient } from "../client.js";
@@ -47,28 +48,19 @@ describe("HTTP batching", () => {
   });
 
   it("batches typed client calls and matches reversed responses by ID", async () => {
+    const mock = new MockTransport();
     const fetch = vi.fn<typeof globalThis.fetch>(async (_, init) => {
       const items = requests(init);
-      expect(items.map(({ method, params }) => [method, params])).toEqual([
-        ["groundhog_chainTip", []],
-        ["groundhog_version", []],
-      ]);
       return Response.json(
-        items.reverse().map(({ id, method }) => ({
-          jsonrpc: "2.0",
-          id,
-          result:
-            method === "groundhog_chainTip"
-              ? {
-                  height: "7",
-                  blockHash: toBase58(new Uint8Array(32).fill(0x00)),
-                }
-              : {
-                  wireFormat: "6.0.0",
-                  implementation: "test",
-                  commitHash: null,
-                },
-        })),
+        await Promise.all(
+          items
+            .reverse()
+            .map(async ({ id, method, params }) => ({
+              jsonrpc: "2.0",
+              id,
+              result: await mock.request(method, params),
+            })),
+        ),
       );
     });
     const client = await createThruputClient({
@@ -77,13 +69,23 @@ describe("HTTP batching", () => {
         fetch,
       }),
     });
+    fetch.mockClear();
     const [tip, version] = await Promise.all([
       client.getChainTip(),
-      client.getVersion(),
+      client.getVersionInfo(),
     ]);
-    expect(tip.height).toBe(7n);
-    expect(version.implementation).toBe("test");
+    expect(tip.blockHeight).toBe(0n);
+    expect(version.implementation).toBe("mock");
     expect(fetch).toHaveBeenCalledTimes(1);
+    expect(
+      requests(fetch.mock.calls[0]?.[1]).map(({ method, params }) => [
+        method,
+        params,
+      ]),
+    ).toEqual([
+      ["getChainTip", {}],
+      ["getVersionInfo", {}],
+    ]);
   });
 
   it("splits full batches immediately and sends the remaining single call as an array", async () => {

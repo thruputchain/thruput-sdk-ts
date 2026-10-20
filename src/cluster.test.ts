@@ -10,6 +10,9 @@ import {
   mainnet,
   LOCALNET_RPC_URL,
 } from "./cluster.js";
+import { withNativeDiscovery } from "./testing/nativeRpc.js";
+import { MockTransport } from "./transport/mock.js";
+import { RpcCompatibilityError } from "./rpc/client.js";
 import { createThruputClient } from "./client.js";
 import type { Transport } from "./transport/types.js";
 
@@ -18,24 +21,24 @@ function protocolNetworkHash(byte: string) {
 }
 
 function networkTransport(networkByte: string): Transport {
-  return {
+  return withNativeDiscovery({
     async request<T>(method: string): Promise<T> {
-      if (method === "groundhog_networkInfo") {
+      if (method === "getNetworkInfo") {
         return {
           networkHash: toBase58(
             new Uint8Array(32).fill(Number.parseInt(networkByte, 16)),
           ),
         } as T;
       }
-      if (method === "groundhog_chainTip") {
+      if (method === "getChainTip") {
         return {
-          height: "0",
+          blockHeight: "0",
           blockHash: toBase58(new Uint8Array(32).fill(0x00)),
         } as T;
       }
       throw new Error(`Unexpected method: ${method}`);
     },
-  };
+  });
 }
 
 describe("cluster descriptors", () => {
@@ -127,7 +130,9 @@ describe("createThruputClient", () => {
     expect(client.cluster).not.toBe(cluster);
     expect(client.network.networkHash).toEqual(new Uint8Array(32));
     expect(client.requestAirdrop).toBeTypeOf("function");
-    await expect(client.getChainTip()).resolves.toMatchObject({ height: 0n });
+    await expect(client.getChainTip()).resolves.toMatchObject({
+      blockHeight: 0n,
+    });
   });
 
   it("omits unavailable capabilities at runtime", async () => {
@@ -159,15 +164,15 @@ describe("createThruputClient", () => {
   });
 
   it("uses the cluster's default HTTP endpoint", async () => {
-    const fetchMock = vi.fn<typeof fetch>(async () =>
-      Response.json({
+    const mock = new MockTransport();
+    const fetchMock = vi.fn<typeof fetch>(async (_, init) => {
+      const request = JSON.parse(String(init?.body));
+      return Response.json({
         jsonrpc: "2.0",
-        id: 1,
-        result: {
-          networkHash: toBase58(new Uint8Array(32).fill(0x00)),
-        },
-      }),
-    );
+        id: request.id,
+        result: await mock.request(request.method, request.params),
+      });
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     try {
@@ -185,7 +190,7 @@ describe("createThruputClient", () => {
 
   it("requires an explicit endpoint for mainnet", async () => {
     await expect(createThruputClient({ cluster: mainnet() })).rejects.toThrow(
-      "Cluster mainnet has no default RPC URL; provide a transport or rpcUrl",
+      "Cluster has no default RPC URL; provide a transport or rpcUrl",
     );
   });
 
@@ -206,14 +211,14 @@ describe("createThruputClient", () => {
     const cluster = mainnet({ networkHash: protocolNetworkHash("11") });
     const connection = createThruputClient({
       cluster,
-      transport: {
+      transport: withNativeDiscovery({
         async request<T>(): Promise<T> {
           await gate;
           return {
             networkHash: toBase58(new Uint8Array(32).fill(0x11)),
           } as T;
         },
-      },
+      }),
     });
 
     cluster.networkHash!.fill(0x22);
@@ -230,9 +235,9 @@ describe("createThruputClient", () => {
       transport: networkTransport("44"),
     });
 
-    await expect(connection).rejects.toBeInstanceOf(NetworkMismatchError);
+    await expect(connection).rejects.toBeInstanceOf(RpcCompatibilityError);
     await expect(connection).rejects.toThrow(
-      "Network mismatch for mainnet: expected network 29d2S7vB453rNYFdR5Ycwt7y9haRT5fwVwL9zTmBhfV2, received network 5bV6jUfhDHCQVA1WfKBUnXUsboJgoKgkzkKcxr3joew5",
+      "RPC network identity does not match",
     );
   });
 

@@ -1,207 +1,264 @@
-import { toBase58 } from "../../encoding.js";
 import { describe, expect, it, vi } from "vitest";
-import { contractAddress } from "@thruputchain/protocol";
-import { createThruputClient } from "../../client.js";
-import { HttpTransport, JsonRpcError } from "../../transport/http.js";
-import type { Transport } from "../../transport/types.js";
-import type { EventQuery } from "../../types/rpc.js";
-import { toHex0x } from "../hex.js";
-import { iterateEventPages } from "./iterateEventPages.js";
-
-const address = contractAddress(new Uint8Array(32).fill(1));
-const query: EventQuery = {
-  filters: [{ contractAddresses: [address] }],
-  order: "descending",
-  anchor: { height: 50n },
-  limit: 20,
+import { iterateEventPages, type EventWalkQuery } from "./iterateEventPages.js";
+import {
+  iterateTransactionsByRootAddress,
+  iterateTransactionsByBlock,
+} from "./iterateTransactionPages.js";
+import { HistoryWalkError } from "./historyWalk.js";
+import type { EventPage, TransactionRefPage } from "../../types/rpc.js";
+const address = new Uint8Array(32).fill(1);
+const query: EventWalkQuery = {
+  filters: [{ addresses: [address] }],
+  start: { order: "ascending", anchor: { kind: "atBeginning" } },
 };
-const rawPage = (cursor: string) => ({
+const page = (nextCursor: string | null = null, height = 10n): EventPage => ({
   events: [],
-  cursor,
-  latestBlock: "50",
-  oldestBlock: "5",
+  nextCursor,
+  oldestIndexedBlockHeight: 0n,
+  latestIndexedBlockHeight: height,
+});
+const event = (height: bigint, id: number) => ({
+  blockHeight: height,
+  transactionHash: new Uint8Array(32).fill(id),
+  sequenceNumber: 0,
+  event: { address, topics: [], data: new Uint8Array() },
+});
+describe("fixed native history walks", () => {
+  it("yields empty continuation pages and returns completion only after processing terminal page", async () => {
+    const getEvents = vi
+      .fn()
+      .mockResolvedValueOnce(page("0x01"))
+      .mockResolvedValueOnce(page(null, 12n));
+    const walk = iterateEventPages({ getEvents }, query);
+    expect(getEvents).not.toHaveBeenCalled();
+    expect((await walk.next()).done).toBe(false);
+    expect(getEvents).toHaveBeenCalledTimes(1);
+    expect((await walk.next()).done).toBe(false);
+    expect(getEvents).toHaveBeenLastCalledWith(
+      { filters: query.filters, limit: undefined, cursor: "0x01" },
+      {},
+    );
+    expect(await walk.next()).toEqual({
+      done: true,
+      value: { watermarkBlockHeight: 10n, completedThroughBlockHeight: 10n },
+    });
+  });
+  it("does not advance a checkpoint for an anchor above W or a descending walk", async () => {
+    for (const start of [
+      { order: "ascending", anchor: { kind: "atHeight", blockHeight: 11n } },
+      { order: "descending", anchor: { kind: "atEnd" } },
+    ] as const) {
+      const walk = iterateEventPages(
+        { getEvents: vi.fn().mockResolvedValue(page()) },
+        { ...query, start },
+      );
+      await walk.next();
+      expect(await walk.next()).toEqual({
+        done: true,
+        value: { watermarkBlockHeight: 10n },
+      });
+    }
+  });
+  it("snapshots query and continuation before mutable pages reach the caller", async () => {
+    const input = structuredClone(query),
+      getEvents = vi
+        .fn()
+        .mockResolvedValueOnce(page("0x01"))
+        .mockResolvedValueOnce(page());
+    const walk = iterateEventPages({ getEvents }, input);
+    input.filters[0]!.addresses[0]!.fill(8);
+    input.start = { order: "descending", anchor: { kind: "atEnd" } };
+    const first = await walk.next();
+    if (!first.done) first.value.nextCursor = "0xff";
+    await walk.next();
+    expect(getEvents.mock.calls[0]![0].start).toEqual(query.start);
+    expect(getEvents.mock.calls[1]![0]).toMatchObject({
+      cursor: "0x01",
+      filters: query.filters,
+    });
+  });
+  it("does not prefetch after the consumer breaks", async () => {
+    const getEvents = vi.fn().mockResolvedValue(page("0x01"));
+    for await (const _ of iterateEventPages({ getEvents }, query)) break;
+    expect(getEvents).toHaveBeenCalledTimes(1);
+  });
+  it.each([
+    "cycle",
+    "regression",
+    "retention",
+    "beyond W",
+    "duplicate",
+    "order",
+  ])("fails closed on %s without completing", async (fault) => {
+    const first = { ...page("0x01"), events: [event(5n, 1)] };
+    const second = { ...page(), events: [event(6n, 2)] };
+    if (fault === "cycle") second.nextCursor = "0x01";
+    if (fault === "regression") second.latestIndexedBlockHeight = 9n;
+    if (fault === "retention") second.oldestIndexedBlockHeight = 1n;
+    if (fault === "beyond W") {
+      second.latestIndexedBlockHeight = 11n;
+      second.events = [event(11n, 2)];
+    }
+    if (fault === "duplicate") second.events = [event(6n, 1)];
+    if (fault === "order") second.events = [event(4n, 2)];
+    const getEvents = vi
+        .fn()
+        .mockResolvedValueOnce(first)
+        .mockResolvedValueOnce(second),
+      walk = iterateEventPages({ getEvents }, query);
+    await walk.next();
+    await expect(walk.next()).rejects.toBeInstanceOf(HistoryWalkError);
+    expect(getEvents).toHaveBeenCalledTimes(2);
+  });
+  it("propagates errors and cancellation without retrying or starting a replacement walk", async () => {
+    const cause = Error("invalid cursor"),
+      getEvents = vi.fn().mockRejectedValue(cause);
+    await expect(iterateEventPages({ getEvents }, query).next()).rejects.toBe(
+      cause,
+    );
+    expect(getEvents).toHaveBeenCalledTimes(1);
+    const controller = new AbortController();
+    controller.abort(cause);
+    getEvents.mockClear();
+    await expect(
+      iterateEventPages({ getEvents }, query, {
+        signal: controller.signal,
+      }).next(),
+    ).rejects.toBe(cause);
+    expect(getEvents).not.toHaveBeenCalled();
+  });
+  it("does not expose a completed checkpoint after cancellation at the terminal page", async () => {
+    const controller = new AbortController(),
+      walk = iterateEventPages(
+        { getEvents: vi.fn().mockResolvedValue(page()) },
+        query,
+        { signal: controller.signal },
+      );
+    await walk.next();
+    controller.abort();
+    await expect(walk.next()).rejects.toThrow();
+  });
+  it("keeps root-address scope and follows unsigned hash ordering", async () => {
+    const first: TransactionRefPage = {
+      ...page("0x01"),
+      transactions: [
+        { transactionHash: new Uint8Array(32).fill(1), blockHeight: 5n },
+      ],
+    };
+    const second: TransactionRefPage = {
+      ...page(),
+      transactions: [
+        { transactionHash: new Uint8Array(32).fill(2), blockHeight: 5n },
+      ],
+    };
+    const getTransactionsByRootAddress = vi
+        .fn()
+        .mockResolvedValueOnce(first)
+        .mockResolvedValueOnce(second),
+      walk = iterateTransactionsByRootAddress(
+        { getTransactionsByRootAddress },
+        { address, start: query.start },
+      );
+    await walk.next();
+    await walk.next();
+    expect(getTransactionsByRootAddress).toHaveBeenLastCalledWith(
+      { address, limit: undefined, cursor: "0x01" },
+      {},
+    );
+    expect((await walk.next()).value).toEqual({
+      watermarkBlockHeight: 10n,
+      completedThroughBlockHeight: 10n,
+    });
+  });
+  it("exact-block walks require target coverage, not the initial unrelated tip", async () => {
+    const first: TransactionRefPage = {
+      transactions: [
+        { transactionHash: new Uint8Array(32).fill(1), blockHeight: 5n },
+      ],
+      oldestIndexedBlockHeight: 1n,
+      latestIndexedBlockHeight: 100n,
+      nextCursor: "0x01",
+    };
+    const second = {
+      ...first,
+      transactions: [
+        { transactionHash: new Uint8Array(32).fill(2), blockHeight: 5n },
+      ],
+      latestIndexedBlockHeight: 5n,
+      nextCursor: null,
+    };
+    const getTransactionsByBlock = vi
+        .fn()
+        .mockResolvedValueOnce(first)
+        .mockResolvedValueOnce(second),
+      walk = iterateTransactionsByBlock(
+        { getTransactionsByBlock },
+        { blockHeight: 5n, start: { order: "ascending" } },
+      );
+    await walk.next();
+    await walk.next();
+    expect(await walk.next()).toEqual({ done: true, value: undefined });
+  });
+  it("does not report exact-block completion when the target is outside coverage", async () => {
+    const getTransactionsByBlock = vi.fn().mockResolvedValue({
+      transactions: [],
+      oldestIndexedBlockHeight: 1n,
+      latestIndexedBlockHeight: 4n,
+      nextCursor: null,
+    });
+    await expect(
+      iterateTransactionsByBlock(
+        { getTransactionsByBlock },
+        { blockHeight: 5n, start: { order: "ascending" } },
+      ).next(),
+    ).rejects.toThrow("outside current indexed coverage");
+  });
+  it("requires an explicit start instead of inventing an opaque cursor's watermark", () => {
+    expect(() =>
+      iterateEventPages({ getEvents: vi.fn() }, {
+        filters: query.filters,
+        cursor: "0x01",
+      } as never),
+    ).toThrow("explicit start");
+  });
 });
 
-function transportFor(
-  request: (...args: Parameters<Transport["request"]>) => Promise<unknown>,
-): Transport {
-  return {
-    request: <T>(...args: Parameters<Transport["request"]>) =>
-      request(...args) as Promise<T>,
-  };
-}
-
-describe("iterateEventPages", () => {
-  it("requests exactly one page per next, including empty continuation pages", async () => {
-    const request = vi
-      .fn<Transport["request"]>()
-      .mockResolvedValueOnce(rawPage("0x01"))
-      .mockResolvedValueOnce(rawPage("0x"));
-    const client = await createThruputClient({
-      transport: transportFor(request),
-    });
-    const pages = client.iterateEventPages(query);
-    expect(request).not.toHaveBeenCalled();
-    expect(await pages.next()).toEqual({
-      done: false,
-      value: {
-        events: [],
-        cursor: new Uint8Array([1]),
-        latestBlock: 50n,
-        oldestBlock: 5n,
+it.each(["ascending", "descending"] as const)(
+  "retains explicit %s anchor through empty continuation pages",
+  async (order) => {
+    const getEvents = vi
+      .fn()
+      .mockResolvedValueOnce(page("0x01"))
+      .mockResolvedValueOnce({
+        ...page(),
+        events: [event(order === "ascending" ? 4n : 6n, 2)],
+      });
+    const walk = iterateEventPages(
+      { getEvents },
+      {
+        ...query,
+        start: { order, anchor: { kind: "atHeight", blockHeight: 5n } },
       },
-    });
-    expect(request).toHaveBeenCalledTimes(1);
-    expect((await pages.next()).done).toBe(false);
-    expect((await pages.next()).done).toBe(true);
-    expect(request).toHaveBeenCalledTimes(2);
-    for (const [index, [, params]] of request.mock.calls.entries()) {
-      expect(params).toEqual([
-        {
-          filters: [
-            {
-              contractAddresses: [toBase58(address)],
-              topics: { topic0: [], topic1: [], topic2: [] },
-            },
-          ],
-          order: "descending",
-          anchor: { kind: "atHeight", height: "50" },
-          limit: 20,
-          cursor: index === 0 ? "0x" : "0x01",
-        },
-      ]);
-    }
-  });
-
-  it("yields a populated terminal page before stopping", async () => {
-    const request = vi.fn<Transport["request"]>().mockResolvedValue({
-      ...rawPage("0x"),
-      events: [
-        {
-          txHash: toBase58(address),
-          blockHeight: "42",
-          sequenceNumber: 0,
-          event: { contractAddress: toBase58(address), topics: [], data: "0x" },
-        },
-      ],
-    });
-    const pages = iterateEventPages(transportFor(request), query);
-    expect((await pages.next()).value?.events).toHaveLength(1);
-    expect((await pages.next()).done).toBe(true);
-    expect(request).toHaveBeenCalledOnce();
-  });
-
-  it("does not fetch ahead when the consumer breaks", async () => {
-    const request = vi
-      .fn<Transport["request"]>()
-      .mockResolvedValue(rawPage("0x01"));
-    for await (const page of iterateEventPages(transportFor(request), query)) {
-      expect(page.cursor).toEqual(new Uint8Array([1]));
-      break;
-    }
-    expect(request).toHaveBeenCalledOnce();
-  });
-
-  it("snapshots inputs at creation and protects continuation from page mutation", async () => {
-    const input = structuredClone({ ...query, cursor: new Uint8Array([9]) });
-    const request = vi
-      .fn<Transport["request"]>()
-      .mockResolvedValueOnce(rawPage("0x01"))
-      .mockResolvedValueOnce(rawPage("0x"));
-    const pages = iterateEventPages(transportFor(request), input);
-    input.filters[0]!.contractAddresses[0]!.fill(8);
-    input.cursor.fill(8);
-    input.order = "ascending";
-    const first = await pages.next();
-    first.value!.cursor.fill(8);
-    await pages.next();
-    expect((request.mock.calls[0]![1] as unknown[])[0]).toMatchObject({
-      cursor: "0x09",
-      order: "descending",
-      filters: [{ contractAddresses: [toBase58(address)] }],
-    });
-    expect((request.mock.calls[1]![1] as unknown[])[0]).toMatchObject({
-      cursor: "0x01",
-      order: "descending",
-    });
-  });
-
-  it.each([
-    ["0x01", "0x01"],
-    ["0x01", "0x02", "0x01"],
-  ])("rejects cursor cycles: %j", async (...cursors) => {
-    const request = vi.fn<Transport["request"]>();
-    for (const cursor of cursors)
-      request.mockResolvedValueOnce(rawPage(cursor));
-    const pages = iterateEventPages(transportFor(request), query);
-    for (let index = 0; index < cursors.length - 1; index++) await pages.next();
-    await expect(pages.next()).rejects.toThrow("repeated pagination cursor");
-    expect(request).toHaveBeenCalledTimes(cursors.length);
-  });
-
-  it("includes the supplied resume cursor in cycle detection", async () => {
-    const request = vi
-      .fn<Transport["request"]>()
-      .mockResolvedValue(rawPage("0x01"));
-    const pages = iterateEventPages(transportFor(request), {
+    );
+    await walk.next();
+    await expect(walk.next()).rejects.toThrow("fixed walk scope");
+  },
+);
+it("detects retention loss below a descending anchor", async () => {
+  const getEvents = vi
+    .fn()
+    .mockResolvedValueOnce(page("0x01"))
+    .mockResolvedValueOnce({ ...page(), oldestIndexedBlockHeight: 4n });
+  const walk = iterateEventPages(
+    { getEvents },
+    {
       ...query,
-      cursor: new Uint8Array([1]),
-    });
-    await expect(pages.next()).rejects.toThrow("repeated pagination cursor");
-    expect(request).toHaveBeenCalledOnce();
-  });
-
-  it("propagates RPC errors without retrying or restarting the scan", async () => {
-    const error = new JsonRpcError(-32602, "cursor rejected");
-    const request = vi
-      .fn<Transport["request"]>()
-      .mockResolvedValueOnce(rawPage("0x01"))
-      .mockRejectedValueOnce(error);
-    const pages = iterateEventPages(transportFor(request), query);
-    await pages.next();
-    await expect(pages.next()).rejects.toBe(error);
-    expect((await pages.next()).done).toBe(true);
-    expect(request).toHaveBeenCalledTimes(2);
-  });
-
-  it("honors cancellation before the first request and between pages", async () => {
-    const reason = new Error("stopped");
-    const request = vi
-      .fn<Transport["request"]>()
-      .mockResolvedValue(rawPage("0x01"));
-    await expect(
-      iterateEventPages(transportFor(request), query, {
-        signal: AbortSignal.abort(reason),
-      }).next(),
-    ).rejects.toBe(reason);
-    expect(request).not.toHaveBeenCalled();
-    const controller = new AbortController();
-    const pages = iterateEventPages(transportFor(request), query, {
-      signal: controller.signal,
-    });
-    await pages.next();
-    controller.abort(reason);
-    await expect(pages.next()).rejects.toBe(reason);
-    expect(request).toHaveBeenCalledOnce();
-  });
-
-  it("cancels an in-flight HTTP page request", async () => {
-    const controller = new AbortController();
-    const transport = new HttpTransport("https://rpc.example", {
-      fetch: async (_, init) =>
-        new Promise((_, reject) => {
-          init!.signal!.addEventListener(
-            "abort",
-            () => reject(init!.signal!.reason),
-            { once: true },
-          );
-        }),
-    });
-    const pending = iterateEventPages(transport, query, {
-      signal: controller.signal,
-    }).next();
-    const reason = new Error("stopped");
-    controller.abort(reason);
-    await expect(pending).rejects.toBe(reason);
-  });
+      start: {
+        order: "descending",
+        anchor: { kind: "atHeight", blockHeight: 5n },
+      },
+    },
+  );
+  await walk.next();
+  await expect(walk.next()).rejects.toThrow("retention");
 });

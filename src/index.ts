@@ -25,7 +25,6 @@ export type {
   RpcParams,
 } from "./transport/index.js";
 export {
-  ThruputRpcErrorCode,
   HttpResponseError,
   RpcResponseError,
   HttpRequestError,

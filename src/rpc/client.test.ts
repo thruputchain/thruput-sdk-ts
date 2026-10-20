@@ -806,3 +806,32 @@ describe("native RPC client", () => {
     ).rejects.toBeInstanceOf(RpcDecodingError);
   });
 });
+
+it("additive page fields cannot change the requested method's validation", async () => {
+  const endpoint = server({
+    getEvents: {
+      ...bounds,
+      events: [
+        {
+          transactionHash: hashText,
+          blockHeight: "5",
+          sequenceNumber: 0,
+          event: { address: base58, topics: [], data: "0x" },
+        },
+      ],
+      transactions: [{ transactionHash: hashText, blockHeight: "999" }],
+    },
+    getTransactionsByRootAddress: {
+      ...bounds,
+      transactions: [{ transactionHash: hashText, blockHeight: "5" }],
+      events: [],
+    },
+  });
+  const client = await createRpcClient({ transport: endpoint.transport });
+  await expect(
+    client.getEvents({ filters: [{ addresses: [address] }], start }),
+  ).resolves.toMatchObject({ events: [{ blockHeight: 5n }] });
+  await expect(
+    client.getTransactionsByRootAddress({ address, start }),
+  ).resolves.toMatchObject({ transactions: [{ blockHeight: 5n }] });
+});

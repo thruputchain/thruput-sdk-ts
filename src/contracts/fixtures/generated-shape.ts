@@ -139,11 +139,11 @@ function generatedShapeTypeTests(
   Example.getValue.invocation(contract, gasLimit, {});
 
   ValueChanged.filter({
-    contractAddresses: [contract],
+    addresses: [contract],
     topics: { owner: contract, id: { oneOf: [fixed] } },
   });
   ValueChanged.filter({
-    contractAddresses: [contract],
+    addresses: [contract],
     // @ts-expect-error oneOf must contain at least one topic value.
     topics: { id: { oneOf: [] } },
   });

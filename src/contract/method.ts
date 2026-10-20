@@ -1,3 +1,4 @@
+import { UnsupportedRpcValue } from "../rpc/codec.js";
 import type {
   AuthClaim,
   ContractAddress,
@@ -7,7 +8,6 @@ import type {
   SHA256Hash,
 } from "@thruputchain/protocol";
 import {
-  ExecResult,
   calldata,
   contractAddress,
   contractEntrypointID,
@@ -35,7 +35,7 @@ import { toHex0x } from "../actions/hex.js";
 import { toBase58 } from "../encoding.js";
 import { serializeHeight } from "../actions/decimal.js";
 import { assertViewFreshness } from "../actions/viewFreshness.js";
-import { copyViewAuthClaim } from "../actions/viewAuthClaim.js";
+import { toAssumedAuth } from "../actions/viewAuthClaim.js";
 import type { ContractType } from "./spec.js";
 
 /** Omit the argument position entirely for methods without arguments. */
@@ -44,7 +44,7 @@ export type MethodArgs<TArgs> = [TArgs] extends [void] ? [] : [args: TArgs];
 /** Successfully decoded contract view result and its snapshot metadata. */
 export interface ContractView<T> {
   value: T;
-  height: bigint;
+  stateBlockHeight: bigint;
   gasUsed: bigint;
   events: EmittedEvent[];
 }
@@ -66,16 +66,23 @@ export type ContractException<TDeclared> =
 /** Non-successful contract view outcome. */
 export type ContractViewFailure<TException> =
   | {
+      kind: "unsupported";
+      raw: ViewResponse;
+      stateBlockHeight: bigint;
+      gasUsed: bigint;
+      events: EmittedEvent[];
+    }
+  | {
       kind: "abort";
       exception: TException;
       abortData: Uint8Array;
-      height: bigint;
+      stateBlockHeight: bigint;
       gasUsed: bigint;
       events: EmittedEvent[];
     }
   | {
       kind: "fault";
-      height: bigint;
+      stateBlockHeight: bigint;
       gasUsed: bigint;
       events: EmittedEvent[];
     };
@@ -85,35 +92,22 @@ export type ContractViewOutcome<TResult, TException> =
   | ({ kind: "return" } & ContractView<TResult>)
   | ContractViewFailure<TException>;
 
-/** Successfully decoded root contract receipt and its commit metadata. */
+/** Successfully decoded root return and its commitment metadata. */
 export interface ContractReceipt<TResult> {
   value: TResult;
-  txHash: SHA256Hash;
-  height: bigint;
+  transactionHash: Uint8Array;
+  blockHeight: bigint;
   events: EmittedEvent[];
 }
-
-/** Non-successful root contract receipt outcome. */
-export type ContractReceiptFailure<TException> =
-  | {
-      kind: "abort";
-      exception: TException;
-      abortData: Uint8Array;
-      txHash: SHA256Hash;
-      height: bigint;
-      events: EmittedEvent[];
-    }
-  | {
-      kind: "failure";
-      execResult: ExecResult;
-      returnData: Uint8Array | null;
-      abortData: Uint8Array | null;
-      txHash: SHA256Hash;
-      height: bigint;
-      events: EmittedEvent[];
-    };
-
-/** Typed return, abort, or execution failure from a root contract receipt. */
+export type ContractReceiptFailure<TException> = {
+  transactionHash: Uint8Array;
+  blockHeight: bigint;
+  events: EmittedEvent[];
+} & (
+  | { kind: "abort"; exception: TException; abortData: Uint8Array }
+  | { kind: "failure"; execution: TransactionReceipt["execution"] }
+  | { kind: "unsupported"; raw: TransactionReceipt }
+);
 export type ContractReceiptOutcome<TResult, TException> =
   | ({ kind: "return" } & ContractReceipt<TResult>)
   | ContractReceiptFailure<TException>;
@@ -130,7 +124,9 @@ export class ContractViewError<TException> extends Error {
     super(
       outcome.kind === "abort"
         ? `Contract view aborted with ${formatException(outcome.exception, selector)}`
-        : "Contract view faulted",
+        : outcome.kind === "unsupported"
+          ? "Unsupported contract simulation outcome"
+          : "Contract view faulted",
     );
     this.name = "ContractViewError";
     this.outcome = outcome;
@@ -148,10 +144,8 @@ export class ContractReceiptError<TException> extends Error {
         : undefined;
     super(
       outcome.kind === "abort"
-        ? `Contract transaction ${toBase58(outcome.txHash)} aborted with ${formatException(outcome.exception, selector)}`
-        : outcome.execResult === ExecResult.ExecResultOK
-          ? `Contract transaction did not include return data (tx ${toBase58(outcome.txHash)})`
-          : `Contract transaction failed with ${ExecResult[outcome.execResult] ?? outcome.execResult} (tx ${toBase58(outcome.txHash)})`,
+        ? `Contract transaction ${toBase58(outcome.transactionHash)} aborted with ${formatException(outcome.exception, selector)}`
+        : `Contract transaction ${toBase58(outcome.transactionHash)} did not return a supported successful result`,
     );
     this.name = "ContractReceiptError";
     this.outcome = outcome;
@@ -229,17 +223,17 @@ export interface ContractMethodDefinition {
 
 /** Contract address and arguments shared by reads and transaction calls. */
 export type ContractMethodInputs<TArgs> = {
-  contract: ContractAddress;
+  address: ContractAddress;
 } & ([TArgs] extends [void] ? { args?: never } : { args: TArgs });
 
 /** View options with an argument object only when the method requires one. */
 export type ContractViewOptions<TArgs> = ContractMethodInputs<TArgs> & {
   /** Optional authorization assumed by the simulator, without signatures. */
-  authClaim?: AuthClaim;
-  client: Pick<ThruputClient, "view">;
+  assumedAuth?: AuthClaim;
+  client: Pick<ThruputClient, "simulateInvocation">;
   caller?: ContractAddress;
   /** Minimum committed snapshot height. No waiting or request-driven refresh. */
-  minHeight?: bigint;
+  minStateBlockHeight?: bigint;
   /** Cancel this read without affecting other requests on the same client. */
   signal?: AbortSignal;
 };
@@ -247,20 +241,20 @@ export type ContractViewOptions<TArgs> = ContractMethodInputs<TArgs> & {
 /** Inputs to a typed, unsubmitted contract call. */
 export type ContractCallOptions<TArgs> = ContractMethodInputs<TArgs> & {
   gasLimit: GasAmount;
-  minHeight?: never;
+  minStateBlockHeight?: never;
 };
 
 /** Inputs for an unsubmitted view, with arguments checked by the generated method. */
 export type ContractViewRequestOptions<TArgs> = ContractMethodInputs<TArgs> & {
-  authClaim?: AuthClaim;
+  assumedAuth?: AuthClaim;
   caller?: ContractAddress;
-  minHeight?: never;
+  minStateBlockHeight?: never;
 };
 
 /** Encoded view request retaining its generated outcome decoder. */
 export interface ContractViewRequest<TResult = unknown, TException = unknown> {
-  readonly minHeight?: never;
-  readonly request: ViewCall & { minHeight?: never };
+  readonly minStateBlockHeight?: never;
+  readonly request: ViewCall & { minStateBlockHeight?: never };
   readonly method: Pick<
     ContractMethod<never, TResult, TException>,
     "name" | "decodeViewOutcome"
@@ -391,7 +385,6 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
     definition.codecs,
     definition.returnType,
   );
-  const returnsVoid = definition.returnType.v === ContractTypeKind.Void;
   const exceptionBySelector = new Map<bigint, ResolvedException>();
   for (const metadata of definition.throws) {
     if (exceptionBySelector.has(metadata.selector)) {
@@ -411,19 +404,19 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
     name,
     effect,
     viewRequest(options) {
-      if ("minHeight" in options) {
+      if ("minStateBlockHeight" in options) {
         throw new TypeError(
-          "Set minHeight on readViews, not on a prepared call",
+          "Set minStateBlockHeight on readViews, not on a prepared call",
         );
       }
       return {
         request: {
-          contract: contractAddress(new Uint8Array(options.contract)),
+          address: contractAddress(new Uint8Array(options.address)),
           entrypoint: copyEntrypoint(entrypoint),
           calldata: encode("args" in options ? options.args : undefined),
-          ...(options.authClaim === undefined
+          ...(options.assumedAuth === undefined
             ? {}
-            : { authClaim: copyViewAuthClaim(options.authClaim) }),
+            : { assumedAuth: toAssumedAuth(options.assumedAuth) }),
           ...(options.caller
             ? { caller: contractAddress(new Uint8Array(options.caller)) }
             : {}),
@@ -432,14 +425,14 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
       };
     },
     call(options) {
-      if ("minHeight" in options) {
+      if ("minStateBlockHeight" in options) {
         throw new TypeError(
-          "minHeight is a read constraint, not a transaction option",
+          "minStateBlockHeight is a read constraint, not a transaction option",
         );
       }
       return {
         invocation: {
-          invoked_address: contractAddress(new Uint8Array(options.contract)),
+          invoked_address: contractAddress(new Uint8Array(options.address)),
           entrypoint: copyEntrypoint(entrypoint),
           gas_limit: options.gasLimit,
           calldata: encode("args" in options ? options.args : undefined),
@@ -497,109 +490,89 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
 
     decodeReceiptOutcome(receipt) {
       const metadata = {
-        txHash: receipt.txHash,
-        height: receipt.height,
+        transactionHash: receipt.transactionHash,
+        blockHeight: receipt.blockHeight,
         events: receipt.events,
       };
-      if (receipt.execResult === ExecResult.ExecResultOK) {
-        if (receipt.returnData === null && !returnsVoid) {
-          return {
-            kind: "failure",
-            execResult: receipt.execResult,
-            returnData: receipt.returnData,
-            abortData: receipt.abortData,
-            ...metadata,
-          };
-        }
+      const execution = receipt.execution;
+      if (execution instanceof UnsupportedRpcValue)
+        return { kind: "unsupported", raw: receipt, ...metadata };
+      if (execution.result === "return")
         return {
           kind: "return",
-          value: method.decodeReturn(receipt.returnData ?? new Uint8Array()),
+          value: method.decodeReturn(execution.returnData),
           ...metadata,
         };
-      }
-      if (
-        receipt.execResult === ExecResult.ExecResultTxRootFrameReverted &&
-        receipt.abortData !== null
-      ) {
+      if (execution.result === "abort")
         return {
           kind: "abort",
-          exception: method.decodeException(receipt.abortData),
-          abortData: receipt.abortData,
+          exception: method.decodeException(execution.abortData),
+          abortData: execution.abortData,
           ...metadata,
         };
-      }
-      return {
-        kind: "failure",
-        execResult: receipt.execResult,
-        returnData: receipt.returnData,
-        abortData: receipt.abortData,
-        ...metadata,
-      };
+      return { kind: "failure", execution, ...metadata };
     },
-
     decodeReceipt(receipt) {
       const outcome = method.decodeReceiptOutcome(receipt);
-      if (outcome.kind === "return") {
+      if (outcome.kind === "return")
         return {
           value: outcome.value,
-          txHash: outcome.txHash,
-          height: outcome.height,
+          transactionHash: outcome.transactionHash,
+          blockHeight: outcome.blockHeight,
           events: outcome.events,
         };
-      }
       throw new ContractReceiptError(outcome);
     },
 
     decodeView(response) {
-      const metadata = {
-        height: response.height,
-        gasUsed: response.gasUsed,
-        events: response.events,
+      const outcome = method.decodeViewOutcome(response);
+      if (outcome.kind !== "return") throw new ContractViewError(outcome);
+      return {
+        value: outcome.value,
+        stateBlockHeight: outcome.stateBlockHeight,
+        gasUsed: outcome.gasUsed,
+        events: outcome.events,
       };
-      if (response.output.result === "return")
-        return {
-          ...metadata,
-          value: method.decodeReturn(response.output.returnData),
-        };
-      if (response.output.result === "abort")
-        throw new ContractViewError({
-          ...metadata,
-          kind: "abort",
-          exception: method.decodeException(response.output.abortData),
-          abortData: response.output.abortData,
-        });
-      throw new ContractViewError({ ...metadata, kind: "fault" });
     },
 
     async viewOutcome(options) {
       options.signal?.throwIfAborted();
-      const minHeight = options.minHeight;
-      if (minHeight !== undefined) serializeHeight(minHeight);
+      const minStateBlockHeight = options.minStateBlockHeight;
+      if (minStateBlockHeight !== undefined)
+        serializeHeight(minStateBlockHeight);
       const request = {
-        ...(options.authClaim === undefined
+        ...(options.assumedAuth === undefined
           ? {}
-          : { authClaim: copyViewAuthClaim(options.authClaim) }),
-        contract: options.contract,
+          : { assumedAuth: toAssumedAuth(options.assumedAuth) }),
+        address: options.address,
         entrypoint: copyEntrypoint(entrypoint),
         calldata: encode("args" in options ? options.args : undefined),
         ...(options.caller ? { caller: options.caller } : {}),
-        ...(minHeight === undefined ? {} : { minHeight }),
+        ...(minStateBlockHeight === undefined ? {} : { minStateBlockHeight }),
       };
       const response = await (options.signal
-        ? options.client.view(request, { signal: options.signal })
-        : options.client.view(request));
+        ? options.client.simulateInvocation(request, { signal: options.signal })
+        : options.client.simulateInvocation(request));
 
-      assertViewFreshness(response.height, minHeight);
+      assertViewFreshness(response.stateBlockHeight, minStateBlockHeight);
       return method.decodeViewOutcome(response);
     },
 
     decodeViewOutcome(response) {
+      if (response.output instanceof UnsupportedRpcValue)
+        return {
+          kind: "unsupported",
+          raw: response,
+          stateBlockHeight: response.stateBlockHeight,
+          gasUsed: response.gasUsed,
+          events: response.events,
+        };
       switch (response.output.result) {
         case "return":
           return {
             kind: "return",
             value: method.decodeReturn(response.output.returnData),
-            height: response.height,
+            stateBlockHeight: response.stateBlockHeight,
             gasUsed: response.gasUsed,
             events: response.events,
           };
@@ -608,14 +581,14 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
             kind: "abort",
             exception: method.decodeException(response.output.abortData),
             abortData: response.output.abortData,
-            height: response.height,
+            stateBlockHeight: response.stateBlockHeight,
             gasUsed: response.gasUsed,
             events: response.events,
           };
         case "fault":
           return {
             kind: "fault",
-            height: response.height,
+            stateBlockHeight: response.stateBlockHeight,
             gasUsed: response.gasUsed,
             events: response.events,
           };
@@ -627,7 +600,7 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
       if (outcome.kind === "return") {
         return {
           value: outcome.value,
-          height: outcome.height,
+          stateBlockHeight: outcome.stateBlockHeight,
           gasUsed: outcome.gasUsed,
           events: outcome.events,
         };

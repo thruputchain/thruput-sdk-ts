@@ -3,6 +3,7 @@ import { contractAddress, gasAmount, sha256Hash } from "@thruputchain/protocol";
 import { createThruputClient, type ThruputClient } from "../../client.js";
 import { getContract } from "../../contract/instance.js";
 import { ERC20 } from "../../contracts/erc20.js";
+import { withNativeDiscovery } from "../../testing/nativeRpc.js";
 import { HttpTransport } from "../../transport/http.js";
 
 const address = contractAddress(new Uint8Array(32));
@@ -12,37 +13,48 @@ const reads: Record<
   string,
   (client: ThruputClient, signal: AbortSignal) => Promise<unknown>
 > = {
-  network: (client, signal) => client.getNetworkInfo({ signal }),
-  chainConfig: (client, signal) => client.getChainConfig({ signal }),
-  version: (client, signal) => client.getVersion({ signal }),
-  tip: (client, signal) => client.getChainTip({ signal }),
-  balance: (client, signal) => client.getBalance(address, { signal }),
-  block: (client, signal) => client.getBlockByNumber(0n, { signal }),
-  pending: (client, signal) => client.getPendingTransactionCount({ signal }),
-  receipt: (client, signal) => client.getTransactionReceipt(hash, { signal }),
-  status: (client, signal) => client.getTransactionStatus(hash, { signal }),
+  chainConfig: (client, signal) => client.getChainConfig({}, { signal }),
+  tip: (client, signal) => client.getChainTip({}, { signal }),
+  balance: (client, signal) => client.getBalance({ address }, { signal }),
+  block: (client, signal) =>
+    client.getBlockByHeight({ blockHeight: 0n }, { signal }),
+  pending: (client, signal) =>
+    client.dev_getPendingTransactionCount({}, { signal }),
+  receipt: (client, signal) =>
+    client.getTransactionReceipt({ transactionHash: hash }, { signal }),
+  status: (client, signal) =>
+    client.getTransactionStatus({ transactionHash: hash }, { signal }),
   transactions: (client, signal) =>
-    client.getTransactionsByAddress({ address }, { signal }),
+    client.getTransactionsByRootAddress(
+      {
+        address,
+        start: { order: "ascending", anchor: { kind: "atBeginning" } },
+      },
+      { signal },
+    ),
   events: (client, signal) =>
     client.getEvents(
-      { filters: [{ contractAddresses: [address] }] },
+      {
+        filters: [{ addresses: [address] }],
+        start: { order: "ascending", anchor: { kind: "atBeginning" } },
+      },
       { signal },
     ),
   storage: (client, signal) =>
-    client.getStorageAt(address, new Uint8Array(32), { signal }),
+    client.getStorage({ address, key: new Uint8Array(32) }, { signal }),
   view: (client, signal) =>
-    client.view(
+    client.simulateInvocation(
       {
-        contract: address,
+        address,
         entrypoint: invocation.entrypoint,
         calldata: invocation.calldata,
       },
       { signal },
     ),
   descriptor: (client, signal) =>
-    ERC20.v0_1.getBalance.view({ client, contract: address, signal }),
+    ERC20.v0_1.getBalance.view({ client, address, signal }),
   outcome: (client, signal) =>
-    ERC20.v0_1.getBalance.viewOutcome({ client, contract: address, signal }),
+    ERC20.v0_1.getBalance.viewOutcome({ client, address, signal }),
   bound: (client, signal) =>
     getContract({ binding: ERC20.v0_1, address, client }).getBalance.view({
       signal,
@@ -61,7 +73,10 @@ describe.each(Object.entries(reads))("%s cancellation", (_, read) => {
   it("does not dispatch a pre-aborted read", async () => {
     const fetch = vi.fn<typeof globalThis.fetch>();
     const client = await createThruputClient({
-      transport: new HttpTransport("https://rpc.example", { fetch }),
+      transport: withNativeDiscovery(
+        new HttpTransport("https://rpc.example", { fetch }),
+        "1".repeat(32),
+      ),
     });
     const reason = new Error("view unmounted");
     await expect(read(client, AbortSignal.abort(reason))).rejects.toBe(reason);
@@ -80,10 +95,13 @@ describe.each(Object.entries(reads))("%s cancellation", (_, read) => {
         }),
     );
     const client = await createThruputClient({
-      transport: new HttpTransport("https://rpc.example", {
-        fetch,
-        timeoutMs: 5_000,
-      }),
+      transport: withNativeDiscovery(
+        new HttpTransport("https://rpc.example", {
+          fetch,
+          timeoutMs: 5_000,
+        }),
+        "1".repeat(32),
+      ),
     });
     const first = new AbortController();
     const second = new AbortController();

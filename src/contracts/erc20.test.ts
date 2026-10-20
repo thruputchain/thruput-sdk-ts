@@ -84,7 +84,7 @@ describe("generated ERC20 events", () => {
     const writer = new CxsWriter();
     writer.writeInt128(testCase.value);
     const event = {
-      contractAddress: token,
+      address: token,
       topics: [
         Uint8Array.from(Buffer.from(testCase.signature, "hex")),
         ...testCase.topics,
@@ -104,14 +104,14 @@ describe("generated ERC20 events", () => {
       testCase.descriptor.allFromReceipt(
         {
           events: [
-            { ...event, contractAddress: other },
+            { ...event, address: other },
             { ...event, topics: [new Uint8Array(32)] },
             event,
           ],
         },
-        { contractAddress: token },
+        { address: token },
       ),
-    ).toEqual([{ ...decoded, contractAddress: token }]);
+    ).toEqual([{ ...decoded, address: token }]);
     expect(() =>
       testCase.descriptor.decode({ ...event, data: new Uint8Array() }),
     ).toThrow();
@@ -120,20 +120,20 @@ describe("generated ERC20 events", () => {
   it("builds named mint and burn topic filters", () => {
     expect(
       ERC20MintEvent.filter({
-        contractAddresses: [token],
+        addresses: [token],
         topics: { to: account },
       }),
     ).toEqual({
-      contractAddresses: [token],
+      addresses: [token],
       topics: { topic0: [ERC20MintEvent.signature], topic1: [account] },
     });
     expect(
       ERC20BurnEvent.filter({
-        contractAddresses: [token],
+        addresses: [token],
         topics: { from: { oneOf: [account, other] } },
       }),
     ).toEqual({
-      contractAddresses: [token],
+      addresses: [token],
       topics: { topic0: [ERC20BurnEvent.signature], topic1: [account, other] },
     });
   });

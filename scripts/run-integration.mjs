@@ -177,6 +177,12 @@ async function main() {
   if (process.platform !== "linux") {
     throw new Error("The live-node harness currently supports Linux only");
   }
+  // Replace the release pins after the native artifact set passes qualification.
+  if (!process.env.THRUPUT_CLI || !process.env.THRUPUT_DEVNODE_BINARY) {
+    throw new Error(
+      "Wire-14 qualification requires explicit THRUPUT_CLI and THRUPUT_DEVNODE_BINARY candidates until native release pins are set",
+    );
+  }
   const requestedCli = process.env.THRUPUT_CLI ?? "thruput";
   const cli = requestedCli.includes("/") ? resolve(requestedCli) : requestedCli;
   const { stdout } = await exec(cli, ["--version"], { timeout: 10_000 });

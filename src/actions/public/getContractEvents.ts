@@ -4,17 +4,14 @@ import type {
   DecodedContractEvent,
 } from "../../contract/event.js";
 import { ContractDecodeError } from "../../contract/errors.js";
-import type {
-  Transport,
-  TransportRequestOptions,
-} from "../../transport/types.js";
+import type { TransportRequestOptions } from "../../transport/types.js";
 import type {
   EmittedEvent,
   EventPage,
   EventQuery,
   IdentifiedEvent,
 } from "../../types/rpc.js";
-import { getEvents } from "./getEvents.js";
+import type { RpcClient } from "../../rpc/client.js";
 
 /** One generated event descriptor with named filters and ordinary page controls. */
 export type ContractEventQuery<
@@ -22,7 +19,11 @@ export type ContractEventQuery<
   TTopics,
   TFields,
   TFilter,
-> = Omit<EventQuery, "filters"> &
+> = (EventQuery extends infer Q
+  ? Q extends EventQuery
+    ? Omit<Q, "filters">
+    : never
+  : never) &
   ContractEventFilterInput<NoInfer<TFilter>> & {
     event: ContractEvent<TName, TTopics, TFields, TFilter>;
   };
@@ -34,7 +35,7 @@ export type IdentifiedContractEvent<
   TFields,
 > = DecodedContractEvent<TName, TTopics, TFields> &
   Omit<IdentifiedEvent, "event"> &
-  Pick<EmittedEvent, "contractAddress">;
+  Pick<EmittedEvent, "address">;
 
 /** One decoded event page, retaining the RPC cursor and indexer bounds. */
 export type ContractEventPage<TName extends string, TTopics, TFields> = Omit<
@@ -53,10 +54,11 @@ export type ContractEventPage<TName extends string, TTopics, TFields> = Omit<
  *
  * @example
  * ```ts
- * const page = await getContractEvents(transport, {
+ * const page = await getContractEvents(client, {
  *   event: groundhog_erc20_if.v0_1.events.TransferEvent,
- *   contractAddresses: [tokenAddress],
+ *   addresses: [tokenAddress],
  *   topics: { to: accountAddress },
+ *   start: { order: "ascending", anchor: { kind: "atBeginning" } },
  *   limit: 20,
  * }, { signal });
  * ```
@@ -67,17 +69,16 @@ export async function getContractEvents<
   TFields,
   TFilter,
 >(
-  transport: Transport,
+  client: Pick<RpcClient, "getEvents">,
   query: ContractEventQuery<TName, TTopics, TFields, TFilter>,
   options?: TransportRequestOptions,
 ): Promise<ContractEventPage<TName, TTopics, TFields>> {
   options?.signal?.throwIfAborted();
-  const { event, contractAddresses, topics, ...pageQuery } = query;
-  const page = await getEvents(
-    transport,
+  const { event, addresses, topics, ...pageQuery } = query;
+  const page = await client.getEvents(
     {
       ...pageQuery,
-      filters: [event.filter({ contractAddresses, topics })],
+      filters: [event.filter({ addresses, topics })],
     },
     options,
   );
@@ -90,7 +91,7 @@ export async function getContractEvents<
           "Event query returned an unexpected event signature",
         );
       }
-      return { ...decoded, ...identity, contractAddress: raw.contractAddress };
+      return { ...decoded, ...identity, address: raw.address };
     }),
   };
 }

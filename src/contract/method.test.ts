@@ -33,7 +33,7 @@ import {
   type ContractMethodDefinition,
 } from "./method.js";
 
-const contract = contractAddress(new Uint8Array(32).fill(0x11));
+const address = contractAddress(new Uint8Array(32).fill(0x11));
 const caller = contractAddress(new Uint8Array(32).fill(0x22));
 const entrypoint = contractEntrypointID(new Uint8Array(8).fill(0x33));
 const txHash = sha256Hash(new Uint8Array(32).fill(0x44));
@@ -77,20 +77,18 @@ function encode(write: (writer: CxsWriter) => void): Uint8Array {
 
 function clientReturning(response: ViewResponse) {
   return {
-    view: vi.fn(async () => response),
-  } satisfies Pick<ThruputClient, "view">;
+    simulateInvocation: vi.fn(async () => response),
+  } satisfies Pick<ThruputClient, "simulateInvocation">;
 }
 
 function receipt(
   overrides: Partial<TransactionReceipt> = {},
 ): TransactionReceipt {
   return {
-    txHash,
-    height: 12n,
-    execResult: ExecResult.ExecResultOK,
+    transactionHash: txHash,
+    blockHeight: 12n,
+    execution: { result: "return", returnData: new Uint8Array() },
     events,
-    returnData: null,
-    abortData: null,
     gasUsed: 1_000n,
     ...overrides,
   };
@@ -115,23 +113,23 @@ describe("contract method invocation", () => {
       );
       expect(method.effect).toBe(effect ?? null);
       expect(
-        method.call({ contract, gasLimit: gasAmount(100n) }).invocation
+        method.call({ address, gasLimit: gasAmount(100n) }).invocation
           .entrypoint,
       ).toEqual(entrypoint);
       const client = clientReturning({
         output: { result: "return", returnData: new Uint8Array() },
-        height: 1n,
+        stateBlockHeight: 1n,
         gasUsed: 1n,
         events: [],
       });
       const bound = getContract({
         binding: { method },
-        address: contract,
+        address: address,
         client,
       });
       expect(bound.method.effect).toBe(method.effect);
       await bound.method.view({});
-      expect(client.view).toHaveBeenCalledOnce();
+      expect(client.simulateInvocation).toHaveBeenCalledOnce();
     },
   );
 
@@ -147,14 +145,14 @@ describe("contract method invocation", () => {
       never
     >(definition());
 
-    const invocation = method.invocation(contract, gasAmount(100n), {
+    const invocation = method.invocation(address, gasAmount(100n), {
       first: -4n,
       second: 300n,
     });
     const reader = new CxsReader(invocation.calldata);
 
     expect(invocation).toMatchObject({
-      invoked_address: contract,
+      invoked_address: address,
       entrypoint,
       gas_limit: 100n,
     });
@@ -172,7 +170,7 @@ describe("contract method invocation", () => {
       }),
     );
 
-    expect(method.invocation(contract, gasAmount(1n)).calldata).toHaveLength(0);
+    expect(method.invocation(address, gasAmount(1n)).calldata).toHaveLength(0);
   });
 
   it("returns independent entrypoint copies", () => {
@@ -189,11 +187,11 @@ describe("contract method invocation", () => {
     source.fill(0);
     const exposed = method.entrypoint;
     exposed.fill(0);
-    const invocation = method.invocation(contract, gasAmount(1n));
+    const invocation = method.invocation(address, gasAmount(1n));
     invocation.entrypoint.fill(0);
 
     expect(method.entrypoint).toEqual(new Uint8Array(8).fill(0x44));
-    expect(method.invocation(contract, gasAmount(1n)).entrypoint).toEqual(
+    expect(method.invocation(address, gasAmount(1n)).entrypoint).toEqual(
       new Uint8Array(8).fill(0x44),
     );
   });
@@ -204,7 +202,7 @@ describe("contract method invocation", () => {
     );
 
     expect(() =>
-      method.invocation(contract, gasAmount(1n), undefined as never),
+      method.invocation(address, gasAmount(1n), undefined as never),
     ).toThrow("Contract method arguments must be an object");
   });
 
@@ -219,7 +217,7 @@ describe("contract method invocation", () => {
       second: bigint;
     };
 
-    expect(() => method.invocation(contract, gasAmount(1n), inherited)).toThrow(
+    expect(() => method.invocation(address, gasAmount(1n), inherited)).toThrow(
       'Contract method arguments require own property "second"',
     );
   });
@@ -235,7 +233,7 @@ describe("contract method invocation", () => {
     source.args[0]!.publicName = "mutated";
 
     expect(() =>
-      method.invocation(contract, gasAmount(1n), {
+      method.invocation(address, gasAmount(1n), {
         first: -4n,
         second: 300n,
       }),
@@ -268,7 +266,7 @@ describe("contract argument decoding", () => {
   });
 
   it("rejects trailing calldata", () => {
-    const data = method.invocation(contract, gasAmount(1n), {
+    const data = method.invocation(address, gasAmount(1n), {
       first: -4n,
       second: 300n,
     }).calldata;
@@ -285,7 +283,7 @@ describe("contract argument decoding", () => {
   });
 
   it("decodes generated compound wallet arguments through a bound descriptor", () => {
-    const transfer = ERC20.v0_1.transfer.invocation(contract, gasAmount(100n), {
+    const transfer = ERC20.v0_1.transfer.invocation(address, gasAmount(100n), {
       receiver: caller,
       amount: 42n,
     });
@@ -298,7 +296,7 @@ describe("contract argument decoding", () => {
       },
     ];
     const root = DefaultWallet.v0_1.execute.invocation(
-      contract,
+      address,
       gasAmount(200n),
       {
         calls,
@@ -306,10 +304,10 @@ describe("contract argument decoding", () => {
     );
     const wallet = getContract({
       binding: DefaultWallet.v0_1,
-      address: contract,
+      address: address,
       client: clientReturning({
         output: { result: "fault" },
-        height: 0n,
+        stateBlockHeight: 0n,
         gasUsed: 42n,
         events: [],
       }),
@@ -391,7 +389,9 @@ describe("contract method decoding", () => {
       value,
     });
     expect(
-      descriptor.decodeReceiptOutcome(receipt({ returnData: returned })),
+      descriptor.decodeReceiptOutcome(
+        receipt({ execution: { result: "return", returnData: returned } }),
+      ),
     ).toMatchObject({
       kind: "return",
       value,
@@ -399,7 +399,7 @@ describe("contract method decoding", () => {
     expect(
       descriptor.decodeViewOutcome({
         output: { result: "return", returnData: returned },
-        height: 1n,
+        stateBlockHeight: 1n,
         gasUsed: 1n,
         events: [],
       }),
@@ -483,25 +483,28 @@ describe("contract method receipts", () => {
 
   it("decodes successful receipts and preserves commit metadata", () => {
     const committed = receipt({
-      returnData: encode((writer) => writer.writeInt64(42n)),
+      execution: {
+        result: "return",
+        returnData: encode((writer) => writer.writeInt64(42n)),
+      },
     });
 
     expect(method.decodeReceiptOutcome(committed)).toEqual({
       kind: "return",
       value: 42n,
-      txHash,
-      height: 12n,
+      transactionHash: txHash,
+      blockHeight: 12n,
       events,
     });
     expect(method.decodeReceipt(committed)).toEqual({
       value: 42n,
-      txHash,
-      height: 12n,
+      transactionHash: txHash,
+      blockHeight: 12n,
       events,
     });
   });
 
-  it("accepts missing return data for void methods", () => {
+  it("decodes empty native return data for void methods", () => {
     const voidMethod = defineContractMethod<void, void, never>(
       definition({
         args: [],
@@ -512,8 +515,8 @@ describe("contract method receipts", () => {
 
     expect(voidMethod.decodeReceipt(receipt())).toEqual({
       value: undefined,
-      txHash,
-      height: 12n,
+      transactionHash: txHash,
+      blockHeight: 12n,
       events,
     });
   });
@@ -524,8 +527,7 @@ describe("contract method receipts", () => {
       writer.writeInt32(-9n);
     });
     const reverted = receipt({
-      execResult: ExecResult.ExecResultTxRootFrameReverted,
-      abortData,
+      execution: { result: "abort", abortData },
     });
 
     expect(method.decodeReceiptOutcome(reverted)).toEqual({
@@ -537,8 +539,8 @@ describe("contract method receipts", () => {
         value: -9n,
       },
       abortData,
-      txHash,
-      height: 12n,
+      transactionHash: txHash,
+      blockHeight: 12n,
       events,
     });
     expect(() => method.decodeReceipt(reverted)).toThrowError(
@@ -546,29 +548,14 @@ describe("contract method receipts", () => {
     );
   });
 
-  it("preserves other failures and successful receipts without return data", () => {
-    const failed = receipt({
-      execResult: ExecResult.ExecResultTxDeterministicError,
-    });
-    const missingReturn = receipt();
-
+  it("preserves faults and rejects truncated successful return bytes", () => {
+    const failed = receipt({ execution: { result: "fault" } });
     expect(method.decodeReceiptOutcome(failed)).toMatchObject({
       kind: "failure",
-      execResult: ExecResult.ExecResultTxDeterministicError,
-      returnData: null,
-      abortData: null,
+      execution: { result: "fault" },
     });
-    expect(() => method.decodeReceipt(failed)).toThrow(
-      "Contract transaction failed with ExecResultTxDeterministicError",
-    );
-    expect(method.decodeReceiptOutcome(missingReturn)).toMatchObject({
-      kind: "failure",
-      execResult: ExecResult.ExecResultOK,
-      returnData: null,
-    });
-    expect(() => method.decodeReceipt(missingReturn)).toThrow(
-      "Contract transaction did not include return data",
-    );
+    expect(() => method.decodeReceipt(failed)).toThrow(ContractReceiptError);
+    expect(() => method.decodeReceipt(receipt())).toThrow(ContractDecodeError);
   });
 });
 
@@ -580,7 +567,7 @@ describe("contract method views", () => {
   >(definition());
 
   it("returns decoded values and forwards arguments, caller, and auth", async () => {
-    const authClaim: AuthClaim = {
+    const assumedAuth: AuthClaim = {
       claim_type: AuthClaimType.kSourceAddressAuthData,
       source_address_claim: {
         allowed_keys: bitMap(5n),
@@ -592,7 +579,7 @@ describe("contract method views", () => {
         result: "return",
         returnData: encode((writer) => writer.writeInt64(-8n)),
       },
-      height: 12n,
+      stateBlockHeight: 12n,
       gasUsed: 42n,
       events,
     });
@@ -600,43 +587,47 @@ describe("contract method views", () => {
     await expect(
       method.viewOutcome({
         client,
-        contract,
+        address,
         caller,
-        authClaim,
+        assumedAuth,
         args: { first: -2n, second: 5n },
       }),
     ).resolves.toEqual({
       kind: "return",
       value: -8n,
-      height: 12n,
+      stateBlockHeight: 12n,
       gasUsed: 42n,
       events,
     });
-    expect(client.view).toHaveBeenCalledWith({
-      contract,
+    expect(client.simulateInvocation).toHaveBeenCalledWith({
+      address,
       entrypoint,
       caller,
-      authClaim,
+      assumedAuth: { kind: "sourceAddress", allowedKeys: 5, requiredWeight: 3 },
       calldata: expect.any(Uint8Array),
     });
   });
 
   it("snapshots authorization when preparing a view", () => {
-    const authClaim: AuthClaim = {
+    const assumedAuth: AuthClaim = {
       claim_type: AuthClaimType.kSourceAddressAuthData,
       source_address_claim: {
         allowed_keys: bitMap(5n),
         required_weight: weight(3n),
       },
     };
-    const expected = structuredClone(authClaim);
+    const expected = {
+      kind: "sourceAddress",
+      allowedKeys: 5,
+      requiredWeight: 3,
+    };
     const prepared = method.viewRequest({
-      contract,
+      address,
       args: { first: 1n, second: 2n },
-      authClaim,
+      assumedAuth,
     });
-    authClaim.source_address_claim.allowed_keys = bitMap(1n);
-    expect(prepared.request.authClaim).toEqual(expected);
+    assumedAuth.source_address_claim.allowed_keys = bitMap(1n);
+    expect(prepared.request.assumedAuth).toEqual(expected);
   });
 
   it("the ergonomic view resolves successful return metadata", async () => {
@@ -645,20 +636,27 @@ describe("contract method views", () => {
         result: "return",
         returnData: encode((writer) => writer.writeInt64(17n)),
       },
-      height: 13n,
+      stateBlockHeight: 13n,
       gasUsed: 42n,
       events,
     });
 
-    expect(method.decodeView(await client.view()).gasUsed).toBe(42n);
+    expect(method.decodeView(await client.simulateInvocation()).gasUsed).toBe(
+      42n,
+    );
 
     await expect(
       method.view({
         client,
-        contract,
+        address,
         args: { first: 1n, second: 2n },
       }),
-    ).resolves.toEqual({ value: 17n, height: 13n, gasUsed: 42n, events });
+    ).resolves.toEqual({
+      value: 17n,
+      stateBlockHeight: 13n,
+      gasUsed: 42n,
+      events,
+    });
   });
 
   it("returns declared exceptions and fault outcomes without throwing", async () => {
@@ -668,20 +666,20 @@ describe("contract method views", () => {
     });
     const abortClient = clientReturning({
       output: { result: "abort", abortData },
-      height: 20n,
+      stateBlockHeight: 20n,
       gasUsed: 42n,
       events,
     });
     const faultClient = clientReturning({
       output: { result: "fault" },
-      height: 21n,
+      stateBlockHeight: 21n,
       gasUsed: 42n,
       events,
     });
     const args = { first: 1n, second: 2n };
 
     await expect(
-      method.viewOutcome({ client: abortClient, contract, args }),
+      method.viewOutcome({ client: abortClient, address, args }),
     ).resolves.toEqual({
       kind: "abort",
       exception: {
@@ -691,20 +689,25 @@ describe("contract method views", () => {
         value: -1n,
       },
       abortData,
-      height: 20n,
+      stateBlockHeight: 20n,
       gasUsed: 42n,
       events,
     });
     await expect(
-      method.viewOutcome({ client: faultClient, contract, args }),
-    ).resolves.toEqual({ kind: "fault", height: 21n, gasUsed: 42n, events });
+      method.viewOutcome({ client: faultClient, address, args }),
+    ).resolves.toEqual({
+      kind: "fault",
+      stateBlockHeight: 21n,
+      gasUsed: 42n,
+      events,
+    });
   });
 
   it("returns unknown exceptions in abort outcomes losslessly", async () => {
     const abortData = encode((writer) => writer.writeUint64(88n));
     const client = clientReturning({
       output: { result: "abort", abortData },
-      height: 30n,
+      stateBlockHeight: 30n,
       gasUsed: 42n,
       events,
     });
@@ -712,7 +715,7 @@ describe("contract method views", () => {
     await expect(
       method.viewOutcome({
         client,
-        contract,
+        address,
         args: { first: 1n, second: 2n },
       }),
     ).resolves.toMatchObject({
@@ -727,14 +730,14 @@ describe("contract method views", () => {
       const abortData = encode((writer) => writer.writeUint64(88n));
       const client = clientReturning({
         output: result === "abort" ? { result, abortData } : { result },
-        height: 1n,
+        stateBlockHeight: 1n,
         gasUsed: 42n,
         events,
       });
 
       const promise = method.view({
         client,
-        contract,
+        address,
         args: { first: 1n, second: 2n },
       });
       await expect(promise).rejects.toBeInstanceOf(ContractViewError);
@@ -747,15 +750,15 @@ describe("contract method views", () => {
   it("propagates client failures without wrapping them", async () => {
     const failure = new Error("gateway unavailable");
     const client = {
-      view: vi.fn(async () => {
+      simulateInvocation: vi.fn(async () => {
         throw failure;
       }),
-    } satisfies Pick<ThruputClient, "view">;
+    } satisfies Pick<ThruputClient, "simulateInvocation">;
 
     await expect(
       method.viewOutcome({
         client,
-        contract,
+        address,
         args: { first: 1n, second: 2n },
       }),
     ).rejects.toBe(failure);

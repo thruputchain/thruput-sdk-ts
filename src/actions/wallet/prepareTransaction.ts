@@ -67,7 +67,7 @@ export async function prepareTransaction(
     const expiryBlocks = request.expiryBlocks ?? defaultExpiryBlocks;
     validateRange(expiryBlocks, 1n, int64Max, "expiryBlocks");
     const tip = await client.getChainTip();
-    expiry = tip.height + expiryBlocks;
+    expiry = tip.blockHeight + expiryBlocks;
     validateRange(expiry, 0n, int64Max, "blockExpiryHeight");
   }
 

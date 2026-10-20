@@ -34,7 +34,7 @@ function assertWalletTypes(
   createWalletClient({ client: devnetClient, account, networkHash });
 
   devnetWallet.getBalance();
-  devnetWallet.getBalance(otherAddress);
+  devnetWallet.getBalance({ address: otherAddress });
   devnetWallet.requestAirdrop();
   devnetWallet.requestAirdrop({ recipient: otherAddress });
   devnetWallet.prepareTransaction({ invocation });
