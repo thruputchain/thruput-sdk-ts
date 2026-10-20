@@ -110,7 +110,7 @@ console.log(toBase58(client.network.networkHash));
 `rpcUrl`, `HttpTransport` URL, or environment configuration should update that
 value to use the stable endpoint; upgrading the package preserves overrides.
 
-Development clusters expose a typed airdrop action. It generates an
+Development clusters expose a typed airdrop action. It generates a
 client nonce, calls the faucet once, then uses read-only status and receipt polling
 when a pending response identifies a transaction:
 
@@ -123,10 +123,11 @@ Remote airdrops retain the faucet's per-recipient cooldown and share the
 gateway's configured aggregate quota. Localnet has no hosted cooldown, but its
 funding journal retains at most 1024 attempts per chain across `requestAirdrop`
 and `dev_fundAccount`. It rejects new requests at capacity and keeps existing requests
-available for reconciliation. Use
-`requestAirdropAttempt` when an application needs to persist the nonce or
-control read-only observation itself. Faucet errors and pending responses without a
-transaction hash stop immediately. The SDK never repeats the faucet request.
+available for reconciliation. The generated nonce is not persisted. For crash
+recovery, generate and persist `clientNonce`, recipient and network hash before
+calling `requestAirdrop({ recipient, clientNonce })`. Use `requestAirdropAttempt`
+to control read-only observation yourself. Faucet errors and pending responses
+without a transaction hash stop immediately. The SDK never repeats the faucet request.
 
 The predefined clusters are `mainnet`, `devnet`, and `localnet`. Declare a
 deployment-specific cluster inline, or use `defineCluster` when the descriptor
@@ -356,6 +357,32 @@ ingestion checkpoint. Persist processed rows and the checkpoint together. Start 
 next ascending range inclusively at W and deduplicate the boundary. Page bounds
 are serving availability, not processed checkpoints. No cross-reset durability is
 implied. Breaking or cancelling a walk produces no completed checkpoint.
+
+`for await` discards a generator's return value. Use `.next()` when you need
+`HistoryCompletion`; `processPage` below is your application's durable processing:
+
+```ts
+const pages = client.iterateEventPages({
+  filters: [{ addresses: [tokenAddress] }],
+  start: {
+    order: "ascending",
+    anchor: { kind: "atHeight", blockHeight: fromHeight },
+  },
+});
+let completion;
+for (;;) {
+  const step = await pages.next();
+  if (step.done) {
+    completion = step.value;
+    break;
+  }
+  await processPage(step.value);
+}
+```
+
+Walkers retain seen identities and cursors, so memory grows with rows and pages.
+Start near your saved checkpoint; use per-block transaction walks for large
+transaction backfills. A page limit bounds each response, not the whole walk.
 
 Local applications own their signing keys. A schema-4 local manifest contains
 public allocations and a public faucet address; it cannot produce a signer.
@@ -827,12 +854,13 @@ authenticated wallet simulation, and recovery of admitted local-funding bytes
 after a lost response. This profile requires wire 14.0.0, base58 identifiers
 and ML-DSA-65 pubkey accounts.
 
-An explicit CLI overrides the release pin; tests verify that the RPC server
-reports that executable's version. The expected wire version defaults to
-`scripts/integration-versions.json`; set `THRUPUT_EXPECTED_WIRE_FORMAT` when
-testing a source build with a different wire version.
-An explicit devnode skips runtime installation. Set `HOGD_PROTOCOL_OVERRIDE`
-only when qualifying a compatible runtime with a different handshake token.
+An explicit `THRUPUT_CLI` still must match the configured version and source pin.
+The harness verifies the serving RPC version, wire version and source identity.
+For an unpinned local candidate, set `THRUPUT_ALLOW_LOCAL_CANDIDATE=1` together
+with `THRUPUT_CLI`. Runtime, wire and protocol overrides also require this mode;
+CI rejects them. An explicit devnode skips runtime installation. Use
+`HOGD_PROTOCOL_OVERRIDE` only for a compatible runtime with a different handshake
+token. Qualification logs record these deviations.
 
 The harness isolates configuration and state, stops its child processes, and
 retains logs and node state on failure at the printed temporary path. Set

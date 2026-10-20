@@ -49,8 +49,59 @@ if (
   );
 }
 
+/** Describe explicit qualification deviations; none can qualify a pinned CI run. */
+export function integrationOverrides(versions, env) {
+  const keys = [
+    "THRUPUT_DEVNODE_BINARY",
+    "HOGD_PROTOCOL_OVERRIDE",
+    "THRUPUT_EXPECTED_WIRE_FORMAT",
+  ];
+  const selected = keys.filter((key) => env[key] !== undefined);
+  if (selected.length && (env.CI || env.GITHUB_ACTIONS)) {
+    throw new Error(
+      `Qualification overrides are not allowed in CI: ${selected.join(", ")}`,
+    );
+  }
+  if (selected.length && env.THRUPUT_ALLOW_LOCAL_CANDIDATE !== "1") {
+    throw new Error(
+      "Qualification overrides require explicit local candidate mode",
+    );
+  }
+  for (const key of selected) {
+    if (
+      typeof env[key] !== "string" ||
+      env[key].length === 0 ||
+      env[key] !== env[key].trim()
+    ) {
+      throw new Error(
+        `${key} must be a nonempty value without surrounding whitespace`,
+      );
+    }
+  }
+  const wireFormat = env.THRUPUT_EXPECTED_WIRE_FORMAT ?? versions.wireFormat;
+  if (!version.test(wireFormat))
+    throw new Error("Expected wire format must be an exact version");
+  return {
+    devnodeBinary: env.THRUPUT_DEVNODE_BINARY ?? null,
+    protocolOverride: env.HOGD_PROTOCOL_OVERRIDE ?? null,
+    wireOverride: env.THRUPUT_EXPECTED_WIRE_FORMAT ?? null,
+    wireFormat,
+  };
+}
+
 /** Keep CI pins strict even when the setup action supplies an absolute path. */
 export function qualifyIntegrationCli(versions, env, cliVersion) {
+  integrationOverrides(versions, env);
+  if (
+    env.THRUPUT_CLI_SOURCE_COMMIT !== undefined &&
+    (typeof env.THRUPUT_CLI_SOURCE_COMMIT !== "string" ||
+      env.THRUPUT_CLI_SOURCE_COMMIT.length !== 40 ||
+      !/^[0-9a-f]{40}$/.test(env.THRUPUT_CLI_SOURCE_COMMIT))
+  ) {
+    throw new Error(
+      "CLI source identity must be a full lowercase Git commit SHA",
+    );
+  }
   if (env.THRUPUT_ALLOW_LOCAL_CANDIDATE === "1") {
     if (env.CI || env.GITHUB_ACTIONS) {
       throw new Error("Local candidate overrides are not allowed in CI");
@@ -76,4 +127,62 @@ export function qualifyIntegrationCli(versions, env, cliVersion) {
     mode: expected === null ? "release" : "source",
     sourceCommit: expected,
   };
+}
+
+/** Verify serving build evidence, rather than trusting setup environment labels. */
+export function qualifyServingCli(versions, env, cliVersion, observed) {
+  const qualification = qualifyIntegrationCli(versions, env, cliVersion);
+  const { wireFormat } = integrationOverrides(versions, env);
+  if (
+    observed === null ||
+    typeof observed !== "object" ||
+    Array.isArray(observed)
+  ) {
+    throw new Error("getVersionInfo must return an object");
+  }
+  if (observed.implementation !== cliVersion) {
+    throw new Error(
+      "Serving CLI implementation does not match the executable version",
+    );
+  }
+  if (observed.wireFormat !== wireFormat) {
+    throw new Error("Serving wire format does not match qualification pins");
+  }
+  if (
+    observed.commitHash !== undefined &&
+    (typeof observed.commitHash !== "string" ||
+      observed.commitHash.length !== 40 ||
+      !/^[0-9a-f]{40}$/.test(observed.commitHash))
+  ) {
+    throw new Error(
+      "Serving commitHash must be a full lowercase Git commit SHA",
+    );
+  }
+  if (
+    qualification.sourceCommit !== null &&
+    observed.commitHash !== qualification.sourceCommit
+  ) {
+    throw new Error("Serving CLI commitHash does not match the source pin");
+  }
+  return {
+    implementation: observed.implementation,
+    wireFormat: observed.wireFormat,
+    commitHash: observed.commitHash ?? null,
+  };
+}
+
+/** Require the response envelope for the single identity request. */
+export function servingVersionResult(reply) {
+  if (
+    reply === null ||
+    typeof reply !== "object" ||
+    Array.isArray(reply) ||
+    reply.jsonrpc !== "2.0" ||
+    reply.id !== 1 ||
+    "error" in reply ||
+    !("result" in reply)
+  ) {
+    throw new Error("Invalid getVersionInfo RPC response");
+  }
+  return reply.result;
 }
