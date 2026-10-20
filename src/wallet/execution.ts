@@ -26,7 +26,9 @@ import { toBase58 } from "../encoding.js";
 export class TransactionExecutionError extends Error {
   constructor(readonly receipt: TransactionReceipt) {
     super(
-      `Transaction ${toBase58(receipt.transactionHash)} did not return successfully`,
+      receipt.execution instanceof UnsupportedRpcValue
+        ? `Transaction ${toBase58(receipt.transactionHash)} has an unsupported execution outcome`
+        : `Transaction ${toBase58(receipt.transactionHash)} execution failed (${receipt.execution.result})`,
     );
     this.name = "TransactionExecutionError";
   }

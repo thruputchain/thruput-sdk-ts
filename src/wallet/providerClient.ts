@@ -1,3 +1,4 @@
+import { isBytes } from "@noble/hashes/utils.js";
 import {
   AuthClaimType,
   CryptographicScheme,
@@ -270,7 +271,7 @@ export function createProviderWalletClient(
       !network ||
       typeof network !== "object" ||
       !("networkHash" in network) ||
-      !(network.networkHash instanceof Uint8Array) ||
+      !isBytes(network.networkHash) ||
       toBase58(network.networkHash) !== networkHash
     ) {
       throw new WalletProviderError(

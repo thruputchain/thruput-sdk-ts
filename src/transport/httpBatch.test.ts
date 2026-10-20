@@ -53,13 +53,11 @@ describe("HTTP batching", () => {
       const items = requests(init);
       return Response.json(
         await Promise.all(
-          items
-            .reverse()
-            .map(async ({ id, method, params }) => ({
-              jsonrpc: "2.0",
-              id,
-              result: await mock.request(method, params),
-            })),
+          items.reverse().map(async ({ id, method, params }) => ({
+            jsonrpc: "2.0",
+            id,
+            result: await mock.request(method, params),
+          })),
         ),
       );
     });

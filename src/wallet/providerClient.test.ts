@@ -1,3 +1,4 @@
+import { runInNewContext } from "node:vm";
 import {
   AuthClaimType,
   ExecResult,
@@ -1273,6 +1274,36 @@ describe("external provider wallet", () => {
       });
       wallet.dispose();
     }
+  });
+
+  it("accepts matching byte arrays from another realm without accepting byte-like objects", async () => {
+    const { client, provider, wallet } = await setup();
+    const bytes = runInNewContext("new Uint8Array(bytes)", {
+      bytes: Array.from(client.discovery.network.networkHash),
+    }) as Uint8Array;
+    expect(bytes instanceof Uint8Array).toBe(false);
+    const connected = Object.assign(client, {
+      network: { networkHash: bytes },
+    });
+    const foreign = createProviderWalletClient({
+      client: connected,
+      provider,
+      account,
+      networkHash,
+    });
+    foreign.dispose();
+    Object.assign(connected.network, {
+      networkHash: { length: 32, constructor: { name: "Uint8Array" } },
+    });
+    expect(() =>
+      createProviderWalletClient({
+        client: connected,
+        provider,
+        account,
+        networkHash,
+      }),
+    ).toThrow(expect.objectContaining({ code: 4901 }));
+    wallet.dispose();
   });
 
   it("checks a validated client's network and rejects noncanonical configuration", async () => {

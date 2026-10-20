@@ -14,6 +14,7 @@ import {
   createSubmissionEvidence,
   submitAndObserve,
   TransactionObservationError,
+  TransactionExecutionError,
   UnsupportedTransactionOutcomeError,
 } from "../../wallet/execution.js";
 import type { TransactionReceipt } from "../../types/rpc.js";
@@ -60,7 +61,26 @@ describe("native read observation", () => {
     } as TransactionReceipt);
     const result = await waitForTransactionReceipt(c, hash);
     expect(result.execution).toEqual({ result: "fault" });
-    expect(() => assertTransactionSuccess(result)).toThrow();
+    expect(() => assertTransactionSuccess(result)).toThrow(
+      `Transaction ${toBase58(hash)} execution failed (fault)`,
+    );
+  });
+  it("reports the known execution result and retains the complete receipt", () => {
+    const failed = {
+      ...receipt,
+      execution: { result: "abort" as const, abortData: new Uint8Array([7]) },
+    };
+    let caught: unknown;
+    try {
+      assertTransactionSuccess(failed);
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(TransactionExecutionError);
+    expect((caught as TransactionExecutionError).message).toBe(
+      `Transaction ${toBase58(hash)} execution failed (abort)`,
+    );
+    expect((caught as TransactionExecutionError).receipt).toBe(failed);
   });
   it("does not interpret an unknown execution variant", async () => {
     const c = client();
@@ -72,6 +92,12 @@ describe("native read observation", () => {
     expect(() => assertTransactionSuccess(result)).toThrow(
       UnsupportedTransactionOutcomeError,
     );
+    const error = new UnsupportedTransactionOutcomeError(result);
+    expect(error.message).toBe(
+      `Transaction ${toBase58(hash)} has an unsupported execution outcome`,
+    );
+    expect(error.message).not.toMatch(/failed/);
+    expect(error.receipt).toBe(result);
   });
   it("keeps commitment through retry, dropped, unknown and lookup errors", async () => {
     vi.useFakeTimers();
