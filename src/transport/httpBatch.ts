@@ -1,3 +1,5 @@
+import { RpcResponseError } from "./responseError.js";
+
 /** Scheduling and cancellation for one transport's JSON-RPC arrays. */
 interface PendingRequest {
   id: number;
@@ -111,8 +113,9 @@ function batchResponses(
     return new Map(entries.map((entry) => [entry.id, json]));
 
   if (!Array.isArray(json) || json.length !== entries.length)
-    throw new Error(
+    throw new RpcResponseError(
       "Invalid JSON-RPC batch response: expected one response per request",
+      json,
     );
   const expected = new Set(entries.map((entry) => entry.id));
   const responses = new Map<number, unknown>();
@@ -128,8 +131,9 @@ function batchResponses(
       responses.has(response.id) ||
       Object.hasOwn(response, "result") === Object.hasOwn(response, "error")
     )
-      throw new Error(
+      throw new RpcResponseError(
         "Invalid JSON-RPC batch response: invalid envelope or request ID",
+        json,
       );
     responses.set(response.id, response);
   }

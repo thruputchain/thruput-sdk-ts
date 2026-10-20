@@ -1,4 +1,5 @@
-import type { Transport, TransportRequestOptions } from "./types.js";
+import type { Transport, TransportRequestOptions, RpcParams } from "./types.js";
+import { RpcResponseError } from "./responseError.js";
 import { HttpBatch } from "./httpBatch.js";
 
 /** JSON-RPC error codes currently returned by Thruput gateways. */
@@ -31,12 +32,28 @@ export class JsonRpcError extends Error {
   /** JSON-RPC method associated with the failed request, when known. */
   method?: string;
 
-  constructor(code: number, message: string, data?: unknown, method?: string) {
+  /** Complete original JSON-RPC error object, including additive fields. */
+  readonly raw: unknown;
+  readonly rpcMessage: string;
+
+  constructor(
+    code: number,
+    message: string,
+    data?: unknown,
+    method?: string,
+    raw?: unknown,
+  ) {
     super(`${method ? `${method}: ` : ""}${message} (RPC ${code})`);
     this.name = "JsonRpcError";
     this.code = code;
     this.data = data;
     this.method = method;
+    this.rpcMessage = message;
+    this.raw = raw ?? {
+      code,
+      message,
+      ...(data === undefined ? {} : { data }),
+    };
   }
 }
 
@@ -161,7 +178,7 @@ export class HttpTransport implements Transport {
   /** Send one JSON-RPC request and return the decoded `result` value. */
   async request<T = unknown>(
     method: string,
-    params?: unknown[],
+    params?: RpcParams,
     options: TransportRequestOptions = {},
   ): Promise<T> {
     options.signal?.throwIfAborted();
@@ -194,7 +211,7 @@ export class HttpTransport implements Transport {
     } else {
       json = await this.#post(body, method, options);
     }
-    return decodeResponse(json, method) as T;
+    return decodeResponse(json, method, this.#batch ? undefined : id) as T;
   }
 
   async #post(
@@ -270,34 +287,58 @@ export class HttpTransport implements Transport {
   }
 }
 
-function decodeResponse(json: unknown, method: string): unknown {
+function decodeResponse(
+  json: unknown,
+  method: string,
+  expectedId?: number,
+): unknown {
   if (!json || typeof json !== "object" || Array.isArray(json)) {
-    throw new Error("Invalid JSON-RPC response");
+    throw new RpcResponseError("Invalid JSON-RPC response", json);
   }
 
   const envelope = json as Record<string, unknown>;
+  const frameworkError =
+    envelope.id === null &&
+    typeof envelope.error === "object" &&
+    envelope.error !== null &&
+    "code" in envelope.error &&
+    [-32700, -32600].includes(envelope.error.code as number);
+  if (
+    envelope.jsonrpc !== "2.0" ||
+    (expectedId !== undefined &&
+      envelope.id !== expectedId &&
+      !frameworkError) ||
+    Object.hasOwn(envelope, "result") === Object.hasOwn(envelope, "error")
+  ) {
+    throw new RpcResponseError(
+      "Invalid JSON-RPC response envelope or request ID",
+      json,
+    );
+  }
   if (envelope.error !== undefined) {
     const error = envelope.error;
     if (!error || typeof error !== "object" || Array.isArray(error)) {
-      throw new Error("Invalid JSON-RPC error response");
+      throw new RpcResponseError("Invalid JSON-RPC error response", json);
     }
     const rpcError = error as Record<string, unknown>;
     if (
       typeof rpcError.code !== "number" ||
+      !Number.isSafeInteger(rpcError.code) ||
       typeof rpcError.message !== "string"
     ) {
-      throw new Error("Invalid JSON-RPC error response");
+      throw new RpcResponseError("Invalid JSON-RPC error response", json);
     }
     throw new JsonRpcError(
       rpcError.code,
       rpcError.message,
       rpcError.data,
       method,
+      rpcError,
     );
   }
 
   if (!Object.prototype.hasOwnProperty.call(envelope, "result")) {
-    throw new Error("Invalid JSON-RPC response");
+    throw new RpcResponseError("Invalid JSON-RPC response", json);
   }
   return envelope.result;
 }
