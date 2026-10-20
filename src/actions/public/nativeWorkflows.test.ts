@@ -101,6 +101,98 @@ describe("native read observation", () => {
     });
     expect(error.lastStatus).toEqual({ status: "committed", blockHeight: 9n });
   });
+  it("reports retry diagnostics and retains them on timeout without writing", async () => {
+    vi.useFakeTimers();
+    const c = client();
+    c.getTransactionReceipt.mockResolvedValue(null);
+    const status = {
+      status: "retry" as const,
+      error: { source: "executor" as const, code: 3 },
+      recentFailure: {
+        attemptBlockHeight: 7n,
+        cause: { kind: "other" as const },
+      },
+    };
+    c.getTransactionStatus.mockResolvedValue(status as never);
+    const onStatus = vi.fn((observed: unknown) => {
+      // A caller mutating its callback value cannot corrupt retained evidence.
+      (observed as typeof status).recentFailure.attemptBlockHeight = 99n;
+    });
+    const outcome = waitForTransactionReceipt(c, hash, {
+      timeoutMs: 10,
+      pollingIntervalMs: 20,
+      onStatus,
+    }).catch((error) => error);
+    await vi.advanceTimersByTimeAsync(11);
+    const error = await outcome;
+    expect(onStatus).toHaveBeenCalledTimes(1);
+    expect(error.lastStatus).toEqual({
+      status: "retry",
+      error: { source: "executor", code: 3 },
+      recentFailure: { attemptBlockHeight: 7n, cause: { kind: "other" } },
+    });
+    expect(error.knownCommitment).toBeUndefined();
+    expect(c.faucet_requestAirdrop).not.toHaveBeenCalled();
+  });
+
+  it("retains unsupported nested diagnostics as unsupported timeout evidence", async () => {
+    vi.useFakeTimers();
+    const c = client();
+    c.getTransactionReceipt.mockResolvedValue(null);
+    const raw = { kind: "futureFailure", details: [1, { code: "futureCode" }] };
+    c.getTransactionStatus.mockResolvedValue({
+      status: "pending",
+      recentFailure: {
+        attemptBlockHeight: 7n,
+        cause: new UnsupportedRpcValue(raw),
+      },
+    } as never);
+    const outcome = waitForTransactionReceipt(c, hash, {
+      timeoutMs: 10,
+      pollingIntervalMs: 20,
+      onStatus: () => {
+        raw.details.length = 0;
+      },
+    }).catch((error) => error);
+    await vi.advanceTimersByTimeAsync(11);
+    const error = await outcome;
+    expect(error.lastStatus.recentFailure.cause).toBeInstanceOf(
+      UnsupportedRpcValue,
+    );
+    expect(error.lastStatus.recentFailure.cause.raw).toEqual({
+      kind: "futureFailure",
+      details: [1, { code: "futureCode" }],
+    });
+    expect(c.faucet_requestAirdrop).not.toHaveBeenCalled();
+  });
+
+  it("delivers later attempt diagnostics without replacing known commitment", async () => {
+    vi.useFakeTimers();
+    const c = client();
+    c.getTransactionReceipt.mockResolvedValue(null);
+    const status = {
+      status: "dropped" as const,
+      error: { source: "executor" as const, code: 3 },
+      recentFailure: {
+        attemptBlockHeight: 7n,
+        cause: new UnsupportedRpcValue({ kind: "futureFailure", detail: 2 }),
+      },
+    };
+    c.getTransactionStatus.mockResolvedValue(status as never);
+    const onStatus = vi.fn();
+    const outcome = waitForTransactionReceipt(c, hash, {
+      knownCommitment: { transactionHash: hash, networkHash, blockHeight: 9n },
+      timeoutMs: 10,
+      pollingIntervalMs: 20,
+      onStatus,
+    }).catch((error) => error);
+    await vi.advanceTimersByTimeAsync(11);
+    const error = await outcome;
+    expect(onStatus).toHaveBeenCalledWith(status);
+    expect(error.lastStatus).toEqual({ status: "committed", blockHeight: 9n });
+    expect(error.knownCommitment.blockHeight).toBe(9n);
+    expect(c.faucet_requestAirdrop).not.toHaveBeenCalled();
+  });
   it("stops on malformed status rather than polling until timeout", async () => {
     const c = client();
     c.getTransactionReceipt.mockResolvedValue(null);

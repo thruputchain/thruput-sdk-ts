@@ -37,6 +37,8 @@ export type ViewResponse = Native.RpcSimulationResult;
 export type TransactionStatus = Native.RpcTransactionStatus;
 export type SchedulerTransactionError = Native.RpcSchedulerError;
 export type TransactionFailureCause = Native.RpcFailureCause;
+/** Best-effort failed-attempt evidence; it need not describe the current scheduler attempt. */
+export type RecentAttemptFailure = Native.RpcRecentAttemptFailure;
 export type ContractRejectCode = Native.RpcContractRejectCode;
 export type ConflictCode = Native.RpcConflictCode;
 export type ConflictDiagnostic = Native.RpcConflictDiagnostic;

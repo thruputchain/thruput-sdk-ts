@@ -21,6 +21,7 @@ export interface WaitForTransactionReceiptOptions {
   /** Verified before each observation; omission uses discovery's validated network. */
   expectedNetworkHash?: Uint8Array;
   knownCommitment?: KnownCommitment;
+  /** Observed status, including optional advisory attempt diagnostics. Never retry permission. */
   onStatus?: (status: TransactionStatus) => void;
   timeoutMs?: number;
   pollingIntervalMs?: number;
@@ -89,6 +90,23 @@ export async function waitForCommitment(
     true,
   )) as KnownCommitment;
 }
+// Status evidence includes extensible values at arbitrary nested schema positions.
+// structuredClone alone drops their UnsupportedRpcValue class identity.
+function snapshotStatus(status: TransactionStatus): TransactionStatus {
+  const copy = (value: unknown): unknown => {
+    if (value instanceof UnsupportedRpcValue)
+      return new UnsupportedRpcValue(structuredClone(value.raw));
+    if (Array.isArray(value)) return value.map(copy);
+    if (ArrayBuffer.isView(value)) return structuredClone(value);
+    if (value !== null && typeof value === "object")
+      return Object.fromEntries(
+        Object.entries(value).map(([key, entry]) => [key, copy(entry)]),
+      );
+    return value;
+  };
+  return copy(status) as TransactionStatus;
+}
+
 async function observe(
   client: ReceiptObserver,
   hash: Uint8Array,
@@ -211,11 +229,7 @@ async function observe(
             status.status === "committed"
           )
             retain(status.blockHeight);
-          else if (!commitment)
-            lastStatus =
-              status instanceof UnsupportedRpcValue
-                ? new UnsupportedRpcValue(structuredClone(status.raw))
-                : structuredClone(status);
+          else if (!commitment) lastStatus = snapshotStatus(status);
           observedStatus = status;
         } catch (cause) {
           if (

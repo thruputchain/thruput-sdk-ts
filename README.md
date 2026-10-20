@@ -578,15 +578,18 @@ its storage entry, and `clearBalance()` deletes the caller's empty balance
 entry. Allowance changes emit `AllowanceChangeEvent` with the signed
 `difference`; the earlier `ApprovalEvent` is gone with interface 0.1.41.
 
-A receipt proves commitment; inspect its execution result. A `committed` status
-may omit `height` until the indexer records it. `invalid` reports rejection,
-while `recentFailure` is an advisory failed attempt. Receipt polling throws
-`TransactionProcessingError` for `retry` or `dropped`, preserving the hash,
-status, and scheduler error. `retry` permits resubmitting the same signed
-transaction; `dropped` requires modifying it. The observer never resubmits.
-A timeout or cancellation stops observation without proving the outcome.
-Preserve signed evidence and resume observing the original hash instead of
-automatically re-signing.
+A receipt proves commitment; inspect its `execution.result`. A `committed`
+status always includes `blockHeight`, even when the receipt is not indexed yet.
+`pending`, `retry`, and `dropped` can include a best-effort `recentFailure`
+diagnostic with an `attemptBlockHeight` and `cause`. It may describe an earlier
+attempt, not the scheduler's current attempt. The standalone `recentFailure`
+status reports that diagnostic when the scheduler has no retained status.
+
+The observer reports statuses through `onStatus` and retains them on timeout.
+Once commitment is observed, later scheduler statuses cannot erase it. Failed
+attempts, timeout, and cancellation do not prove nonexecution or permit automatic
+resubmission. Preserve signed evidence and resume observing the original hash
+instead of automatically re-signing.
 
 ## Signed operations
 

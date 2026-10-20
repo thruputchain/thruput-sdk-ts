@@ -1011,6 +1011,22 @@
       "x-tag": "result",
       "x-extensible": true
     },
+    "RecentAttemptFailure": {
+      "properties": {
+        "attemptBlockHeight": {
+          "maxLength": 19,
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-integer-maximum": "9223372036854775807",
+          "x-integer-minimum": "0"
+        },
+        "cause": {
+          "$ref": "#/components/schemas/FailureCause"
+        }
+      },
+      "required": ["attemptBlockHeight", "cause"],
+      "type": "object"
+    },
     "RegisteredAuthResult": {
       "properties": {
         "address": {
@@ -1488,6 +1504,9 @@
       "anyOf": [
         {
           "properties": {
+            "recentFailure": {
+              "$ref": "#/components/schemas/RecentAttemptFailure"
+            },
             "status": {
               "const": "pending",
               "type": "string"
@@ -1518,6 +1537,9 @@
             "error": {
               "$ref": "#/components/schemas/SchedulerError"
             },
+            "recentFailure": {
+              "$ref": "#/components/schemas/RecentAttemptFailure"
+            },
             "status": {
               "const": "retry",
               "type": "string"
@@ -1530,6 +1552,9 @@
           "properties": {
             "error": {
               "$ref": "#/components/schemas/SchedulerError"
+            },
+            "recentFailure": {
+              "$ref": "#/components/schemas/RecentAttemptFailure"
             },
             "status": {
               "const": "dropped",
