@@ -661,14 +661,15 @@ export function createProviderWalletClient(
       const result = await submitAndObserve(
         client,
         evidence,
-        (signal) =>
-          submitTransaction(
+        async (signal) => {
+          await submitTransaction(
             signed,
             () => {
               submissionDispatched = true;
             },
             signal,
-          ),
+          );
+        },
         {
           ...options.wait,
           expectedNetworkHash: hashFromBase58(
@@ -677,7 +678,8 @@ export function createProviderWalletClient(
         },
         () => submissionDispatched,
       );
-      if (requireSuccess) assertTransactionSuccess(result.receipt);
+      if (requireSuccess)
+        assertTransactionSuccess(result.receipt, result.submission);
       return result;
     } finally {
       executing = false;
@@ -701,6 +703,7 @@ export function createProviderWalletClient(
         result.receipt,
         { ...deployment, address },
         defaultWalletAdapter,
+        result.submission,
       );
       return { ...result, address };
     },
@@ -744,9 +747,12 @@ export function createProviderWalletClient(
       );
       return {
         ...result,
-        values: decodeExecution(result.receipt, calls) as CallResults<
-          typeof input.calls
-        >,
+        values: decodeExecution(
+          result.receipt,
+          calls,
+          defaultWalletAdapter,
+          result.submission,
+        ) as CallResults<typeof input.calls>,
       };
     },
   };

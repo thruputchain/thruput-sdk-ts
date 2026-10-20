@@ -21,10 +21,14 @@ import {
 } from "./invocationAdapter.js";
 import { beforeDeadline, validateTimer } from "../actions/deadline.js";
 import { toBase58 } from "../encoding.js";
+import type { RpcSendTransactionResult } from "../rpc/generated.js";
 
 /** A committed execution failure, retaining the complete native receipt. */
 export class TransactionExecutionError extends Error {
-  constructor(readonly receipt: TransactionReceipt) {
+  constructor(
+    readonly receipt: TransactionReceipt,
+    readonly submission?: SubmissionEvidence,
+  ) {
     super(
       receipt.execution instanceof UnsupportedRpcValue
         ? `Transaction ${toBase58(receipt.transactionHash)} has an unsupported execution outcome`
@@ -35,20 +39,37 @@ export class TransactionExecutionError extends Error {
 }
 /** A future execution variant is unsupported, never inferred to be success or failure. */
 export class UnsupportedTransactionOutcomeError extends TransactionExecutionError {
-  constructor(receipt: TransactionReceipt) {
-    super(receipt);
+  constructor(receipt: TransactionReceipt, submission?: SubmissionEvidence) {
+    super(receipt, submission);
     this.name = "UnsupportedTransactionOutcomeError";
   }
 }
 export function assertTransactionSuccess(
   receipt: TransactionReceipt,
+  submission?: SubmissionEvidence,
 ): asserts receipt is TransactionReceipt & {
   execution: { result: "return"; returnData: Uint8Array };
 } {
   if (receipt.execution instanceof UnsupportedRpcValue)
-    throw new UnsupportedTransactionOutcomeError(receipt);
+    throw new UnsupportedTransactionOutcomeError(receipt, submission);
   if (receipt.execution.result !== "return")
-    throw new TransactionExecutionError(receipt);
+    throw new TransactionExecutionError(receipt, submission);
+}
+
+/** A submit response that does not establish the currently supported admission outcome. */
+export class UnsupportedTransactionAdmissionError extends Error {
+  constructor(readonly response: RpcSendTransactionResult) {
+    super("Transaction submission returned an unsupported admission outcome");
+    this.name = "UnsupportedTransactionAdmissionError";
+  }
+}
+
+/** Keep low-level future values intact, but never project them into an admitted hash. */
+export function assertTransactionAdmission(
+  response: RpcSendTransactionResult,
+): void {
+  if (response.admission !== "accepted")
+    throw new UnsupportedTransactionAdmissionError(response);
 }
 export interface SubmissionEvidence {
   readonly signedTransaction: Uint8Array;
@@ -110,7 +131,7 @@ export class TransactionObservationError extends Error {
 export async function submitAndObserve(
   client: Pick<CoreThruputClient, "waitForTransactionReceipt">,
   evidence: SubmissionEvidence,
-  submit: (signal: AbortSignal) => Promise<unknown>,
+  submit: (signal: AbortSignal) => Promise<void>,
   options?: WaitForTransactionReceiptOptions,
   wasDispatched?: () => boolean,
 ): Promise<ExecutionResult> {
@@ -227,12 +248,14 @@ export function decodeExecution<T extends readonly ContractCall[]>(
   receipt: TransactionReceipt,
   calls: T,
   adapter: WalletInvocationAdapter = defaultWalletAdapter,
+  submission?: SubmissionEvidence,
 ): CallResults<T> {
   // Even one child call can fail in the wallet root; its abort bytes are not a child receipt.
-  assertTransactionSuccess(receipt);
+  assertTransactionSuccess(receipt, submission);
   try {
     const buffers = adapter.decodeExecutionReturns?.(receipt);
-    if (buffers == null) throw new ExecutionReturnUnavailableError(receipt);
+    if (buffers == null)
+      throw new ExecutionReturnUnavailableError(receipt, submission);
     if (buffers.length !== calls.length)
       throw new Error(
         `Returned ${buffers.length} child results; expected ${calls.length}`,
@@ -242,7 +265,7 @@ export function decodeExecution<T extends readonly ContractCall[]>(
     ) as CallResults<T>;
   } catch (cause) {
     if (cause instanceof ExecutionReturnUnavailableError) throw cause;
-    throw new ExecutionDecodeError(receipt, cause);
+    throw new ExecutionDecodeError(receipt, cause, submission);
   }
 }
 
@@ -251,6 +274,7 @@ export class ExecutionDecodeError extends Error {
   constructor(
     readonly receipt: TransactionReceipt,
     cause: unknown,
+    readonly submission?: SubmissionEvidence,
   ) {
     super(
       `Transaction ${toBase58(receipt.transactionHash)} committed, but result decoding failed: ${cause instanceof Error ? cause.message : String(cause)}`,
@@ -262,7 +286,10 @@ export class ExecutionDecodeError extends Error {
 
 /** Execution succeeded, but this wallet does not preserve child return buffers. */
 export class ExecutionReturnUnavailableError extends Error {
-  constructor(readonly receipt: TransactionReceipt) {
+  constructor(
+    readonly receipt: TransactionReceipt,
+    readonly submission?: SubmissionEvidence,
+  ) {
     super(
       `Transaction ${toBase58(receipt.transactionHash)} committed successfully, but its wallet does not expose child return data`,
     );

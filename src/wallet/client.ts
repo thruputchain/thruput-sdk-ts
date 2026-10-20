@@ -40,6 +40,7 @@ import {
   TransactionObservationError,
   type SubmissionEvidence,
   assertTransactionSuccess,
+  assertTransactionAdmission,
   decodeExecution,
   type CallResults,
   type ExecutionResult,
@@ -318,12 +319,19 @@ export function createWalletClient<
     },
     deployContractAndWait: async (deployment, options, wait) => {
       const adapter = requireDeploymentAdapter();
+      if (!adapter.decodeDeploymentReceipt)
+        throw new Error("Wallet adapter does not support deployment decoding");
       const address = deployment.address.slice() as ContractAddress;
       const result = await sendAndObserve(
         deploymentRequest(deployment, account.address, options, adapter),
         wait,
       );
-      decodeDeployment(result.receipt, { ...deployment, address }, adapter);
+      decodeDeployment(
+        result.receipt,
+        { ...deployment, address },
+        adapter,
+        result.submission,
+      );
       return { ...result, address };
     },
   };
@@ -383,11 +391,13 @@ export function createWalletClient<
     return submitAndObserve(
       client,
       evidence,
-      (signal) =>
-        client.sendTransaction(
+      async (signal) => {
+        const response = await client.sendTransaction(
           { signedTransaction: evidence.signedTransaction },
           { signal },
-        ),
+        );
+        assertTransactionAdmission(response);
+      },
       { ...wait, expectedNetworkHash: signingNetworkHash },
     );
   }
@@ -426,6 +436,7 @@ export function createWalletClient<
               result.receipt,
               calls,
               requireDeploymentAdapter(),
+              result.submission,
             ) as CallResults<T>,
           };
         },
@@ -465,7 +476,7 @@ export function createWalletClient<
             },
             wait,
           );
-          assertTransactionSuccess(result.receipt);
+          assertTransactionSuccess(result.receipt, result.submission);
           return result;
         },
       }

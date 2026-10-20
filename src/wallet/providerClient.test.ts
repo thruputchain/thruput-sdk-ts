@@ -42,6 +42,10 @@ import { createPubkeyAccount } from "./account.js";
 import { createProviderWalletClient } from "./providerClient.js";
 import { defaultWalletAdapter } from "./invocationAdapter.js";
 import { prepareContractDeployment } from "./deployment.js";
+import {
+  ExecutionDecodeError,
+  TransactionExecutionError,
+} from "./execution.js";
 import { DefaultWallet } from "../contracts/default_wallet.js";
 import { Counter } from "../../examples/generated/counter.js";
 import { ed25519Of } from "../testing/signatures.js";
@@ -169,6 +173,52 @@ function wireResult(signed: SignedTransaction): SignTransactionResult {
 }
 
 describe("provider atomic batches", () => {
+  it.each(["abort", "mismatch"] as const)(
+    "retains provider deployment %s receipt and approved bytes",
+    async (outcome) => {
+      const { wallet, client, request } = await setup();
+      const plan = prepareContractDeployment({
+        deployer: localAccount.address,
+        contract: new Uint8Array([1]),
+      });
+      vi.spyOn(client, "waitForTransactionReceipt").mockImplementation(
+        async (transactionHash) => ({
+          transactionHash,
+          blockHeight: 7n,
+          gasUsed: 1n,
+          events: [],
+          execution:
+            outcome === "abort"
+              ? { result: "abort", abortData: new Uint8Array([7]) }
+              : { result: "return", returnData: new Uint8Array(32) },
+        }),
+      );
+      const error = await wallet
+        .deployContractAndWait(
+          plan,
+          { gasLimit: gasAmount(1000n), amount: 0n },
+          { onSigned: () => {} },
+        )
+        .catch((error) => error);
+      expect(error).toBeInstanceOf(
+        outcome === "abort" ? TransactionExecutionError : ExecutionDecodeError,
+      );
+      if (outcome === "mismatch")
+        expect(error.cause.message).toMatch(/expected/);
+      expect(error.receipt.blockHeight).toBe(7n);
+      expect(error.submission.transactionHash).toEqual(
+        error.receipt.transactionHash,
+      );
+      expect(error.submission.signedTransaction.length).toBeGreaterThan(0);
+      expect(
+        request.mock.calls.filter(
+          ([call]) => call.method === "submitTransaction",
+        ),
+      ).toHaveLength(1);
+      wallet.dispose();
+    },
+  );
+
   it("signs and submits the exact unified deployment after preserving approval evidence", async () => {
     const { wallet, client, request } = await setup();
     const plan = prepareContractDeployment({

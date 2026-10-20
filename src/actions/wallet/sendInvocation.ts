@@ -7,6 +7,7 @@ import type {
 import { codec, serialize, sha256Hash } from "@thruputchain/protocol";
 import {
   createSubmissionEvidence,
+  assertTransactionAdmission,
   TransactionObservationError,
   type SubmissionEvidence,
 } from "../../wallet/execution.js";
@@ -33,7 +34,7 @@ export function signWalletTransaction(
 export async function sendInvocation(
   client: Pick<
     CoreThruputClient,
-    "getChainTip" | "sendTransaction" | "requireMethods"
+    "getChainTip" | "sendTransaction" | "requireMethods" | "discovery"
   >,
   account: WalletAccount,
   networkHash: NetworkHash,
@@ -45,25 +46,41 @@ export async function sendInvocation(
 ): Promise<SHA256Hash> {
   controls.signal?.throwIfAborted();
   client.requireMethods(["getChainTip", "sendTransaction"]);
+  const signingNetwork = new Uint8Array(networkHash) as NetworkHash;
+  const checkNetwork = () => {
+    const discovered = client.discovery.network.networkHash;
+    if (
+      signingNetwork.length !== 32 ||
+      discovered.length !== 32 ||
+      signingNetwork.some((value, index) => value !== discovered[index])
+    )
+      throw new RpcCompatibilityError(
+        "Signing network does not match endpoint discovery",
+      );
+  };
+  checkNetwork();
   const signers = account.signers.map(({ signer, publicKeyId }) => ({
     signer,
     publicKeyId,
   }));
   const transaction = await prepareTransaction(client, account, request);
-  const signed = await sign(transaction, signers, networkHash);
+  checkNetwork();
+  const signed = await sign(transaction, signers, signingNetwork);
   const evidence = createSubmissionEvidence(
     serialize(signed, codec.SignedTransaction),
-    networkHash,
+    signingNetwork,
   );
   let phase: "beforeSubmission" | "submission" = "beforeSubmission";
   try {
     await controls.onSigned?.(evidence);
     controls.signal?.throwIfAborted();
+    checkNetwork();
     phase = "submission";
     const result = await client.sendTransaction(
       { signedTransaction: evidence.signedTransaction },
       { signal: controls.signal },
     );
+    assertTransactionAdmission(result);
     return sha256Hash(result.transactionHash);
   } catch (cause) {
     throw new TransactionObservationError(
