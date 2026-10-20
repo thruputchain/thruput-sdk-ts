@@ -6,6 +6,7 @@ import {
   integrationOverrides,
   qualifyServingCli,
   servingVersionResult,
+  nodeStartupData,
 } from "./integration-config.mjs";
 
 const released = {
@@ -310,4 +311,92 @@ test("local source claims are validated early and checked against the serving bu
       /full lowercase/,
     );
   }
+});
+
+test("node startup normalizes camelCase and the earlier source-pin report", () => {
+  const rpcUrl = "http://127.0.0.1:32123";
+  const runtimeManifest = {
+    schemaVersion: 5,
+    path: "/tmp/node/runtime-manifest.json",
+  };
+  for (const data of [
+    { schemaVersion: 5, rpcUrl, runtimeManifest },
+    { schemaVersion: 4, rpc_url: rpcUrl, runtime_manifest: runtimeManifest },
+    {
+      schemaVersion: 5,
+      rpcUrl,
+      runtimeManifest,
+      rpc_url: "http://wrong.example:80",
+      runtime_manifest: { path: "relative" },
+    },
+  ]) {
+    assert.deepEqual(nodeStartupData({ ok: true, command: "node", data }), {
+      rpcUrl,
+      runtimeManifestPath: runtimeManifest.path,
+    });
+  }
+});
+
+test("node startup rejects failed, incomplete and nonlocal reports", () => {
+  const data = {
+    rpcUrl: "http://127.0.0.1:32123",
+    runtimeManifest: { path: "/tmp/runtime-manifest.json" },
+  };
+  const report = { ok: true, command: "node", data };
+  for (const value of [
+    null,
+    {},
+    { ...report, ok: false },
+    { ...report, ok: "true" },
+    { ...report, command: "status" },
+    { ...report, data: null },
+  ]) {
+    assert.throws(() => nodeStartupData(value), /startup failed/);
+  }
+  for (const rpcUrl of [
+    undefined,
+    null,
+    42,
+    "invalid",
+    "https://127.0.0.1:32123",
+    "http://example.com:32123",
+    "http://127.0.0.1",
+  ]) {
+    assert.throws(() =>
+      nodeStartupData({ ...report, data: { ...data, rpcUrl } }),
+    );
+  }
+  for (const runtimeManifest of [
+    undefined,
+    null,
+    {},
+    { path: 42 },
+    { path: "relative.json" },
+  ]) {
+    assert.throws(
+      () => nodeStartupData({ ...report, data: { ...data, runtimeManifest } }),
+      /absolute runtime manifest/,
+    );
+  }
+  // An invalid new field must not fall back to a valid earlier alias.
+  assert.throws(
+    () =>
+      nodeStartupData({
+        ...report,
+        data: { ...data, rpcUrl: null, rpc_url: data.rpcUrl },
+      }),
+    /RPC URL/,
+  );
+  assert.throws(
+    () =>
+      nodeStartupData({
+        ...report,
+        data: {
+          ...data,
+          runtimeManifest: null,
+          runtime_manifest: data.runtimeManifest,
+        },
+      }),
+    /absolute runtime manifest/,
+  );
 });

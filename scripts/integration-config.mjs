@@ -1,5 +1,6 @@
 import { appendFileSync, readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
+import { isAbsolute } from "node:path";
 
 const version =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$/;
@@ -185,4 +186,27 @@ export function servingVersionResult(reply) {
     throw new Error("Invalid getVersionInfo RPC response");
   }
   return reply.result;
+}
+
+/** Read CLI startup reports across the current source-pin field rename. */
+export function nodeStartupData(result) {
+  if (result?.ok !== true || result.command !== "node" || !result.data) {
+    throw new Error(`Node startup failed: ${JSON.stringify(result)}`);
+  }
+  const data = result.data;
+  // The earlier pinned CLI uses snake_case; new reports use camelCase.
+  const rpcUrl = Object.hasOwn(data, "rpcUrl") ? data.rpcUrl : data.rpc_url;
+  const manifest = Object.hasOwn(data, "runtimeManifest")
+    ? data.runtimeManifest
+    : data.runtime_manifest;
+  if (typeof rpcUrl !== "string")
+    throw new Error("Node did not report an RPC URL");
+  const url = new URL(rpcUrl);
+  if (url.protocol !== "http:" || url.hostname !== "127.0.0.1" || !url.port) {
+    throw new Error(`Expected a local node URL, received ${url}`);
+  }
+  if (typeof manifest?.path !== "string" || !isAbsolute(manifest.path)) {
+    throw new Error("Node did not report an absolute runtime manifest path");
+  }
+  return { rpcUrl, runtimeManifestPath: manifest.path };
 }
