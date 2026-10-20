@@ -834,16 +834,34 @@ test(
       ({ rawBalance }) => rawBalance > 1_000_000n,
     );
     const wallet = createWalletClient({ client, account: sender });
+    const beforeSmallTransfer = await client.getChainTip();
     const smallHash = await send(wallet, smallRecipient.address, 1_000n);
     const failure = await until(
       () => client.getTransactionStatus({ transactionHash: smallHash }),
-      (status) => status.status !== "pending" && status.status !== "unknown",
+      (status) => {
+        if (status.status === "pending" || status.status === "unknown")
+          return false;
+        assert.equal(status.status, "retry");
+        assert.deepEqual(status.error, {
+          source: "executor",
+          code: ExecResult.ExecResultTxNonDeterministicError,
+        });
+        // The best-effort indexer diagnostic can arrive after scheduler Retry.
+        // Reconcile read-only while this isolated fixture retains the attempt.
+        return status.recentFailure !== undefined;
+      },
     );
-    assert.deepEqual(failure, {
-      status: "retry",
-      error: {
-        source: "executor",
-        code: ExecResult.ExecResultTxNonDeterministicError,
+    const { attemptBlockHeight, cause } = failure.recentFailure;
+    assert.equal(typeof attemptBlockHeight, "bigint");
+    assert.ok(attemptBlockHeight >= beforeSmallTransfer.blockHeight);
+    assert.ok(attemptBlockHeight <= (await client.getChainTip()).blockHeight);
+    assert.deepEqual(cause, {
+      kind: "dbConflict",
+      conflict: {
+        address: smallRecipient.address,
+        // XDR StorageKeyType.FreeNativeTokenBalance.
+        key: new Uint8Array([0, 0, 0, 1]),
+        code: "insufficientFunds",
       },
     });
     assert.equal((await balance(smallRecipient)).rawBalance, 0n);
