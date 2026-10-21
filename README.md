@@ -585,8 +585,7 @@ because its 1,000-unit credit cannot cover a new balance item's deposit.
 The live funding test verifies an excluded 1,000-unit first credit, a successful
 100,000-unit first credit with a deposit deduction, and a later 1,000-unit credit
 without another balance-item deposit. It uses 500,000 child gas and 1,000,000 root
-gas. Verified in Linux integration with CLI 0.25.0 and hog-devnode 0.1.30-rc.5;
-storage costs depend on runtime configuration.
+gas. Storage costs depend on runtime configuration.
 
 A deployed contract's storage needs HOG at its address too. The native deployment
 API above transfers the explicit `amount` before deploying and optionally
@@ -820,15 +819,15 @@ keys, network hashes and transaction hashes use case-sensitive, unprefixed
 base58. Transaction and signed-transaction XDR remain canonical `0x` hex,
 with binary signatures intact.
 
-Run on Linux with Node 24 and explicit matching native CLI/runtime builds.
-The published artifact pins in
-[`scripts/integration-versions.json`](scripts/integration-versions.json) must be
-updated after native release qualification; their current wire-13 releases do
-not serve this API.
+Run on Linux with Node 24. CI installs the published CLI crate and public devnode
+artifact pinned in
+[`scripts/integration-versions.json`](scripts/integration-versions.json): CLI
+0.33.0, devnode 0.1.31-rc.11 and wire 14.0.0. CI qualification uses the crate-built
+CLI; it does not verify a packaged CLI bundle. Locally, install that CLI version on
+`PATH` or set `THRUPUT_CLI` to its executable. The harness installs the pinned
+devnode when no runtime override is supplied.
 
 ```sh
-THRUPUT_CLI=/absolute/path/to/native-thruput \
-THRUPUT_DEVNODE_BINARY=/absolute/path/to/matching-hog-devnode \
 npm run test:integration
 ```
 
@@ -854,8 +853,9 @@ authenticated wallet simulation, and recovery of admitted local-funding bytes
 after a lost response. This profile requires wire 14.0.0, base58 identifiers
 and ML-DSA-65 pubkey accounts.
 
-An explicit `THRUPUT_CLI` still must match the configured version and source pin.
-The harness verifies the serving RPC version, wire version and source identity.
+An explicit `THRUPUT_CLI` must match the configured version and any configured
+source pin. The harness verifies the serving RPC version and wire version, and
+checks source identity when a source pin is configured.
 For an unpinned local candidate, set `THRUPUT_ALLOW_LOCAL_CANDIDATE=1` together
 with `THRUPUT_CLI`. Runtime, wire and protocol overrides also require this mode;
 CI rejects them. An explicit devnode skips runtime installation. Use
@@ -882,7 +882,7 @@ node --test --test-concurrency=1 tests/integration/live-node.test.mjs
 Client creation checks network identity, wire version and supported methods.
 The tests fail on unsupported runtimes; they do not fall back.
 
-Block-query qualification requires the same matching source builds.
+Block-query qualification uses the same CLI and runtime pins.
 It starts an isolated interval-driven node, submits known
 transactions, compares both page orders with their receipts, checks empty blocks,
 parent linkage and the canonical tip hash, and rejects zero limits:
