@@ -31,7 +31,7 @@ import {
 } from "../derivation/pubkeyAccount.js";
 import { hashSignedTransaction } from "../derivation/transactionHash.js";
 import { MlDsa65Signer } from "../signers/mlDsa65.js";
-import { PrivateKeySigner } from "../signers/privateKey.js";
+import { Ed25519Signer } from "../signers/ed25519.js";
 import type { Signer } from "../signers/types.js";
 import { mlDsa65Of } from "../testing/signatures.js";
 import { transactionSignaturePreimage } from "./preimage.js";
@@ -87,7 +87,7 @@ const vectorFile = JSON.parse(readFileSync(vectorsPath, "utf-8")) as VectorFile;
 function signerFor(v: Vector): Signer {
   const seed = fromHex(v.seed_hex);
   return v.scheme === "Ed25519"
-    ? new PrivateKeySigner(seed)
+    ? new Ed25519Signer(seed)
     : MlDsa65Signer.fromSeed(seed, { deterministic: true });
 }
 

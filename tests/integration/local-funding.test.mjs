@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import {
   HttpTransport,
-  PrivateKeySigner,
+  Ed25519Signer,
   createPubkeyAccount,
   createThruputClient,
   createWalletClient,
@@ -43,7 +43,7 @@ test(
     );
     assert.equal(faucets.length, 1);
     const account = createPubkeyAccount({
-      signer: new PrivateKeySigner(randomBytes(32)),
+      signer: new Ed25519Signer(randomBytes(32)),
     });
     const request = {
       recipient: account.address,
@@ -111,7 +111,7 @@ test(
       );
       const wallet = createWalletClient({ client, account });
       const receiver = createPubkeyAccount({
-        signer: new PrivateKeySigner(randomBytes(32)),
+        signer: new Ed25519Signer(randomBytes(32)),
       });
       const sent = await wallet.executeAndWait(
         {

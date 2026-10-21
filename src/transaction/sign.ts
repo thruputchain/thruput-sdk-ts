@@ -48,9 +48,9 @@ export interface SignerEntry {
  * @example
  * ```ts
  * import { signTransaction } from "@thruputchain/client/transaction";
- * import { PrivateKeySigner } from "@thruputchain/client/signers";
+ * import { Ed25519Signer } from "@thruputchain/client/signers";
  *
- * const signer = new PrivateKeySigner(secretKey);
+ * const signer = Ed25519Signer.fromSeed(secretKey);
  * const signedTx = await signTransaction(
  *   tx,
  *   [{ signer, publicKeyId: 0n }],

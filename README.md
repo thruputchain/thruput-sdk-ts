@@ -386,7 +386,7 @@ transaction backfills. A page limit bounds each response, not the whole walk.
 
 Local applications own their signing keys. A schema-4 local manifest contains
 public allocations and a public faucet address; it cannot produce a signer.
-Use `PrivateKeySigner` with `createPubkeyAccount`, then request an airdrop or
+Use `Ed25519Signer` with `createPubkeyAccount`, then request an airdrop or
 supply its public key in the node's initial allocations. Stored CLI keys can be
 exported explicitly through `thruput keys export`; never log that output.
 
@@ -427,11 +427,11 @@ import {
   createPubkeyAccount,
   createWalletClient,
   devnet,
-  PrivateKeySigner,
+  Ed25519Signer,
 } from "@thruputchain/client";
 
 const client = await createThruputClient({ cluster: devnet() });
-const signer = new PrivateKeySigner(secretKey);
+const signer = Ed25519Signer.fromSeed(secretKey);
 const account = createPubkeyAccount({ signer, nonce: 0n });
 const wallet = createWalletClient({ client, account });
 
@@ -458,6 +458,9 @@ const account = createPubkeyAccount({ signer, nonce: 0n });
 
 ML-DSA keys have no StrKey (`G...`/`S...`) form; those encodings remain
 Ed25519-only.
+
+Both built-in signers implement the same `Signer` interface and are created
+the same way, with `Ed25519Signer.fromSeed` or `MlDsa65Signer.fromSeed`.
 
 Use `createSourceAddressAccount` with the appropriate invocation adapter for
 an existing account contract. Saved legacy contract-wallet identities remain
@@ -687,7 +690,7 @@ helpers, generated standard contracts, signers, and standalone actions.
 - `src/contract/` — reusable codecs, typed method and event descriptors, fixed-length values, and contract spec helpers.
 - `src/contracts/` — generated standard contract bindings exported through `@thruputchain/client/contracts`.
 - `src/transport/` — `HttpTransport` (JSON-RPC over HTTP) and `MockTransport` for tests.
-- `src/signers/` — `Signer` interface, `PrivateKeySigner` (ed25519 via `@noble/ed25519`), and `MlDsa65Signer` (ML-DSA-65 via `@noble/post-quantum`).
+- `src/signers/` — `Signer` interface, `Ed25519Signer` (ed25519 via `@noble/ed25519`), and `MlDsa65Signer` (ML-DSA-65 via `@noble/post-quantum`).
 - `src/signedOp/` — off-chain signing of `SignedOp` operations: preimage construction and payload binding, plus the generated `SignedOp` binding re-exported from `src/contracts/signed_op.ts`.
 - `src/types/rpc.ts` — typed RPC request/response shapes.
 - `specs/native-openrpc.json` — Rust-owned native OpenRPC snapshot; `scripts/regen-openrpc.sh` refreshes it with recorded provenance. `npm run rpc:check` verifies generated codecs and types; `src/rpc/client.test.ts` checks every method’s named params and results.

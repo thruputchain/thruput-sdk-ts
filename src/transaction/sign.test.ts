@@ -20,7 +20,7 @@ import {
   networkHash,
 } from "@thruputchain/protocol";
 import type { Contract, Transaction } from "@thruputchain/protocol";
-import { PrivateKeySigner } from "../signers/privateKey.js";
+import { Ed25519Signer } from "../signers/ed25519.js";
 import type { Signer } from "../signers/types.js";
 import { signTransaction } from "./sign.js";
 import { transactionSignaturePreimage } from "./preimage.js";
@@ -64,7 +64,7 @@ describe("signTransaction", () => {
   it("produces a valid Ed25519 signature over the canonical preimage", async () => {
     const secretKey = new Uint8Array(32);
     secretKey[0] = 1;
-    const signer = new PrivateKeySigner(secretKey);
+    const signer = new Ed25519Signer(secretKey);
 
     const tx = makeDummyTransaction();
     const signed = await signTransaction(
@@ -92,7 +92,7 @@ describe("signTransaction", () => {
   it("binds the signature to one network", async () => {
     const secretKey = new Uint8Array(32);
     secretKey[0] = 3;
-    const signer = new PrivateKeySigner(secretKey);
+    const signer = new Ed25519Signer(secretKey);
 
     const tx = makeDummyTransaction();
     const signed = await signTransaction(
@@ -117,7 +117,7 @@ describe("signTransaction", () => {
   it("round-trips through serialization", async () => {
     const secretKey = new Uint8Array(32);
     secretKey[0] = 2;
-    const signer = new PrivateKeySigner(secretKey);
+    const signer = new Ed25519Signer(secretKey);
 
     const tx = makeDummyTransaction([
       {
@@ -151,8 +151,8 @@ describe("signTransaction", () => {
     sk1[0] = 10;
     const sk2 = new Uint8Array(32);
     sk2[0] = 20;
-    const signer1 = new PrivateKeySigner(sk1);
-    const signer2 = new PrivateKeySigner(sk2);
+    const signer1 = new Ed25519Signer(sk1);
+    const signer2 = new Ed25519Signer(sk2);
 
     const tx = makeDummyTransaction();
     const signed = await signTransaction(
@@ -195,11 +195,11 @@ describe("signTransaction", () => {
       label: "duplicate key IDs",
       signers: [
         {
-          signer: new PrivateKeySigner(new Uint8Array(32).fill(1)),
+          signer: new Ed25519Signer(new Uint8Array(32).fill(1)),
           publicKeyId: 0n,
         },
         {
-          signer: new PrivateKeySigner(new Uint8Array(32).fill(2)),
+          signer: new Ed25519Signer(new Uint8Array(32).fill(2)),
           publicKeyId: 0n,
         },
       ],
@@ -208,11 +208,11 @@ describe("signTransaction", () => {
       label: "unordered key IDs",
       signers: [
         {
-          signer: new PrivateKeySigner(new Uint8Array(32).fill(1)),
+          signer: new Ed25519Signer(new Uint8Array(32).fill(1)),
           publicKeyId: 1n,
         },
         {
-          signer: new PrivateKeySigner(new Uint8Array(32).fill(2)),
+          signer: new Ed25519Signer(new Uint8Array(32).fill(2)),
           publicKeyId: 0n,
         },
       ],
@@ -221,7 +221,7 @@ describe("signTransaction", () => {
       label: "out-of-range key ID",
       signers: [
         {
-          signer: new PrivateKeySigner(new Uint8Array(32).fill(1)),
+          signer: new Ed25519Signer(new Uint8Array(32).fill(1)),
           publicKeyId: 21n,
         },
       ],
@@ -252,7 +252,7 @@ describe("signTransaction", () => {
         transaction,
         [
           {
-            signer: new PrivateKeySigner(new Uint8Array(32).fill(1)),
+            signer: new Ed25519Signer(new Uint8Array(32).fill(1)),
             publicKeyId: 1n,
           },
         ],
@@ -262,7 +262,7 @@ describe("signTransaction", () => {
   });
 
   it("requires exactly key ID zero for pubkey authorization", async () => {
-    const signer = new PrivateKeySigner(new Uint8Array(32).fill(1));
+    const signer = new Ed25519Signer(new Uint8Array(32).fill(1));
     const transaction = makeDummyTransaction();
     transaction.auth_claim = {
       claim_type: AuthClaimType.kPubkeySignature,
@@ -279,7 +279,7 @@ describe("signTransaction", () => {
   });
 
   it("snapshots the transaction and key IDs before asynchronous signing", async () => {
-    const baseSigner = new PrivateKeySigner(new Uint8Array(32).fill(3));
+    const baseSigner = new Ed25519Signer(new Uint8Array(32).fill(3));
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
       release = resolve;
@@ -322,7 +322,7 @@ function pubkeyTransaction(signer: Signer): Transaction {
 }
 
 describe("signTransaction pubkey envelope", () => {
-  const ed25519Signer = new PrivateKeySigner(new Uint8Array(32).fill(4));
+  const ed25519Signer = new Ed25519Signer(new Uint8Array(32).fill(4));
   const mlDsaSigner = MlDsa65Signer.fromSeed(new Uint8Array(32).fill(5));
 
   it("attaches the Ed25519 key as pubkey_claim_key", async () => {
@@ -494,6 +494,30 @@ describe("MlDsa65Signer", () => {
     tampered[0] = tampered[0]! ^ 1;
     expect(verifyMlDsa65(signer.publicKey.mldsa65, message, tampered)).toBe(
       false,
+    );
+  });
+});
+
+describe("Ed25519Signer", () => {
+  it("fromSeed derives the same key as the constructor", () => {
+    const seed = new Uint8Array(32).fill(9);
+    const signer = Ed25519Signer.fromSeed(seed);
+    expect(signer.publicKey.scheme).toBe(CryptographicScheme.Ed25519);
+    expect(signer.publicKey).toEqual(new Ed25519Signer(seed).publicKey);
+  });
+
+  it("fromSeed keeps its own copy of the seed", async () => {
+    const seed = new Uint8Array(32).fill(9);
+    const signer = Ed25519Signer.fromSeed(seed);
+    seed.fill(0);
+    const message = new Uint8Array([1, 2, 3]);
+    const signature = ed25519Of(await signer.sign(message));
+    expect(verify(signature, message, signer.publicKey.ed25519)).toBe(true);
+  });
+
+  it("rejects a seed of the wrong length", () => {
+    expect(() => Ed25519Signer.fromSeed(new Uint8Array(31))).toThrow(
+      "32 bytes",
     );
   });
 });

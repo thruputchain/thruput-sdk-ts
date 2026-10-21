@@ -7,7 +7,7 @@ import {
   HttpTransport,
   MockTransport,
   MlDsa65Signer,
-  PrivateKeySigner,
+  Ed25519Signer,
   createThruputClient,
   createPubkeyAccount,
   createWalletClient,
@@ -170,7 +170,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
     "reads absent authorization data at a committed height",
     async () => {
       const account = createPubkeyAccount({
-        signer: new PrivateKeySigner(randomBytes(32)),
+        signer: new Ed25519Signer(randomBytes(32)),
       });
       const result = await client.getRegisteredAuth({
         address: account.address,
@@ -227,10 +227,10 @@ test("built SDK against a real local node", { timeout }, async (t) => {
     "funds pubkey wallets, transfers HOG, and decodes receipt, event, and view",
     async (t) => {
       const sender = createPubkeyAccount({
-        signer: new PrivateKeySigner(randomBytes(32)),
+        signer: new Ed25519Signer(randomBytes(32)),
       });
       const recipient = createPubkeyAccount({
-        signer: new PrivateKeySigner(randomBytes(32)),
+        signer: new Ed25519Signer(randomBytes(32)),
       });
       const wallet = createWalletClient({ client, account: sender });
       for (const account of [sender, recipient]) {
@@ -414,7 +414,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         signer: MlDsa65Signer.fromSeed(randomBytes(32)),
       });
       const recipient = createPubkeyAccount({
-        signer: new PrivateKeySigner(randomBytes(32)),
+        signer: new Ed25519Signer(randomBytes(32)),
       });
       const wallet = createWalletClient({ client, account: sender });
       for (const account of [sender, recipient]) {
@@ -647,7 +647,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
     "atomically funds, deploys and initializes a contract, then reads its state and scalar event",
     async () => {
       const sender = createPubkeyAccount({
-        signer: new PrivateKeySigner(randomBytes(32)),
+        signer: new Ed25519Signer(randomBytes(32)),
       });
       const wallet = createWalletClient({ client, account: sender });
       await wallet.requestAirdrop({ timeoutMs: airdropTimeoutMs });
@@ -790,7 +790,7 @@ test(
     const funder = createWalletClient({
       client,
       account: createPubkeyAccount({
-        signer: new PrivateKeySigner(randomBytes(32)),
+        signer: new Ed25519Signer(randomBytes(32)),
         nonce: 0n,
       }),
     });
@@ -799,7 +799,7 @@ test(
     });
     assert.equal(funding.execution.result, "return");
     const freshAccount = () =>
-      createPubkeyAccount({ signer: new PrivateKeySigner(randomBytes(32)) });
+      createPubkeyAccount({ signer: new Ed25519Signer(randomBytes(32)) });
     const sender = freshAccount();
     const smallRecipient = freshAccount();
     const fundedRecipient = freshAccount();

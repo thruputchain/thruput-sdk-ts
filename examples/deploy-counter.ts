@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { gasAmount } from "@thruputchain/protocol";
 import {
-  PrivateKeySigner,
+  Ed25519Signer,
   createThruputClient,
   createPubkeyAccount,
   createWalletClient,
@@ -27,7 +27,7 @@ const client = await createThruputClient({
 
 // This fresh native account starts empty. Its key exists only for this process.
 const account = createPubkeyAccount({
-  signer: new PrivateKeySigner(randomBytes(32)),
+  signer: Ed25519Signer.fromSeed(randomBytes(32)),
 });
 const wallet = createWalletClient({ client, account });
 const airdrop = await wallet.requestAirdrop();

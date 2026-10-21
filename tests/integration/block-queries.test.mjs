@@ -6,7 +6,7 @@ import { test } from "node:test";
 import { setTimeout as sleep } from "node:timers/promises";
 import {
   HttpTransport,
-  PrivateKeySigner,
+  Ed25519Signer,
   createPubkeyAccount,
   createThruputClient,
   addressFromBase58,
@@ -43,7 +43,7 @@ test(
         .walletAddress,
     );
     const account = createPubkeyAccount({
-      signer: new PrivateKeySigner(randomBytes(32)),
+      signer: new Ed25519Signer(randomBytes(32)),
     });
     // Submit together during the interval driver so a block has multiple refs.
     const admitted = await Promise.all(

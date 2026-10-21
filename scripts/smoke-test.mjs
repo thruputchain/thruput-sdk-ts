@@ -23,7 +23,7 @@ const requiredExports = {
     "HttpResponseError",
     "HttpTransport",
     "TransactionReceiptObservationError",
-    "PrivateKeySigner",
+    "Ed25519Signer",
     "createThruputClient",
     "createRpcClient",
     "NativeRpcError",
@@ -72,7 +72,7 @@ const requiredExports = {
     "groundhog_erc20_if",
     "groundhog_signed_op_if",
   ],
-  "./signers": ["PrivateKeySigner", "MlDsa65Signer", "verifyMlDsa65"],
+  "./signers": ["Ed25519Signer", "MlDsa65Signer", "verifyMlDsa65"],
   "./actions": [
     "TransactionReceiptObservationError",
     "waitForCommitment",
