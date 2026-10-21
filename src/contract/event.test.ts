@@ -59,7 +59,7 @@ function payload(delta = -5n, memo = "updated"): Uint8Array {
 
 function emitted(overrides: Partial<EmittedEvent> = {}): EmittedEvent {
   return {
-    contractAddress: emitterA,
+    address: emitterA,
     topics: [signature, account, id],
     data: payload(),
     ...overrides,
@@ -111,12 +111,12 @@ describe("contract event construction and decoding", () => {
 
     source.fill(0);
     descriptor.signature.fill(0);
-    const filter = descriptor.filter({ contractAddresses: [emitterA] });
+    const filter = descriptor.filter({ addresses: [emitterA] });
     filter.topics!.topic0![0]!.fill(0);
 
     expect(descriptor.signature).toEqual(new Uint8Array(32).fill(0x66));
     expect(
-      descriptor.filter({ contractAddresses: [emitterA] }).topics!.topic0![0],
+      descriptor.filter({ addresses: [emitterA] }).topics!.topic0![0],
     ).toEqual(new Uint8Array(32).fill(0x66));
   });
 
@@ -283,14 +283,14 @@ describe("contract event filters", () => {
 
     expect(
       descriptor.filter({
-        contractAddresses: [emitterA, emitterB],
+        addresses: [emitterA, emitterB],
         topics: {
           account: { oneOf: [account, otherAccount] },
           id,
         },
       }),
     ).toEqual({
-      contractAddresses: [emitterA, emitterB],
+      addresses: [emitterA, emitterB],
       topics: {
         topic0: [signature],
         topic1: [account, otherAccount],
@@ -300,17 +300,17 @@ describe("contract event filters", () => {
   });
 
   it("rejects missing or malformed emitter addresses", () => {
-    expect(() => descriptor.filter({ contractAddresses: [] })).toThrow(
+    expect(() => descriptor.filter({ addresses: [] })).toThrow(
       "Changed filter requires a contract address",
     );
     expect(() =>
       descriptor.filter({
-        contractAddresses: [new Uint8Array(31) as typeof emitterA],
+        addresses: [new Uint8Array(31) as typeof emitterA],
       }),
     ).toThrow("FixedBytes expected 32 bytes, got 31");
     expect(() =>
       descriptor.filter({
-        contractAddresses: Array(6).fill(emitterA),
+        addresses: Array(6).fill(emitterA),
       }),
     ).toThrow("Changed filter supports at most 5 contract addresses");
   });
@@ -318,31 +318,31 @@ describe("contract event filters", () => {
   it("rejects unknown, empty, non-byte, and incorrectly sized topic inputs", () => {
     expect(() =>
       descriptor.filter({
-        contractAddresses: [emitterA],
+        addresses: [emitterA],
         topics: { missing: id } as never,
       }),
     ).toThrow('topic "missing" is not directly filterable');
     expect(() =>
       descriptor.filter({
-        contractAddresses: [emitterA],
+        addresses: [emitterA],
         topics: { id: { oneOf: [] } },
       }),
     ).toThrow('topic "id" oneOf must not be empty');
     expect(() =>
       descriptor.filter({
-        contractAddresses: [emitterA],
+        addresses: [emitterA],
         topics: { id: { oneOf: Array(17).fill(id) } },
       }),
     ).toThrow('topic "id" oneOf supports at most 16 values');
     expect(() =>
       descriptor.filter({
-        contractAddresses: [emitterA],
+        addresses: [emitterA],
         topics: { id: "not bytes" } as never,
       }),
     ).toThrow('topic "id" must be bytes');
     expect(() =>
       descriptor.filter({
-        contractAddresses: [emitterA],
+        addresses: [emitterA],
         topics: { id: new Uint8Array(31) },
       }),
     ).toThrow("FixedBytes expected 32 bytes, got 31");
@@ -369,7 +369,7 @@ describe("contract event filters", () => {
 
     expect(() =>
       hashDescriptor.filter({
-        contractAddresses: [emitterA],
+        addresses: [emitterA],
         topics: { digest },
       }),
     ).toThrow('topic "digest" is not directly filterable');
@@ -394,7 +394,7 @@ describe("contract event filters", () => {
     });
     expect(
       numericDescriptor.filter({
-        contractAddresses: [emitterA],
+        addresses: [emitterA],
         topics: { unsigned: 42n, signed: { oneOf: [-2n, -1n] } },
       }).topics,
     ).toEqual({
@@ -407,7 +407,7 @@ describe("contract event filters", () => {
   it("adds topic context to numeric filter failures", () => {
     try {
       numericDescriptor.filter({
-        contractAddresses: [emitterA],
+        addresses: [emitterA],
         topics: { unsigned: "42" } as never,
       });
       throw new Error("expected filter to fail");
@@ -435,8 +435,8 @@ describe("direct scalar topics (SDK sdk_rs#463 encoding)", () => {
     expectTypeOf(decoded!.topics.tag).toEqualTypeOf<bigint>();
     expect(decoded!.topics.tag).toBe(42n);
     expect(
-      PingEvent.filter({ contractAddresses: [emitterA], topics: { tag: 42n } })
-        .topics?.topic1,
+      PingEvent.filter({ addresses: [emitterA], topics: { tag: 42n } }).topics
+        ?.topic1,
     ).toEqual([bytes]);
   });
   const scalarTypes = [
@@ -479,21 +479,21 @@ describe("direct scalar topics (SDK sdk_rs#463 encoding)", () => {
         ).toMatchObject({ topics: { value } });
         expect(
           descriptor.filter({
-            contractAddresses: [emitterA],
+            addresses: [emitterA],
             topics: { value },
           }).topics?.topic1,
         ).toEqual([bytes]);
       }
       expect(
         descriptor.filter({
-          contractAddresses: [emitterA],
+          addresses: [emitterA],
           topics: { value: { oneOf: values } },
         }).topics?.topic1,
       ).toEqual(values.map(topicBytes));
       for (const value of [min - 1n, max + 1n]) {
         expect(() =>
           descriptor.filter({
-            contractAddresses: [emitterA],
+            addresses: [emitterA],
             topics: { value },
           }),
         ).toThrow();
@@ -506,7 +506,7 @@ describe("direct scalar topics (SDK sdk_rs#463 encoding)", () => {
       }
       expect(() =>
         descriptor.filter({
-          contractAddresses: [emitterA],
+          addresses: [emitterA],
           topics: { value: 42 },
         }),
       ).toThrow(/expected bigint/);
@@ -536,7 +536,7 @@ describe("direct scalar topics (SDK sdk_rs#463 encoding)", () => {
       ).toMatchObject({ topics: { enabled } });
       expect(
         descriptor.filter({
-          contractAddresses: [emitterA],
+          addresses: [emitterA],
           topics: { enabled },
         }).topics?.topic1,
       ).toEqual([bytes]);
@@ -552,7 +552,7 @@ describe("direct scalar topics (SDK sdk_rs#463 encoding)", () => {
     for (const enabled of [0, 1n, "true"]) {
       expect(() =>
         descriptor.filter({
-          contractAddresses: [emitterA],
+          addresses: [emitterA],
           topics: { enabled },
         }),
       ).toThrow(/expected boolean/);
@@ -592,7 +592,7 @@ describe("direct scalar topics (SDK sdk_rs#463 encoding)", () => {
       ).toMatchObject({ topics: { tag: digest } });
       expect(() =>
         descriptor.filter({
-          contractAddresses: [emitterA],
+          addresses: [emitterA],
           topics: { tag: "short" },
         }),
       ).toThrow(/not directly filterable/);
@@ -603,10 +603,10 @@ describe("direct scalar topics (SDK sdk_rs#463 encoding)", () => {
 describe("contract event receipt extraction", () => {
   const descriptor = defineContractEvent(definition());
   const matchingA = emitted();
-  const matchingB = emitted({ contractAddress: emitterB });
+  const matchingB = emitted({ address: emitterB });
   const malformedA = emitted({ data: new Uint8Array() });
   const malformedB = emitted({
-    contractAddress: emitterB,
+    address: emitterB,
     data: new Uint8Array(),
   });
   const unrelated = emitted({ topics: [new Uint8Array(32), account, id] });
@@ -614,13 +614,13 @@ describe("contract event receipt extraction", () => {
 
   it("extracts matching events from the selected emitter", () => {
     expect(
-      descriptor.allFromReceipt(receipt, { contractAddress: emitterB }),
+      descriptor.allFromReceipt(receipt, { address: emitterB }),
     ).toHaveLength(1);
   });
 
   it("extracts exactly one scoped event", () => {
     expect(
-      descriptor.singleFromReceipt(receipt, { contractAddress: emitterA }),
+      descriptor.singleFromReceipt(receipt, { address: emitterA }),
     ).toMatchObject({ name: "Changed" });
   });
 
@@ -628,7 +628,7 @@ describe("contract event receipt extraction", () => {
     expect(
       descriptor.allFromReceipt(
         { events: [malformedB, matchingA] },
-        { contractAddress: emitterA },
+        { address: emitterA },
       ),
     ).toHaveLength(1);
   });
@@ -637,7 +637,7 @@ describe("contract event receipt extraction", () => {
     expect(() =>
       descriptor.allFromReceipt(
         { events: [malformedA] },
-        { contractAddress: emitterA },
+        { address: emitterA },
       ),
     ).toThrow(ContractDecodeError);
   });
@@ -646,13 +646,13 @@ describe("contract event receipt extraction", () => {
     expect(() =>
       descriptor.singleFromReceipt(
         { events: [unrelated] },
-        { contractAddress: emitterA },
+        { address: emitterA },
       ),
     ).toThrow("Expected exactly one Changed event, got 0");
     expect(() =>
       descriptor.singleFromReceipt(
         { events: [matchingA, matchingA] },
-        { contractAddress: emitterA },
+        { address: emitterA },
       ),
     ).toThrow("Expected exactly one Changed event, got 2");
   });

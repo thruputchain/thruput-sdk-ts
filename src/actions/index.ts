@@ -1,5 +1,5 @@
 /**
- * Standalone SDK actions that accept a transport as their first argument.
+ * SDK workflows that compose a validated native RPC client.
  *
  * Use this entrypoint when you want function-level composition instead of the
  * bound client convenience object from the root package.

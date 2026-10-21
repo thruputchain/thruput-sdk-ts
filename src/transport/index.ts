@@ -8,7 +8,6 @@
  */
 export type { Transport, TransportRequestOptions, RpcParams } from "./types.js";
 export {
-  ThruputRpcErrorCode,
   HttpResponseError,
   HttpRequestError,
   HttpTransport,

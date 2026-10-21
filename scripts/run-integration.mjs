@@ -1,14 +1,24 @@
 import { execFile, spawn } from "node:child_process";
 import { closeSync, openSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import versions from "./integration-versions.json" with { type: "json" };
+import versionPins from "./integration-versions.json" with { type: "json" };
 import { harnessTimeoutMs, runnerTimeoutMs } from "./integration-timeouts.mjs";
 
+import {
+  validateIntegrationVersions,
+  qualifyIntegrationCli,
+  integrationOverrides,
+  qualifyServingCli,
+  servingVersionResult,
+  nodeStartupData,
+} from "./integration-config.mjs";
+
+const versions = validateIntegrationVersions(versionPins);
 const exec = promisify(execFile);
 const repo = fileURLToPath(new URL("../", import.meta.url));
 const blocks = process.argv.includes("--blocks");
@@ -98,24 +108,7 @@ async function startup(task) {
     const text = await readFile(path, "utf8");
     const end = text.indexOf("\n");
     if (end !== -1) {
-      const result = JSON.parse(text.slice(0, end));
-      if (!result.ok || result.command !== "node") {
-        throw new Error(`Node startup failed: ${JSON.stringify(result)}`);
-      }
-      const url = new URL(result.data.rpc_url);
-      if (
-        url.protocol !== "http:" ||
-        url.hostname !== "127.0.0.1" ||
-        !url.port
-      ) {
-        throw new Error(`Expected a local node URL, received ${url}`);
-      }
-      if (!isAbsolute(result.data.runtime_manifest.path)) {
-        throw new Error(
-          "Node did not report an absolute runtime manifest path",
-        );
-      }
-      return result.data;
+      return nodeStartupData(JSON.parse(text.slice(0, end)));
     }
     await sleep(100, undefined, { signal: abort.signal });
   }
@@ -183,18 +176,38 @@ async function main() {
   const cliVersion = /^thruput (\d+\.\d+\.\d+(?:-[^\s]+)?)(?:\s|$)/.exec(
     stdout,
   )?.[1];
-  if (
-    !cliVersion ||
-    (!process.env.THRUPUT_CLI && cliVersion !== versions.cli)
-  ) {
-    throw new Error(
-      `Expected Thruput CLI ${versions.cli}, received ${stdout.trim()}`,
-    );
-  }
+  if (!cliVersion) throw new Error(`Invalid CLI version: ${stdout.trim()}`);
+  const qualification = qualifyIntegrationCli(
+    versions,
+    process.env,
+    cliVersion,
+  );
 
   work = await mkdtemp(join(tmpdir(), "thruput-client-integration-"));
   logs = resolve(process.env.THRUPUT_INTEGRATION_LOG_DIR ?? join(work, "logs"));
   await mkdir(logs, { recursive: true });
+  const overrides = integrationOverrides(versions, process.env);
+  const qualificationRecord = {
+    cliVersion,
+    cliMode: qualification.mode,
+    cliSourceCommit: qualification.sourceCommit,
+    devnodeVersion: versions.devnode,
+    devnodeOverride: overrides.devnodeBinary,
+    protocolOverride: overrides.protocolOverride,
+    wireFormat: overrides.wireFormat,
+    wireOverride: overrides.wireOverride,
+    observedVersionInfo: null,
+    versionLookup: null,
+    servingIdentity: null,
+    identityVerified: false,
+    suite: blocks ? "blocks" : "transactions-and-funding",
+  };
+  const recordQualification = () =>
+    writeFile(
+      join(logs, "qualification.json"),
+      JSON.stringify(qualificationRecord, null, 2) + "\n",
+    );
+  await recordQualification();
   console.log(`Integration logs: ${logs}`);
   const env = { ...process.env };
   for (const key of Object.keys(env)) {
@@ -278,8 +291,35 @@ async function main() {
     "node",
   );
   const ready = await startup(node);
+  const versionResponse = await fetch(ready.rpcUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "getVersionInfo",
+      params: {},
+    }),
+    signal: AbortSignal.any([abort.signal, AbortSignal.timeout(10_000)]),
+  });
+  qualificationRecord.versionLookup = { httpStatus: versionResponse.status };
+  await recordQualification();
+  if (!versionResponse.ok)
+    throw new Error(`Version lookup HTTP ${versionResponse.status}`);
+  const versionReply = await versionResponse.json();
+  qualificationRecord.versionLookup.reply = versionReply;
+  qualificationRecord.observedVersionInfo = versionReply?.result ?? null;
+  await recordQualification();
+  qualificationRecord.servingIdentity = qualifyServingCli(
+    versions,
+    process.env,
+    cliVersion,
+    servingVersionResult(versionReply),
+  );
+  qualificationRecord.identityVerified = true;
+  await recordQualification();
   console.log(
-    `Testing CLI ${cliVersion} / devnode ${devnodeBinary} at ${ready.rpc_url}`,
+    `Testing CLI ${cliVersion} / devnode ${devnodeBinary} at ${ready.rpcUrl}`,
   );
   const tests = launch(
     process.execPath,
@@ -296,11 +336,10 @@ async function main() {
     ],
     {
       ...env,
-      THRUPUT_RPC_URL: ready.rpc_url,
-      THRUPUT_RUNTIME_MANIFEST: ready.runtime_manifest.path,
+      THRUPUT_RPC_URL: ready.rpcUrl,
+      THRUPUT_RUNTIME_MANIFEST: ready.runtimeManifestPath,
       THRUPUT_EXPECTED_CLI_VERSION: cliVersion,
-      THRUPUT_EXPECTED_WIRE_FORMAT:
-        process.env.THRUPUT_EXPECTED_WIRE_FORMAT ?? versions.wireFormat,
+      THRUPUT_EXPECTED_WIRE_FORMAT: overrides.wireFormat,
     },
     "tests",
     true,

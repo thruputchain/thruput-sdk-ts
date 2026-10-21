@@ -1,0 +1,70 @@
+name: Integration CLI
+description: Install the pinned CLI release or build an immutable reviewed tools commit
+inputs:
+  app-id:
+    description: Component reader App ID (source builds only)
+    required: false
+  private-key:
+    description: Component reader App private key (source builds only)
+    required: false
+outputs:
+  source-commit:
+    description: Tools source commit, or empty for a published CLI
+    value: ${{ steps.versions.outputs.source-commit }}
+runs:
+  using: composite
+  steps:
+    - name: Validate integration pins
+      id: versions
+      shell: bash
+      run: node scripts/integration-config.mjs
+
+    - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # master as of 2026-06
+      with:
+        toolchain: stable
+
+    - name: Mint source reader token
+      if: steps.versions.outputs.source-commit != ''
+      id: source-token
+      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      with:
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.private-key }}
+        owner: thruputchain
+        repositories: thruput-tools
+        permission-contents: read
+
+    - name: Checkout reviewed CLI source
+      if: steps.versions.outputs.source-commit != ''
+      uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      with:
+        repository: thruputchain/thruput-tools
+        ref: ${{ steps.versions.outputs.source-commit }}
+        token: ${{ steps.source-token.outputs.token }}
+        persist-credentials: false
+        path: .integration-tools
+
+    - name: Build reviewed CLI source
+      if: steps.versions.outputs.source-commit != ''
+      shell: bash
+      working-directory: .integration-tools
+      env:
+        EXPECTED_SOURCE_COMMIT: ${{ steps.versions.outputs.source-commit }}
+      run: |
+        set -euo pipefail
+        test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_COMMIT"
+        export GROUNDHOG_SOURCE_COMMIT="$EXPECTED_SOURCE_COMMIT"
+        # Running in the source checkout selects its rust-toolchain.toml.
+        cargo build --release --locked --manifest-path Cargo.toml -p thruput-cli
+        echo "THRUPUT_CLI=$PWD/target/release/thruput" >> "$GITHUB_ENV"
+        echo "THRUPUT_CLI_SOURCE_COMMIT=$EXPECTED_SOURCE_COMMIT" >> "$GITHUB_ENV"
+
+    - name: Install released CLI
+      if: steps.versions.outputs.source-commit == ''
+      shell: bash
+      env:
+        CLI_VERSION: ${{ steps.versions.outputs.cli }}
+      run: |
+        set -euo pipefail
+        cargo install "thruput-cli@$CLI_VERSION" --registry thruput --locked --force
+        echo "THRUPUT_CLI=$(command -v thruput)" >> "$GITHUB_ENV"

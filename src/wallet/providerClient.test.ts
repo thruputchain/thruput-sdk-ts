@@ -1,3 +1,4 @@
+import { runInNewContext } from "node:vm";
 import {
   AuthClaimType,
   ExecResult,
@@ -41,6 +42,10 @@ import { createPubkeyAccount } from "./account.js";
 import { createProviderWalletClient } from "./providerClient.js";
 import { defaultWalletAdapter } from "./invocationAdapter.js";
 import { prepareContractDeployment } from "./deployment.js";
+import {
+  ExecutionDecodeError,
+  TransactionExecutionError,
+} from "./execution.js";
 import { DefaultWallet } from "../contracts/default_wallet.js";
 import { Counter } from "../../examples/generated/counter.js";
 import { ed25519Of } from "../testing/signatures.js";
@@ -78,6 +83,13 @@ async function setup(
   initialSession: WalletSession = { networkHash, accounts: [account] },
 ) {
   const transport = new MockTransport();
+  const originalRpc = transport.request.bind(transport);
+  vi.spyOn(transport, "request").mockImplementation(
+    async (method, params, options) =>
+      method === "getNetworkInfo"
+        ? ({ networkHash } as never)
+        : originalRpc(method, params, options),
+  );
   const client = await createThruputClient({ transport });
   const listeners = new Set<(session: WalletSession) => void>();
   let session = initialSession;
@@ -161,6 +173,52 @@ function wireResult(signed: SignedTransaction): SignTransactionResult {
 }
 
 describe("provider atomic batches", () => {
+  it.each(["abort", "mismatch"] as const)(
+    "retains provider deployment %s receipt and approved bytes",
+    async (outcome) => {
+      const { wallet, client, request } = await setup();
+      const plan = prepareContractDeployment({
+        deployer: localAccount.address,
+        contract: new Uint8Array([1]),
+      });
+      vi.spyOn(client, "waitForTransactionReceipt").mockImplementation(
+        async (transactionHash) => ({
+          transactionHash,
+          blockHeight: 7n,
+          gasUsed: 1n,
+          events: [],
+          execution:
+            outcome === "abort"
+              ? { result: "abort", abortData: new Uint8Array([7]) }
+              : { result: "return", returnData: new Uint8Array(32) },
+        }),
+      );
+      const error = await wallet
+        .deployContractAndWait(
+          plan,
+          { gasLimit: gasAmount(1000n), amount: 0n },
+          { onSigned: () => {} },
+        )
+        .catch((error) => error);
+      expect(error).toBeInstanceOf(
+        outcome === "abort" ? TransactionExecutionError : ExecutionDecodeError,
+      );
+      if (outcome === "mismatch")
+        expect(error.cause.message).toMatch(/expected/);
+      expect(error.receipt.blockHeight).toBe(7n);
+      expect(error.submission.transactionHash).toEqual(
+        error.receipt.transactionHash,
+      );
+      expect(error.submission.signedTransaction.length).toBeGreaterThan(0);
+      expect(
+        request.mock.calls.filter(
+          ([call]) => call.method === "submitTransaction",
+        ),
+      ).toHaveLength(1);
+      wallet.dispose();
+    },
+  );
+
   it("signs and submits the exact unified deployment after preserving approval evidence", async () => {
     const { wallet, client, request } = await setup();
     const plan = prepareContractDeployment({
@@ -174,12 +232,10 @@ describe("provider atomic batches", () => {
     );
     vi.spyOn(client, "waitForTransactionReceipt").mockImplementation(
       async (txHash) => ({
-        txHash,
-        height: 1n,
-        execResult: ExecResult.ExecResultOK,
+        transactionHash: txHash,
+        blockHeight: 1n,
         events: [],
-        returnData: plan.address,
-        abortData: null,
+        execution: { result: "return", returnData: plan.address },
         gasUsed: 1n,
       }),
     );
@@ -221,12 +277,10 @@ describe("provider atomic batches", () => {
     const wait = vi
       .spyOn(client, "waitForTransactionReceipt")
       .mockImplementation(async (txHash) => ({
-        txHash,
-        height: 1n,
-        execResult: ExecResult.ExecResultOK,
+        transactionHash: txHash,
+        blockHeight: 1n,
         events: [],
-        returnData: null,
-        abortData: null,
+        execution: { result: "return", returnData: new Uint8Array() },
         gasUsed: 0n,
       }));
     const pending = wallet.executeAndWait(execution, {
@@ -244,9 +298,110 @@ describe("provider atomic batches", () => {
     const result = await pending;
     expect(methodCalls(request, "submitTransaction")).toHaveLength(1);
     expect(wait).toHaveBeenCalledWith(
-      result.txHash,
+      result.transactionHash,
       expect.objectContaining({ expectedNetworkHash: signingNetwork }),
     );
+    wallet.dispose();
+  });
+
+  it.each(["abort", "deadline"])(
+    "never dispatches after %s during the final session check",
+    async (mode) => {
+      const { wallet, request, client } = await setup();
+      const original = request.getMockImplementation()!;
+      const entered = deferred<void>(),
+        session = deferred<unknown>();
+      const controller = new AbortController();
+      let saved: SignTransactionResult | undefined;
+      const wait = vi.spyOn(client, "waitForTransactionReceipt");
+      const outcome = wallet
+        .executeAndWait(execution, {
+          onSigned: (signed) => {
+            saved = {
+              signedTransaction: signed.signedTransaction,
+              hash: signed.hash,
+            };
+            request.mockImplementation((input) => {
+              if (input.method !== "getSession") return original(input);
+              entered.resolve();
+              return session.promise;
+            });
+          },
+          wait: {
+            signal: controller.signal,
+            timeoutMs: mode === "deadline" ? 20 : 1000,
+          },
+        })
+        .catch((error) => error);
+      await entered.promise;
+      if (mode === "abort") controller.abort(Error("cancelled"));
+      const error = await outcome;
+      expect(error.phase).toBe("beforeSubmission");
+      expect(error.submission.signedTransaction.length).toBeGreaterThan(0);
+      session.resolve({ networkHash, accounts: [account] });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(methodCalls(request, "submitTransaction")).toHaveLength(0);
+      expect(wait).not.toHaveBeenCalled();
+      await expect(wallet.submitTransaction(saved!)).rejects.toMatchObject({
+        code: 4100,
+      });
+      expect(methodCalls(request, "submitTransaction")).toHaveLength(0);
+      wallet.dispose();
+    },
+  );
+
+  it.each([false, true])(
+    "does not start another provider read after a cancelled submission resolves (wrong hash: %s)",
+    async (wrongHash) => {
+      const { wallet, request, client } = await setup();
+      const original = request.getMockImplementation()!;
+      const entered = deferred<void>(),
+        response = deferred<unknown>();
+      const controller = new AbortController();
+      let signedHash: string | undefined;
+      request.mockImplementation((input) => {
+        if (input.method !== "submitTransaction") return original(input);
+        entered.resolve();
+        return response.promise;
+      });
+      const wait = vi.spyOn(client, "waitForTransactionReceipt");
+      const outcome = wallet
+        .executeAndWait(execution, {
+          onSigned: (signed) => {
+            signedHash = signed.hash;
+          },
+          wait: { signal: controller.signal },
+        })
+        .catch((error) => error);
+      await entered.promise;
+      controller.abort(Error("cancelled"));
+      expect((await outcome).phase).toBe("submission");
+      const calls = request.mock.calls.length;
+      response.resolve({
+        hash: wrongHash ? toBase58(new Uint8Array(32).fill(99)) : signedHash,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(request).toHaveBeenCalledTimes(calls);
+      expect(wait).not.toHaveBeenCalled();
+      if (wrongHash)
+        await expect(wallet.getCapabilities()).rejects.toMatchObject({
+          code: 4100,
+        });
+      wallet.dispose();
+    },
+  );
+
+  it("checks discovery network even when the client has no cluster network property", async () => {
+    const { wallet, client, provider } = await setup();
+    expect("network" in client).toBe(false);
+    expect(() =>
+      createProviderWalletClient({
+        client,
+        provider,
+        account,
+        networkHash: toBase58(new Uint8Array(32)),
+      }),
+    ).toThrow(expect.objectContaining({ code: 4901 }));
     wallet.dispose();
   });
 
@@ -258,7 +413,10 @@ describe("provider atomic batches", () => {
           throw new Error("disk full");
         },
       }),
-    ).rejects.toThrow("disk full");
+    ).rejects.toMatchObject({
+      phase: "beforeSubmission",
+      cause: { message: "disk full" },
+    });
     expect(methodCalls(request, "submitTransaction")).toHaveLength(0);
     wallet.dispose();
   });
@@ -283,7 +441,10 @@ describe("provider atomic batches", () => {
       await entered.promise;
       change({ networkHash, accounts: [] }, emit);
       persisted.resolve();
-      await expect(pending).rejects.toMatchObject({ code: 4100 });
+      await expect(pending).rejects.toMatchObject({
+        phase: "beforeSubmission",
+        cause: { code: 4100 },
+      });
       expect(methodCalls(request, "submitTransaction")).toHaveLength(0);
       expect(wait).not.toHaveBeenCalled();
       // The lifecycle guard is released, while the old binding stays invalidated.
@@ -301,12 +462,10 @@ describe("provider atomic batches", () => {
       const wait = vi
         .spyOn(client, "waitForTransactionReceipt")
         .mockImplementation(async (txHash) => ({
-          txHash,
-          height: 1n,
-          execResult: ExecResult.ExecResultOK,
+          transactionHash: txHash,
+          blockHeight: 1n,
           events: [],
-          returnData: null,
-          abortData: null,
+          execution: { result: "return", returnData: new Uint8Array() },
           gasUsed: 0n,
         }));
       const original = request.getMockImplementation()!;
@@ -325,7 +484,7 @@ describe("provider atomic batches", () => {
       const result = await wallet.executeAndWait(execution, {
         onSigned: () => {},
       });
-      expect(result.receipt.height).toBe(1n);
+      expect(result.receipt.blockHeight).toBe(1n);
       expect(methodCalls(request, "submitTransaction")).toHaveLength(1);
       expect(wait).toHaveBeenCalledTimes(1);
       wallet.dispose();
@@ -336,12 +495,10 @@ describe("provider atomic batches", () => {
     const { wallet, client, request, change } = await setup();
     vi.spyOn(client, "waitForTransactionReceipt").mockImplementation(
       async (txHash) => ({
-        txHash,
-        height: 1n,
-        execResult: ExecResult.ExecResultOK,
+        transactionHash: txHash,
+        blockHeight: 1n,
         events: [],
-        returnData: null,
-        abortData: null,
+        execution: { result: "return", returnData: new Uint8Array() },
         gasUsed: 0n,
       }),
     );
@@ -355,7 +512,7 @@ describe("provider atomic batches", () => {
     });
     await expect(
       wallet.executeAndWait(execution, { onSigned: () => {} }),
-    ).resolves.toHaveProperty("receipt.height", 1n);
+    ).resolves.toHaveProperty("receipt.blockHeight", 1n);
     expect(methodCalls(request, "submitTransaction")).toHaveLength(1);
     wallet.dispose();
   });
@@ -792,21 +949,21 @@ describe("external provider wallet", () => {
     const receiptRequest = vi
       .spyOn(transport, "request")
       .mockResolvedValueOnce({
-        txHash: signed.hash,
-        height: "1",
-        status: { result: "ok" },
+        transactionHash: signed.hash,
+        blockHeight: "1",
+        execution: { result: "return", returnData: "0x" },
         events: [],
         gasUsed: "0",
       });
-    const receipt = await client.getTransactionReceipt(
-      hashFromBase58(signed.hash),
-    );
+    const receipt = await client.getTransactionReceipt({
+      transactionHash: hashFromBase58(signed.hash),
+    });
     expect(receiptRequest).toHaveBeenCalledWith(
-      "groundhog_getTransactionReceipt",
-      [signed.hash],
+      "getTransactionReceipt",
+      { transactionHash: signed.hash },
       undefined,
     );
-    expect(toBase58(receipt!.txHash)).toBe(signed.hash);
+    expect(toBase58(receipt!.transactionHash)).toBe(signed.hash);
     expect(send).not.toHaveBeenCalled();
     await expect(wallet.submitTransaction(signed)).rejects.toMatchObject({
       code: 4100,
@@ -1167,6 +1324,36 @@ describe("external provider wallet", () => {
       });
       wallet.dispose();
     }
+  });
+
+  it("accepts matching byte arrays from another realm without accepting byte-like objects", async () => {
+    const { client, provider, wallet } = await setup();
+    const bytes = runInNewContext("new Uint8Array(bytes)", {
+      bytes: Array.from(client.discovery.network.networkHash),
+    }) as Uint8Array;
+    expect(bytes instanceof Uint8Array).toBe(false);
+    const connected = Object.assign(client, {
+      network: { networkHash: bytes },
+    });
+    const foreign = createProviderWalletClient({
+      client: connected,
+      provider,
+      account,
+      networkHash,
+    });
+    foreign.dispose();
+    Object.assign(connected.network, {
+      networkHash: { length: 32, constructor: { name: "Uint8Array" } },
+    });
+    expect(() =>
+      createProviderWalletClient({
+        client: connected,
+        provider,
+        account,
+        networkHash,
+      }),
+    ).toThrow(expect.objectContaining({ code: 4901 }));
+    wallet.dispose();
   });
 
   it("checks a validated client's network and rejects noncanonical configuration", async () => {

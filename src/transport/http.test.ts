@@ -1,10 +1,10 @@
+import { NativeRpcErrorCode } from "../rpc/errors.js";
 import { describe, expect, it, vi } from "vitest";
 import { runInNewContext } from "node:vm";
 import { createServer } from "node:http";
 import { once } from "node:events";
-import openrpcSpec from "../../specs/openrpc.json";
+import openrpcSpec from "../../specs/native-openrpc.json";
 import {
-  ThruputRpcErrorCode,
   HttpRequestError,
   HttpResponseError,
   HttpTransport,
@@ -47,9 +47,9 @@ async function withDelayedBody(run: (url: string) => Promise<void>) {
   }
 }
 
-describe("ThruputRpcErrorCode", () => {
-  it("matches specs/openrpc.json error codes", () => {
-    expect(ThruputRpcErrorCode).toEqual(documentedErrorCodes());
+describe("NativeRpcErrorCode", () => {
+  it("matches specs/native-openrpc.json error codes", () => {
+    expect(NativeRpcErrorCode).toEqual(documentedErrorCodes());
   });
 });
 
@@ -175,7 +175,7 @@ describe("HttpTransport", () => {
           jsonrpc: "2.0",
           id: 1,
           error: {
-            code: ThruputRpcErrorCode.BackendUnavailable,
+            code: NativeRpcErrorCode.BackendUnavailable,
             message: "backend unavailable",
           },
         }),
@@ -189,7 +189,7 @@ describe("HttpTransport", () => {
     } catch (error) {
       expect(error).toBeInstanceOf(JsonRpcError);
       expect(error).toMatchObject({
-        code: ThruputRpcErrorCode.BackendUnavailable,
+        code: NativeRpcErrorCode.BackendUnavailable,
         method: "groundhog_version",
       });
     }

@@ -1,26 +1,17 @@
-import { toBase58 } from "../encoding.js";
-import {
-  AuthClaimType,
-  codec,
-  deserialize,
-  serialize,
-  type AuthClaim,
-} from "@thruputchain/protocol";
-
+import { AuthClaimType, type AuthClaim } from "@thruputchain/protocol";
+import type { RpcAssumedAuth } from "../rpc/generated.js";
 import { serializeU64 } from "./decimal.js";
-
 function u32(value: bigint, name: string): number {
   serializeU64(value, name);
-  if (value > 0xffff_ffffn) throw new RangeError(`${name} must fit uint32`);
+  if (value > 0xffffffffn) throw new RangeError(`${name} must fit uint32`);
   return Number(value);
 }
-
-/** Encode only public authorization data; this does not sign or verify anything. */
-export function serializeViewAuthClaim(claim: AuthClaim) {
+/** Project public authorization assumptions; this neither signs nor verifies authorization. */
+export function toAssumedAuth(claim: AuthClaim): RpcAssumedAuth {
   switch (claim.claim_type) {
     case AuthClaimType.kSourceAddressAuthData:
       return {
-        kind: "sourceAddress" as const,
+        kind: "sourceAddress",
         allowedKeys: u32(
           claim.source_address_claim.allowed_keys,
           "allowedKeys",
@@ -32,22 +23,16 @@ export function serializeViewAuthClaim(claim: AuthClaim) {
       };
     case AuthClaimType.kPubkeySignature: {
       const { pubkey_hash, nonce } = claim.pubkey_preimage;
-      if (!(pubkey_hash instanceof Uint8Array) || pubkey_hash.length !== 32) {
-        throw new TypeError("View authClaim pubkey_hash must be 32 bytes");
-      }
+      if (!(pubkey_hash instanceof Uint8Array) || pubkey_hash.length !== 32)
+        throw new TypeError("Assumed pubkey hash must contain 32 bytes");
+      serializeU64(nonce, "accountNonce");
       return {
-        kind: "pubkeySignature" as const,
-        pubkeyHash: toBase58(pubkey_hash),
-        nonce: serializeU64(nonce, "nonce"),
+        kind: "pubkeySignature",
+        pubkeyHash: pubkey_hash.slice(),
+        accountNonce: nonce,
       };
     }
     default:
-      throw new TypeError("Unsupported view authClaim type");
+      throw new TypeError("Unsupported authorization assumption");
   }
-}
-
-/** Snapshot a prepared call's claim using the canonical protocol codec. */
-export function copyViewAuthClaim(claim: AuthClaim): AuthClaim {
-  serializeViewAuthClaim(claim);
-  return deserialize(serialize(claim, codec.AuthClaim), codec.AuthClaim);
 }

@@ -150,3 +150,6 @@ specs/test-vectors/*
 # Shared ML-DSA pubkey-auth vectors, copied from thruput-protocol
 # test_vectors/pubkey_auth.json.
 !specs/test-vectors/pubkey_auth.json
+
+# Exact-source CLI checkout used by integration workflows.
+.integration-tools/

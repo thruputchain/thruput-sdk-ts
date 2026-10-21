@@ -8,13 +8,13 @@ const client = await createThruputClient({
 
 const [tip, version] = await Promise.all([
   client.getChainTip(),
-  client.getVersion(),
+  client.getVersionInfo(),
 ]);
 
 console.log({
   rpcUrl: client.cluster.rpcUrl,
   networkHash: toBase58(client.network.networkHash),
-  height: tip.height.toString(),
+  height: tip.blockHeight.toString(),
   blockHash: toBase58(tip.blockHash),
   wireFormat: version.wireFormat,
   implementation: version.implementation,

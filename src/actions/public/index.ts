@@ -1,31 +1,18 @@
-export { getChainTip } from "./getChainTip.js";
-export { getNetworkInfo } from "./getNetworkInfo.js";
-export { getChainConfig } from "./getChainConfig.js";
 export {
-  InvalidAirdropResponseError,
   requestAirdrop,
   requestAirdropAttempt,
+  FundingObservationError,
   type RequestAirdropOptions,
 } from "./requestAirdrop.js";
-export { getBalance } from "./getBalance.js";
-export { getAddressAuthData } from "./getAddressAuthData.js";
-export { getBlockByNumber } from "./getBlockByNumber.js";
-export { getPendingTransactionCount } from "./getPendingTransactionCount.js";
 export {
-  getTransactionReceipt,
-  InvalidTransactionReceiptError,
-} from "./getTransactionReceipt.js";
-export { getTransactionStatus } from "./getTransactionStatus.js";
-export {
+  waitForCommitment,
   waitForTransactionReceipt,
   TransactionReceiptTimeoutError,
-  TransactionRejectedError,
-  TransactionProcessingError,
+  TransactionReceiptObservationError,
+  type KnownCommitment,
+  type ReceiptObserver,
   type WaitForTransactionReceiptOptions,
 } from "./waitForTransactionReceipt.js";
-export { getTransactionsByAddress } from "./getTransactionsByAddress.js";
-export { getTransactionsByBlock } from "./getTransactionsByBlock.js";
-export { getEvents } from "./getEvents.js";
 export {
   getContractEvents,
   type ContractEventQuery,
@@ -33,14 +20,17 @@ export {
   type IdentifiedContractEvent,
 } from "./getContractEvents.js";
 export { iterateEventPages } from "./iterateEventPages.js";
-export { getStorageAt } from "./getStorageAt.js";
-export { getVersion } from "./getVersion.js";
-export { view } from "./view.js";
-export { getServerLimits } from "./getServerLimits.js";
-export { fundAccount } from "./fundAccount.js";
-export { viewBatch } from "./viewBatch.js";
 export {
   readViews,
   type ReadViewsRequest,
   type ReadViewsResponse,
 } from "./readViews.js";
+
+export { HistoryWalkError, type HistoryCompletion } from "./historyWalk.js";
+export {
+  iterateTransactionsByRootAddress,
+  iterateTransactionsByBlock,
+  type RootAddressWalkQuery,
+  type BlockTransactionWalkQuery,
+} from "./iterateTransactionPages.js";
+export type { EventWalkQuery } from "./iterateEventPages.js";

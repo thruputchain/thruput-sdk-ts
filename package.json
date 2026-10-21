@@ -1,6 +1,6 @@
 {
   "name": "@thruputchain/client",
-  "version": "0.21.0",
+  "version": "0.22.0",
   "description": "TypeScript client for the Thruput blockchain",
   "repository": {
     "type": "git",
@@ -79,6 +79,7 @@
     "contracts:generate": "./scripts/regenerate-contract-bindings.sh",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:integration-config": "node --test scripts/integration-config.test.mjs",
     "test:smoke": "node scripts/smoke-test.mjs",
     "test:integration": "npm run build && node scripts/run-integration.mjs",
     "test:integration:cli-transfer": "npm run build && node --test --test-timeout=30000 tests/integration/cli-transfer.test.mjs",

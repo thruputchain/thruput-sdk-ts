@@ -202,6 +202,10 @@ export type RpcReceiptExecution =
   | { result: "failedGasSponsorship" }
   | { result: "other" }
   | UnsupportedRpcValue;
+export type RpcRecentAttemptFailure = {
+  attemptBlockHeight: bigint;
+  cause: RpcFailureCause;
+};
 export type RpcRegisteredAuthResult = {
   address: RpcBase58_ContractAddress;
   configuration: RpcAuthConfiguration | null;
@@ -297,10 +301,18 @@ export type RpcTransactionRefPage = {
   transactions: RpcTransactionRef[];
 };
 export type RpcTransactionStatus =
-  | { status: "pending" }
+  | { recentFailure?: RpcRecentAttemptFailure; status: "pending" }
   | { blockHeight: bigint; status: "committed" }
-  | { error: RpcSchedulerError; status: "retry" }
-  | { error: RpcSchedulerError; status: "dropped" }
+  | {
+      error: RpcSchedulerError;
+      recentFailure?: RpcRecentAttemptFailure;
+      status: "retry";
+    }
+  | {
+      error: RpcSchedulerError;
+      recentFailure?: RpcRecentAttemptFailure;
+      status: "dropped";
+    }
   | {
       attemptBlockHeight: bigint;
       cause: RpcFailureCause;

@@ -23,7 +23,7 @@ const client = await createThruputClient({
 // Simulate the read-only ERC20 call and decode its typed result.
 const response = await ERC20.v0_1.getBalanceOf.view({
   client,
-  contract: HOG_ADDRESS,
+  address: HOG_ADDRESS,
   caller: address,
   args: { addr: address },
 });
@@ -34,5 +34,5 @@ console.log({
   account: toBase58(address),
   balance: response.value.toString(),
   hog: formatUnits(response.value, 7),
-  height: response.height.toString(),
+  height: response.stateBlockHeight.toString(),
 });

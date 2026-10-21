@@ -9,7 +9,7 @@ import {
   toBase58,
 } from "@thruputchain/client";
 import { groundhog_erc20_if } from "@thruputchain/client/contracts";
-import { ExecResult, HOG_ADDRESS } from "@thruputchain/protocol";
+import { HOG_ADDRESS } from "@thruputchain/protocol";
 
 test("reads a CLI transfer through the SDK", async () => {
   assert.ok(process.env.THRUPUT_CLI_TRANSFER_RESULT);
@@ -19,18 +19,20 @@ test("reads a CLI transfer through the SDK", async () => {
   const client = await createThruputClient({
     transport: new HttpTransport(result.rpcUrl),
   });
-  const balance = await client.getBalance(addressFromBase58(result.recipient));
+  const balance = await client.getBalance({
+    address: addressFromBase58(result.recipient),
+  });
   assert.equal(toBase58(balance.address), result.recipient);
   assert.equal(balance.rawBalance, BigInt(result.after.rawBalance));
-  const receipt = await client.getTransactionReceipt(
-    hashFromBase58(result.txHash),
-  );
+  const receipt = await client.getTransactionReceipt({
+    transactionHash: hashFromBase58(result.txHash),
+  });
   assert.ok(receipt, "CLI transfer receipt must be indexed");
-  assert.equal(toBase58(receipt.txHash), result.txHash);
-  assert.equal(receipt.execResult, ExecResult.ExecResultOK);
+  assert.equal(toBase58(receipt.transactionHash), result.txHash);
+  assert.equal(receipt.execution.result, "return");
   const event = groundhog_erc20_if.v0_1.events.TransferEvent.singleFromReceipt(
     receipt,
-    { contractAddress: HOG_ADDRESS },
+    { address: HOG_ADDRESS },
   );
   assert.equal(toBase58(event.topics.from), result.sender);
   assert.equal(toBase58(event.topics.to), result.recipient);

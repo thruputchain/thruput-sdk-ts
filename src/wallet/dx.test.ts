@@ -1,3 +1,5 @@
+import vectors from "../../specs/test-vectors/pubkey_auth.json";
+import { fromHex0x } from "../actions/hex.js";
 import { describe, it, expect, expectTypeOf, vi } from "vitest";
 import {
   ContractType,
@@ -15,6 +17,7 @@ import {
   walletGasLimit,
   ExecutionReturnUnavailableError,
   submitAndObserve,
+  createSubmissionEvidence,
   TransactionObservationError,
   TransactionExecutionError,
 } from "./execution.js";
@@ -31,12 +34,10 @@ const { WalletError } = default_wallet.v0_1.$interface;
 const address = contractAddress(new Uint8Array(32));
 const gas = gasAmount(100n);
 const receipt: TransactionReceipt = {
-  txHash: sha256Hash(new Uint8Array(32)),
-  height: 1n,
-  execResult: ExecResult.ExecResultOK,
+  transactionHash: sha256Hash(new Uint8Array(32)),
+  blockHeight: 1n,
   events: [],
-  returnData: null,
-  abortData: null,
+  execution: { result: "return", returnData: new Uint8Array() },
   gasUsed: 1_000n,
 };
 
@@ -48,13 +49,16 @@ describe("contract execution DX", () => {
     const decodeReceiptOutcome = vi.fn(() => {
       throw new Error("Child decoder must not run");
     });
-    const call = Counter.v0_1.get.call({ contract: address, gasLimit: gas });
+    const call = Counter.v0_1.get.call({ address, gasLimit: gas });
     const child = { ...call, method: { ...call.method, decodeReceiptOutcome } };
-    for (const abortData of [writer.finish(), new Uint8Array([0xff]), null]) {
+    for (const abortData of [
+      writer.finish(),
+      new Uint8Array([0xff]),
+      new Uint8Array(),
+    ]) {
       const failed = {
         ...receipt,
-        execResult: ExecResult.ExecResultTxRootFrameReverted,
-        abortData,
+        execution: { result: "abort" as const, abortData },
       };
       for (const calls of [[child], [child, child]]) {
         try {
@@ -78,21 +82,24 @@ describe("contract execution DX", () => {
           throw cause;
         },
       },
-      receipt.txHash,
+      createSubmissionEvidence(
+        fromHex0x("0x" + vectors.signing[0]!.signed_transaction_xdr),
+        new Uint8Array(32),
+      ),
       async () => {
         throw submissionCause;
       },
     );
     await expect(pending).rejects.toBeInstanceOf(TransactionObservationError);
     await expect(pending).rejects.toMatchObject({
-      txHash: receipt.txHash,
+      transactionHash: expect.any(Uint8Array),
       cause,
       submissionCause,
     });
   });
   it("keeps method identity, types, and bound read metadata", async () => {
     const call = Counter.v0_1.increment.call({
-      contract: address,
+      address,
       gasLimit: gas,
       args: { amount: 5n },
     });
@@ -102,7 +109,7 @@ describe("contract execution DX", () => {
     expect(call.method.name).toBe("Counter.increment");
     expect(() =>
       Counter.v0_1.increment.call({
-        contract: address,
+        address,
         gasLimit: gas,
         args: { amount: 5 as unknown as bigint },
       }),
@@ -113,9 +120,9 @@ describe("contract execution DX", () => {
       binding: Counter.v0_1,
       address,
       client: {
-        view: async () => ({
+        simulateInvocation: async () => ({
           output: { result: "return", returnData: writer.finish() },
-          height: 9n,
+          stateBlockHeight: 9n,
           gasUsed: 42n,
           events: [],
         }),
@@ -123,11 +130,11 @@ describe("contract execution DX", () => {
     });
     const result = await contract.get.view({});
     expectTypeOf(result.value).toEqualTypeOf<bigint>();
-    expect(result).toMatchObject({ value: 42n, height: 9n });
+    expect(result).toMatchObject({ value: 42n, stateBlockHeight: 9n });
   });
 
   it("does not pretend a wallet that discards returns exposes a typed value", () => {
-    const call = Counter.v0_1.get.call({ contract: address, gasLimit: gas });
+    const call = Counter.v0_1.get.call({ address, gasLimit: gas });
     expect(() => decodeExecution(receipt, [call], devWalletAdapter)).toThrow(
       ExecutionReturnUnavailableError,
     );
@@ -136,16 +143,19 @@ describe("contract execution DX", () => {
   it("validates wallet result count without changing the root receipt", () => {
     // DefaultWallet's CXS return is a vector of byte vectors.
     const data = new Uint8Array([0]);
-    const original = { ...receipt, returnData: data };
+    const original = {
+      ...receipt,
+      execution: { result: "return" as const, returnData: data },
+    };
     expect(DefaultWallet.v0_1.execute.decodeReceipt(original).value).toEqual(
       [],
     );
     expect(() =>
       decodeExecution(original, [
-        Counter.v0_1.get.call({ contract: address, gasLimit: gas }),
+        Counter.v0_1.get.call({ address, gasLimit: gas }),
       ]),
     ).toThrow(/expected 1/);
-    expect(original.returnData).toBe(data);
+    expect(original.execution.returnData).toBe(data);
   });
 
   it("derives explicit root budgets with overflow protection", () => {
@@ -269,14 +279,17 @@ describe("deployment descriptions", () => {
     });
     expect(
       decodeDeployment(
-        { ...receipt, returnData: plan.address },
+        {
+          ...receipt,
+          execution: { result: "return", returnData: plan.address },
+        },
         plan,
         defaultWalletAdapter,
       ),
     ).toEqual(plan.address);
     expect(() =>
       decodeDeployment(
-        { ...receipt, returnData: address },
+        { ...receipt, execution: { result: "return", returnData: address } },
         plan,
         defaultWalletAdapter,
       ),

@@ -8,7 +8,8 @@ import {
   AuthClaimType,
   bitMap,
   weight,
-  ExecResult,
+  codec,
+  serialize,
   sha256Hash,
   networkHash,
 } from "@thruputchain/protocol";
@@ -70,7 +71,7 @@ describe("createThruputClient", () => {
       transport: new MockTransport(),
     });
     const tip = await client.getChainTip();
-    expect(tip.height).toBe(0n);
+    expect(tip.blockHeight).toBe(0n);
     expect(tip.blockHash.length).toBe(32);
   });
 
@@ -79,12 +80,17 @@ describe("createThruputClient", () => {
       transport: new MockTransport(),
     });
     const signedTx = await makeDummySignedTx();
-    const txHash = await client.sendTransaction(signedTx);
+    const { transactionHash: txHash } = await client.sendTransaction({
+      signedTransaction: serialize(signedTx, codec.SignedTransaction),
+    });
     expect(txHash).toBeInstanceOf(Uint8Array);
     expect(txHash.length).toBe(32);
 
     const receipt = await client.waitForTransactionReceipt(txHash);
-    expect(receipt.txHash).toEqual(txHash);
-    expect(receipt.execResult).toBe(ExecResult.ExecResultOK);
+    expect(receipt.transactionHash).toEqual(txHash);
+    expect(receipt.execution).toEqual({
+      result: "return",
+      returnData: new Uint8Array(),
+    });
   });
 });

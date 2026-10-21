@@ -1,13 +1,17 @@
+import { NativeRpcErrorCode } from "../rpc/errors.js";
+import { NativeRpcError } from "../rpc/errorReader.js";
 import { describe, expect, it } from "vitest";
-import { ThruputRpcErrorCode, JsonRpcError } from "./http.js";
+import { JsonRpcError } from "./http.js";
 import { txInvalidDetail } from "./txInvalidDetail.js";
 
 function txInvalid(data: unknown): JsonRpcError {
-  return new JsonRpcError(
-    ThruputRpcErrorCode.TxInvalid,
-    "Invalid transaction",
-    data,
-    "groundhog_sendRawTransaction",
+  return new NativeRpcError(
+    new JsonRpcError(
+      NativeRpcErrorCode.TransactionInvalid,
+      "Invalid transaction",
+      { kind: "transactionInvalid", admission: "notAttempted", detail: data },
+    ),
+    "sendTransaction",
   );
 }
 
@@ -37,7 +41,7 @@ describe("txInvalidDetail", () => {
     expect(txInvalidDetail(txInvalid(detail))).toEqual(detail);
   });
 
-  it("drops fields the reason does not define", () => {
+  it("preserves additive fields alongside validated known evidence", () => {
     expect(
       txInvalidDetail(
         txInvalid({
@@ -47,13 +51,18 @@ describe("txInvalidDetail", () => {
           extra: 1,
         }),
       ),
-    ).toEqual({ reason: "duplicateContract", index: 2, firstIndex: 0 });
+    ).toEqual({
+      reason: "duplicateContract",
+      index: 2,
+      firstIndex: 0,
+      extra: 1,
+    });
   });
 
   it.each([
     [
       "another error code",
-      new JsonRpcError(ThruputRpcErrorCode.TxRejected, "x", {
+      new JsonRpcError(NativeRpcErrorCode.TransactionRejected, "x", {
         reason: "tooManyContracts",
         attached: 5,
         max: 4,

@@ -19,6 +19,11 @@ import type { TransactionReceipt } from "../types/rpc.js";
 import type { WalletInvocationAdapter } from "./invocationAdapter.js";
 import type { PrepareTransactionRequest } from "../actions/wallet/prepareTransaction.js";
 import { toBase58 } from "../encoding.js";
+import {
+  assertTransactionSuccess,
+  ExecutionDecodeError,
+  type SubmissionEvidence,
+} from "./execution.js";
 
 /** Stable deployment identity, available before transaction preparation. */
 export interface ContractDeployment {
@@ -116,13 +121,19 @@ export function decodeDeployment(
   receipt: TransactionReceipt,
   deployment: ContractDeployment,
   adapter: WalletInvocationAdapter,
+  submission?: SubmissionEvidence,
 ): ContractAddress {
-  if (!adapter.decodeDeploymentReceipt)
-    throw new Error("Wallet adapter does not support deployment decoding");
-  const address = adapter.decodeDeploymentReceipt(receipt);
-  if (!bytesEqual(address, deployment.address))
-    throw new Error(
-      `Deployment ${toBase58(receipt.txHash)} returned ${toBase58(address)}, expected ${toBase58(deployment.address)}`,
-    );
-  return address;
+  assertTransactionSuccess(receipt, submission);
+  try {
+    if (!adapter.decodeDeploymentReceipt)
+      throw new Error("Wallet adapter does not support deployment decoding");
+    const address = adapter.decodeDeploymentReceipt(receipt);
+    if (!bytesEqual(address, deployment.address))
+      throw new Error(
+        `Deployment ${toBase58(receipt.transactionHash)} returned ${toBase58(address)}, expected ${toBase58(deployment.address)}`,
+      );
+    return address;
+  } catch (cause) {
+    throw new ExecutionDecodeError(receipt, cause, submission);
+  }
 }

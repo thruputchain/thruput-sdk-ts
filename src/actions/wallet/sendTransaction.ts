@@ -1,32 +1,47 @@
-import { hashFromBase58 } from "../../encoding.js";
-import type { SignedTransaction, SHA256Hash } from "@thruputchain/protocol";
-import { serialize, codec } from "@thruputchain/protocol";
-import type { Transport } from "../../transport/types.js";
-import { toHex0x } from "../hex.js";
+import {
+  serialize,
+  codec,
+  sha256Hash,
+  type SignedTransaction,
+  type SHA256Hash,
+} from "@thruputchain/protocol";
+import type { RpcClient } from "../../rpc/client.js";
+import type { TransportRequestOptions } from "../../transport/types.js";
+import {
+  assertTransactionAdmission,
+  createSubmissionEvidence,
+  TransactionObservationError,
+} from "../../wallet/execution.js";
 
 /**
- * Submit a signed transaction and return its transaction hash.
- *
- * This action serializes the signed transaction and sends it through
- * `groundhog_sendRawTransaction`.
- *
- * @example
- * ```ts
- * const txHash = await sendTransaction(transport, signedTx);
- * ```
+ * Serialize and submit once through the native RPC boundary.
+ * Unknown admission throws TransactionObservationError with the signed bytes and
+ * destination discovery network; that network does not prove the signing network
+ * of an already-signed envelope. RPC and transport failures propagate unchanged.
  */
 export async function sendTransaction(
-  transport: Transport,
+  client: Pick<RpcClient, "sendTransaction" | "discovery">,
   signedTx: SignedTransaction,
+  options?: TransportRequestOptions,
 ): Promise<SHA256Hash> {
-  const bytes = serialize(signedTx, codec.SignedTransaction);
-  const hex = toHex0x(bytes);
-  const result = await transport.request<unknown>(
-    "groundhog_sendRawTransaction",
-    [hex],
+  const evidence = createSubmissionEvidence(
+    serialize(signedTx, codec.SignedTransaction),
+    client.discovery.network.networkHash,
   );
-  if (typeof result !== "string") {
-    throw new Error("Invalid send transaction response: expected tx hash");
+  const result = await client.sendTransaction(
+    { signedTransaction: evidence.signedTransaction },
+    options,
+  );
+  try {
+    assertTransactionAdmission(result);
+  } catch (cause) {
+    throw new TransactionObservationError(
+      evidence,
+      cause,
+      undefined,
+      undefined,
+      "submission",
+    );
   }
-  return hashFromBase58(result);
+  return sha256Hash(result.transactionHash);
 }

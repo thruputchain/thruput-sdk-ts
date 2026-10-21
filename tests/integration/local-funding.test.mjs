@@ -12,13 +12,13 @@ import {
   createThruputClient,
   createWalletClient,
   localnet,
-  fundAccount,
+  createRpcClient,
   addressFromBase58,
   toBase58,
   toHex0x,
 } from "@thruputchain/client";
 import { ERC20 } from "@thruputchain/client/contracts";
-import { HOG_ADDRESS, gasAmount, ExecResult } from "@thruputchain/protocol";
+import { HOG_ADDRESS, gasAmount } from "@thruputchain/protocol";
 
 test(
   "local funding preserves admitted bytes after a lost response",
@@ -27,7 +27,7 @@ test(
     const rpcUrl = process.env.THRUPUT_RPC_URL;
     assert.ok(rpcUrl, "Set THRUPUT_RPC_URL to a GH-462 local node");
     const transport = new HttpTransport(rpcUrl, { timeoutMs: 30_000 });
-    const version = await transport.request("groundhog_version", []);
+    const version = await transport.request("getVersionInfo", {});
     assert.equal(
       version.wireFormat,
       process.env.THRUPUT_EXPECTED_WIRE_FORMAT ?? versions.wireFormat,
@@ -72,13 +72,24 @@ test(
       let admitted;
       const lostResponse = {
         async request(method, params, options) {
-          admitted = await transport.request(method, params, options);
+          const result = await transport.request(method, params, options);
+          if (method !== "dev_fundAccount") return result;
+          admitted = result;
           throw new Error("lost response after authoritative admission");
         },
       };
-      await assert.rejects(fundAccount(lostResponse, request), /lost response/);
-      const recovered = await fundAccount(transport, request);
-      assert.equal(toBase58(recovered.txHash), admitted.txHash);
+      const interrupted = await createRpcClient({ transport: lostResponse });
+      await assert.rejects(
+        interrupted.dev_fundAccount(request),
+        /lost response/,
+      );
+      // Explicit recovery of a persisted local funding intent, not an SDK retry.
+      const rpc = await createRpcClient({ transport });
+      const recovered = await rpc.dev_fundAccount(request);
+      assert.equal(
+        toBase58(recovered.transactionHash),
+        admitted.transactionHash,
+      );
       assert.equal(
         toHex0x(recovered.signedTransaction),
         admitted.signedTransaction,
@@ -87,12 +98,16 @@ test(
         cluster: localnet({ rpcUrl }),
         transport,
       });
-      const receipt = await client.waitForTransactionReceipt(recovered.txHash, {
-        timeoutMs: 30_000,
-      });
-      assert.equal(receipt.execResult, ExecResult.ExecResultOK);
+      const receipt = await client.waitForTransactionReceipt(
+        recovered.transactionHash,
+        {
+          timeoutMs: 30_000,
+        },
+      );
+      assert.equal(receipt.execution.result, "return");
       assert.ok(
-        (await client.getBalance(account.address)).rawBalance > 900_000_000n,
+        (await client.getBalance({ address: account.address })).rawBalance >
+          900_000_000n,
       );
       const wallet = createWalletClient({ client, account });
       const receiver = createPubkeyAccount({
@@ -109,8 +124,11 @@ test(
         },
         { timeoutMs: 30_000 },
       );
-      assert.equal(sent.receipt.execResult, ExecResult.ExecResultOK);
-      assert.ok((await client.getBalance(receiver.address)).rawBalance > 0n);
+      assert.equal(sent.receipt.execution.result, "return");
+      assert.ok(
+        (await client.getBalance({ address: receiver.address })).rawBalance >
+          0n,
+      );
     } finally {
       await rm(work, { recursive: true, force: true });
     }

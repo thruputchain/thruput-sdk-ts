@@ -10,17 +10,17 @@ export type BoundContractMethod<A, R, E> = Omit<
   viewRequest(
     options: Omit<
       Parameters<ContractMethod<A, R, E>["viewRequest"]>[0],
-      "contract"
+      "address"
     >,
   ): ReturnType<ContractMethod<A, R, E>["viewRequest"]>;
   view(
-    options: Omit<ContractViewOptions<A>, "client" | "contract">,
+    options: Omit<ContractViewOptions<A>, "client" | "address">,
   ): ReturnType<ContractMethod<A, R, E>["view"]>;
   viewOutcome(
-    options: Omit<ContractViewOptions<A>, "client" | "contract">,
+    options: Omit<ContractViewOptions<A>, "client" | "address">,
   ): ReturnType<ContractMethod<A, R, E>["viewOutcome"]>;
   call(
-    options: Omit<Parameters<ContractMethod<A, R, E>["call"]>[0], "contract">,
+    options: Omit<Parameters<ContractMethod<A, R, E>["call"]>[0], "address">,
   ): ReturnType<ContractMethod<A, R, E>["call"]>;
 };
 
@@ -49,7 +49,7 @@ export function getContract<
 >(options: {
   binding: T;
   address: ContractAddress;
-  client: Pick<ThruputClient, "view">;
+  client: Pick<ThruputClient, "simulateInvocation">;
 }): ContractInstance<T> {
   const address = options.address.slice() as ContractAddress;
   return Object.fromEntries(
@@ -58,17 +58,17 @@ export function getContract<
       {
         ...method,
         viewRequest: (input: Parameters<typeof method.viewRequest>[0]) =>
-          method.viewRequest({ ...input, contract: address }),
+          method.viewRequest({ ...input, address }),
         view: (input: ContractViewOptions<never>) =>
-          method.view({ ...input, contract: address, client: options.client }),
+          method.view({ ...input, address, client: options.client }),
         viewOutcome: (input: ContractViewOptions<never>) =>
           method.viewOutcome({
             ...input,
-            contract: address,
+            address,
             client: options.client,
           }),
         call: (input: Parameters<typeof method.call>[0]) =>
-          method.call({ ...input, contract: address }),
+          method.call({ ...input, address }),
       },
     ]),
   ) as unknown as ContractInstance<T>;

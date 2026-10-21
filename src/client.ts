@@ -1,301 +1,122 @@
-import type { Transport, TransportRequestOptions } from "./transport/types.js";
+import type { Transport } from "./transport/types.js";
 import { HttpTransport } from "./transport/http.js";
+import {
+  createRpcClient,
+  type RpcClient,
+  type RpcMethod,
+} from "./rpc/client.js";
+import type { Cluster, ClusterHasCapability } from "./cluster.js";
+import { defineCluster } from "./cluster.js";
 import type {
-  ContractAddress,
-  SHA256Hash,
-  SignedTransaction,
-} from "@thruputchain/protocol";
-import type {
-  ChainTip,
-  BalanceResponse,
-  AddressAuthDataResponse,
-  BlockInfo,
-  VersionInfo,
-  ViewRequest,
-  ViewResponse,
-  ViewBatchRequest,
-  ViewBatchResponse,
-  TransactionReceipt,
-  TransactionStatus,
-  AddressTransactionQuery,
-  BlockTransactionQuery,
-  TransactionRefPage,
+  AirdropAttemptRequest,
+  AirdropResponse,
+  AirdropSucceeded,
   EventQuery,
   EventPage,
-  StorageItemRead,
   NetworkInfo,
-  ChainConfig,
-  ServerLimits,
+  TransactionReceipt,
 } from "./types/rpc.js";
-import type { Cluster, ClusterHasCapability } from "./cluster.js";
-import { assertNetworkMatchesCluster, defineCluster } from "./cluster.js";
-import { getChainTip } from "./actions/public/getChainTip.js";
-import { getNetworkInfo } from "./actions/public/getNetworkInfo.js";
+import type { TransportRequestOptions } from "./transport/types.js";
 import {
   requestAirdrop,
   requestAirdropAttempt,
   type RequestAirdropOptions,
 } from "./actions/public/requestAirdrop.js";
-import type {
-  AirdropAttemptRequest,
-  AirdropResponse,
-  AirdropSucceeded,
-} from "./types/rpc.js";
-import { getBalance } from "./actions/public/getBalance.js";
-import { getAddressAuthData } from "./actions/public/getAddressAuthData.js";
-import { getBlockByNumber } from "./actions/public/getBlockByNumber.js";
-import { getPendingTransactionCount } from "./actions/public/getPendingTransactionCount.js";
-import { getTransactionReceipt } from "./actions/public/getTransactionReceipt.js";
-import { getTransactionStatus } from "./actions/public/getTransactionStatus.js";
 import {
   waitForTransactionReceipt,
+  waitForCommitment,
+  type KnownCommitment,
   type WaitForTransactionReceiptOptions,
 } from "./actions/public/waitForTransactionReceipt.js";
-import { getTransactionsByAddress } from "./actions/public/getTransactionsByAddress.js";
-import { getTransactionsByBlock } from "./actions/public/getTransactionsByBlock.js";
-import { getEvents } from "./actions/public/getEvents.js";
-import {
-  getContractEvents,
-  type ContractEventQuery,
-  type ContractEventPage,
-} from "./actions/public/getContractEvents.js";
-import { iterateEventPages } from "./actions/public/iterateEventPages.js";
-import { getStorageAt } from "./actions/public/getStorageAt.js";
-import { getVersion } from "./actions/public/getVersion.js";
-import { getServerLimits } from "./actions/public/getServerLimits.js";
-import { getChainConfig } from "./actions/public/getChainConfig.js";
-import { view } from "./actions/public/view.js";
-import { viewBatch } from "./actions/public/viewBatch.js";
 import {
   readViews,
   type ReadViewsRequest,
   type ReadViewsResponse,
 } from "./actions/public/readViews.js";
 import type { ContractViewRequest } from "./contract/method.js";
-import { sendTransaction } from "./actions/wallet/sendTransaction.js";
+import {
+  getContractEvents,
+  type ContractEventQuery,
+  type ContractEventPage,
+} from "./actions/public/getContractEvents.js";
+import {
+  iterateTransactionsByRootAddress,
+  iterateTransactionsByBlock,
+  type RootAddressWalkQuery,
+  type BlockTransactionWalkQuery,
+} from "./actions/public/iterateTransactionPages.js";
+import type { HistoryCompletion } from "./actions/public/historyWalk.js";
+import type { TransactionRefPage } from "./types/rpc.js";
+import {
+  iterateEventPages,
+  type EventWalkQuery,
+} from "./actions/public/iterateEventPages.js";
 
-/**
- * Convenience client with all supported Thruput actions bound to a single
- * transport.
- *
- * Use {@link createThruputClient} when application code should not pass a
- * transport into every action call.
- */
-export interface CoreThruputClient {
-  /** Read registered signers, or null auth data for an unregistered address. */
-  getAddressAuthData(
-    address: ContractAddress,
+/** Native RPC methods plus workflows that never sign, replace or repeat writes. */
+export interface CoreThruputClient extends RpcClient {
+  iterateTransactionsByRootAddress(
+    query: RootAddressWalkQuery,
     options?: TransportRequestOptions,
-  ): Promise<AddressAuthDataResponse>;
-  /** Simulate independent calls against one committed snapshot, in request order. */
-  viewBatch(
-    request: ViewBatchRequest,
+  ): AsyncGenerator<TransactionRefPage, HistoryCompletion, unknown>;
+  iterateTransactionsByBlock(
+    query: BlockTransactionWalkQuery,
     options?: TransportRequestOptions,
-  ): Promise<ViewBatchResponse>;
-  /** Read generated method requests at one shared committed height. */
+  ): AsyncGenerator<TransactionRefPage, void, unknown>;
+  waitForTransactionReceipt(
+    transactionHash: Uint8Array,
+    options?: WaitForTransactionReceiptOptions,
+  ): Promise<TransactionReceipt>;
+  waitForCommitment(
+    transactionHash: Uint8Array,
+    options?: WaitForTransactionReceiptOptions,
+  ): Promise<KnownCommitment>;
   readViews<const TCalls extends readonly ContractViewRequest[]>(
     request: ReadViewsRequest<TCalls>,
     options?: TransportRequestOptions,
   ): Promise<ReadViewsResponse<TCalls>>;
-  /** Return the immutable identity configured for the RPC endpoint. */
-  getNetworkInfo(options?: TransportRequestOptions): Promise<NetworkInfo>;
-
-  /** Return the latest block height and hash reported by the gateway. */
-  getChainTip(options?: TransportRequestOptions): Promise<ChainTip>;
-
-  /** Return the HOG balance for a contract address. */
-  getBalance(
-    address: ContractAddress,
-    options?: TransportRequestOptions,
-  ): Promise<BalanceResponse>;
-
-  /** Return block metadata for a height, or `null` when the block is unknown. */
-  getBlockByNumber(
-    height: bigint,
-    options?: TransportRequestOptions,
-  ): Promise<BlockInfo | null>;
-
-  /** Return the number of transactions currently pending in the mempool. */
-  getPendingTransactionCount(
-    options?: TransportRequestOptions,
-  ): Promise<bigint>;
-
-  /** Return the gateway implementation and wire-format version. */
-  getVersion(options?: TransportRequestOptions): Promise<VersionInfo>;
-
-  /**
-   * Return stated execution limits and, when supported, a fresh `execution`
-   * reading with effective limits, bigint storage prices, and snapshot context.
-   * Unstated top-level limits are `null`; unavailable execution readings are absent.
-   */
-  getChainConfig(options?: TransportRequestOptions): Promise<ChainConfig>;
-
-  /** Return request bounds configured on this endpoint. */
-  getServerLimits(options?: TransportRequestOptions): Promise<ServerLimits>;
-
-  /** Execute a read-only contract invocation without submitting a transaction. */
-  view(
-    request: ViewRequest,
-    options?: TransportRequestOptions,
-  ): Promise<ViewResponse>;
-
-  /** Return a committed transaction receipt, or `null` when it is not found. */
-  getTransactionReceipt(
-    txHash: SHA256Hash,
-    options?: TransportRequestOptions,
-  ): Promise<TransactionReceipt | null>;
-
-  /** Return the gateway's current knowledge of a submitted transaction. */
-  getTransactionStatus(
-    txHash: SHA256Hash,
-    options?: TransportRequestOptions,
-  ): Promise<TransactionStatus>;
-
-  /**
-   * Wait for a transaction to commit and return its receipt.
-   *
-   * Inspect `receipt.execResult` to determine whether execution succeeded.
-   */
-  waitForTransactionReceipt(
-    txHash: SHA256Hash,
-    options?: WaitForTransactionReceiptOptions,
-  ): Promise<TransactionReceipt>;
-
-  /** Query transaction refs whose root invocation targets one address. */
-  getTransactionsByAddress(
-    query: AddressTransactionQuery,
-    options?: TransportRequestOptions,
-  ): Promise<TransactionRefPage>;
-
-  /** Read hash-ordered transaction references for one committed height. */
-  getTransactionsByBlock(
-    query: BlockTransactionQuery,
-    options?: TransportRequestOptions,
-  ): Promise<TransactionRefPage>;
-
-  /** Query emitted contract events with the gateway's paginated event API. */
-  getEvents(
-    query: EventQuery,
-    options?: TransportRequestOptions,
-  ): Promise<EventPage>;
-
-  /** Fetch one page of decoded events using a generated descriptor. */
   getContractEvents<TName extends string, TTopics, TFields, TFilter>(
     query: ContractEventQuery<TName, TTopics, TFields, TFilter>,
     options?: TransportRequestOptions,
   ): Promise<ContractEventPage<TName, TTopics, TFields>>;
-
-  /** Walk event pages lazily; stops at an empty cursor without polling or retrying. */
   iterateEventPages(
-    query: EventQuery,
+    query: EventWalkQuery,
     options?: TransportRequestOptions,
-  ): AsyncGenerator<EventPage, void, unknown>;
-
-  /** Read a committed storage item at a contract address and storage key. */
-  getStorageAt(
-    address: ContractAddress,
-    key: Uint8Array,
-    options?: TransportRequestOptions,
-  ): Promise<StorageItemRead>;
-
-  /** Submit a signed transaction and return its transaction hash. */
-  sendTransaction(signedTx: SignedTransaction): Promise<SHA256Hash>;
+  ): AsyncGenerator<EventPage, HistoryCompletion, unknown>;
 }
 
-/** Airdrop actions available on development clusters and unqualified clients. */
+/** Optional one-call faucet workflow, gated by endpoint discovery. */
 export interface AirdropActions {
-  /** Perform one airdrop attempt request without polling. */
+  requestAirdrop(options: RequestAirdropOptions): Promise<AirdropSucceeded>;
   requestAirdropAttempt(
     request: AirdropAttemptRequest,
     options?: TransportRequestOptions,
   ): Promise<AirdropResponse>;
-
-  /** Request an airdrop and wait for it to commit. */
-  requestAirdrop(options: RequestAirdropOptions): Promise<AirdropSucceeded>;
 }
-
-/** Unqualified client with every supported SDK action. */
 export interface ThruputClient extends CoreThruputClient, AirdropActions {}
-
-function createCoreThruputClient(transport: Transport): CoreThruputClient {
-  return {
-    getNetworkInfo: (options) => getNetworkInfo(transport, options),
-    getChainTip: (options) => getChainTip(transport, options),
-    getBalance: (address, options) => getBalance(transport, address, options),
-    getAddressAuthData: (address, options) =>
-      getAddressAuthData(transport, address, options),
-    getBlockByNumber: (height, options) =>
-      getBlockByNumber(transport, height, options),
-    getPendingTransactionCount: (options) =>
-      getPendingTransactionCount(transport, options),
-    getVersion: (options) => getVersion(transport, options),
-    getServerLimits: (options) => getServerLimits(transport, options),
-    getChainConfig: (options) => getChainConfig(transport, options),
-    view: (request, options) => view(transport, request, options),
-    viewBatch: (request, options) => viewBatch(transport, request, options),
-    readViews: (request, options) => readViews(transport, request, options),
-    getTransactionReceipt: (txHash, options) =>
-      getTransactionReceipt(transport, txHash, options),
-    getTransactionStatus: (txHash, options) =>
-      getTransactionStatus(transport, txHash, options),
-    waitForTransactionReceipt: (txHash, options) =>
-      waitForTransactionReceipt(transport, txHash, options),
-    getTransactionsByAddress: (query, options) =>
-      getTransactionsByAddress(transport, query, options),
-    getTransactionsByBlock: (query, options) =>
-      getTransactionsByBlock(transport, query, options),
-    getEvents: (query, options) => getEvents(transport, query, options),
-    getContractEvents: (query, options) =>
-      getContractEvents(transport, query, options),
-    iterateEventPages: (query, options) =>
-      iterateEventPages(transport, query, options),
-    getStorageAt: (address, key, options) =>
-      getStorageAt(transport, address, key, options),
-    sendTransaction: (signedTx) => sendTransaction(transport, signedTx),
-  };
-}
-
-function createAirdropActions(transport: Transport): AirdropActions {
-  return {
-    requestAirdropAttempt: (request, options) =>
-      requestAirdropAttempt(transport, request, options),
-    requestAirdrop: (options) => requestAirdrop(transport, options),
-  };
-}
-
-/** A client with a fetched network identity, verified against any cluster identity pin. */
 export type ConnectedThruputClient<TCluster extends Cluster = Cluster> =
-  CoreThruputClient &
-    (ClusterHasCapability<TCluster, "airdrop"> extends true
+  CoreThruputClient & {
+    readonly cluster: TCluster & { readonly genesisHash?: never };
+    readonly network: NetworkInfo;
+  } & (ClusterHasCapability<TCluster, "airdrop"> extends true
       ? AirdropActions
-      : object) & {
-      /** Cluster descriptor used to connect this client. */
-      readonly cluster: TCluster;
+      : {});
 
-      /** Identity returned by the endpoint during connection. */
-      readonly network: NetworkInfo;
-    };
-
-/** Options for an unqualified client that skips runtime identity validation. */
 export interface ThruputClientOptions {
   readonly transport: Transport;
   readonly cluster?: never;
+  readonly requiredMethods?: readonly RpcMethod[];
+  readonly signal?: AbortSignal;
 }
-
-/** Options for fetching network identity and verifying any declared cluster identity pin. */
 export interface ClusterThruputClientOptions<
   TCluster extends Cluster = Cluster,
 > {
   readonly cluster: TCluster & { readonly genesisHash?: never };
-  /** Custom transport. Defaults to an HTTP transport for `cluster.rpcUrl`. */
   readonly transport?: Transport;
+  readonly requiredMethods?: readonly RpcMethod[];
+  readonly signal?: AbortSignal;
 }
 
-/**
- * Create a client and, when a cluster is supplied, fetch the endpoint's network
- * identity and verify any supplied `networkHash` pin. Identity is checked only
- * during connection; cluster capabilities are declared, not probed.
- */
+/** Connect once, validate wire/network/capabilities, and bind native methods and workflows. */
 export function createThruputClient<const TCluster extends Cluster>(
   options: ClusterThruputClientOptions<TCluster>,
 ): Promise<ConnectedThruputClient<TCluster>>;
@@ -303,35 +124,68 @@ export function createThruputClient(
   options: ThruputClientOptions,
 ): Promise<ThruputClient>;
 export async function createThruputClient(
-  options: ThruputClientOptions | ClusterThruputClientOptions<Cluster>,
+  options: ThruputClientOptions | ClusterThruputClientOptions,
 ): Promise<ThruputClient | ConnectedThruputClient> {
-  if (options.cluster === undefined) {
-    return Object.assign(
-      createCoreThruputClient(options.transport),
-      createAirdropActions(options.transport),
+  const cluster =
+    options.cluster === undefined ? undefined : defineCluster(options.cluster);
+  const transport =
+    options.transport ??
+    (cluster?.rpcUrl ? new HttpTransport(cluster.rpcUrl) : undefined);
+  if (!transport)
+    throw new Error(
+      "Cluster has no default RPC URL; provide a transport or rpcUrl",
     );
-  }
-
-  const cluster = defineCluster(options.cluster);
-  const transport = resolveClusterTransport({ ...options, cluster });
-  const client = createCoreThruputClient(transport);
-  const network = await client.getNetworkInfo();
-  assertNetworkMatchesCluster(cluster, network);
-  return Object.assign(
-    client,
-    cluster.capabilities.includes("airdrop")
-      ? createAirdropActions(transport)
-      : {},
-    { cluster, network },
-  ) as ConnectedThruputClient;
-}
-
-function resolveClusterTransport<TCluster extends Cluster>(
-  options: ClusterThruputClientOptions<TCluster>,
-): Transport {
-  if (options.transport) return options.transport;
-  if (options.cluster.rpcUrl) return new HttpTransport(options.cluster.rpcUrl);
-  throw new Error(
-    `Cluster ${options.cluster.name ?? "descriptor"} has no default RPC URL; provide a transport or rpcUrl`,
-  );
+  const requiredMethods = [...(options.requiredMethods ?? [])];
+  if (cluster?.capabilities.includes("airdrop"))
+    requiredMethods.push("faucet_requestAirdrop");
+  const rpc = await createRpcClient({
+    transport,
+    expectedNetworkHash: cluster?.networkHash,
+    requiredMethods,
+    signal: options.signal,
+  });
+  const client = Object.assign(rpc, {
+    waitForTransactionReceipt: (
+      hash: Uint8Array,
+      wait?: WaitForTransactionReceiptOptions,
+    ) => waitForTransactionReceipt(rpc, hash, wait),
+    waitForCommitment: (
+      hash: Uint8Array,
+      wait?: WaitForTransactionReceiptOptions,
+    ) => waitForCommitment(rpc, hash, wait),
+    readViews: <const T extends readonly ContractViewRequest[]>(
+      request: ReadViewsRequest<T>,
+      control?: TransportRequestOptions,
+    ) => readViews(rpc, request, control),
+    getContractEvents: <N extends string, T, F, Q>(
+      query: ContractEventQuery<N, T, F, Q>,
+      control?: TransportRequestOptions,
+    ) => getContractEvents(rpc, query, control),
+    iterateTransactionsByRootAddress: (
+      query: RootAddressWalkQuery,
+      options?: TransportRequestOptions,
+    ) => iterateTransactionsByRootAddress(rpc, query, options),
+    iterateTransactionsByBlock: (
+      query: BlockTransactionWalkQuery,
+      options?: TransportRequestOptions,
+    ) => iterateTransactionsByBlock(rpc, query, options),
+    iterateEventPages: (
+      query: EventWalkQuery,
+      control?: TransportRequestOptions,
+    ) => iterateEventPages(rpc, query, control),
+  });
+  if (!cluster || cluster.capabilities.includes("airdrop"))
+    Object.assign(client, {
+      requestAirdrop: (request: RequestAirdropOptions) =>
+        requestAirdrop(rpc, request),
+      requestAirdropAttempt: (
+        request: AirdropAttemptRequest,
+        control?: TransportRequestOptions,
+      ) => requestAirdropAttempt(rpc, request, control),
+    });
+  return (
+    cluster
+      ? Object.assign(client, { cluster, network: rpc.discovery.network })
+      : client
+  ) as ThruputClient | ConnectedThruputClient;
 }

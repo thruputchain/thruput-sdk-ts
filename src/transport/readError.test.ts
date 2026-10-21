@@ -1,15 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { runInNewContext } from "node:vm";
 import { classifyReadError } from "./readError.js";
-import {
-  ThruputRpcErrorCode,
-  HttpRequestError,
-  HttpResponseError,
-  JsonRpcError,
-} from "./http.js";
+import { HttpRequestError, HttpResponseError, JsonRpcError } from "./http.js";
 import { ContractDecodeError } from "../contract/errors.js";
 import { ContractViewError } from "../contract/method.js";
-import { InvalidTransactionReceiptError } from "../actions/public/getTransactionReceipt.js";
+import { RpcDecodingError } from "../rpc/codec.js";
+import { NativeRpcError } from "../rpc/errorReader.js";
 
 describe("read error classification", () => {
   it.each([408, 429, 500, 502, 503, 504])(
@@ -29,20 +25,26 @@ describe("read error classification", () => {
     },
   );
   it.each([
-    [ThruputRpcErrorCode.BackendUnavailable, "transient"],
-    [ThruputRpcErrorCode.ViewHeightUnavailable, "transient"],
-    [ThruputRpcErrorCode.BackendTimeout, "transient"],
-    [ThruputRpcErrorCode.Overloaded, "transient"],
-    [ThruputRpcErrorCode.InvalidParams, "permanent"],
-    [ThruputRpcErrorCode.TxInvalid, "permanent"],
-    [ThruputRpcErrorCode.TxRejected, "permanent"],
-    [ThruputRpcErrorCode.NotImplemented, "permanent"],
-    [ThruputRpcErrorCode.TxNotFound, "unknown"],
-    [ThruputRpcErrorCode.BlockNotFound, "unknown"],
-    [-32603, "unknown"],
-  ] as const)("classifies RPC %s as %s", (code, expected) => {
-    expect(classifyReadError(new JsonRpcError(code, "failure"))).toBe(expected);
-  });
+    [-32050, "backendUnavailable", "transient"],
+    [-32051, "backendTimeout", "transient"],
+    [-32053, "overloaded", "transient"],
+    [-32602, "invalidParams", "permanent"],
+  ] as const)(
+    "classifies validated native cause %s",
+    (code, kind, expected) => {
+      expect(
+        classifyReadError(
+          new NativeRpcError(
+            new JsonRpcError(code, "failure", { kind }),
+            "getTransactionStatus",
+          ),
+        ),
+      ).toBe(expected);
+      expect(classifyReadError(new JsonRpcError(code, "failure"))).toBe(
+        "unknown",
+      );
+    },
+  );
 
   it("distinguishes network errors from unrelated TypeErrors", () => {
     const cause = new TypeError("fetch failed");
@@ -69,10 +71,10 @@ describe("read error classification", () => {
     const cause = new HttpResponseError(503, "unavailable");
     for (const error of [
       new ContractDecodeError("bad calldata", { cause }),
-      new InvalidTransactionReceiptError("bad receipt", { cause }),
+      new RpcDecodingError("receipt", { cause }),
       new ContractViewError({
         kind: "fault",
-        height: 1n,
+        stateBlockHeight: 1n,
         gasUsed: 42n,
         events: [],
       }),

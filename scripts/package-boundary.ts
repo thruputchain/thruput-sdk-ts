@@ -62,7 +62,7 @@ import {
   type SignedTransaction,
 } from "@thruputchain/client";
 import type { Transport } from "@thruputchain/client/transport";
-import { getTransactionsByBlock } from "@thruputchain/client/actions";
+
 import type {
   BlockTransactionQuery,
   TransactionRefPage,
@@ -71,7 +71,6 @@ import type {
 import { ERC20 as BatchERC20Versions } from "@thruputchain/client/contracts";
 import {
   getContractEvents,
-  getChainConfig,
   iterateEventPages,
   readViews,
 } from "@thruputchain/client/actions";
@@ -85,49 +84,54 @@ async function typedSnapshotBoundary(
   const client = await createThruputClient({ transport });
   const bound = getContract({ binding: BatchERC20, address, client });
   const single = await BatchERC20.totalSupply.view({
-    authClaim,
+    assumedAuth: authClaim,
     client,
-    contract: address,
-    minHeight: 42n,
+    address,
+    minStateBlockHeight: 42n,
   });
   const singleValue: bigint = single.value;
   void singleValue;
-  const boundOutcome = await bound.totalSupply.viewOutcome({ minHeight: 42n });
+  const boundOutcome = await bound.totalSupply.viewOutcome({
+    minStateBlockHeight: 42n,
+  });
   if (boundOutcome.kind === "return") {
     const value: bigint = boundOutcome.value;
     void value;
   }
-  await bound.totalSupply.view({ minHeight: 42n });
+  await bound.totalSupply.view({ minStateBlockHeight: 42n });
   const prepared = BatchERC20.totalSupply.viewRequest({
-    contract: address,
-    authClaim,
+    address,
+    assumedAuth: authClaim,
   });
-  const constrainedEntry = { ...prepared, minHeight: 42n };
+  const constrainedEntry = { ...prepared, minStateBlockHeight: 42n };
   // @ts-expect-error a prepared entry cannot carry a group constraint
   await client.readViews({ calls: [constrainedEntry] });
-  await client.view({ ...prepared.request, minHeight: 42n });
-  const singleInput = { contract: address, minHeight: 42n };
+  await client.simulateInvocation({
+    ...prepared.request,
+    minStateBlockHeight: 42n,
+  });
+  const singleInput = { address, minStateBlockHeight: 42n };
   // @ts-expect-error prepared calls cannot carry a freshness floor, including through variables
   BatchERC20.totalSupply.viewRequest(singleInput);
   // @ts-expect-error bound prepared calls cannot carry a freshness floor
-  bound.totalSupply.viewRequest({ minHeight: 42n });
+  bound.totalSupply.viewRequest({ minStateBlockHeight: 42n });
   const transactionInput = { ...singleInput, gasLimit: gasAmount(123n) };
   // @ts-expect-error read freshness cannot leak into transaction options
   BatchERC20.totalSupply.call(transactionInput);
-  const singleRequest = { ...prepared.request, minHeight: 42n };
-  // @ts-expect-error batch entries cannot carry individual minimum heights
-  await client.viewBatch({ calls: [singleRequest] });
+  const singleRequest = { ...prepared.request, minStateBlockHeight: 42n };
+  // Runtime strict validation rejects this extra field from a structurally compatible variable.
+  await client.simulateInvocations({ invocations: [singleRequest] });
   await BatchERC20.totalSupply.view({
     client,
-    contract: address,
+    address,
     // @ts-expect-error heights are bigint, never JSON numbers at the public client boundary
-    minHeight: 42,
+    minStateBlockHeight: 42,
   });
-  const result = await readViews(transport, {
+  const result = await readViews(client, {
     calls: [
-      BatchERC20.totalSupply.viewRequest({ contract: address }),
+      BatchERC20.totalSupply.viewRequest({ address }),
       BatchERC20.transfer.viewRequest({
-        contract: address,
+        address,
         args: { receiver: address, amount: 1n },
       }),
     ],
@@ -145,9 +149,9 @@ async function typedSnapshotBoundary(
     void value;
   }
   // @ts-expect-error getBalanceOf requires its generated argument object
-  BatchERC20.getBalanceOf.viewRequest({ contract: address });
+  BatchERC20.getBalanceOf.viewRequest({ address });
   // @ts-expect-error no arguments are accepted by totalSupply
-  BatchERC20.totalSupply.viewRequest({ contract: address, args: {} });
+  BatchERC20.totalSupply.viewRequest({ address, args: {} });
 }
 void typedSnapshotBoundary;
 import {
@@ -198,11 +202,12 @@ function blockQueryBoundary(
   transport: Transport,
   client: ThruputClient,
 ): Promise<TransactionRefPage>[] {
-  const query: BlockTransactionQuery = { height: 1n, limit: 50 };
-  return [
-    getTransactionsByBlock(transport, query),
-    client.getTransactionsByBlock(query),
-  ];
+  const query: BlockTransactionQuery = {
+    blockHeight: 1n,
+    start: { order: "ascending" },
+    limit: 50,
+  };
+  return [client.getTransactionsByBlock(query)];
 }
 void blockQueryBoundary;
 
@@ -214,12 +219,13 @@ async function eventPagesBoundary(
 ) {
   const query = {
     event: groundhog_erc20_if.v0_1.events.TransferEvent,
-    contractAddresses: [address],
+    addresses: [address],
     topics: { to: address },
+    start: { order: "ascending", anchor: { kind: "atBeginning" } } as const,
     limit: 20,
   };
   const page = await client.getContractEvents(query, { signal });
-  const directPage: typeof page = await getContractEvents(transport, query, {
+  const directPage: typeof page = await getContractEvents(client, query, {
     signal,
   });
   const amount: bigint = page.events[0]!.fields.amount;
@@ -228,11 +234,11 @@ async function eventPagesBoundary(
   const height: bigint = page.events[0]!.blockHeight;
   const rawQuery = {
     filters: [groundhog_erc20_if.v0_1.events.TransferEvent.filter(query)],
-    cursor: page.cursor,
+    start: { order: "ascending", anchor: { kind: "atBeginning" } } as const,
   };
   const pages: AsyncIterable<import("@thruputchain/client").EventPage> =
     client.iterateEventPages(rawQuery, { signal });
-  const directPages: typeof pages = iterateEventPages(transport, rawQuery, {
+  const directPages: typeof pages = iterateEventPages(client, rawQuery, {
     signal,
   });
   await client.getContractEvents({
@@ -247,7 +253,8 @@ async function eventPagesBoundary(
   });
   const mint = await client.getContractEvents({
     event: groundhog_erc20_if.v0_1.events.MintEvent,
-    contractAddresses: [address],
+    addresses: [address],
+    start: { order: "ascending", anchor: { kind: "atBeginning" } },
   });
   // @ts-expect-error Mint events have no from topic.
   mint.events[0]!.topics.from;
@@ -260,13 +267,14 @@ async function chainConfigBoundary(
   transport: Transport,
 ) {
   const config: ChainConfig = await client.getChainConfig();
-  const direct: ChainConfig = await getChainConfig(transport);
+  const direct: ChainConfig = await client.getChainConfig();
   const execution: ExecutionConfig | undefined = config.execution;
   if (execution) {
     const costs: StorageCosts = execution.storageCosts;
     const balanceDeposit: bigint = costs.balanceCost;
-    const height: bigint = execution.observedTip.height;
-    const limit: number | null = execution.effectiveLimits.maxRv32MemoryBytes;
+    const height: bigint = execution.observedTip.blockHeight;
+    const limit: number | undefined =
+      execution.effectiveLimits.maxRv32MemoryBytes;
     void [balanceDeposit, height, limit];
   }
   void direct;
@@ -352,7 +360,7 @@ async function typedExecutionBoundary(
   client: ThruputClient,
 ) {
   const transfer = ERC20.v0_1.transfer.call({
-    contract: address,
+    address,
     gasLimit: gas,
     args: { receiver: address, amount: 1n },
   });
@@ -384,7 +392,7 @@ async function typedExecutionBoundary(
   const invalidAmount: string = boundArgs.amount;
   void invalidAmount;
   const balance = ERC20.v0_1.getBalanceOf.call({
-    contract: address,
+    address,
     gasLimit: gas,
     args: { addr: address },
   });
@@ -401,7 +409,7 @@ async function typedExecutionBoundary(
   // @ts-expect-error The second call returns a bigint, not a string.
   const wrong: string = result.values[1];
   // @ts-expect-error Typed calls require the generated arguments.
-  ERC20.v0_1.transfer.call({ contract: address, gasLimit: gas });
+  ERC20.v0_1.transfer.call({ address, gasLimit: gas });
   void values;
   void wrong;
 }
@@ -453,7 +461,7 @@ async function providerBoundaryTypecheck(
 
 async function packageBoundaryTypecheck(
   client: ThruputClient,
-  contract: ContractAddress,
+  address: ContractAddress,
   recipient: ContractAddress,
   gasLimit: GasAmount,
   event: { topics: Uint8Array[]; data: Uint8Array },
@@ -463,42 +471,42 @@ async function packageBoundaryTypecheck(
     void,
     unknown
   > = ERC20.v0_1.transfer;
-  const version = await client.getVersion();
-  const releaseVersion: string | null = version.releaseVersion;
-  const bundleManifestDigest: string | null = version.bundleManifestDigest;
+  const version = await client.getVersionInfo();
+  const releaseVersion: string | undefined = version.releaseVersion;
+  const bundleManifestDigest: string | undefined = version.bundleManifestDigest;
   void [releaseVersion, bundleManifestDigest];
   const transferArgs: ERC20.v0_1.TransferArgs = {
     receiver: recipient,
     amount: 1n,
   };
   const invocation: Invocation = transfer.invocation(
-    contract,
+    address,
     gasLimit,
     transferArgs,
   );
 
   const balance = await ERC20.v0_1.getBalanceOf.view({
     client,
-    contract,
+    address,
     args: { addr: recipient },
   });
   const outcome: ContractViewOutcome<bigint, unknown> =
     await ERC20.v0_1.getBalanceOf.viewOutcome({
       client,
-      contract,
+      address,
       args: { addr: recipient },
     });
 
-  ERC20Metadata.v0_1.symbol.invocation(contract, gasLimit);
+  ERC20Metadata.v0_1.symbol.invocation(address, gasLimit);
   groundhog_erc20_if.v0_1.events.AllowanceChangeEvent.filter({
-    contractAddresses: [contract],
-    topics: { owner: contract },
+    addresses: [address],
+    topics: { owner: address },
   });
   const transferTopics: groundhog_erc20_if.v0_1.events.TransferEventFilter = {
     to: { oneOf: [recipient] },
   };
   groundhog_erc20_if.v0_1.events.TransferEvent.filter({
-    contractAddresses: [contract],
+    addresses: [address],
     topics: transferTopics,
   });
   decodeERC20Event(event);
@@ -509,11 +517,11 @@ async function packageBoundaryTypecheck(
     from: recipient,
   };
   groundhog_erc20_if.v0_1.events.MintEvent.filter({
-    contractAddresses: [contract],
+    addresses: [address],
     topics: mintTopics,
   });
   groundhog_erc20_if.v0_1.events.BurnEvent.filter({
-    contractAddresses: [contract],
+    addresses: [address],
     topics: burnTopics,
   });
 
@@ -541,7 +549,7 @@ async function packageBoundaryTypecheck(
     {} as Signer,
     {
       network: {} as NetworkHash,
-      verifyingContract: contract,
+      verifyingContract: address,
       blockExpiryHeight: 0n,
       nonce: randomNonce(),
       body: { amount: 1n },
@@ -642,7 +650,7 @@ function walletBoundaryTypecheck(
     createWalletClient({ client, account, networkHash });
 
   wallet.getBalance();
-  wallet.getBalance(address);
+  wallet.getBalance({ address });
   wallet.requestAirdrop();
   wallet.prepareTransaction({
     invocation,

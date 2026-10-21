@@ -346,7 +346,10 @@ function checkResult(
     invalid();
   if (!rpcPageMethods.has(method)) return;
   const page = value as RpcTransactionRefPage | RpcEventPage;
-  const entries = "transactions" in page ? page.transactions : page.events;
+  const entries =
+    method === "getEvents"
+      ? (page as RpcEventPage).events
+      : (page as RpcTransactionRefPage).transactions;
   const cap =
     method === "getEvents"
       ? limits!.maxEventsPerPage
@@ -394,7 +397,8 @@ function checkResult(
   const identities = new Set<string>();
   const keys: [bigint, string, number][] = [];
   for (const [index, entry] of entries.entries()) {
-    const event = "events" in page ? page.events[index] : undefined;
+    const event =
+      method === "getEvents" ? (page as RpcEventPage).events[index] : undefined;
     const hash = toHex0x(entry.transactionHash);
     const sequence = event?.sequenceNumber ?? 0;
     const identity = method === "getEvents" ? `${hash}/${sequence}` : hash;

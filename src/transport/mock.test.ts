@@ -1,100 +1,62 @@
 import { describe, expect, it } from "vitest";
 import { MockTransport } from "./mock.js";
-import { fixedFromBase58, toBase58 } from "../encoding.js";
-
-describe("MockTransport", () => {
-  it("returns chain tip at height 0 when empty", async () => {
-    const transport = new MockTransport();
-    const tip = await transport.request<{ height: string; blockHash: string }>(
-      "groundhog_chainTip",
+import { createRpcClient } from "../rpc/client.js";
+import { fromHex0x } from "../actions/hex.js";
+import vectors from "../../specs/test-vectors/pubkey_auth.json";
+const bytes = fromHex0x("0x" + vectors.signing[0]!.signed_transaction_xdr);
+describe("native mock transport", () => {
+  it("advertises only implemented methods and serves native named shapes", async () => {
+    const client = await createRpcClient({ transport: new MockTransport() });
+    expect(client.discovery.version.wireFormat).toBe("14.0.0");
+    expect(client.discovery.version.supportedMethods).not.toContain(
+      "dev_fundAccount",
     );
-    expect(tip.height).toBe("0");
-    expect(fixedFromBase58(tip.blockHash, 32)).toEqual(new Uint8Array(32));
+    expect(await client.getChainTip()).toMatchObject({ blockHeight: 0n });
+    expect(await client.getBlockByHeight({ blockHeight: 0n })).toBeNull();
+    expect(
+      await client.getBalance({ address: new Uint8Array(32) }),
+    ).toMatchObject({ rawBalance: 0n, stateBlockHeight: 0n });
   });
-
-  it("returns zero native HOG balance for requested address", async () => {
-    const transport = new MockTransport();
-    const address = toBase58(new Uint8Array(32).fill(0xab));
-    const balance = await transport.request<{
-      address: string;
-      rawBalance: string;
-      height: string;
-    }>("groundhog_getBalance", [address]);
-
-    expect(balance).toEqual({ address, rawBalance: "0", height: "0" });
+  it("uses canonical hashes, commits once and serves matching receipts", async () => {
+    const client = await createRpcClient({ transport: new MockTransport() });
+    const first = await client.sendTransaction({ signedTransaction: bytes }),
+      second = await client.sendTransaction({ signedTransaction: bytes });
+    expect(second).toEqual(first);
+    expect(await client.getChainTip()).toMatchObject({ blockHeight: 1n });
+    expect(
+      await client.getTransactionStatus({
+        transactionHash: first.transactionHash,
+      }),
+    ).toEqual({ status: "committed", blockHeight: 1n });
+    expect(
+      await client.getTransactionReceipt({
+        transactionHash: first.transactionHash,
+      }),
+    ).toMatchObject({
+      transactionHash: first.transactionHash,
+      blockHeight: 1n,
+      execution: { result: "return" },
+    });
+    expect(await client.getBlockByHeight({ blockHeight: 1n })).toMatchObject({
+      blockHeight: 1n,
+    });
   });
-
-  it("stores a transaction and increments height on sendRawTransaction", async () => {
-    const transport = new MockTransport();
-    const hash = await transport.request<string>(
-      "groundhog_sendRawTransaction",
-      ["0xdeadbeef"],
+  it("returns null for missing history and rejects positional params", async () => {
+    const transport = new MockTransport(),
+      client = await createRpcClient({ transport });
+    expect(
+      await client.getTransactionReceipt({
+        transactionHash: new Uint8Array(32),
+      }),
+    ).toBeNull();
+    expect(
+      await client.getStorage({
+        address: new Uint8Array(32),
+        key: new Uint8Array(),
+      }),
+    ).toEqual({ item: null, stateBlockHeight: 0n });
+    await expect(transport.request("getChainTip", [])).rejects.toThrow(
+      "named object",
     );
-    expect(fixedFromBase58(hash, 32)).toHaveLength(32);
-
-    const tip = await transport.request<{ height: string }>(
-      "groundhog_chainTip",
-    );
-    expect(tip.height).toBe("1");
-  });
-
-  it("returns receipt for a committed transaction", async () => {
-    const transport = new MockTransport();
-    const hash = await transport.request<string>(
-      "groundhog_sendRawTransaction",
-      ["0xabcd"],
-    );
-    const receipt = await transport.request<{
-      txHash: string;
-      height: string;
-      status: { result: string };
-      events: unknown[];
-      returnData: null;
-      abortData: null;
-      gasUsed: string;
-    }>("groundhog_getTransactionReceipt", [hash]);
-    expect(receipt).not.toBeNull();
-    expect(receipt!.txHash).toBe(hash);
-    expect(receipt!.status.result).toBe("ok");
-    expect(receipt!.events).toEqual([]);
-    expect(receipt!.gasUsed).toBe("0");
-  });
-
-  it("returns null receipt for unknown transaction", async () => {
-    const transport = new MockTransport();
-    const receipt = await transport.request("groundhog_getTransactionReceipt", [
-      "0x" + "00".repeat(32),
-    ]);
-    expect(receipt).toBeNull();
-  });
-
-  it("returns committed status for a known transaction", async () => {
-    const transport = new MockTransport();
-    const hash = await transport.request<string>(
-      "groundhog_sendRawTransaction",
-      ["0x1234"],
-    );
-    const status = await transport.request<{
-      status: string;
-      height?: string;
-    }>("groundhog_getTransactionStatus", [hash]);
-    expect(status.status).toBe("committed");
-    expect(status.height).toBe("1");
-  });
-
-  it("returns unknown status for an unknown transaction", async () => {
-    const transport = new MockTransport();
-    const status = await transport.request<{ status: string }>(
-      "groundhog_getTransactionStatus",
-      ["0x" + "ff".repeat(32)],
-    );
-    expect(status.status).toBe("unknown");
-  });
-
-  it("throws for unknown methods", async () => {
-    const transport = new MockTransport();
-    await expect(
-      transport.request("groundhog_nonExistentMethod"),
-    ).rejects.toThrow("MockTransport: method not implemented");
   });
 });

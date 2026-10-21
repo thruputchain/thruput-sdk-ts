@@ -19,11 +19,12 @@ token with `read:packages`. See [Registry auth](#registry-auth-one-time-setup).
 
 ## Usage
 
-This checkout pins RPC wire format **13.0.0**. Block queries require a compatible
+This checkout pins RPC wire format **14.0.0**. Block queries require a compatible
 RPC server and a node with the block-query index. RPC addresses, public keys,
 validator IDs and hashes use unprefixed, case-sensitive base58. Opaque payloads
 (including signed transactions, calldata, return data, storage keys, raw event
-topics and cursors) retain `0x`-prefixed hex. Actions continue to accept and return
+topics) retain `0x`-prefixed hex. Cursors are opaque strings, preserved unchanged.
+Methods accept and return
 typed byte arrays; they apply the encoding at the transport boundary.
 
 All 64-bit and wider integers
@@ -31,8 +32,8 @@ are canonical decimal strings in JSON and `bigint` in the client API, including
 heights, nanosecond timestamps, gas, mempool counts, wide server limits, and
 airdrop retry intervals. Smaller bounded fields, such as page limits and event
 sequence numbers, remain JSON numbers. Numeric JSON for wide fields is rejected,
-even when the value is small. The pinned integration runtime supports block
-queries and uses the same wire format.
+even when the value is small. Live qualification requires a matching wire-14
+CLI and runtime.
 
 Pass heights as `bigint` (for example, `42n`). The actions serialize them as
 decimal strings and validate protocol bounds. When persisting client results,
@@ -47,47 +48,30 @@ const client = await createThruputClient({
 });
 
 const tip = await client.getChainTip();
-const txHash = await client.sendTransaction(signedTransaction);
+const { transactionHash } = await client.sendTransaction({ signedTransaction });
 ```
 
 ### Read a committed block
 
 ```ts
-import { toHex0x } from "@thruputchain/client";
-
-const height = 42n;
-const block = await client.getBlockByNumber(height);
+const blockHeight = 42n;
+const block = await client.getBlockByHeight({ blockHeight });
 if (block !== null) {
-  let cursor: Uint8Array = new Uint8Array();
-  const seen = new Set<string>();
-  do {
-    const page = await client.getTransactionsByBlock({
-      height,
-      order: "ascending",
-      cursor,
-      limit: 50,
-    });
-    if (page.cursor.length !== 0) {
-      const next = toHex0x(page.cursor);
-      if (seen.has(next)) throw new Error("Repeated block pagination cursor");
-      seen.add(next);
-    }
-    console.log(page.refs); // transaction hashes and bigint heights
-    cursor = page.cursor;
-  } while (cursor.length !== 0);
+  for await (const page of client.iterateTransactionsByBlock({
+    blockHeight,
+    start: { order: "ascending" },
+    limit: 50,
+  })) {
+    console.log(page.transactions);
+  }
 }
 ```
 
-References use unsigned hash order, not execution order. Keep the height and
-opaque cursor unchanged when continuing. Omitted limits send 50; explicit limits
-must be 1–200 and must respect the endpoint's `getServerLimits()` cap. Zero is
-invalid. Coverage starts at 1 and can lag behind the chain tip; genesis metadata
-is unavailable. Block lookup returns `null` outside coverage. An empty reference
-page alone does not prove an empty block. Backend failures remain errors.
-
-Malformed or stale cursors currently return empty terminal pages. A matching
-continuation above a lagging index's tip reports unavailable; retry after that
-index catches up. Both actions accept `{ signal }` for cancellation.
+References use unsigned hash order, not execution order. The walker checks
+coverage for the target block, preserves the opaque cursor and rejects duplicate
+or out-of-order rows. Completion covers that block only. A missing block returns
+`null`; backend failures remain errors. Invalid cursors never restart the walk.
+All reads accept `{ signal }` as the final argument.
 
 Enable HTTP batching to group concurrent calls into one JSON-RPC array:
 
@@ -100,7 +84,7 @@ const client = await createThruputClient({
 
 const [tip, version] = await Promise.all([
   client.getChainTip(),
-  client.getVersion(),
+  client.getVersionInfo(),
 ]);
 ```
 
@@ -126,21 +110,24 @@ console.log(toBase58(client.network.networkHash));
 `rpcUrl`, `HttpTransport` URL, or environment configuration should update that
 value to use the stable endpoint; upgrading the package preserves overrides.
 
-Development clusters expose a typed airdrop action. It generates an
-idempotency nonce and polls pending attempts until the transfer commits:
+Development clusters expose a typed airdrop action. It generates a
+client nonce, calls the faucet once, then uses read-only status and receipt polling
+when a pending response identifies a transaction:
 
 ```ts
 const airdrop = await client.requestAirdrop({ recipient: accountAddress });
-console.log(airdrop.txHash, airdrop.rawAmount);
+console.log(airdrop.transactionHash, airdrop.rawAmount);
 ```
 
 Remote airdrops retain the faucet's per-recipient cooldown and share the
 gateway's configured aggregate quota. Localnet has no hosted cooldown, but its
 funding journal retains at most 1024 attempts per chain across `requestAirdrop`
-and `fundAccount`. It rejects new requests at capacity and keeps existing requests
-available for reconciliation. Use
-`requestAirdropAttempt` when an application needs to persist the nonce or
-control polling itself.
+and `dev_fundAccount`. It rejects new requests at capacity and keeps existing requests
+available for reconciliation. The generated nonce is not persisted. For crash
+recovery, generate and persist `clientNonce`, recipient and network hash before
+calling `requestAirdrop({ recipient, clientNonce })`. Use `requestAirdropAttempt`
+to control read-only observation yourself. Faucet errors and pending responses
+without a transaction hash stop immediately. The SDK never repeats the faucet request.
 
 The predefined clusters are `mainnet`, `devnet`, and `localnet`. Declare a
 deployment-specific cluster inline, or use `defineCluster` when the descriptor
@@ -150,7 +137,8 @@ the application must pin the protocol identity used for transaction signing.
 `devnet()` is unpinned by default; use `devnet({ networkHash })` to pin it.
 Identity is checked at connection, not continuously after network resets.
 Pass an explicit transport for custom headers or request handling. Omit
-`cluster` to use an unknown endpoint without runtime identity validation.
+`cluster` to discover an endpoint without pinning a particular network. Both forms
+validate wire 14 and advertised methods; declared capabilities must be advertised.
 
 ```ts
 const client = await createThruputClient({
@@ -184,7 +172,7 @@ import { ERC20 } from "@thruputchain/client/contracts";
 
 const balance = await ERC20.v0_1.getBalanceOf.view({
   client,
-  contract: tokenAddress,
+  address: tokenAddress,
   args: { addr: accountAddress },
 });
 
@@ -220,7 +208,7 @@ const { signal } = controller;
 const tip = await client.getChainTip({ signal });
 const balance = await ERC20.v0_1.getBalanceOf.view({
   client,
-  contract: tokenAddress,
+  address: tokenAddress,
   args: { addr: accountAddress },
   signal,
 });
@@ -246,7 +234,7 @@ target contract's behavior.
 ### Release diagnostics
 
 ```ts
-const version = await client.getVersion();
+const version = await client.getVersionInfo();
 console.log(
   version.wireFormat,
   version.releaseVersion,
@@ -254,7 +242,7 @@ console.log(
 );
 ```
 
-Release identity and bundle digest can be `null`;
+Release identity and bundle digest can be omitted;
 they help diagnose installations. Use `wireFormat` for RPC compatibility decisions.
 
 ### Read after confirmation
@@ -264,34 +252,30 @@ Use the height from a successful receipt as a freshness floor for a single read:
 ```ts
 const balance = await ERC20.v0_1.getBalanceOf.view({
   client,
-  contract: tokenAddress,
+  address: tokenAddress,
   args: { addr: accountAddress },
-  minHeight: receipt.height,
+  minStateBlockHeight: receipt.blockHeight,
 });
 ```
 
-This requires a matching RPC wire format 13.0.0 endpoint and also works with `.viewOutcome()`, bound
-views, and raw `client.view()`. The result must come from a committed snapshot at
-or above that height. An older snapshot produces `ViewHeightUnavailable`
+This requires a matching RPC wire format 14.0.0 endpoint and also works with `.viewOutcome()`, bound
+views, and raw `client.simulateInvocation()`. The result must come from a committed snapshot at
+or above that height. An older snapshot produces `stateHeightUnavailable`
 (`-32011`) with requested and observed heights. It does not undo transaction
 confirmation. The SDK does not poll, wait, or retry; your application decides how
-to handle a backend that is behind. Omit `minHeight` for an unconstrained read.
+to handle a backend that is behind. Omit `minStateBlockHeight` for an unconstrained read.
 
 ### Simulated authorization
 
-Views accept an optional protocol `authClaim`, including `account.authClaim` from
-an SDK account. It is an assumption for simulation, not verified authorization;
-no signature is needed and no writes persist. The invoked contract still runs
-its normal permission checks. Omitting the claim keeps the current default.
+Generated `.view()`, `.viewOutcome()` and `.viewRequest()` accept an optional
+protocol `AuthClaim` as `assumedAuth`, including `account.authClaim`. The descriptor
+converts it to the native typed request. Raw `simulateInvocation` accepts the
+native `RpcAssumedAuth` object. Simulation assumes authorization; it does not verify
+signatures or persist writes. Contract permission checks still run.
 
-Pass `authClaim` to `client.view`, generated or bound `.view()` / `.viewOutcome()`,
-or `.viewRequest()` for a grouped read. Each `viewBatch` entry has its own claim.
-This requires matching RPC (wire 13.0.0) and hogd builds with view auth support.
-
-`caller` is separate: it supplies a parent-contract address. To simulate a root
-invocation such as `DefaultWallet.execute`, use the account address as `contract`,
-pass its matching `authClaim`, and omit `caller`. Its child calls share state
-through normal execution. Different `viewBatch` entries remain independent.
+`caller` supplies a parent address. To simulate a root DefaultWallet invocation,
+use the wallet's `address`, supply its matching `assumedAuth`, and omit `caller`.
+Batch entries are independent invocations against the same state snapshot.
 
 ### Reads at one snapshot
 
@@ -300,88 +284,105 @@ Use `readViews` when several contract reads must use the same committed state:
 ```ts
 const snapshot = await client.readViews({
   calls: [
-    ERC20.v0_1.totalSupply.viewRequest({ contract: tokenAddress }),
+    ERC20.v0_1.totalSupply.viewRequest({ address: tokenAddress }),
     ERC20.v0_1.getBalanceOf.viewRequest({
-      contract: tokenAddress,
+      address: tokenAddress,
       args: { addr: accountAddress },
     }),
   ],
-  minHeight: receipt.height,
+  minStateBlockHeight: receipt.blockHeight,
 });
 
 const [supply, balance] = snapshot.results;
 if (supply.kind === "return" && balance.kind === "return") {
-  console.log(snapshot.height, supply.value, balance.value);
+  console.log(snapshot.stateBlockHeight, supply.value, balance.value);
 }
 ```
 
 Each tuple position retains its generated return and exception types. Results are
 `return`, `abort`, or `fault`, with events. Simulated writes stay within each call.
-Omit `minHeight` if no freshness floor is needed. If the selected snapshot is
-behind, the server returns `ViewHeightUnavailable` with requested and observed
+Omit `minStateBlockHeight` if no freshness floor is needed. If the selected snapshot is
+behind, the server returns `stateHeightUnavailable` with requested and observed
 heights. The request neither waits for a block nor forces a refresh; your
 application decides whether and when to retry.
 
-This requires `groundhog_viewBatch` (RPC wire format 13.0.0). Existing generated
+This requires `simulateInvocations` (RPC wire format 14.0.0). Existing generated
 bindings gain `viewRequest` through the runtime. The low-level API is
-`client.viewBatch({ calls, minHeight })`. Neither API splits calls or falls back
+`client.simulateInvocations({ invocations, minStateBlockHeight })`. Neither API splits calls or falls back
 to separate views. HTTP transport batching alone does not share snapshots.
 
-Operators set batch limits; inspect `(await client.getServerLimits()).viewBatch`
+Operators set batch limits; inspect `(await client.getServerLimits()).simulationBatch`
 when you need the endpoint's policy. Per-call view and transport limits also
 apply. The server retries an abandoned snapshot as a whole group, at most three
 times. Its configured deadline bounds the response wait, but running backend
 work can outlive it. Pass `{ signal }` as the second argument to cancel the
 client's wait.
 
-### Event pages
-
-Use a generated event descriptor to fetch one page with typed topics and fields:
+### Event and sender history
 
 ```ts
 import { groundhog_erc20_if } from "@thruputchain/client/contracts";
-
 const { TransferEvent } = groundhog_erc20_if.v0_1.events;
 const page = await client.getContractEvents({
   event: TransferEvent,
-  contractAddresses: [tokenAddress],
+  addresses: [tokenAddress],
   topics: { to: accountAddress },
+  start: { order: "ascending", anchor: { kind: "atBeginning" } },
   limit: 20,
 });
-
 for (const transfer of page.events) {
-  console.log(transfer.txHash, transfer.blockHeight, transfer.fields.amount);
+  console.log(
+    transfer.transactionHash,
+    transfer.blockHeight,
+    transfer.fields.amount,
+  );
 }
 ```
 
-This makes one RPC request. Pass `page.cursor` with the same filters when the user
-requests another page. The result retains `latestBlock`, `oldestBlock`, and each
-event's emitter and sequence number. Existing generated bindings work unchanged.
+This makes one request. To continue, repeat filters and pass `cursor: page.nextCursor`
+without `start`. Stop at `nextCursor: null`; an empty page can still have a cursor.
+Typed event filters convert address topics to the token's fixed-byte representation.
+`getTransactionsByRootAddress` returns transactions sent by the root address;
+incoming transfers use the token's Transfer event.
 
-For a background scan, the raw-page iterator handles cursor advancement:
+`iterateEventPages` and `iterateTransactionsByRootAddress` start an explicit range
+and retain its initial upper watermark W. They reject regressed coverage, duplicate
+identities, out-of-order rows and cursor cycles. No retries, prefetching or silent
+restart occur. Cursor-only continuation remains available on the raw RPC methods.
+
+A range generator returns `HistoryCompletion` only when resumed after the terminal
+page has been processed. For ascending walks, `completedThroughBlockHeight` is W;
+it is absent if the starting height was above W. Descending completion is not an
+ingestion checkpoint. Persist processed rows and the checkpoint together. Start the
+next ascending range inclusively at W and deduplicate the boundary. Page bounds
+are serving availability, not processed checkpoints. No cross-reset durability is
+implied. Breaking or cancelling a walk produces no completed checkpoint.
+
+`for await` discards a generator's return value. Use `.next()` when you need
+`HistoryCompletion`; `processPage` below is your application's durable processing:
 
 ```ts
-const query = {
-  filters: [TransferEvent.filter({ contractAddresses: [tokenAddress] })],
-  limit: 200,
-};
-for await (const page of client.iterateEventPages(query, { signal })) {
-  await processPage(page);
-  if (shouldPause()) break;
+const pages = client.iterateEventPages({
+  filters: [{ addresses: [tokenAddress] }],
+  start: {
+    order: "ascending",
+    anchor: { kind: "atHeight", blockHeight: fromHeight },
+  },
+});
+let completion;
+for (;;) {
+  const step = await pages.next();
+  if (step.done) {
+    completion = step.value;
+    break;
+  }
+  await processPage(step.value);
 }
 ```
 
-The iterator fetches on demand, follows empty pages with continuation cursors,
-and stops at an empty cursor. It rejects repeated cursors and propagates RPC
-errors. It does not prefetch, retry, subscribe, or persist checkpoints. Applications
-own processing and history-coverage checks; `latestBlock` is the indexer's head,
-not proof that the current page has covered every event through that block.
-
-A cursor continues one bounded historical walk, not future blocks. For ascending
-ingestion, start a new ascending walk with an empty cursor at the last stored
-row's height and deduplicate that block. Save rows and progress together. Refresh
-descending history from `anchor: "end"` with an empty cursor, not its oldest row.
-See the [pagination and restart walkthrough](https://docs.thruput.network/tutorials/add-events-to-a-contract/#resume-without-missing-events).
+Walkers retain seen identities and cursors, so memory grows with rows and pages.
+Start near your saved checkpoint; use per-block transaction walks for large
+transaction backfills. A page limit bounds each response, not the whole walk.
 
 Local applications own their signing keys. A schema-4 local manifest contains
 public allocations and a public faucet address; it cannot produce a signer.
@@ -416,9 +417,6 @@ authorizes retries. Transaction evidence is compared with the requested hash.
 Malformed HTTP reply envelopes throw `RpcResponseError` with the raw reply.
 `refreshDiscovery()` performs only discovery reads and never replays writes.
 
-The composed wallet and contract workflows below are still being migrated.
-This intermediate checkout is not a publishable SDK release.
-
 ## Wallet clients
 
 A wallet client binds account authorization and signers to an existing client:
@@ -441,9 +439,8 @@ await wallet.requestAirdrop();
 const balance = await wallet.getBalance();
 ```
 
-For local funding with an explicit raw amount, use the standalone `fundAccount`
-action. Persist the request, network hash and public faucet address before
-sending; retry the same nonce after an uncertain response. The response carries
+For local funding with an explicit raw amount, call `client.dev_fundAccount` once. Persist the request, network hash and public
+faucet address before sending. An uncertain response does not authorize a repeat. The response carries
 the admitted hash and exact signed bytes. Wait for a receipt to learn execution.
 `requestAirdrop` retains its fixed amount and hosted behavior.
 
@@ -535,7 +532,9 @@ const transaction = await wallet.prepareTransaction({
   expiryBlocks: 100n,
 });
 const signed = await wallet.signTransaction(transaction);
-const submittedHash = await wallet.sendTransaction(signed);
+const { transactionHash: submittedHash } = await wallet.sendTransaction({
+  signedTransaction: serializeSignedTransaction(signed),
+});
 
 const txHash = await wallet.sendInvocation({ invocation: rootInvocation });
 const receipt = await wallet.waitForTransactionReceipt(txHash);
@@ -606,15 +605,18 @@ its storage entry, and `clearBalance()` deletes the caller's empty balance
 entry. Allowance changes emit `AllowanceChangeEvent` with the signed
 `difference`; the earlier `ApprovalEvent` is gone with interface 0.1.41.
 
-A receipt proves commitment; inspect its execution result. A `committed` status
-may omit `height` until the indexer records it. `invalid` reports rejection,
-while `recentFailure` is an advisory failed attempt. Receipt polling throws
-`TransactionProcessingError` for `retry` or `dropped`, preserving the hash,
-status, and scheduler error. `retry` permits resubmitting the same signed
-transaction; `dropped` requires modifying it. The observer never resubmits.
-A timeout or cancellation stops observation without proving the outcome.
-Preserve signed evidence and resume observing the original hash instead of
-automatically re-signing.
+A receipt proves commitment; inspect its `execution.result`. A `committed`
+status always includes `blockHeight`, even when the receipt is not indexed yet.
+`pending`, `retry`, and `dropped` can include a best-effort `recentFailure`
+diagnostic with an `attemptBlockHeight` and `cause`. It may describe an earlier
+attempt, not the scheduler's current attempt. The standalone `recentFailure`
+status reports that diagnostic when the scheduler has no retained status.
+
+The observer reports statuses through `onStatus` and retains them on timeout.
+Once commitment is observed, later scheduler statuses cannot erase it. Failed
+attempts, timeout, and cancellation do not prove nonexecution or permit automatic
+resubmission. Preserve signed evidence and resume observing the original hash
+instead of automatically re-signing.
 
 ## Signed operations
 
@@ -689,7 +691,7 @@ helpers, generated standard contracts, signers, and standalone actions.
 - `src/signers/` — `Signer` interface, `PrivateKeySigner` (ed25519 via `@noble/ed25519`), and `MlDsa65Signer` (ML-DSA-65 via `@noble/post-quantum`).
 - `src/signedOp/` — off-chain signing of `SignedOp` operations: preimage construction and payload binding, plus the generated `SignedOp` binding re-exported from `src/contracts/signed_op.ts`.
 - `src/types/rpc.ts` — typed RPC request/response shapes.
-- `specs/openrpc.json` — pinned Thruput OpenRPC spec; `scripts/regen-openrpc.sh` refreshes it. After a regen, `npm test` (specifically `src/actions/contract.test.ts`) names any TS action whose serialized request no longer matches the new spec.
+- `specs/native-openrpc.json` — Rust-owned native OpenRPC snapshot; `scripts/regen-openrpc.sh` refreshes it with recorded provenance. `npm run rpc:check` verifies generated codecs and types; `src/rpc/client.test.ts` checks every method’s named params and results.
 - `docs/api/` — generated TypeDoc output from `npm run docs` (ignored by git; see [API docs](#api-docs)).
 - `Caddyfile` and `Staticfile` — configure the private TypeDoc host that serves `docs/api/`; they are not part of the published package.
 
@@ -818,11 +820,15 @@ keys, network hashes and transaction hashes use case-sensitive, unprefixed
 base58. Transaction and signed-transaction XDR remain canonical `0x` hex,
 with binary signatures intact.
 
-Run on Linux with Node 24 and the published CLI version pinned in
-[`scripts/integration-versions.json`](scripts/integration-versions.json) on `PATH`.
-The harness installs the pinned runtime into an isolated cache.
+Run on Linux with Node 24 and explicit matching native CLI/runtime builds.
+The published artifact pins in
+[`scripts/integration-versions.json`](scripts/integration-versions.json) must be
+updated after native release qualification; their current wire-13 releases do
+not serve this API.
 
 ```sh
+THRUPUT_CLI=/absolute/path/to/native-thruput \
+THRUPUT_DEVNODE_BINARY=/absolute/path/to/matching-hog-devnode \
 npm run test:integration
 ```
 
@@ -845,15 +851,16 @@ the normal integration command always starts its own node and runs its suite.
 
 The transfer workflow also checks grouped reads and view freshness, an
 authenticated wallet simulation, and recovery of admitted local-funding bytes
-after a lost response. The pinned CLI 0.32.0 and hog-devnode 0.1.31-rc.10 use
-wire 13.0.0 with base58 identifiers and ML-DSA-65 pubkey accounts.
+after a lost response. This profile requires wire 14.0.0, base58 identifiers
+and ML-DSA-65 pubkey accounts.
 
-An explicit CLI overrides the release pin; tests verify that the RPC server
-reports that executable's version. The expected wire version defaults to
-`scripts/integration-versions.json`; set `THRUPUT_EXPECTED_WIRE_FORMAT` when
-testing a source build with a different wire version.
-An explicit devnode skips runtime installation. Set `HOGD_PROTOCOL_OVERRIDE`
-only when qualifying a compatible runtime with a different handshake token.
+An explicit `THRUPUT_CLI` still must match the configured version and source pin.
+The harness verifies the serving RPC version, wire version and source identity.
+For an unpinned local candidate, set `THRUPUT_ALLOW_LOCAL_CANDIDATE=1` together
+with `THRUPUT_CLI`. Runtime, wire and protocol overrides also require this mode;
+CI rejects them. An explicit devnode skips runtime installation. Use
+`HOGD_PROTOCOL_OVERRIDE` only for a compatible runtime with a different handshake
+token. Qualification logs record these deviations.
 
 The harness isolates configuration and state, stops its child processes, and
 retains logs and node state on failure at the printed temporary path. Set
@@ -872,7 +879,8 @@ THRUPUT_RUNTIME_MANIFEST=/absolute/path/to/runtime-manifest.json \
 node --test --test-concurrency=1 tests/integration/live-node.test.mjs
 ```
 
-The tests do not perform capability discovery or fall back on unsupported runtimes.
+Client creation checks network identity, wire version and supported methods.
+The tests fail on unsupported runtimes; they do not fall back.
 
 Block-query qualification requires the same matching source builds.
 It starts an isolated interval-driven node, submits known
@@ -884,17 +892,17 @@ npm run test:integration:blocks
 ```
 
 Use the same optional `HOGD_PROTOCOL_OVERRIDE` rule as above. This profile requires
-wire 13.0.0 and fails on unsupported nodes. Both profiles run in CI; their release
-pins remain a qualification blocker for this branch. See
-`scripts/regen-openrpc.sh` for the exact published schema-generator version.
-Its default install requires private Cargo registry
-access. `THRUPUT_OPENRPC_GENERATOR` can select a compatible local generator.
+wire 14.0.0 and fails on unsupported nodes. The final native tools/runtime artifact
+set must pass both profiles before this SDK is released. Unit tests do not qualify
+a live node. `scripts/regen-openrpc.sh` imports a reviewed Rust-generated wire-14
+snapshot or generator via explicit source path and commit; it does not install an
+older released generator.
 
 For local funding recovery, retain the original request before sending it.
-A `LocalFundingUnresolved` RPC error preserves the original base58 `txHash` and
-hex `signedTransaction` in `JsonRpcError.data`. These are transaction
-evidence, not confirmation. Inspect that hash and retry the same request; do not
-replace its nonce or amount while the outcome is uncertain.
+A known `localFundingUnresolved` error can preserve `transactionHash` and exact
+`signedTransaction` evidence. Inspect the hash through read-only status/receipt
+calls. Neither an uncertain response nor a later rejection authorizes a new nonce,
+replacement transaction or automatic funding repeat.
 
 ## Publishing the renamed packages
 

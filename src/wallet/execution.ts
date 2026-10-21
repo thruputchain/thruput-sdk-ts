@@ -1,9 +1,16 @@
+import { codec, deserialize } from "@thruputchain/protocol";
+import { hashSignedTransaction } from "../derivation/transactionHash.js";
+import { RpcCompatibilityError } from "../rpc/client.js";
 import {
-  ExecResult,
-  gasAmount,
-  type GasAmount,
-  type SHA256Hash,
-} from "@thruputchain/protocol";
+  RpcRequestValidationError,
+  UnsupportedRpcValue,
+} from "../rpc/codec.js";
+import { NativeRpcError } from "../rpc/errorReader.js";
+import {
+  TransactionReceiptObservationError,
+  type KnownCommitment,
+} from "../actions/public/waitForTransactionReceipt.js";
+import { gasAmount, type GasAmount } from "@thruputchain/protocol";
 import type { CoreThruputClient } from "../client.js";
 import type { TransactionReceipt } from "../types/rpc.js";
 import type { WaitForTransactionReceiptOptions } from "../actions/public/waitForTransactionReceipt.js";
@@ -12,82 +19,217 @@ import {
   defaultWalletAdapter,
   type WalletInvocationAdapter,
 } from "./invocationAdapter.js";
+import { beforeDeadline, validateTimer } from "../actions/deadline.js";
 import { toBase58 } from "../encoding.js";
+import type { RpcSendTransactionResult } from "../rpc/generated.js";
 
-/** A committed execution failure, retaining the original receipt. */
+/** A committed execution failure, retaining the complete native receipt. */
 export class TransactionExecutionError extends Error {
-  constructor(readonly receipt: TransactionReceipt) {
+  constructor(
+    readonly receipt: TransactionReceipt,
+    readonly submission?: SubmissionEvidence,
+  ) {
     super(
-      `Transaction ${toBase58(receipt.txHash)} failed with ${ExecResult[receipt.execResult] ?? receipt.execResult}`,
+      receipt.execution instanceof UnsupportedRpcValue
+        ? `Transaction ${toBase58(receipt.transactionHash)} has an unsupported execution outcome`
+        : `Transaction ${toBase58(receipt.transactionHash)} execution failed (${receipt.execution.result})`,
     );
     this.name = "TransactionExecutionError";
   }
 }
-
-/** Require successful execution without interpreting the root's return bytes. */
-export function assertTransactionSuccess(receipt: TransactionReceipt): void {
-  if (receipt.execResult !== ExecResult.ExecResultOK)
-    throw new TransactionExecutionError(receipt);
+/** A future execution variant is unsupported, never inferred to be success or failure. */
+export class UnsupportedTransactionOutcomeError extends TransactionExecutionError {
+  constructor(receipt: TransactionReceipt, submission?: SubmissionEvidence) {
+    super(receipt, submission);
+    this.name = "UnsupportedTransactionOutcomeError";
+  }
+}
+export function assertTransactionSuccess(
+  receipt: TransactionReceipt,
+  submission?: SubmissionEvidence,
+): asserts receipt is TransactionReceipt & {
+  execution: { result: "return"; returnData: Uint8Array };
+} {
+  if (receipt.execution instanceof UnsupportedRpcValue)
+    throw new UnsupportedTransactionOutcomeError(receipt, submission);
+  if (receipt.execution.result !== "return")
+    throw new TransactionExecutionError(receipt, submission);
 }
 
-/** A committed transaction and its original root receipt. */
+/** A submit response that does not establish the currently supported admission outcome. */
+export class UnsupportedTransactionAdmissionError extends Error {
+  constructor(readonly response: RpcSendTransactionResult) {
+    super("Transaction submission returned an unsupported admission outcome");
+    this.name = "UnsupportedTransactionAdmissionError";
+  }
+}
+
+/** Keep low-level future values intact, but never project them into an admitted hash. */
+export function assertTransactionAdmission(
+  response: RpcSendTransactionResult,
+): void {
+  if (response.admission !== "accepted")
+    throw new UnsupportedTransactionAdmissionError(response);
+}
+export interface SubmissionEvidence {
+  readonly signedTransaction: Uint8Array;
+  readonly transactionHash: Uint8Array;
+  readonly networkHash: Uint8Array;
+}
+/** Snapshot approved bytes before submission; accessor copies protect the retained record. */
+export function createSubmissionEvidence(
+  bytes: Uint8Array,
+  network: Uint8Array,
+): SubmissionEvidence {
+  const signedTransaction = bytes.slice();
+  const networkHash = network.slice();
+  if (networkHash.length !== 32)
+    throw new RangeError("networkHash must contain 32 bytes");
+  const transactionHash = hashSignedTransaction(
+    deserialize(signedTransaction, codec.SignedTransaction),
+  );
+  return Object.freeze({
+    get signedTransaction() {
+      return signedTransaction.slice();
+    },
+    get transactionHash() {
+      return transactionHash.slice();
+    },
+    get networkHash() {
+      return networkHash.slice();
+    },
+  });
+}
 export interface ExecutionResult {
-  txHash: SHA256Hash;
+  transactionHash: Uint8Array;
   receipt: TransactionReceipt;
+  submission?: SubmissionEvidence;
 }
-
-/** Observation failed after submission was attempted; retain the hash for public recovery. */
+/** Submission or observation stopped, preserving exact approved bytes and commitment. */
 export class TransactionObservationError extends Error {
   constructor(
-    readonly txHash: SHA256Hash,
+    readonly submission: SubmissionEvidence,
     cause: unknown,
     readonly submissionCause?: unknown,
+    readonly knownCommitment?: KnownCommitment,
+    readonly phase:
+      | "beforeSubmission"
+      | "submission"
+      | "observation" = "observation",
   ) {
     super(
-      `Could not observe transaction ${toBase58(txHash)}: ${cause instanceof Error ? cause.message : String(cause)}`,
+      `Could not complete transaction ${toBase58(submission.transactionHash)}`,
       { cause },
     );
     this.name = "TransactionObservationError";
   }
+  get transactionHash(): Uint8Array {
+    return this.submission.transactionHash;
+  }
 }
-
-/**
- * Submission may have reached the node; recover by observing its known hash without resubmitting.
- * When supplied, `wasDispatched` must track the actual handoff to the submitter.
- * A failure before that handoff is propagated immediately. Without this signal,
- * submission failures are conservatively treated as potentially broadcast.
- */
+/** Submit once, then reconcile only by reads. No path replaces or repeats signed bytes. */
 export async function submitAndObserve(
   client: Pick<CoreThruputClient, "waitForTransactionReceipt">,
-  txHash: SHA256Hash,
-  submit: () => Promise<unknown>,
+  evidence: SubmissionEvidence,
+  submit: (signal: AbortSignal) => Promise<void>,
   options?: WaitForTransactionReceiptOptions,
   wasDispatched?: () => boolean,
 ): Promise<ExecutionResult> {
+  const submission = createSubmissionEvidence(
+    evidence.signedTransaction,
+    evidence.networkHash,
+  );
+  const timeoutMs = options?.timeoutMs ?? 30000;
+  validateTimer(timeoutMs, "timeoutMs");
+  const deadline = performance.now() + timeoutMs;
   let submissionCause: unknown;
   try {
-    await submit();
+    options?.signal?.throwIfAborted();
+    if (timeoutMs === 0)
+      throw new Error("Transaction submission timed out before dispatch");
   } catch (cause) {
-    if (wasDispatched?.() === false) throw cause;
-    submissionCause = cause;
+    throw new TransactionObservationError(
+      submission,
+      cause,
+      undefined,
+      undefined,
+      "beforeSubmission",
+    );
   }
   try {
-    const receipt = await client.waitForTransactionReceipt(txHash, options);
-    return { txHash: receipt.txHash, receipt };
+    await beforeDeadline(
+      submit,
+      deadline,
+      options?.signal,
+      () => new Error("Transaction submission timed out"),
+    );
   } catch (cause) {
-    throw new TransactionObservationError(txHash, cause, submissionCause);
+    if (
+      wasDispatched?.() === false ||
+      cause instanceof RpcRequestValidationError ||
+      cause instanceof RpcCompatibilityError
+    )
+      throw new TransactionObservationError(
+        submission,
+        cause,
+        undefined,
+        undefined,
+        "beforeSubmission",
+      );
+    if (
+      cause instanceof NativeRpcError &&
+      cause.decoded.classification === "known" &&
+      (cause.decoded.data.kind === "invalidParams" ||
+        cause.decoded.data.kind === "transactionInvalid" ||
+        cause.decoded.data.kind === "transactionRejected")
+    )
+      throw new TransactionObservationError(
+        submission,
+        cause,
+        undefined,
+        undefined,
+        "submission",
+      );
+    submissionCause = cause;
+    if (options?.signal?.aborted || performance.now() >= deadline)
+      throw new TransactionObservationError(
+        submission,
+        cause,
+        submissionCause,
+        undefined,
+        "submission",
+      );
+  }
+  try {
+    const receipt = await client.waitForTransactionReceipt(
+      submission.transactionHash,
+      {
+        ...options,
+        expectedNetworkHash: submission.networkHash,
+        timeoutMs: Math.max(0, deadline - performance.now()),
+      },
+    );
+    return { transactionHash: receipt.transactionHash, receipt, submission };
+  } catch (cause) {
+    throw new TransactionObservationError(
+      submission,
+      cause,
+      submissionCause,
+      cause instanceof TransactionReceiptObservationError
+        ? cause.knownCommitment
+        : undefined,
+    );
   }
 }
-
-/** Wait for commitment and require successful execution. */
+/** Wait for a committed receipt, then require execution success. */
 export async function waitForExecution(
   client: Pick<CoreThruputClient, "waitForTransactionReceipt">,
-  hash: SHA256Hash,
+  hash: Uint8Array,
   options?: WaitForTransactionReceiptOptions,
 ): Promise<ExecutionResult> {
   const receipt = await client.waitForTransactionReceipt(hash, options);
   assertTransactionSuccess(receipt);
-  return { txHash: receipt.txHash, receipt };
+  return { transactionHash: receipt.transactionHash, receipt };
 }
 
 /** Ordered result types for a tuple of calls. */
@@ -106,12 +248,14 @@ export function decodeExecution<T extends readonly ContractCall[]>(
   receipt: TransactionReceipt,
   calls: T,
   adapter: WalletInvocationAdapter = defaultWalletAdapter,
+  submission?: SubmissionEvidence,
 ): CallResults<T> {
   // Even one child call can fail in the wallet root; its abort bytes are not a child receipt.
-  assertTransactionSuccess(receipt);
+  assertTransactionSuccess(receipt, submission);
   try {
     const buffers = adapter.decodeExecutionReturns?.(receipt);
-    if (buffers == null) throw new ExecutionReturnUnavailableError(receipt);
+    if (buffers == null)
+      throw new ExecutionReturnUnavailableError(receipt, submission);
     if (buffers.length !== calls.length)
       throw new Error(
         `Returned ${buffers.length} child results; expected ${calls.length}`,
@@ -121,7 +265,7 @@ export function decodeExecution<T extends readonly ContractCall[]>(
     ) as CallResults<T>;
   } catch (cause) {
     if (cause instanceof ExecutionReturnUnavailableError) throw cause;
-    throw new ExecutionDecodeError(receipt, cause);
+    throw new ExecutionDecodeError(receipt, cause, submission);
   }
 }
 
@@ -130,9 +274,10 @@ export class ExecutionDecodeError extends Error {
   constructor(
     readonly receipt: TransactionReceipt,
     cause: unknown,
+    readonly submission?: SubmissionEvidence,
   ) {
     super(
-      `Transaction ${toBase58(receipt.txHash)} committed, but result decoding failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+      `Transaction ${toBase58(receipt.transactionHash)} committed, but result decoding failed: ${cause instanceof Error ? cause.message : String(cause)}`,
       { cause },
     );
     this.name = "ExecutionDecodeError";
@@ -141,9 +286,12 @@ export class ExecutionDecodeError extends Error {
 
 /** Execution succeeded, but this wallet does not preserve child return buffers. */
 export class ExecutionReturnUnavailableError extends Error {
-  constructor(readonly receipt: TransactionReceipt) {
+  constructor(
+    readonly receipt: TransactionReceipt,
+    readonly submission?: SubmissionEvidence,
+  ) {
     super(
-      `Transaction ${toBase58(receipt.txHash)} committed successfully, but its wallet does not expose child return data`,
+      `Transaction ${toBase58(receipt.transactionHash)} committed successfully, but its wallet does not expose child return data`,
     );
     this.name = "ExecutionReturnUnavailableError";
   }

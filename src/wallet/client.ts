@@ -1,4 +1,6 @@
 import {
+  codec,
+  serialize,
   networkHash as toNetworkHash,
   sha256Hash,
   type ContractAddress,
@@ -34,14 +36,17 @@ import type {
 } from "@thruputchain/protocol";
 import {
   submitAndObserve,
+  createSubmissionEvidence,
+  TransactionObservationError,
+  type SubmissionEvidence,
   assertTransactionSuccess,
+  assertTransactionAdmission,
   decodeExecution,
   type CallResults,
   type ExecutionResult,
 } from "./execution.js";
 import type { ContractCall } from "../contract/method.js";
 import type { ExecuteCallsRequest } from "./providerClient.js";
-import { hashSignedTransaction } from "../derivation/transactionHash.js";
 import type { WaitForTransactionReceiptOptions } from "../actions/public/waitForTransactionReceipt.js";
 import {
   deploymentRequest,
@@ -77,7 +82,7 @@ export type WalletRequestAirdropOptions = Omit<
 export interface WalletActions<TAccount extends WalletAccount = WalletAccount> {
   readonly account: TAccount;
   getBalance(
-    address?: ContractAddress,
+    request?: { address?: Uint8Array },
     options?: TransportRequestOptions,
   ): Promise<BalanceResponse>;
   prepareTransaction(request: PrepareTransactionRequest): Promise<Transaction>;
@@ -92,7 +97,7 @@ export interface WalletActions<TAccount extends WalletAccount = WalletAccount> {
   deployContract(
     deployment: ContractDeployment,
     options: DeploymentOptions,
-  ): Promise<{ txHash: SHA256Hash; address: ContractAddress }>;
+  ): Promise<{ transactionHash: SHA256Hash; address: ContractAddress }>;
   /** Deploy, wait for success and verify the returned address. */
   deployContractAndWait(
     deployment: ContractDeployment,
@@ -160,7 +165,7 @@ export type ExecutableWalletClient<
 
 /** Signing-network input inferred from whether a client has validated identity. */
 export type WalletNetworkOptions<TClient extends CoreThruputClient> =
-  TClient extends { readonly network: { readonly networkHash: NetworkHash } }
+  TClient extends { readonly network: { readonly networkHash: Uint8Array } }
     ? { readonly networkHash?: never }
     : {
         /** Signing network required when the client has no validated identity. */
@@ -176,6 +181,9 @@ export function createWalletClient<
   options: {
     readonly client: TClient;
     readonly account: TAccount;
+    readonly onSigned?: (
+      submission: SubmissionEvidence,
+    ) => void | Promise<void>;
     readonly invocationAdapter: WalletInvocationAdapter<TRequest>;
   } & WalletNetworkOptions<TClient>,
 ): ExecutableWalletClient<TClient, TAccount, TRequest>;
@@ -186,6 +194,9 @@ export function createWalletClient<
   options: {
     readonly client: TClient;
     readonly account: TAccount;
+    readonly onSigned?: (
+      submission: SubmissionEvidence,
+    ) => void | Promise<void>;
     readonly invocationAdapter?: undefined;
   } & WalletNetworkOptions<TClient>,
 ): ExecutableWalletClient<TClient, TAccount>;
@@ -196,6 +207,9 @@ export function createWalletClient<
   options: {
     readonly client: TClient;
     readonly account: TAccount;
+    readonly onSigned?: (
+      submission: SubmissionEvidence,
+    ) => void | Promise<void>;
     readonly invocationAdapter?: undefined;
   } & WalletNetworkOptions<TClient>,
 ): WalletClient<TClient, TAccount>;
@@ -206,6 +220,9 @@ export function createWalletClient<
   options: {
     readonly client: TClient;
     readonly account: TAccount;
+    readonly onSigned?: (
+      submission: SubmissionEvidence,
+    ) => void | Promise<void>;
     readonly invocationAdapter?: undefined;
   } & WalletNetworkOptions<TClient>,
 ): WalletClient<TClient, TAccount>;
@@ -216,19 +233,24 @@ export function createWalletClient<
   options: {
     readonly client: TClient;
     readonly account: TAccount;
+    readonly onSigned?: (
+      submission: SubmissionEvidence,
+    ) => void | Promise<void>;
     readonly invocationAdapter?: WalletInvocationAdapter<never>;
   } & { readonly networkHash?: NetworkHash },
 ):
   | WalletClient<TClient, TAccount>
   | ExecutableWalletClient<TClient, TAccount, never> {
-  const { client, account } = options;
+  const { client, account, onSigned } = options;
   const sourceNetworkHash =
-    getConnectedNetworkHash(client) ?? options.networkHash;
-  if (sourceNetworkHash === undefined) {
-    throw new Error(
-      "Wallet clients require a validated client or an explicit networkHash",
-    );
-  }
+    options.networkHash ?? client.discovery.network.networkHash;
+  if (
+    sourceNetworkHash.length !== 32 ||
+    sourceNetworkHash.some(
+      (v, i) => v !== client.discovery.network.networkHash[i],
+    )
+  )
+    throw new Error("Wallet signing network does not match endpoint discovery");
   const signingNetworkHash = toNetworkHash(
     sha256Hash(new Uint8Array(sourceNetworkHash)),
   );
@@ -252,14 +274,19 @@ export function createWalletClient<
       : undefined;
   const walletActions: WalletActions<TAccount> = {
     account,
-    getBalance: (address = account.address, options) =>
-      getBalance(address, options),
+    getBalance: (request = {}, options) =>
+      getBalance(
+        { ...request, address: request.address ?? account.address },
+        options,
+      ),
     prepareTransaction: (request) =>
       prepareTransaction(client, account, request),
     signTransaction: (transaction) =>
       signWalletTransaction(account, transaction, signingNetworkHash),
     sendInvocation: (request) =>
-      sendInvocation(client, account, signingNetworkHash, request),
+      sendInvocation(client, account, signingNetworkHash, request, {
+        onSigned: onSigned,
+      }),
     prepareDeployment: (deployment, options) =>
       prepareTransaction(
         client,
@@ -280,23 +307,31 @@ export function createWalletClient<
       );
       const address = deployment.address.slice() as ContractAddress;
       return {
-        txHash: await sendInvocation(
+        transactionHash: await sendInvocation(
           client,
           account,
           signingNetworkHash,
           request,
+          { onSigned: onSigned },
         ),
         address,
       };
     },
     deployContractAndWait: async (deployment, options, wait) => {
       const adapter = requireDeploymentAdapter();
+      if (!adapter.decodeDeploymentReceipt)
+        throw new Error("Wallet adapter does not support deployment decoding");
       const address = deployment.address.slice() as ContractAddress;
       const result = await sendAndObserve(
         deploymentRequest(deployment, account.address, options, adapter),
         wait,
       );
-      decodeDeployment(result.receipt, { ...deployment, address }, adapter);
+      decodeDeployment(
+        result.receipt,
+        { ...deployment, address },
+        adapter,
+        result.submission,
+      );
       return { ...result, address };
     },
   };
@@ -324,17 +359,45 @@ export function createWalletClient<
     wait?: WaitForTransactionReceiptOptions,
   ): Promise<ExecutionResult> {
     wait?.signal?.throwIfAborted();
+    client.requireMethods([
+      "getChainTip",
+      "sendTransaction",
+      "getTransactionReceipt",
+      "getTransactionStatus",
+      "getNetworkInfo",
+    ]);
     const transaction = await prepareTransaction(client, account, request);
     const signed = await signWalletTransaction(
       account,
       transaction,
       signingNetworkHash,
     );
-    wait?.signal?.throwIfAborted();
+    const evidence = createSubmissionEvidence(
+      serialize(signed, codec.SignedTransaction),
+      signingNetworkHash,
+    );
+    try {
+      await onSigned?.(evidence);
+      wait?.signal?.throwIfAborted();
+    } catch (cause) {
+      throw new TransactionObservationError(
+        evidence,
+        cause,
+        undefined,
+        undefined,
+        "beforeSubmission",
+      );
+    }
     return submitAndObserve(
       client,
-      hashSignedTransaction(signed),
-      () => client.sendTransaction(signed),
+      evidence,
+      async (signal) => {
+        const response = await client.sendTransaction(
+          { signedTransaction: evidence.signedTransaction },
+          { signal },
+        );
+        assertTransactionAdmission(response);
+      },
       { ...wait, expectedNetworkHash: signingNetworkHash },
     );
   }
@@ -373,6 +436,7 @@ export function createWalletClient<
               result.receipt,
               calls,
               requireDeploymentAdapter(),
+              result.submission,
             ) as CallResults<T>,
           };
         },
@@ -385,13 +449,19 @@ export function createWalletClient<
             ),
           }),
         execute: (request: PrepareExecutionRequest) =>
-          sendInvocation(client, account, signingNetworkHash, {
-            ...request,
-            invocation: invocationAdapter.createRootInvocation(
-              account.address,
-              request as never,
-            ),
-          }),
+          sendInvocation(
+            client,
+            account,
+            signingNetworkHash,
+            {
+              ...request,
+              invocation: invocationAdapter.createRootInvocation(
+                account.address,
+                request as never,
+              ),
+            },
+            { onSigned },
+          ),
         executeAndWait: async (
           request: PrepareExecutionRequest,
           wait?: WaitForTransactionReceiptOptions,
@@ -406,30 +476,18 @@ export function createWalletClient<
             },
             wait,
           );
-          assertTransactionSuccess(result.receipt);
+          assertTransactionSuccess(result.receipt, result.submission);
           return result;
         },
       }
     : {};
 
   const wallet = Object.assign(
-    {},
-    client,
+    Object.defineProperties({}, Object.getOwnPropertyDescriptors(client)),
     walletActions,
     airdrop,
     execution,
   ) as WalletClient<TClient, TAccount>;
   Object.defineProperty(wallet, walletClientMarker, { value: true });
   return wallet;
-}
-
-function getConnectedNetworkHash(
-  client: CoreThruputClient,
-): NetworkHash | undefined {
-  if (!("network" in client)) return undefined;
-  const network = client.network;
-  if (!network || typeof network !== "object" || !("networkHash" in network)) {
-    return undefined;
-  }
-  return network.networkHash as NetworkHash;
 }
