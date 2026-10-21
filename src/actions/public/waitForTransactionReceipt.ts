@@ -117,10 +117,10 @@ async function observe(
   const interval = options.pollingIntervalMs ?? 250;
   validateTimer(timeoutMs, "timeoutMs");
   validateTimer(interval, "pollingIntervalMs");
-  const transactionHash = hash.slice();
-  const networkHash = (
-    options.expectedNetworkHash ?? client.discovery.network.networkHash
-  ).slice();
+  const transactionHash = new Uint8Array(hash);
+  const networkHash = new Uint8Array(
+    options.expectedNetworkHash ?? client.discovery.network.networkHash,
+  );
   if (transactionHash.length !== 32 || networkHash.length !== 32)
     throw new RangeError(
       "Transaction and network hashes must contain 32 bytes",

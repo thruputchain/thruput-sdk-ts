@@ -1,6 +1,6 @@
 {
   "name": "@thruputchain/client",
-  "version": "0.22.0",
+  "version": "0.22.1",
   "description": "TypeScript client for the Thruput blockchain",
   "repository": {
     "type": "git",

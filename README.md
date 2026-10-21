@@ -261,7 +261,7 @@ const balance = await ERC20.v0_1.getBalanceOf.view({
 This requires a matching RPC wire format 14.0.0 endpoint and also works with `.viewOutcome()`, bound
 views, and raw `client.simulateInvocation()`. The result must come from a committed snapshot at
 or above that height. An older snapshot produces `stateHeightUnavailable`
-(`-32011`) with requested and observed heights. It does not undo transaction
+(`NativeRpcErrorCode.StateHeightUnavailable`, `-32012`) with requested and observed heights. It does not undo transaction
 confirmation. The SDK does not poll, wait, or retry; your application decides how
 to handle a backend that is behind. Omit `minStateBlockHeight` for an unconstrained read.
 

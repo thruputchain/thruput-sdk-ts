@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RpcClient } from "../../rpc/client.js";
 import { UnsupportedRpcValue, RpcDecodingError } from "../../rpc/codec.js";
@@ -53,6 +54,63 @@ function client() {
 }
 afterEach(() => vi.useRealTimers());
 describe("native read observation", () => {
+  it.each([
+    ["Uint8Array", true],
+    ["Buffer", true],
+    ["Buffer", false],
+  ] as const)(
+    "snapshots %s observation hashes before network lookup (explicit network: %s)",
+    async (kind, explicitNetwork) => {
+      const copy = (value: Uint8Array) =>
+        kind === "Buffer"
+          ? Buffer.concat([
+              Buffer.from([99]),
+              Buffer.from(value),
+              Buffer.from([99]),
+            ]).subarray(1, value.length + 1)
+          : new Uint8Array(value);
+      const c = client();
+      const inputHash = copy(hash),
+        inputNetwork = copy(networkHash);
+      let release!: () => void;
+      c.getNetworkInfo.mockImplementation(async () => {
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return { networkHash };
+      });
+      Object.assign(c.discovery.network, { networkHash: inputNetwork });
+      const cause = new RpcDecodingError("getTransactionReceipt", {
+        malformed: true,
+      });
+      c.getTransactionReceipt.mockRejectedValue(cause);
+      const outcome = waitForTransactionReceipt(c, inputHash, {
+        ...(explicitNetwork ? { expectedNetworkHash: inputNetwork } : {}),
+        knownCommitment: {
+          transactionHash: inputHash,
+          networkHash: inputNetwork,
+          blockHeight: 9n,
+        },
+      }).catch((error) => error);
+      inputHash.fill(8);
+      inputNetwork.fill(8);
+      release();
+      const error = await outcome;
+      expect(error).toBeInstanceOf(TransactionReceiptObservationError);
+      expect(error.cause).toBe(cause);
+      expect(error.transactionHash).toEqual(hash);
+      expect(error.knownCommitment).toEqual({
+        transactionHash: hash,
+        networkHash,
+        blockHeight: 9n,
+      });
+      expect(c.getTransactionReceipt).toHaveBeenCalledWith(
+        { transactionHash: hash },
+        expect.anything(),
+      );
+      expect(c.getTransactionStatus).not.toHaveBeenCalled();
+    },
+  );
   it("returns failed receipts and lets the success assertion decide", async () => {
     const c = client();
     c.getTransactionReceipt.mockResolvedValue({
@@ -294,6 +352,91 @@ describe("native read observation", () => {
   });
 });
 describe("single-call funding", () => {
+  it.each([
+    ["Uint8Array", true],
+    ["Buffer", true],
+    ["Buffer", false],
+  ] as const)(
+    "snapshots %s funding inputs before awaiting network verification (explicit network: %s)",
+    async (kind, explicitNetwork) => {
+      const copy = (value: Uint8Array) =>
+        kind === "Buffer"
+          ? Buffer.concat([
+              Buffer.from([99]),
+              Buffer.from(value),
+              Buffer.from([99]),
+            ]).subarray(1, value.length + 1)
+          : new Uint8Array(value);
+      const inputRecipient = copy(recipient),
+        inputNonce = copy(new Uint8Array([4, 5])),
+        inputNetwork = copy(networkHash);
+      const c = client();
+      let release!: () => void;
+      c.getNetworkInfo.mockImplementation(async () => {
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return { networkHash };
+      });
+      Object.assign(c.discovery.network, { networkHash: inputNetwork });
+      const cause = Error("ambiguous funding response");
+      c.faucet_requestAirdrop.mockRejectedValue(cause);
+      const outcome = requestAirdrop(c, {
+        recipient: inputRecipient,
+        clientNonce: inputNonce,
+        ...(explicitNetwork ? { expectedNetworkHash: inputNetwork } : {}),
+      }).catch((error) => error);
+      inputRecipient.fill(8);
+      inputNonce.fill(8);
+      inputNetwork.fill(8);
+      release();
+      const error = await outcome;
+      expect(error).toBeInstanceOf(FundingObservationError);
+      expect(error.cause).toBe(cause);
+      expect(error.request).toEqual({
+        recipient,
+        clientNonce: new Uint8Array([4, 5]),
+        networkHash,
+      });
+      expect(c.faucet_requestAirdrop).toHaveBeenCalledExactlyOnceWith(
+        { recipient, clientNonce: new Uint8Array([4, 5]) },
+        expect.anything(),
+      );
+      expect(c.getTransactionReceipt).not.toHaveBeenCalled();
+    },
+  );
+  it("retains commitment from succeeded funding with unknown execution without another write", async () => {
+    const c = client();
+    const execution = new UnsupportedRpcValue({
+      result: "future",
+      newPayload: 7,
+    });
+    const response = {
+      attemptStatus: "succeeded",
+      recipient,
+      rawAmount: 42n,
+      transactionHash: Buffer.from(hash),
+      blockHeight: 9n,
+      execution,
+    };
+    c.faucet_requestAirdrop.mockResolvedValue(response as never);
+    const error = await requestAirdrop(c, { recipient }).catch(
+      (error) => error,
+    );
+    expect(error).toBeInstanceOf(FundingObservationError);
+    expect(error.cause).toBe(execution);
+    expect(error.lastResponse).toBe(response);
+    expect(error.knownCommitment).toEqual({
+      networkHash,
+      transactionHash: hash,
+      blockHeight: 9n,
+    });
+    response.transactionHash.fill(8);
+    expect(error.knownCommitment.transactionHash).toEqual(hash);
+    expect(c.faucet_requestAirdrop).toHaveBeenCalledTimes(1);
+    expect(c.getTransactionReceipt).not.toHaveBeenCalled();
+    expect(c.getTransactionStatus).not.toHaveBeenCalled();
+  });
   it("waits read-only on a pending hash", async () => {
     const c = client();
     const response = await requestAirdrop(c, { recipient });
@@ -392,6 +535,39 @@ describe("single-call funding", () => {
 });
 describe("submission evidence", () => {
   const bytes = fromHex0x("0x" + vectors.signing[0]!.signed_transaction_xdr);
+  it.each(["Uint8Array", "Buffer"])(
+    "isolates %s input and accessor mutations from retained submission evidence",
+    (kind) => {
+      const copy = (value: Uint8Array) =>
+        kind === "Buffer"
+          ? Buffer.concat([
+              Buffer.from([99]),
+              Buffer.from(value),
+              Buffer.from([99]),
+            ]).subarray(1, value.length + 1)
+          : new Uint8Array(value);
+      const input = copy(bytes),
+        network = copy(networkHash);
+      const evidence = createSubmissionEvidence(input, network);
+      const expectedHash = new Uint8Array(evidence.transactionHash);
+      input.fill(0);
+      network.fill(0);
+      expect(evidence.signedTransaction).toEqual(bytes);
+      expect(evidence.networkHash).toEqual(networkHash);
+      for (const field of [
+        "signedTransaction",
+        "transactionHash",
+        "networkHash",
+      ] as const) {
+        const exposed = evidence[field];
+        expect(exposed.constructor).toBe(Uint8Array);
+        exposed.fill(0);
+      }
+      expect(evidence.signedTransaction).toEqual(bytes);
+      expect(evidence.networkHash).toEqual(networkHash);
+      expect(evidence.transactionHash).toEqual(expectedHash);
+    },
+  );
   it("retains immutable signed bytes and hash before cancellation", async () => {
     const evidence = createSubmissionEvidence(bytes, networkHash),
       submit = vi.fn(),

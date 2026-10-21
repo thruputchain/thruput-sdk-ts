@@ -78,7 +78,9 @@ export async function createRpcClient(
   options: RpcClientOptions,
 ): Promise<RpcClient> {
   const transport = options.transport;
-  const expected = options.expectedNetworkHash?.slice();
+  const expected = options.expectedNetworkHash
+    ? new Uint8Array(options.expectedNetworkHash)
+    : undefined;
   if (expected && expected.length !== 32)
     throw new RangeError("expectedNetworkHash must have 32 bytes");
   const required = [...(options.requiredMethods ?? [])];
