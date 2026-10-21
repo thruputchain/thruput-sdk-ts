@@ -81,8 +81,8 @@ export function createSubmissionEvidence(
   bytes: Uint8Array,
   network: Uint8Array,
 ): SubmissionEvidence {
-  const signedTransaction = bytes.slice();
-  const networkHash = network.slice();
+  const signedTransaction = new Uint8Array(bytes);
+  const networkHash = new Uint8Array(network);
   if (networkHash.length !== 32)
     throw new RangeError("networkHash must contain 32 bytes");
   const transactionHash = hashSignedTransaction(

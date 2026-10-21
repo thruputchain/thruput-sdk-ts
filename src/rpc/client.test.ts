@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { describe, expect, it, vi } from "vitest";
 import Ajv from "ajv";
 import { codec, deserialize } from "@thruputchain/protocol";
@@ -239,6 +240,38 @@ function server(
 }
 
 describe("native RPC client", () => {
+  it.each(["Uint8Array", "Buffer"])(
+    "snapshots %s expected network before initial discovery",
+    async (kind) => {
+      const expected =
+        kind === "Buffer" ? Buffer.from(address) : new Uint8Array(address);
+      const endpoint = server();
+      const connecting = createRpcClient({
+        transport: endpoint.transport,
+        expectedNetworkHash: expected,
+      });
+      expected.fill(2);
+      expect((await connecting).discovery.network.networkHash).toEqual(address);
+    },
+  );
+  it.each(["Uint8Array", "Buffer"])(
+    "does not let %s mutation retarget discovery refresh",
+    async (kind) => {
+      const expected =
+        kind === "Buffer" ? Buffer.from(address) : new Uint8Array(address);
+      const endpoint = server();
+      const client = await createRpcClient({
+        transport: endpoint.transport,
+        expectedNetworkHash: expected,
+      });
+      expected.fill(2);
+      endpoint.results.getNetworkInfo = { networkHash: toBase58(expected) };
+      await expect(client.refreshDiscovery()).rejects.toBeInstanceOf(
+        RpcCompatibilityError,
+      );
+      expect(client.discovery.network.networkHash).toEqual(address);
+    },
+  );
   it("sends all 20 named calls and validates their request/result fixtures against the Rust schema", async () => {
     const endpoint = server({}, true);
     const client = await createRpcClient({

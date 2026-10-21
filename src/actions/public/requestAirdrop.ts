@@ -54,13 +54,13 @@ export async function requestAirdrop(
   const timeoutMs = options.timeoutMs ?? 60000;
   validateTimer(timeoutMs, "timeoutMs");
   const request = {
-    recipient: options.recipient.slice(),
-    clientNonce:
-      options.clientNonce?.slice() ??
-      crypto.getRandomValues(new Uint8Array(16)),
-    networkHash: (
-      options.expectedNetworkHash ?? client.discovery.network.networkHash
-    ).slice(),
+    recipient: new Uint8Array(options.recipient),
+    clientNonce: options.clientNonce
+      ? new Uint8Array(options.clientNonce)
+      : crypto.getRandomValues(new Uint8Array(16)),
+    networkHash: new Uint8Array(
+      options.expectedNetworkHash ?? client.discovery.network.networkHash,
+    ),
   };
   if (
     request.recipient.length !== 32 ||
@@ -130,25 +130,27 @@ export async function requestAirdrop(
       "receipt" in cause.decoded.data
         ? cause.decoded.data.receipt
         : undefined;
+    const committedResult =
+      cause instanceof TransactionExecutionError
+        ? cause.receipt
+        : (nativeReceipt ??
+          (!(lastResponse instanceof UnsupportedRpcValue) &&
+          lastResponse?.attemptStatus === "succeeded"
+            ? lastResponse
+            : undefined));
     throw new FundingObservationError(
       request,
       lastResponse,
       cause,
       cause instanceof TransactionReceiptObservationError
         ? cause.knownCommitment
-        : cause instanceof TransactionExecutionError
+        : committedResult
           ? {
               networkHash: request.networkHash.slice(),
-              transactionHash: cause.receipt.transactionHash.slice(),
-              blockHeight: cause.receipt.blockHeight,
+              transactionHash: new Uint8Array(committedResult.transactionHash),
+              blockHeight: committedResult.blockHeight,
             }
-          : nativeReceipt
-            ? {
-                networkHash: request.networkHash.slice(),
-                transactionHash: nativeReceipt.transactionHash.slice(),
-                blockHeight: nativeReceipt.blockHeight,
-              }
-            : undefined,
+          : undefined,
     );
   }
 }
