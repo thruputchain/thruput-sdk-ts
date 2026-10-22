@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { toBase58 } from "../encoding.js";
-import { PrivateKeySigner } from "../signers/privateKey.js";
+import { Ed25519Signer } from "../signers/ed25519.js";
 import { createPubkeyAccount } from "../wallet/account.js";
 import {
   MAX_TRANSACTION_BYTES,
@@ -17,7 +17,7 @@ import {
   parseWalletSession,
 } from "./index.js";
 
-const signer = new PrivateKeySigner(new Uint8Array(32).fill(1));
+const signer = new Ed25519Signer(new Uint8Array(32).fill(1));
 const localAccount = createPubkeyAccount({ signer, nonce: 7n });
 const account = {
   address: toBase58(localAccount.address),

@@ -22,7 +22,7 @@ import {
   ContractTypeDefKind,
   type ContractSpecId,
 } from "@thruputchain/contract-spec";
-import { PrivateKeySigner } from "./signers/privateKey.js";
+import { Ed25519Signer } from "./signers/ed25519.js";
 import { createInvocation, createTransaction } from "./transaction/build.js";
 import { signTransaction } from "./transaction/sign.js";
 import { transactionSignaturePreimage } from "./transaction/preimage.js";
@@ -98,7 +98,7 @@ describe("end-to-end: build, sign, serialize an ERC20 transfer", () => {
     const secretKey = new Uint8Array(32);
     secretKey[0] = 0xde;
     secretKey[1] = 0xad;
-    const signer = new PrivateKeySigner(secretKey);
+    const signer = new Ed25519Signer(secretKey);
 
     const tokenAddress = contractAddress(new Uint8Array(32).fill(0x11));
     const recipient = contractAddress(new Uint8Array(32).fill(0x22));
@@ -228,7 +228,7 @@ describe("end-to-end: full pipeline via MockTransport client", () => {
     // Sign the transaction
     const secretKey = new Uint8Array(32);
     secretKey[0] = 0xfe;
-    const signer = new PrivateKeySigner(secretKey);
+    const signer = new Ed25519Signer(secretKey);
     const signedTx = await signTransaction(
       tx,
       [{ signer, publicKeyId: 0n }],

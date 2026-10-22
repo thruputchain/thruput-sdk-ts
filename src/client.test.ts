@@ -13,7 +13,7 @@ import {
   sha256Hash,
   networkHash,
 } from "@thruputchain/protocol";
-import { PrivateKeySigner } from "./signers/privateKey.js";
+import { Ed25519Signer } from "./signers/ed25519.js";
 import { createInvocation, createTransaction } from "./transaction/build.js";
 import { signTransaction } from "./transaction/sign.js";
 import { MockTransport } from "./transport/mock.js";
@@ -24,7 +24,7 @@ const testNetworkHash = networkHash(sha256Hash(new Uint8Array(32).fill(0x5a)));
 function makeDummySignedTx() {
   const secretKey = new Uint8Array(32);
   secretKey[0] = 1;
-  const signer = new PrivateKeySigner(secretKey);
+  const signer = new Ed25519Signer(secretKey);
 
   const invocation = createInvocation({
     invoked_address: contractAddress(new Uint8Array(32)),

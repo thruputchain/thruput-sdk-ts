@@ -21,7 +21,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createThruputClient } from "../client.js";
 import { localnet, mainnet } from "../cluster.js";
 import { MockTransport } from "../transport/mock.js";
-import { PrivateKeySigner } from "../signers/privateKey.js";
+import { Ed25519Signer } from "../signers/ed25519.js";
 import type { Transport } from "../transport/types.js";
 import { createPubkeyAccount, createSourceAddressAccount } from "./account.js";
 import { createWalletClient } from "./client.js";
@@ -39,10 +39,10 @@ import { ed25519Of } from "../testing/signatures.js";
 const address = contractAddress(new Uint8Array(32).fill(0x11));
 const testNetworkHash = networkHash(sha256Hash(new Uint8Array(32)));
 
-function signer(): PrivateKeySigner {
+function signer(): Ed25519Signer {
   const secret = new Uint8Array(32);
   secret[0] = 1;
-  return new PrivateKeySigner(secret);
+  return new Ed25519Signer(secret);
 }
 
 function account() {
@@ -377,8 +377,7 @@ describe("wallet transactions", () => {
       verify(
         ed25519Of(signed.signatures[0]!.signature),
         transactionSignaturePreimage(testNetworkHash, signed.tx),
-        (walletAccount.signers[0]!.signer as PrivateKeySigner).publicKey
-          .ed25519,
+        (walletAccount.signers[0]!.signer as Ed25519Signer).publicKey.ed25519,
       ),
     ).toBe(true);
   });

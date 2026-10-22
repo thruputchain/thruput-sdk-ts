@@ -15,7 +15,7 @@ import {
 import type { PublicKey, SignedTransaction } from "@thruputchain/protocol";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { PrivateKeySigner } from "../signers/privateKey.js";
+import { Ed25519Signer } from "../signers/ed25519.js";
 import { MlDsa65Signer, verifyMlDsa65 } from "../signers/mlDsa65.js";
 import type { Signer } from "../signers/types.js";
 import {
@@ -153,7 +153,7 @@ function keyByName(name: string): KeyVector {
 function signerFor(key: KeyVector): Signer {
   const seed = fromHex(key.seed);
   return key.scheme === "Ed25519"
-    ? new PrivateKeySigner(seed)
+    ? new Ed25519Signer(seed)
     : MlDsa65Signer.fromSeed(seed, { deterministic: true });
 }
 

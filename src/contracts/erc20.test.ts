@@ -11,7 +11,7 @@ import {
   CxsWriter,
 } from "@thruputchain/protocol";
 import { hashSignedTransaction } from "../derivation/transactionHash.js";
-import { PrivateKeySigner } from "../signers/privateKey.js";
+import { Ed25519Signer } from "../signers/ed25519.js";
 import { createTransaction } from "../transaction/build.js";
 import { signTransaction } from "../transaction/sign.js";
 import { decodeCalldata } from "../contract/encode.js";
@@ -202,7 +202,7 @@ describe("generated ERC20 contract bindings", () => {
   it("composes into a full signed transaction", async () => {
     const secretKey = new Uint8Array(32);
     secretKey[0] = 0xab;
-    const signer = new PrivateKeySigner(secretKey);
+    const signer = new Ed25519Signer(secretKey);
 
     const token = contractAddress(new Uint8Array(32).fill(0x11));
     const recipient = contractAddress(new Uint8Array(32).fill(0x22));

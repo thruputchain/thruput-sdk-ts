@@ -14,7 +14,7 @@ import {
   type ContractTypeDef,
   type ContractSpecId,
 } from "@thruputchain/contract-spec";
-import { PrivateKeySigner } from "../signers/privateKey.js";
+import { Ed25519Signer } from "../signers/ed25519.js";
 import type { Signer } from "../signers/types.js";
 import { defineSignedOperation, randomNonce } from "./operation.js";
 
@@ -61,7 +61,7 @@ describe("defineSignedOperation", () => {
     typeDefs,
     typeName: "Transfer",
   });
-  const signer = new PrivateKeySigner(new Uint8Array(32).fill(0x11));
+  const signer = new Ed25519Signer(new Uint8Array(32).fill(0x11));
 
   it("rejects a payload type missing from the type definitions", () => {
     expect(() =>

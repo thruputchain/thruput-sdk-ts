@@ -21,7 +21,7 @@ import { createThruputClient } from "../client.js";
 import { toHex0x } from "../actions/hex.js";
 import { hashFromBase58, toBase58 } from "../encoding.js";
 import { hashSignedTransaction } from "../derivation/transactionHash.js";
-import { PrivateKeySigner } from "../signers/privateKey.js";
+import { Ed25519Signer } from "../signers/ed25519.js";
 import { signTransaction } from "../transaction/sign.js";
 import { transactionSignaturePreimage } from "../transaction/preimage.js";
 import { MockTransport } from "../transport/mock.js";
@@ -52,7 +52,7 @@ import { ed25519Of } from "../testing/signatures.js";
 
 const networkHash = toBase58(new Uint8Array(32).fill(171));
 const signingNetwork = toNetworkHash(sha256Hash(new Uint8Array(32).fill(0xab)));
-const signer = new PrivateKeySigner(new Uint8Array(32).fill(1));
+const signer = new Ed25519Signer(new Uint8Array(32).fill(1));
 const localAccount = createPubkeyAccount({ signer, nonce: 7n });
 const account = {
   address: toBase58(localAccount.address),
@@ -1018,14 +1018,14 @@ describe("external provider wallet", () => {
         );
       }
       if (fault === "wrong key") {
-        const other = new PrivateKeySigner(new Uint8Array(32).fill(2));
+        const other = new Ed25519Signer(new Uint8Array(32).fill(2));
         signed.signatures[0]!.signature = await other.sign(
           transactionSignaturePreimage(signingNetwork, signed.tx),
         );
       }
       if (fault === "missing claim key") signed.pubkey_claim_key = null;
       if (fault === "wrong claim key")
-        signed.pubkey_claim_key = new PrivateKeySigner(
+        signed.pubkey_claim_key = new Ed25519Signer(
           new Uint8Array(32).fill(2),
         ).publicKey;
       if (fault === "wrong network")

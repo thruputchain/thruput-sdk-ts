@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { HOG_ADDRESS, gasAmount } from "@thruputchain/protocol";
 // Repository-local imports; applications use the published client entrypoints.
 import {
-  PrivateKeySigner,
+  Ed25519Signer,
   createThruputClient,
   createPubkeyAccount,
   createWalletClient,
@@ -21,10 +21,10 @@ const rpcUrl = process.env.THRUPUT_RPC_URL;
 
 // These accounts exist only for this process. Their keys are not persisted.
 const sender = createPubkeyAccount({
-  signer: new PrivateKeySigner(randomBytes(32)),
+  signer: Ed25519Signer.fromSeed(randomBytes(32)),
 });
 const recipient = createPubkeyAccount({
-  signer: new PrivateKeySigner(randomBytes(32)),
+  signer: Ed25519Signer.fromSeed(randomBytes(32)),
 });
 
 const client = await createThruputClient({

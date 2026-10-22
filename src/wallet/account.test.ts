@@ -5,7 +5,7 @@ import {
   weight,
 } from "@thruputchain/protocol";
 import { describe, expect, it } from "vitest";
-import { PrivateKeySigner } from "../signers/privateKey.js";
+import { Ed25519Signer } from "../signers/ed25519.js";
 import { MlDsa65Signer } from "../signers/mlDsa65.js";
 import {
   derivePubkeyAccountAddress,
@@ -14,10 +14,10 @@ import {
 import { derivePublicKeyHash } from "../derivation/publicKeyHash.js";
 import { createPubkeyAccount, createSourceAddressAccount } from "./account.js";
 
-function signer(seed: number): PrivateKeySigner {
+function signer(seed: number): Ed25519Signer {
   const secret = new Uint8Array(32);
   secret[0] = seed;
-  return new PrivateKeySigner(secret);
+  return new Ed25519Signer(secret);
 }
 
 describe("createPubkeyAccount", () => {
@@ -65,7 +65,7 @@ describe("createPubkeyAccount", () => {
     const unknown = {
       publicKey: { ...base.publicKey, scheme: 99 },
       sign: base.sign.bind(base),
-    } as unknown as PrivateKeySigner;
+    } as unknown as Ed25519Signer;
     expect(() => createPubkeyAccount({ signer: unknown })).toThrow(
       "Ed25519 or ML-DSA-65",
     );

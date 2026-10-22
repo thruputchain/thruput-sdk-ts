@@ -8,7 +8,7 @@ import {
 } from "@thruputchain/protocol";
 import { createThruputClient } from "../../client.js";
 import { MockTransport } from "../../transport/mock.js";
-import { PrivateKeySigner } from "../../signers/privateKey.js";
+import { Ed25519Signer } from "../../signers/ed25519.js";
 import { createPubkeyAccount } from "../../wallet/account.js";
 import { defaultWalletAdapter } from "../../wallet/invocationAdapter.js";
 import { createWalletClient } from "../../wallet/client.js";
@@ -37,7 +37,7 @@ async function setup(unknownAdmission = false) {
         : result;
     });
   const client = await createThruputClient({ transport });
-  const signer = new PrivateKeySigner(new Uint8Array(32).fill(1));
+  const signer = new Ed25519Signer(new Uint8Array(32).fill(1));
   const account = createPubkeyAccount({ signer });
   const request = {
     invocation: {

@@ -42,7 +42,7 @@ export type {
 } from "./transport/index.js";
 export type { Signer } from "./signers/index.js";
 export {
-  PrivateKeySigner,
+  Ed25519Signer,
   MlDsa65Signer,
   verifyMlDsa65,
 } from "./signers/index.js";
