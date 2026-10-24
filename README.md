@@ -597,12 +597,15 @@ initializing the contract in the same transaction. Size that amount for the code
 and initialized storage, and budget root gas for the complete operation.
 
 The standard ERC20 binding uses `adjustAllowance` with
-`{ spender, difference, exclusive }`, not `approve`. `difference` is signed:
-positive increases the allowance, negative reduces it. Reading the current
-allowance and submitting a delta cannot guarantee an exact target when
-concurrent transactions also change it; set `exclusive` to `true` to lock the
-allowance entry for the transaction so a concurrent change conflicts instead
-of interleaving. That lock does not make an earlier off-chain read current.
+`{ spender, difference }`, not `approve`. `difference` is signed: positive
+increases the allowance, negative reduces it. Adjustments may merge with
+concurrent spending and adjustments, so reading the current allowance and
+submitting a delta cannot guarantee an exact target. To set an absolute
+allowance, call `deleteAllowance({ spender })` and then `adjustAllowance` in
+the same transaction: the delete's exclusive lock covers the following write,
+so a concurrent change conflicts instead of interleaving. That lock does not
+make an earlier off-chain read current. Interface 0.1.68 removed
+`adjustAllowance`'s `exclusive` flag in favor of this pattern.
 `deleteAllowance({ spender })` revokes an allowance, deletes its storage
 entry, and emits `AllowanceDeleteEvent` with the stored amount removed.
 `deleteBalance()` deletes the caller's empty balance entry and throws for a
