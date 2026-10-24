@@ -38,7 +38,10 @@ export interface ContractDeployment {
 export interface DeploymentOptions {
   /** Gas available to the complete wallet root. */
   readonly gasLimit: GasAmount;
-  /** Exact raw HOG to transfer to the target. Zero skips funding. */
+  /**
+   * Exact raw native-token amount to transfer to the target. Zero skips
+   * funding.
+   */
   readonly amount: bigint;
   /**
    * Optional ordinary call to the predicted deployment address. Build it with

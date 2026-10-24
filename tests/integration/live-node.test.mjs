@@ -33,7 +33,7 @@ import {
 } from "@thruputchain/client/contracts";
 import {
   ExecResult,
-  HOG_ADDRESS,
+  NATIVE_TOKEN_ADDRESS,
   Uint64Codec,
   deserializeCxs,
   gasAmount,
@@ -224,7 +224,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
   });
 
   await t.test(
-    "funds pubkey wallets, transfers HOG, and decodes receipt, event, and view",
+    "funds pubkey wallets, transfers native tokens, and decodes receipt, event, and view",
     async (t) => {
       const sender = createPubkeyAccount({
         signer: new Ed25519Signer(randomBytes(32)),
@@ -245,7 +245,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       const balance = (minStateBlockHeight, signal) =>
         ERC20.v0_1.getBalanceOf.view({
           client: wallet,
-          address: HOG_ADDRESS,
+          address: NATIVE_TOKEN_ADDRESS,
           caller: sender.address,
           args: { addr: recipient.address },
           minStateBlockHeight,
@@ -262,7 +262,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
               gasLimit: gasAmount(2_000_000n),
               invocations: [
                 ERC20.v0_1.transfer.invocation(
-                  HOG_ADDRESS,
+                  NATIVE_TOKEN_ADDRESS,
                   gasAmount(500_000n),
                   {
                     receiver: recipient.address,
@@ -270,7 +270,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
                   },
                 ),
                 ERC20.v0_1.getBalanceOf.invocation(
-                  HOG_ADDRESS,
+                  NATIVE_TOKEN_ADDRESS,
                   gasAmount(500_000n),
                   {
                     addr: recipient.address,
@@ -329,7 +329,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         {
           calls: [
             ERC20.v0_1.transfer.call({
-              address: HOG_ADDRESS,
+              address: NATIVE_TOKEN_ADDRESS,
               gasLimit: gasAmount(500_000n),
               args: {
                 receiver: recipient.address,
@@ -353,7 +353,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         groundhog_erc20_if.v0_1.events.TransferEvent.singleFromReceipt(
           receipt,
           {
-            address: HOG_ADDRESS,
+            address: NATIVE_TOKEN_ADDRESS,
           },
         );
       assert.deepEqual(receiptEvent.topics, {
@@ -387,7 +387,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       const snapshot = await client.readViews({
         calls: [sender, recipient].map(({ address }) =>
           ERC20.v0_1.getBalanceOf.viewRequest({
-            address: HOG_ADDRESS,
+            address: NATIVE_TOKEN_ADDRESS,
             args: { addr: address },
           }),
         ),
@@ -429,7 +429,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         {
           calls: [
             ERC20.v0_1.transfer.call({
-              address: HOG_ADDRESS,
+              address: NATIVE_TOKEN_ADDRESS,
               gasLimit: gasAmount(500_000n),
               args: { receiver: recipient.address, amount },
             }),
@@ -442,7 +442,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       const event =
         groundhog_erc20_if.v0_1.events.TransferEvent.singleFromReceipt(
           receipt,
-          { address: HOG_ADDRESS },
+          { address: NATIVE_TOKEN_ADDRESS },
         );
       assert.deepEqual(event.topics, {
         from: sender.address,
@@ -462,7 +462,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       const query = {
         filters: [
           groundhog_erc20_if.v0_1.events.TransferEvent.filter({
-            addresses: [HOG_ADDRESS],
+            addresses: [NATIVE_TOKEN_ADDRESS],
             topics: { from: sender.address },
           }),
         ],
@@ -499,7 +499,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       assert.deepEqual(identified.transactionHash, hash);
       assert.equal(identified.blockHeight, receipt.blockHeight);
       assert.equal(typeof identified.sequenceNumber, "number");
-      assert.deepEqual(identified.event.address, HOG_ADDRESS);
+      assert.deepEqual(identified.event.address, NATIVE_TOKEN_ADDRESS);
       assert.deepEqual(
         groundhog_erc20_if.v0_1.events.TransferEvent.decode(identified.event),
         {
@@ -519,7 +519,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       const wallet = createWalletClient({ client, account: sender });
       const secondAmount = 2_000n;
       const call = ERC20.v0_1.transfer.call({
-        address: HOG_ADDRESS,
+        address: NATIVE_TOKEN_ADDRESS,
         gasLimit: gasAmount(500_000n),
         args: { receiver: recipient.address, amount: secondAmount },
       });
@@ -533,7 +533,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       );
       const query = {
         event: groundhog_erc20_if.v0_1.events.TransferEvent,
-        addresses: [HOG_ADDRESS],
+        addresses: [NATIVE_TOKEN_ADDRESS],
         topics: { from: sender.address },
         start: {
           order: "ascending",
@@ -555,7 +555,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       assert.equal(first.events.length, 1);
       assert.equal(first.events[0].fields.amount, amount);
       assert.deepEqual(first.events[0].transactionHash, hash);
-      assert.deepEqual(first.events[0].address, HOG_ADDRESS);
+      assert.deepEqual(first.events[0].address, NATIVE_TOKEN_ADDRESS);
       assert.deepEqual(first.events[0].topics.to, recipient.address);
       assert.ok(
         first.nextCursor !== null,
@@ -778,7 +778,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
 });
 
 test(
-  "fresh HOG funding covers the recipient balance-item deposit",
+  "fresh native-token funding covers the recipient balance-item deposit",
   { timeout },
   async () => {
     const client = await createThruputClient({
@@ -806,7 +806,7 @@ test(
     const send = (wallet, receiver, amount) =>
       wallet.execute({
         invocation: ERC20.v0_1.transfer.invocation(
-          HOG_ADDRESS,
+          NATIVE_TOKEN_ADDRESS,
           gasAmount(500_000n),
           { receiver, amount },
         ),
@@ -867,7 +867,7 @@ test(
     assert.equal((await balance(smallRecipient)).rawBalance, 0n);
 
     // A sufficient first credit can fund its own balance item: a prior faucet
-    // airdrop is not a universal prerequisite for receiving native HOG.
+    // airdrop is not a universal prerequisite for receiving native tokens.
     await send(wallet, fundedRecipient.address, 100_000n);
     const funded = await until(
       () => balance(fundedRecipient),

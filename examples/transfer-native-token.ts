@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { HOG_ADDRESS, gasAmount } from "@thruputchain/protocol";
+import { NATIVE_TOKEN_ADDRESS, gasAmount } from "@thruputchain/protocol";
 // Repository-local imports; applications use the published client entrypoints.
 import {
   Ed25519Signer,
@@ -12,9 +12,10 @@ import {
 } from "../src/index.js";
 import { ERC20 } from "../src/contracts/index.js";
 
-const amount = parseUnits("0.0001", 7); // HOG has seven decimal places.
+const amount = parseUnits("0.0001", 7); // The native token has seven decimal places.
 // These budgets pass the live native-transfer test. Calibrate other workloads:
-// declared root gas reserves scheduling capacity against the sender's free HOG.
+// declared root gas reserves scheduling capacity against the sender's free
+// native-token balance.
 const walletGasLimit = gasAmount(1_000_000n);
 const callGasLimit = gasAmount(500_000n);
 const rpcUrl = process.env.THRUPUT_RPC_URL;
@@ -36,8 +37,9 @@ const wallet = createWalletClient({
 });
 
 // This small transfer cannot cover a fresh recipient's balance-item deposit.
-// Fund that item first. A sufficiently large first HOG transfer can also fund it;
-// the required deposit depends on the runtime's storage-cost configuration.
+// Fund that item first. A sufficiently large first native-token transfer can
+// also fund it; the required deposit depends on the runtime's storage-cost
+// configuration.
 const [senderAirdrop, recipientAirdrop] = await Promise.all([
   wallet.requestAirdrop(),
   client.requestAirdrop({ recipient: recipient.address }),
@@ -48,18 +50,22 @@ if (senderAirdrop.rawAmount < amount) {
   );
 }
 
-const transfer = ERC20.v0_1.transfer.invocation(HOG_ADDRESS, callGasLimit, {
-  receiver: recipient.address,
-  amount,
-});
+const transfer = ERC20.v0_1.transfer.invocation(
+  NATIVE_TOKEN_ADDRESS,
+  callGasLimit,
+  {
+    receiver: recipient.address,
+    amount,
+  },
+);
 const { transactionHash } = await wallet.executeAndWait({
   invocation: transfer,
   gasLimit: walletGasLimit,
 });
 
 const [senderBalance, recipientBalance] = await Promise.all([
-  readHogBalance(sender.address),
-  readHogBalance(recipient.address),
+  readNativeTokenBalance(sender.address),
+  readNativeTokenBalance(recipient.address),
 ]);
 
 console.log({
@@ -77,10 +83,12 @@ console.log({
   recipientBalance: recipientBalance.toString(),
 });
 
-async function readHogBalance(address: typeof sender.address): Promise<bigint> {
+async function readNativeTokenBalance(
+  address: typeof sender.address,
+): Promise<bigint> {
   const response = await ERC20.v0_1.getBalanceOf.view({
     client: wallet,
-    address: HOG_ADDRESS,
+    address: NATIVE_TOKEN_ADDRESS,
     caller: sender.address,
     args: { addr: address },
   });

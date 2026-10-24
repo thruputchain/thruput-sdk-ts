@@ -301,8 +301,9 @@ export class ExecutionReturnUnavailableError extends Error {
  * Sum explicit child budgets and a calibrated wallet overhead, checking u64 bounds.
  * This is not gas estimation. Calibrate budgets against the target runtime and
  * workload; there is no universally safe wallet overhead. Root gas reserves
- * scheduling capacity against the sender's free HOG. Storage deposits are a
- * separate requirement, and funding a target contract does not sponsor root gas.
+ * scheduling capacity against the sender's free native-token balance. Storage
+ * deposits are a separate requirement, and funding a target contract does not
+ * sponsor root gas.
  */
 export function walletGasLimit(
   calls: readonly { gas_limit: GasAmount }[],
