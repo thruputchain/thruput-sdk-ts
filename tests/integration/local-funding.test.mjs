@@ -18,7 +18,7 @@ import {
   toHex0x,
 } from "@thruputchain/client";
 import { ERC20 } from "@thruputchain/client/contracts";
-import { HOG_ADDRESS, gasAmount } from "@thruputchain/protocol";
+import { NATIVE_TOKEN_ADDRESS, gasAmount } from "@thruputchain/protocol";
 
 test(
   "local funding preserves admitted bytes after a lost response",
@@ -116,7 +116,7 @@ test(
       const sent = await wallet.executeAndWait(
         {
           invocation: ERC20.v0_1.transfer.invocation(
-            HOG_ADDRESS,
+            NATIVE_TOKEN_ADDRESS,
             gasAmount(500_000n),
             { receiver: receiver.address, amount: 1_000_000n },
           ),

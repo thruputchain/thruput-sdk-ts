@@ -474,8 +474,8 @@ When binding an unqualified client, pass an explicit `networkHash` to
 `createWalletClient`.
 
 Choose a workload-specific root gas budget: it reserves scheduling capacity
-against the sender's free HOG even though gas is not burned. New storage also
-needs HOG deposits at the address that owns it. See
+against the sender's free native-token balance even though gas is not burned.
+New storage also needs native-token deposits at the address that owns it. See
 [gas and storage funding](#gas-and-storage-funding) before copying
 budgets or sending a small first credit to a fresh address.
 
@@ -514,8 +514,9 @@ const result = await wallet.deployContractAndWait(deployment, {
 });
 ```
 
-`amount` is raw HOG, chosen by the caller; `0n` skips the transfer. The target's
-existing balance plus this amount must cover deployment and initialized storage.
+`amount` is a raw native-token amount, chosen by the caller; `0n` skips the
+transfer. The target's existing balance plus this amount must cover deployment
+and initialized storage.
 There is no automatic cost estimate or prefunding transaction. The initializer
 must target the predicted address, sees the wallet as its caller, and returns no
 value to the deployment client. An abort or fault rolls back all three steps.
@@ -576,12 +577,12 @@ evidence before broadcast. Generated API docs describe the full lifecycle.
 ### Gas and storage funding
 
 Gas is not burned, but the declared root budget reserves scheduling capacity
-against the sender's free HOG. Funding a target contract's storage does not fund
-the sender's capacity. Use measured budgets for each workload; `walletGasLimit`
+against the sender's free native-token balance. Funding a target contract's
+storage does not fund the sender's capacity. Use measured budgets for each workload; `walletGasLimit`
 sums explicit child budgets and a calibrated overhead, without estimating gas.
 
-A new native HOG balance item needs a deposit at the recipient address. A large
-enough first credit can fund it; a small credit can be excluded with a scheduler
+A new native-token balance item needs a deposit at the recipient address. A
+large enough first credit can fund it; a small credit can be excluded with a scheduler
 `retry` outcome. The transfer example funds both accounts first
 because its 1,000-unit credit cannot cover a new balance item's deposit.
 
@@ -590,8 +591,8 @@ The live funding test verifies an excluded 1,000-unit first credit, a successful
 without another balance-item deposit. It uses 500,000 child gas and 1,000,000 root
 gas. Storage costs depend on runtime configuration.
 
-A deployed contract's storage needs HOG at its address too. The native deployment
-API above transfers the explicit `amount` before deploying and optionally
+A deployed contract's storage needs native tokens at its address too. The
+native deployment API above transfers the explicit `amount` before deploying and optionally
 initializing the contract in the same transaction. Size that amount for the code
 and initialized storage, and budget root gas for the complete operation.
 
@@ -670,8 +671,8 @@ signers this package does not drive.
 ## Examples
 
 - [`chain-tip.ts`](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/chain-tip.ts) connects to Devnet and reads its latest block.
-- [`transfer-hog.ts`](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/transfer-hog.ts) funds two pubkey accounts and transfers HOG on Devnet.
-- [`view-hog-balance.ts`](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/view-hog-balance.ts) reads an explicitly supplied public account’s HOG balance.
+- [`transfer-native-token.ts`](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/transfer-native-token.ts) funds two pubkey accounts and transfers native tokens on Devnet.
+- [`view-native-token-balance.ts`](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/view-native-token-balance.ts) reads an explicitly supplied public account’s native-token balance.
 - [`deploy-counter.ts`](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/deploy-counter.ts) deploys and calls a Counter contract through DevWallet.
 
 See the [examples guide](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/README.md) for local-node setup and configuration.
@@ -837,8 +838,8 @@ npm run test:integration
 The harness checks that the executable runs and starts a fresh node on an OS-assigned
 loopback port. The host must provide the devnode's native runtime libraries;
 CI uses the same Ubuntu 26.04 Namespace profile as the RPC repository. Tests
-import the built package and check connection, local funding, a HOG transfer, receipts,
-events, contract views, and RPC errors. `npm test` remains node-independent.
+import the built package and check connection, local funding, a native-token
+transfer, receipts, events, contract views, and RPC errors. `npm test` remains node-independent.
 
 The tools smoke harness can also create a transfer and run the SDK readback
 check against its existing node:

@@ -9,7 +9,7 @@ import {
   toBase58,
 } from "@thruputchain/client";
 import { groundhog_erc20_if } from "@thruputchain/client/contracts";
-import { HOG_ADDRESS } from "@thruputchain/protocol";
+import { NATIVE_TOKEN_ADDRESS } from "@thruputchain/protocol";
 
 test("reads a CLI transfer through the SDK", async () => {
   assert.ok(process.env.THRUPUT_CLI_TRANSFER_RESULT);
@@ -32,7 +32,7 @@ test("reads a CLI transfer through the SDK", async () => {
   assert.equal(receipt.execution.result, "return");
   const event = groundhog_erc20_if.v0_1.events.TransferEvent.singleFromReceipt(
     receipt,
-    { address: HOG_ADDRESS },
+    { address: NATIVE_TOKEN_ADDRESS },
   );
   assert.equal(toBase58(event.topics.from), result.sender);
   assert.equal(toBase58(event.topics.to), result.recipient);

@@ -42,7 +42,8 @@ const deployment = prepareContractDeployment({
 const { address, transactionHash: deployHash } =
   await wallet.deployContractAndWait(deployment, {
     gasLimit: walletGasLimit,
-    // Explicit storage funding in raw HOG units; calibrated for this fixture.
+    // Explicit storage funding in raw native-token units; calibrated for this
+    // fixture.
     amount: 50_000_000n,
     initializer: Counter.v0_1.initialize.invocation(
       deployment.address,
