@@ -221,11 +221,11 @@ describe("deployment descriptions", () => {
       { gasLimit: gas, amount: 0n },
       defaultWalletAdapter,
     );
-    // Two fixed hashes, zero u128 high/low limbs, then the absent Option tag.
+    // Two fixed hashes, zero i128 high/low limbs, then the absent Option tag.
     expect(request.invocation.calldata).toEqual(
       new Uint8Array([...plan.deploymentNonce, ...plan.contractHash, 0, 0, 0]),
     );
-    for (const amount of [-1n, 1n << 128n]) {
+    for (const amount of [-1n, 1n << 127n]) {
       expect(() =>
         deploymentRequest(
           plan,

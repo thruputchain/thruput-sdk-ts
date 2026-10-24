@@ -20,10 +20,10 @@ describe("hashContract", () => {
     } as const;
 
     const contractHash = hashContract(contract);
-    // Independently reproduced with groundhog-signing's wallet_contract_hash
-    // and derive_deploy_address for the Counter fixture rebuilt with SDK 0.38.0.
+    // Independently reproduced with thruput-signing 0.39.0's wallet_contract_hash
+    // and derive_deploy_address for the Counter fixture rebuilt with SDK 0.57.0.
     expect(toHex(contractHash)).toBe(
-      "d1dbe2f4094666dc14621ee75ee81b2874e5f929485af44c73384c5baeed4576",
+      "383645579d65975cacc8852dcead276808d0ee38a2e36de73a9368bc25ed6b01",
     );
 
     const address = deriveContractAddress(
@@ -32,7 +32,7 @@ describe("hashContract", () => {
       contractHash,
     );
     expect(toHex(address)).toBe(
-      "385756848395e4cf083e82e1a1198e5c7d6a65174ddc61c34f121b41b63a713b",
+      "23832469481e7ac462a7a37ad9cced56e4ab40446ba611e53be77913b93097c5",
     );
   });
 });

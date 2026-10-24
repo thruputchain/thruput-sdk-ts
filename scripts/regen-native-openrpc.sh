@@ -17,7 +17,7 @@ fi
 node --input-type=module - "$TEMP_SPEC" <<'JS'
 import { readFileSync } from "node:fs";
 const spec = JSON.parse(readFileSync(process.argv[2],"utf8"));
-if (spec.info.version !== "14.0.0" || spec.methods.length !== 20 || spec.methods.some(m=>m.paramStructure !== "by-name" || m.name.startsWith("groundhog_"))) throw new Error("Expected the complete native wire-14 catalog");
+if (spec.info.version !== "14.1.1" || spec.methods.length !== 20 || spec.methods.some(m=>m.paramStructure !== "by-name" || m.name.startsWith("groundhog_"))) throw new Error("Expected the complete native wire-14 catalog");
 for (const name of ["getTransactionsByRootAddress","getTransactionsByBlock","getEvents"]) {
  const method = spec.methods.find(m=>m.name===name);
  if (method?.params.find(p=>p.name==="limit")?.schema.minimum !== 1) throw new Error(`Missing positive pagination limit: ${name}`);

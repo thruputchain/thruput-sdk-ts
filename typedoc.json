@@ -21,9 +21,9 @@
   "excludeExternals": true,
   "intentionallyNotExported": [
     "__gh_codegen.default_wallet$v0_1$$interface$WalletError",
-    "__gh_codegen.groundhog_erc20_if$v0_1$error$ERC20Error",
-    "__gh_codegen.groundhog_erc20_permit_if$v0_1$error$ERC20PermitError",
-    "__gh_codegen.groundhog_signed_op_if$v0_1$error$SignedOpError"
+    "__gh_codegen.thruput_erc20_if$v0_1$error$ERC20Error",
+    "__gh_codegen.thruput_erc20_permit_if$v0_1$error$ERC20PermitError",
+    "__gh_codegen.thruput_signed_op_if$v0_1$error$SignedOpError"
   ],
   "cleanOutputDir": true,
   "githubPages": true,

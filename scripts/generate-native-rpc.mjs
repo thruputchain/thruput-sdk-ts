@@ -32,7 +32,7 @@ if (
   throw new Error(
     "Native fixture differs from its recorded owner provenance; regenerate from Rust",
   );
-if (spec.info.version !== "14.0.0" || spec.methods.length !== 20)
+if (spec.info.version !== "14.1.1" || spec.methods.length !== 20)
   throw new Error("Expected the reviewed wire-14 method catalog");
 function tagField(s) {
   const variants = s.oneOf ?? s.anyOf;

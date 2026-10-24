@@ -9,15 +9,11 @@ import {
   type ContractSpec,
 } from "@thruputchain/contract-spec";
 import { deriveEntrypointID } from "../derivation/entrypointId.js";
-import {
-  ERC20Permit,
-  groundhog_erc20_permit_if,
-  spec,
-} from "./erc20_permit.js";
+import { ERC20Permit, thruput_erc20_permit_if, spec } from "./erc20_permit.js";
 
-const { ERC20PermitError } = groundhog_erc20_permit_if.v0_1.error;
+const { ERC20PermitError } = thruput_erc20_permit_if.v0_1.error;
 
-// The finalized spec of `groundhog-erc20-permit-if`, built from an rv32 spec
+// The finalized spec of `thruput-erc20-permit-if`, built from an rv32 spec
 // carrier anchoring `ERC20Permit`: the input the binding was generated from.
 const specPath = fileURLToPath(
   new URL("../../specs/contracts/erc20_permit.spec.xdr", import.meta.url),
@@ -33,9 +29,9 @@ describe("ERC20Permit binding", () => {
     expect(spec.interfaces).toHaveLength(1);
     const iface = spec.interfaces[0]!;
     expect(iface.name).toBe("ERC20Permit");
-    expect(iface.vers).toBe("0.1.41");
+    expect(iface.vers).toBe("0.1.68");
     expect([...iface.methods.map((m) => m.name)].sort()).toEqual([
-      "clear_allowance_signed",
+      "delete_allowance_signed",
       "increase_allowance_signed",
       "transfer_from_signed",
     ]);
@@ -70,9 +66,9 @@ describe("ERC20Permit binding", () => {
         "3a47108e9850272e",
       ],
       [
-        ERC20Permit.v0_1.clearAllowanceSigned,
-        "clear_allowance_signed",
-        "30ee8dbff2e8e181",
+        ERC20Permit.v0_1.deleteAllowanceSigned,
+        "delete_allowance_signed",
+        "0a791be04a1d1c4b",
       ],
     ] as const;
     for (const [method, name, expected] of cases) {

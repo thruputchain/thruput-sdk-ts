@@ -434,6 +434,9 @@
           "maximum": 4294967295,
           "minimum": 0,
           "type": "integer"
+        },
+        "maxTxGas": {
+          "$ref": "#/components/schemas/DecimalU64"
         }
       },
       "type": "object"
@@ -2918,6 +2921,30 @@
                         }
                       },
                       "required": ["reason", "index", "codeBytes", "maxBytes"],
+                      "type": "object"
+                    },
+                    {
+                      "properties": {
+                        "gasLimit": {
+                          "maxLength": 20,
+                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                          "type": "string",
+                          "x-integer-maximum": "18446744073709551615",
+                          "x-integer-minimum": "0"
+                        },
+                        "maxGas": {
+                          "maxLength": 20,
+                          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                          "type": "string",
+                          "x-integer-maximum": "18446744073709551615",
+                          "x-integer-minimum": "0"
+                        },
+                        "reason": {
+                          "const": "gasLimitTooHigh",
+                          "type": "string"
+                        }
+                      },
+                      "required": ["reason", "gasLimit", "maxGas"],
                       "type": "object"
                     }
                   ],

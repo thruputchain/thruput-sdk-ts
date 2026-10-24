@@ -52,7 +52,7 @@ export class MockTransport implements Transport {
     switch (method) {
       case "getVersionInfo":
         result = {
-          wireFormat: "14.0.0",
+          wireFormat: "14.1.1",
           implementation: "mock",
           supportedMethods: [...methods],
         };
