@@ -113,7 +113,7 @@ export const spec: __gh_client_contract.ContractSpec = {
             },
             {
               name: __gh_s("amount"),
-              ty: { v: __gh_contract_spec.ContractTypeKind.U128 },
+              ty: { v: __gh_contract_spec.ContractTypeKind.I128 },
             },
             {
               name: __gh_s("initializer"),

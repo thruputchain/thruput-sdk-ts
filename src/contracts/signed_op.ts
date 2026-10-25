@@ -1,4 +1,4 @@
-// Generated from signed_op.spec.xdr - SignedOp interface v0.1.41
+// Generated from signed_op.spec.xdr - SignedOp interface v0.1.68
 // DO NOT EDIT. Re-run codegen to update.
 
 import * as __gh_protocol from "@thruputchain/protocol";
@@ -18,7 +18,7 @@ const __gh_entrypoints = {
   },
 } as const;
 
-export namespace groundhog_signed_op_if {
+export namespace thruput_signed_op_if {
   export namespace v0_1 {
     export interface Operation {
       block_expiry_height: bigint;
@@ -35,7 +35,7 @@ export namespace groundhog_signed_op_if {
 export namespace SignedOp {
   export namespace v0_1 {
     export interface ExecuteSignedOpArgs {
-      op: __gh_codegen.groundhog_signed_op_if$v0_1$Operation;
+      op: __gh_codegen.thruput_signed_op_if$v0_1$Operation;
       signature: __gh_client_contract.FixedBytes<64>;
     }
     export type ExecuteSignedOpResult = __gh_client_contract.SignedToken;
@@ -43,8 +43,8 @@ export namespace SignedOp {
     export type DeclaredException = {
       kind: "declared";
       name: "SignedOpError";
-      selector: 0x65f3de61c8178163n;
-      value: __gh_codegen.groundhog_signed_op_if$v0_1$error$SignedOpError;
+      selector: 0xd7c6325a55793b51n;
+      value: __gh_codegen.thruput_signed_op_if$v0_1$error$SignedOpError;
     };
     export type Exception =
       __gh_client_contract.ContractException<DeclaredException>;
@@ -55,16 +55,16 @@ export const spec: __gh_client_contract.ContractSpec = {
   interfaces: [
     {
       name: __gh_s("SignedOp"),
-      vers: __gh_s("0.1.41"),
+      vers: __gh_s("0.1.68"),
       throws: [
         {
-          selector: 0x65f3de61c8178163n,
+          selector: 0xd7c6325a55793b51n,
           ty: {
             v: __gh_contract_spec.ContractTypeKind.Named,
             named: {
-              crate_name: __gh_s("groundhog-signed-op-if"),
+              crate_name: __gh_s("thruput-signed-op-if"),
               major: __gh_s("0.1"),
-              module_path: __gh_s("groundhog_signed_op_if::error"),
+              module_path: __gh_s("thruput_signed_op_if::error"),
               declared: __gh_s("SignedOpError"),
             },
           },
@@ -79,9 +79,9 @@ export const spec: __gh_client_contract.ContractSpec = {
               ty: {
                 v: __gh_contract_spec.ContractTypeKind.Named,
                 named: {
-                  crate_name: __gh_s("groundhog-signed-op-if"),
+                  crate_name: __gh_s("thruput-signed-op-if"),
                   major: __gh_s("0.1"),
-                  module_path: __gh_s("groundhog_signed_op_if"),
+                  module_path: __gh_s("thruput_signed_op_if"),
                   declared: __gh_s("Operation"),
                 },
               },
@@ -111,9 +111,9 @@ export const spec: __gh_client_contract.ContractSpec = {
       v: __gh_contract_spec.ContractTypeDefKind.TypeDefStruct,
       struct_def: {
         name: {
-          crate_name: __gh_s("groundhog-signed-op-if"),
+          crate_name: __gh_s("thruput-signed-op-if"),
           major: __gh_s("0.1"),
-          module_path: __gh_s("groundhog_signed_op_if"),
+          module_path: __gh_s("thruput_signed_op_if"),
           declared: __gh_s("Operation"),
         },
         fields: [
@@ -142,9 +142,9 @@ export const spec: __gh_client_contract.ContractSpec = {
       v: __gh_contract_spec.ContractTypeDefKind.TypeDefEnum,
       enum_def: {
         name: {
-          crate_name: __gh_s("groundhog-signed-op-if"),
+          crate_name: __gh_s("thruput-signed-op-if"),
           major: __gh_s("0.1"),
-          module_path: __gh_s("groundhog_signed_op_if::error"),
+          module_path: __gh_s("thruput_signed_op_if::error"),
           declared: __gh_s("SignedOpError"),
         },
         variants: [
@@ -172,7 +172,7 @@ export const SignedOp = {
       SignedOp.v0_1.DeclaredException
     >({
       interfaceName: "SignedOp",
-      interfaceVersion: "0.1.41",
+      interfaceVersion: "0.1.68",
       abiName: "execute_signed_op",
       publicName: "executeSignedOp",
       entrypoint: __gh_entrypoints.SignedOp.v0_1.executeSignedOp,
@@ -192,7 +192,7 @@ export const SignedOp = {
       returnType: spec.interfaces[0]!.methods[0]!.return_type,
       throws: [
         {
-          selector: 0x65f3de61c8178163n,
+          selector: 0xd7c6325a55793b51n,
           name: "SignedOpError",
           type: spec.interfaces[0]!.throws[0]!.ty,
         },
@@ -202,7 +202,7 @@ export const SignedOp = {
   },
 } as const;
 
-export const groundhog_signed_op_if = {
+export const thruput_signed_op_if = {
   v0_1: {
     error: {
       SignedOpError: {
@@ -218,8 +218,8 @@ export const groundhog_signed_op_if = {
 
 // The types the namespaces above refer to, under names no declaration can capture.
 export namespace __gh_codegen {
-  export type groundhog_signed_op_if$v0_1$Operation =
-    groundhog_signed_op_if.v0_1.Operation;
-  export type groundhog_signed_op_if$v0_1$error$SignedOpError =
-    groundhog_signed_op_if.v0_1.error.SignedOpError;
+  export type thruput_signed_op_if$v0_1$Operation =
+    thruput_signed_op_if.v0_1.Operation;
+  export type thruput_signed_op_if$v0_1$error$SignedOpError =
+    thruput_signed_op_if.v0_1.error.SignedOpError;
 }

@@ -19,7 +19,7 @@ token with `read:packages`. See [Registry auth](#registry-auth-one-time-setup).
 
 ## Usage
 
-This checkout pins RPC wire format **14.0.0**. Block queries require a compatible
+This checkout pins RPC wire format **14.1.1**. Block queries require a compatible
 RPC server and a node with the block-query index. RPC addresses, public keys,
 validator IDs and hashes use unprefixed, case-sensitive base58. Opaque payloads
 (including signed transactions, calldata, return data, storage keys, raw event
@@ -165,7 +165,7 @@ Generated contract bindings are exported separately. Each interface nests its
 methods and their argument, result, and exception types under the major version
 its entrypoints hash (`ERC20.v0_1.transfer`, `ERC20.v0_1.TransferArgs`); named
 types, enum values, and event descriptors nest under the declaring crate and
-major (`groundhog_erc20_if.v0_1.events.TransferEvent`).
+major (`thruput_erc20_if.v0_1.events.TransferEvent`).
 
 ```ts
 import { ERC20 } from "@thruputchain/client/contracts";
@@ -258,7 +258,7 @@ const balance = await ERC20.v0_1.getBalanceOf.view({
 });
 ```
 
-This requires a matching RPC wire format 14.0.0 endpoint and also works with `.viewOutcome()`, bound
+This requires a matching RPC wire format 14.1.1 endpoint and also works with `.viewOutcome()`, bound
 views, and raw `client.simulateInvocation()`. The result must come from a committed snapshot at
 or above that height. An older snapshot produces `stateHeightUnavailable`
 (`NativeRpcErrorCode.StateHeightUnavailable`, `-32012`) with requested and observed heights. It does not undo transaction
@@ -306,7 +306,7 @@ behind, the server returns `stateHeightUnavailable` with requested and observed
 heights. The request neither waits for a block nor forces a refresh; your
 application decides whether and when to retry.
 
-This requires `simulateInvocations` (RPC wire format 14.0.0). Existing generated
+This requires `simulateInvocations` (RPC wire format 14.1.1). Existing generated
 bindings gain `viewRequest` through the runtime. The low-level API is
 `client.simulateInvocations({ invocations, minStateBlockHeight })`. Neither API splits calls or falls back
 to separate views. HTTP transport batching alone does not share snapshots.
@@ -321,8 +321,8 @@ client's wait.
 ### Event and sender history
 
 ```ts
-import { groundhog_erc20_if } from "@thruputchain/client/contracts";
-const { TransferEvent } = groundhog_erc20_if.v0_1.events;
+import { thruput_erc20_if } from "@thruputchain/client/contracts";
+const { TransferEvent } = thruput_erc20_if.v0_1.events;
 const page = await client.getContractEvents({
   event: TransferEvent,
   addresses: [tokenAddress],
@@ -597,16 +597,21 @@ initializing the contract in the same transaction. Size that amount for the code
 and initialized storage, and budget root gas for the complete operation.
 
 The standard ERC20 binding uses `adjustAllowance` with
-`{ spender, difference, exclusive }`, not `approve`. `difference` is signed:
-positive increases the allowance, negative reduces it. Reading the current
-allowance and submitting a delta cannot guarantee an exact target when
-concurrent transactions also change it; set `exclusive` to `true` to lock the
-allowance entry for the transaction so a concurrent change conflicts instead
-of interleaving. That lock does not make an earlier off-chain read current.
-`clearAllowance({ spender })` revokes an allowance and deletes
-its storage entry, and `clearBalance()` deletes the caller's empty balance
-entry. Allowance changes emit `AllowanceChangeEvent` with the signed
-`difference`; the earlier `ApprovalEvent` is gone with interface 0.1.41.
+`{ spender, difference }`, not `approve`. `difference` is signed: positive
+increases the allowance, negative reduces it. Adjustments may merge with
+concurrent spending and adjustments, so reading the current allowance and
+submitting a delta cannot guarantee an exact target. To set an absolute
+allowance, call `deleteAllowance({ spender })` and then `adjustAllowance` in
+the same transaction: the delete's exclusive lock covers the following write,
+so a concurrent change conflicts instead of interleaving. That lock does not
+make an earlier off-chain read current. Interface 0.1.68 removed
+`adjustAllowance`'s `exclusive` flag in favor of this pattern.
+`deleteAllowance({ spender })` revokes an allowance, deletes its storage
+entry, and emits `AllowanceDeleteEvent` with the stored amount removed.
+`deleteBalance()` deletes the caller's empty balance entry and throws for a
+nonzero balance. Allowance changes emit `AllowanceChangeEvent` with the signed
+`difference`. Interface 0.1.68 has no `burn` method or `BurnEvent`, and amounts
+are signed 128-bit integers in `0..=i128::MAX`.
 
 A receipt proves commitment; inspect its `execution.result`. A `committed`
 status always includes `blockHeight`, even when the receipt is not indexed yet.
@@ -826,7 +831,7 @@ with binary signatures intact.
 Run on Linux with Node 24. CI installs the published CLI crate and public devnode
 artifact pinned in
 [`scripts/integration-versions.json`](scripts/integration-versions.json): CLI
-0.33.0, devnode 0.1.31-rc.11 and wire 14.0.0. CI qualification uses the crate-built
+0.39.0, devnode 0.1.31-rc.16 and wire 14.1.1. CI qualification uses the crate-built
 CLI; it does not verify a packaged CLI bundle. Locally, install that CLI version on
 `PATH` or set `THRUPUT_CLI` to its executable. The harness installs the pinned
 devnode when no runtime override is supplied.
@@ -854,7 +859,7 @@ the normal integration command always starts its own node and runs its suite.
 
 The transfer workflow also checks grouped reads and view freshness, an
 authenticated wallet simulation, and recovery of admitted local-funding bytes
-after a lost response. This profile requires wire 14.0.0, base58 identifiers
+after a lost response. This profile requires wire 14.1.1, base58 identifiers
 and ML-DSA-65 pubkey accounts.
 
 An explicit `THRUPUT_CLI` must match the configured version and any configured
@@ -896,7 +901,7 @@ npm run test:integration:blocks
 ```
 
 Use the same optional `HOGD_PROTOCOL_OVERRIDE` rule as above. This profile requires
-wire 14.0.0 and fails on unsupported nodes. The final native tools/runtime artifact
+wire 14.1.1 and fails on unsupported nodes. The final native tools/runtime artifact
 set must pass both profiles before this SDK is released. Unit tests do not qualify
 a live node. `scripts/regen-openrpc.sh` imports a reviewed Rust-generated wire-14
 snapshot or generator via explicit source path and commit; it does not install an

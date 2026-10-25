@@ -7,7 +7,7 @@ const bytes = fromHex0x("0x" + vectors.signing[0]!.signed_transaction_xdr);
 describe("native mock transport", () => {
   it("advertises only implemented methods and serves native named shapes", async () => {
     const client = await createRpcClient({ transport: new MockTransport() });
-    expect(client.discovery.version.wireFormat).toBe("14.0.0");
+    expect(client.discovery.version.wireFormat).toBe("14.1.1");
     expect(client.discovery.version.supportedMethods).not.toContain(
       "dev_fundAccount",
     );

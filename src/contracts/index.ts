@@ -9,8 +9,8 @@
  * Each interface nests its methods, argument and result types, and exceptions
  * under the major version its entrypoints hash (`ERC20.v0_1.transfer`,
  * `ERC20.v0_1.TransferArgs`). Named types, enum values, and event descriptors
- * nest under the declaring crate and major (`groundhog_erc20_if.v0_1.error.ERC20Error`,
- * `groundhog_erc20_if.v0_1.events.TransferEvent`). Select a major once and
+ * nest under the declaring crate and major (`thruput_erc20_if.v0_1.error.ERC20Error`,
+ * `thruput_erc20_if.v0_1.events.TransferEvent`). Select a major once and
  * keep short calls from there.
  *
  * @example
@@ -29,7 +29,7 @@
 export {
   ERC20,
   ERC20Metadata,
-  groundhog_erc20_if,
+  thruput_erc20_if,
   decodeEvent as decodeERC20Event,
   spec as ERC20Spec,
 } from "./erc20.js";
@@ -42,11 +42,11 @@ export {
 export { DevWallet, spec as DevWalletSpec } from "./dev_wallet.js";
 export {
   SignedOp,
-  groundhog_signed_op_if,
+  thruput_signed_op_if,
   spec as SignedOpSpec,
 } from "./signed_op.js";
 export {
   ERC20Permit,
-  groundhog_erc20_permit_if,
+  thruput_erc20_permit_if,
   spec as ERC20PermitSpec,
 } from "./erc20_permit.js";

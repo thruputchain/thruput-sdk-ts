@@ -167,7 +167,7 @@ import {
   DevWallet,
   decodeERC20Event,
   default_wallet,
-  groundhog_erc20_if,
+  thruput_erc20_if,
 } from "@thruputchain/client/contracts";
 import type { BitMap, Weight } from "@thruputchain/protocol";
 import type { Signer } from "@thruputchain/client/signers";
@@ -218,7 +218,7 @@ async function eventPagesBoundary(
   signal: AbortSignal,
 ) {
   const query = {
-    event: groundhog_erc20_if.v0_1.events.TransferEvent,
+    event: thruput_erc20_if.v0_1.events.TransferEvent,
     addresses: [address],
     topics: { to: address },
     start: { order: "ascending", anchor: { kind: "atBeginning" } } as const,
@@ -233,7 +233,7 @@ async function eventPagesBoundary(
   const name: "TransferEvent" = page.events[0]!.name;
   const height: bigint = page.events[0]!.blockHeight;
   const rawQuery = {
-    filters: [groundhog_erc20_if.v0_1.events.TransferEvent.filter(query)],
+    filters: [thruput_erc20_if.v0_1.events.TransferEvent.filter(query)],
     start: { order: "ascending", anchor: { kind: "atBeginning" } } as const,
   };
   const pages: AsyncIterable<import("@thruputchain/client").EventPage> =
@@ -252,7 +252,7 @@ async function eventPagesBoundary(
     topics: { to: 1n },
   });
   const mint = await client.getContractEvents({
-    event: groundhog_erc20_if.v0_1.events.MintEvent,
+    event: thruput_erc20_if.v0_1.events.MintEvent,
     addresses: [address],
     start: { order: "ascending", anchor: { kind: "atBeginning" } },
   });
@@ -498,31 +498,30 @@ async function packageBoundaryTypecheck(
     });
 
   ERC20Metadata.v0_1.symbol.invocation(address, gasLimit);
-  groundhog_erc20_if.v0_1.events.AllowanceChangeEvent.filter({
+  thruput_erc20_if.v0_1.events.AllowanceChangeEvent.filter({
     addresses: [address],
     topics: { owner: address },
   });
-  const transferTopics: groundhog_erc20_if.v0_1.events.TransferEventFilter = {
+  const transferTopics: thruput_erc20_if.v0_1.events.TransferEventFilter = {
     to: { oneOf: [recipient] },
   };
-  groundhog_erc20_if.v0_1.events.TransferEvent.filter({
+  thruput_erc20_if.v0_1.events.TransferEvent.filter({
     addresses: [address],
     topics: transferTopics,
   });
   decodeERC20Event(event);
-  const mintTopics: groundhog_erc20_if.v0_1.events.MintEventFilter = {
+  const mintTopics: thruput_erc20_if.v0_1.events.MintEventFilter = {
     to: recipient,
   };
-  const burnTopics: groundhog_erc20_if.v0_1.events.BurnEventFilter = {
-    from: recipient,
-  };
-  groundhog_erc20_if.v0_1.events.MintEvent.filter({
+  const deleteTopics: thruput_erc20_if.v0_1.events.AllowanceDeleteEventFilter =
+    { spender: recipient };
+  thruput_erc20_if.v0_1.events.MintEvent.filter({
     addresses: [address],
     topics: mintTopics,
   });
-  groundhog_erc20_if.v0_1.events.BurnEvent.filter({
+  thruput_erc20_if.v0_1.events.AllowanceDeleteEvent.filter({
     addresses: [address],
-    topics: burnTopics,
+    topics: deleteTopics,
   });
 
   const executeSignedOp: ContractMethod<

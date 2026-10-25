@@ -8,7 +8,7 @@ import {
   hashFromBase58,
   toBase58,
 } from "@thruputchain/client";
-import { groundhog_erc20_if } from "@thruputchain/client/contracts";
+import { thruput_erc20_if } from "@thruputchain/client/contracts";
 import { NATIVE_TOKEN_ADDRESS } from "@thruputchain/protocol";
 
 test("reads a CLI transfer through the SDK", async () => {
@@ -30,7 +30,7 @@ test("reads a CLI transfer through the SDK", async () => {
   assert.ok(receipt, "CLI transfer receipt must be indexed");
   assert.equal(toBase58(receipt.transactionHash), result.txHash);
   assert.equal(receipt.execution.result, "return");
-  const event = groundhog_erc20_if.v0_1.events.TransferEvent.singleFromReceipt(
+  const event = thruput_erc20_if.v0_1.events.TransferEvent.singleFromReceipt(
     receipt,
     { address: NATIVE_TOKEN_ADDRESS },
   );

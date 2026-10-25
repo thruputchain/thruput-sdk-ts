@@ -85,6 +85,7 @@ export type RpcConfigLimits = {
   maxRv32MemoryBytes?: number;
   maxSavepointDepth?: number;
   maxSha256Buffers?: number;
+  maxTxGas?: RpcDecimalU64;
 };
 export type RpcConflictCode =
   | "exclusiveLock"
@@ -475,6 +476,7 @@ export type RpcErrorData =
             maxBytes: number;
             reason: "rv32CodeTooLarge";
           }
+        | { gasLimit: bigint; maxGas: bigint; reason: "gasLimitTooHigh" }
         | UnsupportedRpcValue;
       kind: "transactionInvalid";
       reason?: string;

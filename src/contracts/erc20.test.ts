@@ -17,14 +17,14 @@ import { signTransaction } from "../transaction/sign.js";
 import { decodeCalldata } from "../contract/encode.js";
 import { buildNamedCodecs } from "../contract/codegen.js";
 import { ERC20, ERC20Metadata, spec } from "./erc20.js";
-import { decodeERC20Event, groundhog_erc20_if } from "./index.js";
+import { decodeERC20Event, thruput_erc20_if } from "./index.js";
 
 const {
   AllowanceChangeEvent: ERC20AllowanceChangeEvent,
-  BurnEvent: ERC20BurnEvent,
+  AllowanceDeleteEvent: ERC20AllowanceDeleteEvent,
   MintEvent: ERC20MintEvent,
   TransferEvent: ERC20TransferEvent,
-} = groundhog_erc20_if.v0_1.events;
+} = thruput_erc20_if.v0_1.events;
 
 const namedCodecs = buildNamedCodecs(spec.type_defs);
 
@@ -35,34 +35,34 @@ describe("generated ERC20 events", () => {
   const account = contractAddress(new Uint8Array(32).fill(0x22));
   const other = contractAddress(new Uint8Array(32).fill(0x33));
 
-  // Signatures and wire layouts from groundhog-erc20-if 0.1.41, independent
+  // Signatures and wire layouts from thruput-erc20-if 0.1.68, independent
   // of the generated descriptors so a stale binding cannot bless itself.
   const cases = [
     {
       name: "AllowanceChangeEvent",
       descriptor: ERC20AllowanceChangeEvent,
       signature:
-        "8f651cf72869c41d81740e5d5c083f66b7cb8c9041ab203c243c8296ac0fb050",
+        "b607e0e1095d9b516d05fdb9ed63e6717aec2740bda162dd0d6336d4a19335f7",
       topics: [account, other],
       decodedTopics: { owner: account, spender: other },
       fields: { difference: -1000n },
       value: -1000n,
     },
     {
-      name: "BurnEvent",
-      descriptor: ERC20BurnEvent,
+      name: "AllowanceDeleteEvent",
+      descriptor: ERC20AllowanceDeleteEvent,
       signature:
-        "513f00645e2752c8b6273adbbd6b0dae498cf7c4028751e05c7d8900fb4182c5",
-      topics: [account],
-      decodedTopics: { from: account },
-      fields: { amount: 1000n },
+        "9384f33409fa51703bb4dc8d7f5b87e469840866bde189d8a263c7b3be110872",
+      topics: [account, other],
+      decodedTopics: { owner: account, spender: other },
+      fields: { removed: 1000n },
       value: 1000n,
     },
     {
       name: "MintEvent",
       descriptor: ERC20MintEvent,
       signature:
-        "10c4493b678f7f00f19a3bbf4fa153186a2d1f4cf328a495718af7679fa54ea4",
+        "4e939db8b4598c749291f2b23802902094b3e6e5b0c4de6995429e25493287fc",
       topics: [account],
       decodedTopics: { to: account },
       fields: { amount: 1000n },
@@ -72,7 +72,7 @@ describe("generated ERC20 events", () => {
       name: "TransferEvent",
       descriptor: ERC20TransferEvent,
       signature:
-        "5ff62377bf52711e75461f4d8f9b4585f17d1c20f7e1eceb280194a7764bae5f",
+        "5229153abd7aabc422c9e2217845f087f3819787d3d72375155f4c65f2089cce",
       topics: [account, other],
       decodedTopics: { from: account, to: other },
       fields: { amount: 1000n },
@@ -117,7 +117,7 @@ describe("generated ERC20 events", () => {
     ).toThrow();
   });
 
-  it("builds named mint and burn topic filters", () => {
+  it("builds named mint and allowance-delete topic filters", () => {
     expect(
       ERC20MintEvent.filter({
         addresses: [token],
@@ -128,13 +128,16 @@ describe("generated ERC20 events", () => {
       topics: { topic0: [ERC20MintEvent.signature], topic1: [account] },
     });
     expect(
-      ERC20BurnEvent.filter({
+      ERC20AllowanceDeleteEvent.filter({
         addresses: [token],
-        topics: { from: { oneOf: [account, other] } },
+        topics: { owner: { oneOf: [account, other] } },
       }),
     ).toEqual({
       addresses: [token],
-      topics: { topic0: [ERC20BurnEvent.signature], topic1: [account, other] },
+      topics: {
+        topic0: [ERC20AllowanceDeleteEvent.signature],
+        topic1: [account, other],
+      },
     });
   });
 

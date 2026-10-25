@@ -55,7 +55,7 @@ export type ContractEventPage<TName extends string, TTopics, TFields> = Omit<
  * @example
  * ```ts
  * const page = await getContractEvents(client, {
- *   event: groundhog_erc20_if.v0_1.events.TransferEvent,
+ *   event: thruput_erc20_if.v0_1.events.TransferEvent,
  *   addresses: [tokenAddress],
  *   topics: { to: accountAddress },
  *   start: { order: "ascending", anchor: { kind: "atBeginning" } },

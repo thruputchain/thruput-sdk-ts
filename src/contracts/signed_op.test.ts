@@ -18,11 +18,11 @@ import {
 import { fixedBytes } from "@thruputchain/xdr";
 import { signedToken } from "../contract/signedToken.js";
 import { deriveEntrypointID } from "../derivation/entrypointId.js";
-import { SignedOp, groundhog_signed_op_if, spec } from "./signed_op.js";
+import { SignedOp, thruput_signed_op_if, spec } from "./signed_op.js";
 
-const { SignedOpError } = groundhog_signed_op_if.v0_1.error;
+const { SignedOpError } = thruput_signed_op_if.v0_1.error;
 
-// The finalized spec of `groundhog-signed-op-if`, built from its rv32 spec
+// The finalized spec of `thruput-signed-op-if`, built from its rv32 spec
 // carrier: the input the binding was generated from.
 const specPath = fileURLToPath(
   new URL("../../specs/contracts/signed_op.spec.xdr", import.meta.url),
@@ -37,7 +37,7 @@ describe("SignedOp binding", () => {
     expect(spec).toEqual(pinned);
     expect(spec.interfaces).toHaveLength(1);
     expect(spec.interfaces[0]!.name).toBe("SignedOp");
-    expect(spec.interfaces[0]!.vers).toBe("0.1.41");
+    expect(spec.interfaces[0]!.vers).toBe("0.1.68");
     // Nonces are unordered, so the nonce view of earlier releases is gone:
     // nothing on chain needs reading before signing.
     expect(spec.interfaces[0]!.methods.map((m) => m.name)).toEqual([

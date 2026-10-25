@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { contractAddress, CxsWriter } from "@thruputchain/protocol";
-import { groundhog_erc20_if } from "../../contracts/index.js";
+import { thruput_erc20_if } from "../../contracts/index.js";
 import { toBase58 } from "../../encoding.js";
 import { toHex0x } from "../hex.js";
 import { testRpc } from "../../testing/nativeRpc.js";
 import { getContractEvents } from "./getContractEvents.js";
-const event = groundhog_erc20_if.v0_1.events.TransferEvent;
+const event = thruput_erc20_if.v0_1.events.TransferEvent;
 const token = contractAddress(new Uint8Array(32).fill(1)),
   sender = contractAddress(new Uint8Array(32).fill(2)),
   recipient = contractAddress(new Uint8Array(32).fill(3)),

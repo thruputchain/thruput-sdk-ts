@@ -69,8 +69,8 @@ const requiredExports = {
     "SignedOp",
     "decodeERC20Event",
     "default_wallet",
-    "groundhog_erc20_if",
-    "groundhog_signed_op_if",
+    "thruput_erc20_if",
+    "thruput_signed_op_if",
   ],
   "./signers": ["Ed25519Signer", "MlDsa65Signer", "verifyMlDsa65"],
   "./actions": [

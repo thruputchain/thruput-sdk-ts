@@ -29,7 +29,7 @@ import {
   DefaultWallet,
   ERC20,
   decodeERC20Event,
-  groundhog_erc20_if,
+  thruput_erc20_if,
 } from "@thruputchain/client/contracts";
 import {
   ExecResult,
@@ -58,7 +58,13 @@ function assumed(account) {
 
 function assertChainConfig({ execution, stated }) {
   const assertLimits = (limits) => {
-    for (const value of Object.values(limits)) {
+    for (const [key, value] of Object.entries(limits)) {
+      // Wire 14.1 states the transaction gas cap as a decimal u64.
+      if (key === "maxTxGas") {
+        assert.equal(typeof value, "bigint");
+        assert.ok(value >= 0n && value <= (1n << 64n) - 1n);
+        continue;
+      }
       assert.ok(Number.isInteger(value) && value >= 0 && value <= 0xffff_ffff);
     }
   };
@@ -350,12 +356,9 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         [new Uint8Array()],
       );
       const receiptEvent =
-        groundhog_erc20_if.v0_1.events.TransferEvent.singleFromReceipt(
-          receipt,
-          {
-            address: NATIVE_TOKEN_ADDRESS,
-          },
-        );
+        thruput_erc20_if.v0_1.events.TransferEvent.singleFromReceipt(receipt, {
+          address: NATIVE_TOKEN_ADDRESS,
+        });
       assert.deepEqual(receiptEvent.topics, {
         from: sender.address,
         to: recipient.address,
@@ -440,10 +443,9 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       );
       assert.equal(receipt.execution.result, "return");
       const event =
-        groundhog_erc20_if.v0_1.events.TransferEvent.singleFromReceipt(
-          receipt,
-          { address: NATIVE_TOKEN_ADDRESS },
-        );
+        thruput_erc20_if.v0_1.events.TransferEvent.singleFromReceipt(receipt, {
+          address: NATIVE_TOKEN_ADDRESS,
+        });
       assert.deepEqual(event.topics, {
         from: sender.address,
         to: recipient.address,
@@ -461,7 +463,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       // and encoded topic filtering through the real indexer.
       const query = {
         filters: [
-          groundhog_erc20_if.v0_1.events.TransferEvent.filter({
+          thruput_erc20_if.v0_1.events.TransferEvent.filter({
             addresses: [NATIVE_TOKEN_ADDRESS],
             topics: { from: sender.address },
           }),
@@ -501,7 +503,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       assert.equal(typeof identified.sequenceNumber, "number");
       assert.deepEqual(identified.event.address, NATIVE_TOKEN_ADDRESS);
       assert.deepEqual(
-        groundhog_erc20_if.v0_1.events.TransferEvent.decode(identified.event),
+        thruput_erc20_if.v0_1.events.TransferEvent.decode(identified.event),
         {
           name: "TransferEvent",
           topics: { from: sender.address, to: recipient.address },
@@ -532,7 +534,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         { timeoutMs: receiptTimeoutMs },
       );
       const query = {
-        event: groundhog_erc20_if.v0_1.events.TransferEvent,
+        event: thruput_erc20_if.v0_1.events.TransferEvent,
         addresses: [NATIVE_TOKEN_ADDRESS],
         topics: { from: sender.address },
         start: {
@@ -572,7 +574,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       assert.ok(next.nextCursor !== null);
 
       const rawQuery = {
-        filters: [groundhog_erc20_if.v0_1.events.TransferEvent.filter(query)],
+        filters: [thruput_erc20_if.v0_1.events.TransferEvent.filter(query)],
         start: query.start,
         limit: 1,
       };

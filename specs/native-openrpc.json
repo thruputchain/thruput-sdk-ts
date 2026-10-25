@@ -282,7 +282,7 @@
         "type": "object"
       },
       "BalanceResult": {
-        "description": "Free native-HOG base units; storage collateral is separate.",
+        "description": "Free native-token base units; storage collateral is separate.",
         "properties": {
           "address": {
             "$ref": "#/components/schemas/Base58_ContractAddress"
@@ -512,6 +512,9 @@
             "maximum": 4294967295,
             "minimum": 0,
             "type": "integer"
+          },
+          "maxTxGas": {
+            "$ref": "#/components/schemas/DecimalU64"
           }
         },
         "type": "object"
@@ -1318,7 +1321,7 @@
         "type": "object"
       },
       "StorageCosts": {
-        "description": "Storage collateral in native-HOG base units. Each decimal amount retains\nthe width of its protocol field; these prices are unrelated to gas burning.",
+        "description": "Storage collateral in native-token base units. Each decimal amount retains\nthe width of its protocol field; these prices are unrelated to gas burning.",
         "properties": {
           "authPerKeyCost": {
             "$ref": "#/components/schemas/DecimalU64"
@@ -1779,7 +1782,7 @@
   },
   "info": {
     "title": "Thruput JSON-RPC",
-    "version": "14.0.0"
+    "version": "14.1.1"
   },
   "methods": [
     {
@@ -1992,6 +1995,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/0/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/0/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -2557,6 +2576,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/1/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/1/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -3135,6 +3170,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/2/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/2/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -3681,6 +3732,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/2/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/2/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -4223,6 +4290,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/2/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/2/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -4773,6 +4856,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/2/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/2/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -5313,6 +5412,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/2/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/2/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -5896,6 +6011,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/3/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/3/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -6442,6 +6573,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/3/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/3/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -6984,6 +7131,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/3/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/3/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -7534,6 +7697,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/3/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/3/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -8074,6 +8253,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/3/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/3/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -8644,6 +8839,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/4/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/4/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -9237,6 +9448,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/5/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/5/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -9781,6 +10008,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/5/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/5/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -10321,6 +10564,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/5/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/5/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -10863,6 +11122,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/5/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/5/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -11410,6 +11685,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/5/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/5/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -11948,6 +12239,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/5/x-data-schema/TransactionInvalid/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/5/x-data-schema/TransactionInvalid/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -12499,6 +12806,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/5/x-data-schema/TransactionRejected/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/5/x-data-schema/TransactionRejected/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -13097,6 +13420,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/6/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/6/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -13643,6 +13982,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/6/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/6/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -14185,6 +14540,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/6/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/6/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -14735,6 +15106,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/6/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/6/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -15275,6 +15662,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/6/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/6/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -15879,6 +16282,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/7/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/7/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -16419,6 +16838,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/7/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/7/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -16962,6 +17397,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/7/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/7/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -17512,6 +17963,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/7/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/7/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -18052,6 +18519,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/7/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/7/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -18704,6 +19187,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/8/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/8/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -19250,6 +19749,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/8/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/8/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -19792,6 +20307,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/8/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/8/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -20342,6 +20873,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/8/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/8/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -20882,6 +21429,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/8/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/8/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -21428,6 +21991,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/8/x-data-schema/StateHeightUnavailable/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/8/x-data-schema/StateHeightUnavailable/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -22083,6 +22662,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/9/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/9/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -22629,6 +23224,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/9/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/9/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -23171,6 +23782,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/9/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/9/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -23721,6 +24348,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/9/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/9/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -24261,6 +24904,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/9/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/9/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -24807,6 +25466,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/9/x-data-schema/StateHeightUnavailable/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/9/x-data-schema/StateHeightUnavailable/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -25432,6 +26107,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/10/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/10/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -25978,6 +26669,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/10/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/10/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -26520,6 +27227,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/10/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/10/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -27070,6 +27793,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/10/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/10/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -27611,6 +28350,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/10/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/10/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -28015,7 +28770,7 @@
           "$ref": "#/components/schemas/BalanceResult"
         }
       },
-      "summary": "Read native HOG balance and its state height.",
+      "summary": "Read native token balance and its state height.",
       "x-data-schema": {
         "BackendDataInvalid": {
           "$schema": "http://json-schema.org/draft-07/schema#",
@@ -28210,6 +28965,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/11/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/11/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -28757,6 +29528,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/11/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/11/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -29299,6 +30086,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/11/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/11/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -29849,6 +30652,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/11/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/11/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -30389,6 +31208,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/11/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/11/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -30986,6 +31821,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/12/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/12/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -31532,6 +32383,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/12/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/12/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -32074,6 +32941,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/12/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/12/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -32624,6 +33507,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/12/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/12/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -33164,6 +34063,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/12/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/12/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -33793,6 +34708,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/13/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/13/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -34339,6 +35270,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/13/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/13/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -34881,6 +35828,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/13/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/13/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -35430,6 +36393,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/13/x-data-schema/HistoryUnavailable/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/13/x-data-schema/HistoryUnavailable/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -35983,6 +36962,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/13/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/13/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -36583,6 +37578,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/13/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/13/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -37241,6 +38252,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/14/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/14/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -37787,6 +38814,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/14/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/14/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -38329,6 +39372,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/14/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/14/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -38878,6 +39937,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/14/x-data-schema/HistoryUnavailable/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/14/x-data-schema/HistoryUnavailable/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -39431,6 +40506,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/14/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/14/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -40031,6 +41122,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/14/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/14/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -40672,6 +41779,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/15/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/15/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -41218,6 +42341,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/15/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/15/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -41760,6 +42899,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/15/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/15/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -42309,6 +43464,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/15/x-data-schema/HistoryUnavailable/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/15/x-data-schema/HistoryUnavailable/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -42863,6 +44034,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/15/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/15/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -43403,6 +44590,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/15/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/15/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -44037,6 +45240,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/16/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/16/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -44583,6 +45802,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/16/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/16/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -45125,6 +46360,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/16/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/16/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -45674,6 +46925,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/16/x-data-schema/HistoryUnavailable/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/16/x-data-schema/HistoryUnavailable/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -46227,6 +47494,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/16/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/16/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -46827,6 +48110,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/16/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/16/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -47471,6 +48770,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/17/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/17/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -48012,6 +49327,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/17/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/17/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -48549,6 +49880,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/17/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/17/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -49089,6 +50436,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/17/x-data-schema/FundingAttemptStopped/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/17/x-data-schema/FundingAttemptStopped/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -49606,6 +50969,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/17/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/17/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -50143,6 +51522,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/17/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/17/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -50557,7 +51952,7 @@
           "name": "rawAmount",
           "required": true,
           "schema": {
-            "description": "Positive canonical decimal amount in raw HOG units.",
+            "description": "Positive canonical decimal amount in raw native token units.",
             "maxLength": 39,
             "pattern": "^[1-9][0-9]*(?![\\s\\S])",
             "type": "string",
@@ -50774,6 +52169,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/18/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/18/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -51316,6 +52727,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/18/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/18/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -51853,6 +53280,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/18/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/18/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -52393,6 +53836,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/18/x-data-schema/FundingAttemptStopped/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/18/x-data-schema/FundingAttemptStopped/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -52910,6 +54369,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/18/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/18/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -53447,6 +54922,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/18/x-data-schema/LocalFundingUnresolved/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/18/x-data-schema/LocalFundingUnresolved/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -53971,6 +55462,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/18/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/18/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -54333,7 +55840,7 @@
             "$ref": "#/components/schemas/Base58_ContractAddress"
           },
           "rawAmount": {
-            "description": "Positive canonical decimal amount in raw HOG units.",
+            "description": "Positive canonical decimal amount in raw native token units.",
             "maxLength": 39,
             "pattern": "^[1-9][0-9]*(?![\\s\\S])",
             "type": "string",
@@ -54570,6 +56077,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/19/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/19/x-data-schema/BackendDataInvalid/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -55117,6 +56640,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/19/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/19/x-data-schema/BackendTimeout/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -55659,6 +57198,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/19/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/19/x-data-schema/BackendUnavailable/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]
@@ -56209,6 +57764,22 @@
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
                   "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/19/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/19/x-data-schema/InvalidParams/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
+                  "type": "object"
                 }
               ]
             },
@@ -56749,6 +58320,22 @@
                     }
                   },
                   "required": ["reason", "index", "codeBytes", "maxBytes"],
+                  "type": "object"
+                },
+                {
+                  "properties": {
+                    "gasLimit": {
+                      "$ref": "#/methods/19/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "maxGas": {
+                      "$ref": "#/methods/19/x-data-schema/Overloaded/definitions/DecimalU64"
+                    },
+                    "reason": {
+                      "const": "gasLimitTooHigh",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["reason", "gasLimit", "maxGas"],
                   "type": "object"
                 }
               ]

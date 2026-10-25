@@ -102,6 +102,9 @@ export const defaultWalletAdapter = defineWalletInvocationAdapter({
       throw new Error(
         "Initializer must target the predicted deployment address",
       );
+    // The wallet takes an i128, but a deployment never funds a negative amount.
+    if (options.amount < 0n)
+      throw new RangeError("Deployment amount must not be negative");
     return DefaultWallet.v0_1.deploy.invocation(account, options.gasLimit, {
       nonce: fixedBytes(deployment.deploymentNonce, 32),
       contractHash: fixedBytes(deployment.contractHash, 32),
