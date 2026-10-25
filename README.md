@@ -1,6 +1,6 @@
 # @thruputchain/client
 
-TypeScript client for the [Thruput](https://github.com/groundhogchain) blockchain.
+TypeScript client for the [Thruput](https://github.com/thruputchain) blockchain.
 
 It provides typed JSON-RPC actions, transaction construction and signing,
 HTTP and mock transports, and generated contract bindings. Generated methods
@@ -749,7 +749,7 @@ Recover an uncertain submission through its original saved transaction hash.
 ## Documentation
 
 - [TypeScript SDK guide](https://docs.thruput.network/tools/typescript-sdk/) and the
-  [end-to-end tutorial](https://docs.thruput.network/tutorials/work-with-groundhog-from-typescript/)
+  [end-to-end tutorial](https://docs.thruput.network/tutorials/work-with-thruput-from-typescript/)
   on the Thruput developer site.
 - [JSON-RPC API reference](https://docs.thruput.network/reference/json-rpc-api/) for the
   methods behind each action.
