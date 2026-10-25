@@ -10,28 +10,35 @@ Run examples from the repository root:
 npm run example <name>
 ```
 
-| Example                     | Network  | What it demonstrates                                           |
-| --------------------------- | -------- | -------------------------------------------------------------- |
-| `chain-tip`                 | Devnet   | Validated connection, chain tip, and nullable release identity |
-| `transfer-native-token`     | Devnet   | Airdrops, pubkey accounts, DefaultWallet, and receipts         |
-| `view-native-token-balance` | Localnet | Public account address and typed contract views                |
-| `deploy-counter`            | Localnet | Native wallet funding, atomic initialization, and readback     |
+| Example                     | Default network | What it demonstrates                                           |
+| --------------------------- | --------------- | -------------------------------------------------------------- |
+| `chain-tip`                 | Futurenet       | Validated connection, chain tip, and nullable release identity |
+| `transfer-native-token`     | Futurenet       | Airdrops, pubkey accounts, DefaultWallet, and receipts         |
+| `view-native-token-balance` | Localnet        | Public account address and typed contract views                |
+| `deploy-counter`            | Localnet        | Native wallet funding, atomic initialization, and readback     |
 
-Set `THRUPUT_RPC_URL` to override a cluster's default endpoint. A Localnet
-override must also set `THRUPUT_RUNTIME_MANIFEST` to the manifest produced by
-that same node; the shared `localnet` network ID cannot distinguish separate
-local runtimes.
+All four examples support both networks. Set `THRUPUT_NETWORK=localnet` or
+`THRUPUT_NETWORK=futurenet` to select one. Futurenet uses the SDK's `futurenet()`
+descriptor and `https://rpc.thruput.network`; Localnet uses `localnet()` and
+`http://127.0.0.1:9545`.
 
-## Devnet
+Set `THRUPUT_RPC_URL` to override the selected endpoint. Set
+`THRUPUT_NETWORK_HASH` to pin its base58 signing-network hash, including for a
+local node started with a custom identity. Localnet otherwise expects the
+all-zero network hash; Futurenet discovers its identity without a pin. A shared
+network hash cannot distinguish separate local runtimes. These examples do not
+read a runtime manifest.
 
-`chain-tip` connects through `devnet()`, validates the endpoint's network
+## Futurenet
+
+`chain-tip` connects through `futurenet()`, validates the endpoint's network
 identity, and prints the current chain tip:
 
 ```bash
 npm run example chain-tip
 ```
 
-`transfer-native-token` creates two ephemeral pubkey accounts, materializes
+`transfer-native-token` creates an ML-DSA-65 sender and an Ed25519 recipient, materializes
 both with airdrops, transfers native tokens through the native-compatible
 DefaultWallet, waits for the receipt, and reads both resulting balances:
 
@@ -39,10 +46,24 @@ DefaultWallet, waits for the receipt, and reads both resulting balances:
 npm run example transfer-native-token
 ```
 
+The sender signs with ML-DSA-65, the post-quantum scheme. `deploy-counter` signs
+with Ed25519. Both signers use `fromSeed` with a 32-byte seed and the same wallet
+API. Changing the scheme changes the account address, even with the same seed.
+
 The private keys exist only for that process and are never printed or saved.
 Any native tokens left in either account become inaccessible when the process
 exits.
-Each run consumes two Devnet faucet allocations.
+Each transfer run consumes two Futurenet faucet allocations. Deployment consumes
+one. The hosted faucet applies cooldowns and a shared quota.
+
+Run the deployment and balance examples on Futurenet:
+
+```bash
+THRUPUT_NETWORK=futurenet npm run example deploy-counter
+THRUPUT_NETWORK=futurenet THRUPUT_ADDRESS=PUBLIC_ADDRESS npm run example view-native-token-balance
+```
+
+Replace `PUBLIC_ADDRESS` with an address printed by the transfer or deployment.
 
 These examples require an RPC deployment that supports
 `getNetworkInfo`. The transfer also requires
@@ -74,8 +95,12 @@ Counter contract, increment it, and read the committed value:
 npm run example deploy-counter
 ```
 
-Set `THRUPUT_RUNTIME_MANIFEST` to override the active manifest path. When
-using `THRUPUT_RPC_URL`, both overrides must identify the same local node.
+Run the other two examples against the local node:
+
+```bash
+THRUPUT_NETWORK=localnet npm run example chain-tip
+THRUPUT_NETWORK=localnet npm run example transfer-native-token
+```
 
 ## Contract Deployment
 
@@ -88,7 +113,10 @@ and gas budgets are calibrated for the bundled fixture and local runtime; they
 are not deployment cost estimates.
 
 `wallet.executeAndWait()` increments the counter through DefaultWallet, and a
-typed view verifies the value is 47. The private key is never printed or saved;
+typed view at or above the call receipt's height verifies the value is 47.
+The transfer example uses the same freshness floor for its balance reads.
+If a read backend is behind, the read fails rather than reporting stale state;
+this does not undo the committed transaction. The private key is never printed or saved;
 any remaining funds become inaccessible when the process exits.
 
 The Counter artifact's source revision, SDK, compiler, and SHA-256 are recorded in

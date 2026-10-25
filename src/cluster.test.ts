@@ -6,6 +6,9 @@ import {
   NetworkMismatchError,
   defineCluster,
   devnet,
+  futurenet,
+  FUTURENET_RPC_URL,
+  DEVNET_RPC_URL,
   localnet,
   mainnet,
   LOCALNET_RPC_URL,
@@ -47,8 +50,8 @@ describe("cluster descriptors", () => {
       name: "mainnet",
       capabilities: [],
     });
-    expect(devnet()).toEqual({
-      name: "devnet",
+    expect(futurenet()).toEqual({
+      name: "futurenet",
       rpcUrl: "https://rpc.thruput.network",
       capabilities: ["airdrop"],
     });
@@ -59,6 +62,27 @@ describe("cluster descriptors", () => {
       capabilities: ["airdrop"],
     });
   });
+
+  it("preserves the deprecated devnet descriptor and endpoint", () => {
+    expect(devnet()).toEqual({ ...futurenet(), name: "devnet" });
+    expect(DEVNET_RPC_URL).toBe(FUTURENET_RPC_URL);
+  });
+
+  it.each([futurenet, devnet])(
+    "preserves hosted overrides and snapshots the identity",
+    (cluster) => {
+      const pin = protocolNetworkHash("11");
+      const descriptor = cluster({
+        rpcUrl: "https://rpc.example.com",
+        networkHash: pin,
+      });
+      pin.fill(0x22);
+      expect(descriptor.rpcUrl).toBe("https://rpc.example.com");
+      expect(descriptor.networkHash).toEqual(new Uint8Array(32).fill(0x11));
+      expect(Object.isFrozen(descriptor)).toBe(true);
+      expect(() => cluster({ rpcUrl: "not-a-url" })).toThrow();
+    },
+  );
 
   it("preserves custom network identity and capabilities", () => {
     const expectedNetworkHash = protocolNetworkHash("22");
@@ -194,14 +218,18 @@ describe("createThruputClient", () => {
     );
   });
 
-  it("accepts an unpinned resettable network", async () => {
-    const client = await createThruputClient({
-      cluster: devnet(),
-      transport: networkTransport("77"),
-    });
+  it.each([futurenet, devnet])(
+    "accepts an unpinned resettable network",
+    async (cluster) => {
+      const client = await createThruputClient({
+        cluster: cluster(),
+        transport: networkTransport("77"),
+      });
 
-    expect(client.network.networkHash).toEqual(new Uint8Array(32).fill(0x77));
-  });
+      expect(client.network.networkHash).toEqual(new Uint8Array(32).fill(0x77));
+      expect(client.requestAirdrop).toBeTypeOf("function");
+    },
+  );
 
   it("uses the identity snapshot captured before the handshake", async () => {
     let release!: () => void;

@@ -3,12 +3,11 @@ import { NATIVE_TOKEN_ADDRESS } from "@thruputchain/protocol";
 import {
   createThruputClient,
   formatUnits,
-  localnet,
   toBase58,
   addressFromBase58,
 } from "../src/index.js";
 import { ERC20 } from "../src/contracts/index.js";
-const rpcUrl = process.env.THRUPUT_RPC_URL;
+import { exampleCluster } from "./lib/cluster.js";
 const addressText = process.env.THRUPUT_ADDRESS;
 if (!addressText)
   throw new Error(
@@ -17,7 +16,7 @@ if (!addressText)
 const address = addressFromBase58(addressText);
 
 const client = await createThruputClient({
-  cluster: localnet(rpcUrl ? { rpcUrl } : {}),
+  cluster: exampleCluster("localnet"),
 });
 
 // Simulate the read-only ERC20 call and decode its typed result.

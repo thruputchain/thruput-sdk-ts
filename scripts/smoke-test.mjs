@@ -37,6 +37,8 @@ const requiredExports = {
     "defineWalletInvocationAdapter",
     "devWalletAdapter",
     "devnet",
+    "futurenet",
+    "FUTURENET_RPC_URL",
   ],
   "./transaction": [
     "createInvocation",

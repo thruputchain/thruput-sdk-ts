@@ -19,7 +19,7 @@ const kMaxNameLen = 256;
  * `DomainSeparator { ext: 0, domain_separator: <name> }`, used to prefix hash
  * preimages so hashes from different domains can never collide.
  *
- * Mirrors the Rust `groundhog-domain-separator` crate. Module-internal: the
+ * Mirrors the Rust `thruput-domain-separator` crate. Module-internal: the
  * public API exposes only the derived-address helpers built on top of it.
  */
 export class DomainSeparator {

@@ -20,6 +20,7 @@ import {
   HttpTransport,
   type HttpBatchOptions,
   createPubkeyAccount,
+  Ed25519Signer,
   createSourceAddressAccount,
   createWalletClient,
   prepareContractDeployment,
@@ -28,6 +29,7 @@ import {
   defaultWalletAdapter,
   defineWalletInvocationAdapter,
   devnet,
+  futurenet,
   devWalletAdapter,
   localnet,
   mainnet,
@@ -62,6 +64,21 @@ import {
   type SignedTransaction,
 } from "@thruputchain/client";
 import type { Transport } from "@thruputchain/client/transport";
+
+async function futurenetBoundary(transport: Transport) {
+  const cluster = futurenet();
+  const name: "futurenet" = cluster.name;
+  const capability: "airdrop" = cluster.capabilities[0];
+  const client = await createThruputClient({ cluster, transport });
+  const wallet = createWalletClient({
+    client,
+    account: createPubkeyAccount({
+      signer: Ed25519Signer.fromSeed(new Uint8Array(32)),
+    }),
+  });
+  const funding: AirdropSucceeded = await wallet.requestAirdrop();
+  void [name, capability, funding];
+}
 
 import type {
   BlockTransactionQuery,

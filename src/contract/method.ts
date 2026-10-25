@@ -87,7 +87,7 @@ export type ContractViewFailure<TException> =
       events: EmittedEvent[];
     };
 
-/** Typed return, abort, or fault from a contract view. */
+/** Typed return, abort, fault, or unsupported response from a contract view. */
 export type ContractViewOutcome<TResult, TException> =
   | ({ kind: "return" } & ContractView<TResult>)
   | ContractViewFailure<TException>;
@@ -112,7 +112,7 @@ export type ContractReceiptOutcome<TResult, TException> =
   | ({ kind: "return" } & ContractReceipt<TResult>)
   | ContractReceiptFailure<TException>;
 
-/** Error thrown by the ergonomic view API for contract aborts and faults. */
+/** Error thrown by the view API for aborts, faults, or unsupported outcomes. */
 export class ContractViewError<TException> extends Error {
   readonly outcome: ContractViewFailure<TException>;
 
@@ -310,13 +310,13 @@ export interface ContractMethod<TArgs, TResult, TDeclaredException> {
    * ```
    */
   decodeArgs(data: Uint8Array): TArgs;
-  /** Decode complete return data. The runtime enforces network-specific buffer limits. */
+  /** Decode complete return data; reject incomplete or trailing bytes. */
   decodeReturn(data: Uint8Array): TResult;
   /** Decode abort data, preserving an unknown selector and its complete payload. */
   decodeException(data: Uint8Array): ContractException<TDeclaredException>;
   /** Decode a view response with the same semantics as view(). */
   decodeView(response: ViewResponse): ContractView<TResult>;
-  /** Decode return, abort, or fault without throwing for a contract failure. */
+  /** Decode return, abort, fault, or unsupported data without throwing for a contract failure. */
   decodeViewOutcome(
     response: ViewResponse,
   ): ContractViewOutcome<TResult, ContractException<TDeclaredException>>;

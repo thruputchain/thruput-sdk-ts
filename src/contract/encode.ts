@@ -342,8 +342,8 @@ function lookupMethod(
 /**
  * Encode method arguments into contract calldata using a contract spec.
  *
- * Generated contract bindings call this helper internally. Use it directly when
- * constructing invocations from a spec without generated TypeScript bindings.
+ * Use this when constructing invocations from a spec without generated
+ * TypeScript bindings. Generated descriptors use their own resolved codecs.
  *
  * @example
  * ```ts
