@@ -23,7 +23,7 @@ import { TRANSACTION } from "../derivation/domainSeparator.js";
  * The result is signed directly — Ed25519 does its own hashing, so there is no
  * pre-hash here. It must match the C++ validator's
  * `hogd::transaction_signature_preimage` and the Rust
- * `groundhog_domain_separator::transaction_signature_preimage` byte for byte,
+ * `thruput_domain_separator::transaction_signature_preimage` byte for byte,
  * or every signature is rejected.
  *
  * {@link signTransaction} calls this; reach for it directly only when handing

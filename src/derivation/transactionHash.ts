@@ -5,7 +5,7 @@ import type { SHA256Hash, SignedTransaction } from "@thruputchain/protocol";
 /**
  * The transaction's network-wide identifier: `sha256(txs(stx.tx))`.
  *
- * The hash covers the {@link https://github.com/groundhogchain/protocol | protocol}
+ * The hash covers the {@link https://github.com/thruputchain/thruput-protocol | protocol}
  * `Transaction` only — deliberately not the signatures wrapped around it. That
  * keeps the identifier stable under signature malleability, so a third party
  * cannot change the identity of an in-flight transaction by re-encoding its

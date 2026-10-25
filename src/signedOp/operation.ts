@@ -142,7 +142,7 @@ export function randomNonce(): bigint {
  * A signed operation authorizes an on-chain action off-chain, so the signer
  * need not submit the transaction: the pattern behind permits, session keys,
  * and delegated wallet actions. The verifying contract embeds
- * `groundhog_signed_op::SignedOpReplayCache` and checks the operation with
+ * `thruput_signed_op::SignedOpReplayCache` and checks the operation with
  * `consume::<Payload>` against the key it holds; this is the client half,
  * producing the `Operation` and signature that contract expects.
  *
@@ -165,7 +165,7 @@ export function randomNonce(): bigint {
  *   nonce: randomNonce(),
  *   body: { to: recipient, amount: 42n },
  * });
- * // `op` and `signature` are the arguments of the contract's execute entrypoint.
+ * // `op` and `signature` are the arguments of the contract's submit entrypoint.
  * const invocation = MyWallet.v0_1.submit.invocation(walletAddress, gasLimit, {
  *   op,
  *   signature,

@@ -45,7 +45,7 @@ export interface SignedOperationPreimage {
  * chain's own `Uniquifier` encoding, so the replay pair is spelled the way a
  * transaction spells its own. The result is signed directly, like
  * {@link transactionSignaturePreimage}; Ed25519 does its own hashing. It must
- * match the Rust `groundhog_domain_separator::SignedOp::preimage` byte for
+ * match the Rust `thruput_domain_separator::SignedOp::preimage` byte for
  * byte, or the verifying contract rejects the signature. Only the first 74
  * bytes are fixed-width: the uniquifier's two fields are CXS varints.
  *

@@ -106,7 +106,7 @@
     "tsx": "4.22.4",
     "typedoc": "0.28.19",
     "typescript": "6.0.3",
-    "vitest": "4.1.11"
+    "vitest": "4.1.12"
   },
   "dependencies": {
     "@noble/ed25519": "^3.1.0",

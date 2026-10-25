@@ -1,9 +1,9 @@
 // Repository-local import; applications use "@thruputchain/client".
-import { createThruputClient, devnet, toBase58 } from "../src/index.js";
+import { createThruputClient, toBase58 } from "../src/index.js";
+import { exampleCluster } from "./lib/cluster.js";
 
-const rpcUrl = process.env.THRUPUT_RPC_URL;
 const client = await createThruputClient({
-  cluster: devnet(rpcUrl ? { rpcUrl } : {}),
+  cluster: exampleCluster("futurenet"),
 });
 
 const [tip, version] = await Promise.all([

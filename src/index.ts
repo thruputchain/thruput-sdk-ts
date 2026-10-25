@@ -48,6 +48,7 @@ export {
 } from "./signers/index.js";
 export { createThruputClient } from "./client.js";
 export {
+  futurenet,
   devnet,
   mainnet,
   localnet,
@@ -55,6 +56,7 @@ export {
   assertNetworkMatchesCluster,
   NetworkMismatchError,
   DEVNET_RPC_URL,
+  FUTURENET_RPC_URL,
   LOCALNET_RPC_URL,
 } from "./cluster.js";
 export type {

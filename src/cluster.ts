@@ -6,8 +6,11 @@ import {
 import type { NetworkInfo } from "./types/rpc.js";
 import { toBase58 } from "./encoding.js";
 
-/** Public Thruput Devnet JSON-RPC endpoint. */
-export const DEVNET_RPC_URL = "https://rpc.thruput.network";
+/** Public Thruput Futurenet JSON-RPC endpoint. */
+export const FUTURENET_RPC_URL = "https://rpc.thruput.network";
+
+/** @deprecated Use {@link FUTURENET_RPC_URL}. */
+export const DEVNET_RPC_URL = FUTURENET_RPC_URL;
 
 /** Default JSON-RPC endpoint for `thruput node`. */
 export const LOCALNET_RPC_URL = "http://127.0.0.1:9545";
@@ -92,16 +95,26 @@ export function mainnet(
   });
 }
 
-/** Define the resettable public Thruput development network, unpinned unless `networkHash` is supplied. */
-export function devnet(
+/** Define Futurenet, the resettable public development network, unpinned unless `networkHash` is supplied. */
+export function futurenet(
   options: PredefinedClusterOptions = {},
-): Cluster<readonly ["airdrop"]> & { readonly name: "devnet" } {
+): Cluster<readonly ["airdrop"]> & { readonly name: "futurenet" } {
   return defineCluster({
-    name: "devnet",
-    rpcUrl: options.rpcUrl ?? DEVNET_RPC_URL,
+    name: "futurenet",
+    rpcUrl: options.rpcUrl ?? FUTURENET_RPC_URL,
     capabilities: ["airdrop"] as const,
     ...withNetworkHash(options),
   });
+}
+
+/**
+ * Compatibility alias for {@link futurenet}, retaining the legacy cluster name.
+ * @deprecated Use {@link futurenet}.
+ */
+export function devnet(
+  options: PredefinedClusterOptions = {},
+): Cluster<readonly ["airdrop"]> & { readonly name: "devnet" } {
+  return defineCluster({ ...futurenet(options), name: "devnet" });
 }
 
 /** Define a local `thruput node` development network. */

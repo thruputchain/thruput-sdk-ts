@@ -3,14 +3,15 @@ import { NATIVE_TOKEN_ADDRESS, gasAmount } from "@thruputchain/protocol";
 // Repository-local imports; applications use the published client entrypoints.
 import {
   Ed25519Signer,
+  MlDsa65Signer,
   createThruputClient,
   createPubkeyAccount,
   createWalletClient,
-  devnet,
   parseUnits,
   toBase58,
 } from "../src/index.js";
 import { ERC20 } from "../src/contracts/index.js";
+import { exampleCluster } from "./lib/cluster.js";
 
 const amount = parseUnits("0.0001", 7); // The native token has seven decimal places.
 // These budgets pass the live native-transfer test. Calibrate other workloads:
@@ -18,18 +19,20 @@ const amount = parseUnits("0.0001", 7); // The native token has seven decimal pl
 // native-token balance.
 const walletGasLimit = gasAmount(1_000_000n);
 const callGasLimit = gasAmount(500_000n);
-const rpcUrl = process.env.THRUPUT_RPC_URL;
 
 // These accounts exist only for this process. Their keys are not persisted.
+// ML-DSA-65 provides post-quantum signatures. Use Ed25519Signer.fromSeed instead
+// for Ed25519; both take a 32-byte seed and use the same wallet API.
+// The same seed produces different account addresses under the two schemes.
 const sender = createPubkeyAccount({
-  signer: Ed25519Signer.fromSeed(randomBytes(32)),
+  signer: MlDsa65Signer.fromSeed(randomBytes(32)),
 });
 const recipient = createPubkeyAccount({
   signer: Ed25519Signer.fromSeed(randomBytes(32)),
 });
 
 const client = await createThruputClient({
-  cluster: devnet(rpcUrl ? { rpcUrl } : {}),
+  cluster: exampleCluster("futurenet"),
 });
 const wallet = createWalletClient({
   client,
@@ -58,7 +61,7 @@ const transfer = ERC20.v0_1.transfer.invocation(
     amount,
   },
 );
-const { transactionHash } = await wallet.executeAndWait({
+const { transactionHash, receipt } = await wallet.executeAndWait({
   invocation: transfer,
   gasLimit: walletGasLimit,
 });
@@ -91,6 +94,7 @@ async function readNativeTokenBalance(
     address: NATIVE_TOKEN_ADDRESS,
     caller: sender.address,
     args: { addr: address },
+    minStateBlockHeight: receipt.blockHeight,
   });
   return response.value;
 }

@@ -6,23 +6,17 @@ import {
   createThruputClient,
   createPubkeyAccount,
   createWalletClient,
-  localnet,
   prepareContractDeployment,
   toHex0x,
   toBase58,
 } from "../src/index.js";
 import { Counter } from "./generated/counter.js";
+import { exampleCluster } from "./lib/cluster.js";
 
-const rpcUrl = process.env.THRUPUT_RPC_URL;
-if (rpcUrl && !process.env.THRUPUT_RUNTIME_MANIFEST) {
-  throw new Error(
-    "Set THRUPUT_RUNTIME_MANIFEST when overriding the Localnet RPC URL",
-  );
-}
 const walletGasLimit = gasAmount(10_000_000n);
 const counterGasLimit = gasAmount(500_000n);
 const client = await createThruputClient({
-  cluster: localnet(rpcUrl ? { rpcUrl } : {}),
+  cluster: exampleCluster("localnet"),
 });
 
 // This fresh native account starts empty. Its key exists only for this process.
@@ -52,7 +46,7 @@ const { address, transactionHash: deployHash } =
     ),
   });
 
-const { transactionHash: callHash } = await wallet.executeAndWait({
+const { transactionHash: callHash, receipt } = await wallet.executeAndWait({
   invocation: Counter.v0_1.increment.invocation(address, counterGasLimit, {
     amount: 5n,
   }),
@@ -62,6 +56,7 @@ const view = await Counter.v0_1.get.view({
   client: wallet,
   address: address,
   caller: account.address,
+  minStateBlockHeight: receipt.blockHeight,
 });
 if (view.value !== 47n) {
   throw new Error(`Counter value is ${view.value}, expected 47`);

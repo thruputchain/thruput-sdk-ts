@@ -14,7 +14,7 @@ named topic filters, and receipt extraction.
 npm install @thruputchain/client
 ```
 
-The package is currently distributed through GitHub Packages and requires a
+Requires Node.js 22.12.0 or newer. The package is currently distributed through GitHub Packages and requires a
 token with `read:packages`. See [Registry auth](#registry-auth-one-time-setup).
 
 ## Usage
@@ -41,14 +41,14 @@ convert bigint fields explicitly to decimal strings; `JSON.stringify` does not
 serialize bigint values by itself.
 
 ```ts
-import { createThruputClient, HttpTransport } from "@thruputchain/client";
+import { createThruputClient, futurenet, toBase58 } from "@thruputchain/client";
 
 const client = await createThruputClient({
-  transport: new HttpTransport("https://rpc.example.com"),
+  cluster: futurenet(),
 });
 
 const tip = await client.getChainTip();
-const { transactionHash } = await client.sendTransaction({ signedTransaction });
+console.log(tip.blockHeight.toString(), toBase58(tip.blockHash));
 ```
 
 ### Read a committed block
@@ -76,6 +76,8 @@ All reads accept `{ signal }` as the final argument.
 Enable HTTP batching to group concurrent calls into one JSON-RPC array:
 
 ```ts
+import { HttpTransport } from "@thruputchain/client";
+
 const client = await createThruputClient({
   transport: new HttpTransport("https://rpc.example.com", {
     batch: true, // defaults to { maxSize: 100, waitMs: 0 }
@@ -97,16 +99,16 @@ Pass a cluster to fetch the endpoint's network identity during connection and
 verify it against the cluster's `networkHash`, if supplied:
 
 ```ts
-import { createThruputClient, devnet, toBase58 } from "@thruputchain/client";
+import { createThruputClient, futurenet, toBase58 } from "@thruputchain/client";
 
 const client = await createThruputClient({
-  cluster: devnet(),
+  cluster: futurenet(),
 });
 
 console.log(toBase58(client.network.networkHash));
 ```
 
-`devnet()` uses `https://rpc.thruput.network`. Applications with an explicit
+`futurenet()` connects to Futurenet at `https://rpc.thruput.network`. Applications with an explicit
 `rpcUrl`, `HttpTransport` URL, or environment configuration should update that
 value to use the stable endpoint; upgrading the package preserves overrides.
 
@@ -129,12 +131,15 @@ calling `requestAirdrop({ recipient, clientNonce })`. Use `requestAirdropAttempt
 to control read-only observation yourself. Faucet errors and pending responses
 without a transaction hash stop immediately. The SDK never repeats the faucet request.
 
-The predefined clusters are `mainnet`, `devnet`, and `localnet`. Declare a
+The predefined clusters are `mainnet`, `futurenet`, and `localnet`. Declare a
 deployment-specific cluster inline, or use `defineCluster` when the descriptor
-will be reused. Devnet and localnet include default RPC URLs; pass `rpcUrl` to
+will be reused. Futurenet and localnet include default RPC URLs; pass `rpcUrl` to
 override them. Mainnet has no default endpoint yet. Supply a `networkHash` when
 the application must pin the protocol identity used for transaction signing.
-`devnet()` is unpinned by default; use `devnet({ networkHash })` to pin it.
+`futurenet()` is unpinned by default; use `futurenet({ networkHash })` to pin it.
+The deprecated `devnet()` helper and `DEVNET_RPC_URL` constant remain available
+for existing applications. `devnet()` retains its legacy `name: "devnet"`;
+`futurenet()` returns `name: "futurenet"`. Both use the same endpoint and capabilities.
 Identity is checked at connection, not continuously after network resets.
 Pass an explicit transport for custom headers or request handling. Omit
 `cluster` to discover an endpoint without pinning a particular network. Both forms
@@ -205,7 +210,7 @@ Pass request options to public actions and put `signal` inside generated view op
 ```ts
 const controller = new AbortController();
 const { signal } = controller;
-const tip = await client.getChainTip({ signal });
+const tip = await client.getChainTip({}, { signal });
 const balance = await ERC20.v0_1.getBalanceOf.view({
   client,
   address: tokenAddress,
@@ -300,7 +305,7 @@ if (supply.kind === "return" && balance.kind === "return") {
 ```
 
 Each tuple position retains its generated return and exception types. Results are
-`return`, `abort`, or `fault`, with events. Simulated writes stay within each call.
+`return`, `abort`, `fault`, or `unsupported`, with events. Simulated writes stay within each call.
 Omit `minStateBlockHeight` if no freshness floor is needed. If the selected snapshot is
 behind, the server returns `stateHeightUnavailable` with requested and observed
 heights. The request neither waits for a block nor forces a refresh; your
@@ -384,7 +389,7 @@ Walkers retain seen identities and cursors, so memory grows with rows and pages.
 Start near your saved checkpoint; use per-block transaction walks for large
 transaction backfills. A page limit bounds each response, not the whole walk.
 
-Local applications own their signing keys. A schema-4 local manifest contains
+Local applications own their signing keys. A schema-5 local manifest contains
 public allocations and a public faucet address; it cannot produce a signer.
 Use `Ed25519Signer` with `createPubkeyAccount`, then request an airdrop or
 supply its public key in the node's initial allocations. Stored CLI keys can be
@@ -426,11 +431,11 @@ import {
   createThruputClient,
   createPubkeyAccount,
   createWalletClient,
-  devnet,
+  futurenet,
   Ed25519Signer,
 } from "@thruputchain/client";
 
-const client = await createThruputClient({ cluster: devnet() });
+const client = await createThruputClient({ cluster: futurenet() });
 const signer = Ed25519Signer.fromSeed(secretKey);
 const account = createPubkeyAccount({ signer, nonce: 0n });
 const wallet = createWalletClient({ client, account });
@@ -675,10 +680,10 @@ signers this package does not drive.
 
 ## Examples
 
-- [`chain-tip.ts`](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/chain-tip.ts) connects to Devnet and reads its latest block.
-- [`transfer-native-token.ts`](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/transfer-native-token.ts) funds two pubkey accounts and transfers native tokens on Devnet.
+- [`chain-tip.ts`](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/chain-tip.ts) connects to Futurenet and reads its latest block.
+- [`transfer-native-token.ts`](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/transfer-native-token.ts) funds two pubkey accounts and transfers native tokens on Futurenet.
 - [`view-native-token-balance.ts`](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/view-native-token-balance.ts) reads an explicitly supplied public account’s native-token balance.
-- [`deploy-counter.ts`](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/deploy-counter.ts) deploys and calls a Counter contract through DevWallet.
+- [`deploy-counter.ts`](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/deploy-counter.ts) deploys and calls a Counter contract through DefaultWallet.
 
 See the [examples guide](https://github.com/thruputchain/thruput-sdk-ts/blob/main/examples/README.md) for local-node setup and configuration.
 

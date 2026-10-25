@@ -25,7 +25,11 @@ import type {
 } from "./generated.js";
 
 export type RpcMethod = keyof RpcRequests;
-/** Exact low-level operations. Each accepts one named object; empty requests default to {}. */
+/**
+ * Exact low-level operations. Each accepts one named object; empty requests default to {}.
+ * Cancellation options are always the second argument, including for empty requests:
+ * `client.getChainTip({}, { signal })`.
+ */
 export type RpcMethods = {
   [M in RpcMethod]: keyof RpcRequests[M] extends never
     ? (
