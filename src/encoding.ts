@@ -3,6 +3,8 @@ import { fromBase58 } from "@thruputchain/protocol/utils";
 import { contractAddress, sha256Hash } from "@thruputchain/protocol";
 import type { ContractAddress, SHA256Hash } from "@thruputchain/protocol";
 
+const ADDRESS_STRKEY_VERSION = 25 << 3;
+
 export {
   toBase58,
   fromBase58,
@@ -58,7 +60,7 @@ function strkey(bytes: Uint8Array, version: number): string {
 }
 
 function parseTyped(text: string, version: number, prefix: string): Uint8Array {
-  // A 32-byte base58 value is at most 44 characters. G/C/S StrKeys have 56.
+  // A 32-byte base58 value is at most 44 characters. Z/G/S StrKeys have 56.
   // Dispatch by full length, never by a prefix that valid base58 can share.
   if (typeof text === "string" && text.length === 56) {
     let decoded: Uint8Array | undefined;
@@ -90,9 +92,12 @@ function parseTyped(text: string, version: number, prefix: string): Uint8Array {
   );
 }
 
-/** Parse human address input: base58 or C StrKey, without deriving an account. */
+/**
+ * Parse human address input: base58 or Thruput Z StrKey, without account derivation.
+ * Stellar C addresses are rejected. Z does not identify a specific Thruput network.
+ */
 export function parseAddress(text: string): ContractAddress {
-  return contractAddress(parseTyped(text, 2 << 3, "C"));
+  return contractAddress(parseTyped(text, ADDRESS_STRKEY_VERSION, "Z"));
 }
 
 /** Parse human Ed25519 key input: base58 or G StrKey, never a wallet address. */
@@ -109,9 +114,9 @@ export function parseSecretSeed(text: string): Uint8Array {
   return parseTyped(text, 18 << 3, "S");
 }
 
-/** Render address bytes as a C StrKey; this does not encode a network. */
+/** Render address bytes as a Thruput Z StrKey, without a specific network identity. */
 export function addressToStrkey(bytes: Uint8Array): string {
-  return strkey(bytes, 2 << 3);
+  return strkey(bytes, ADDRESS_STRKEY_VERSION);
 }
 
 /** Render an Ed25519 public key as a G StrKey, without deriving an address. */

@@ -31,32 +31,67 @@ describe("identifier adapters", () => {
   });
 });
 
-describe("typed Stellar input", () => {
+describe("typed address and Stellar key input", () => {
+  const z = "ZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAZ4L";
   const c = "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4";
   const g = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
   const s = "SAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSU2";
 
   it("preserves bytes and distinguishes addresses, keys, and seeds", () => {
     const bytes = new Uint8Array(32);
-    expect(addressToStrkey(bytes)).toBe(c);
+    expect(addressToStrkey(bytes)).toBe(z);
     expect(publicKeyToStrkey(bytes)).toBe(g);
     expect(secretSeedToStrkey(bytes)).toBe(s);
-    expect(parseAddress(c)).toEqual(bytes);
+    expect(parseAddress(z)).toEqual(bytes);
+    expect(() => parseAddress(c)).toThrow();
     expect(parsePublicKey(g)).toEqual(bytes);
     expect(parseSecretSeed(s)).toEqual(bytes);
     expect(() => parseAddress(g)).toThrow();
     expect(() => parseAddress(s)).toThrow();
     expect(() => parsePublicKey(c)).toThrow();
+    expect(() => parsePublicKey(z)).toThrow();
     expect(() => parseSecretSeed(g)).toThrow();
     expect(() => parseSecretSeed(c)).toThrow();
+    expect(() => parseSecretSeed(z)).toThrow();
     expect(() => parsePublicKey(g.toLowerCase())).toThrow();
-    expect(() => parseAddress(c + "=")).toThrow();
+    expect(() => parseAddress(z + "=")).toThrow();
     expect(() => parsePublicKey(g.slice(0, -1) + "G")).toThrow();
-    for (const text of [c, g, s])
+    for (const text of [z, c, g, s])
       expect(() => fixedFromBase58(text, 32)).toThrow();
     expect(() => parseSecretSeed("SECRET")).toThrow(
       "Expected a 32-byte base58 value or a valid S StrKey",
     );
+  });
+
+  it("matches the Rust Z vectors and validates the version checksum", () => {
+    const vectors: [Uint8Array, string][] = [
+      [
+        new Uint8Array(32).fill(1),
+        "ZAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQDWEJ",
+      ],
+      [
+        new Uint8Array(32).fill(255),
+        "ZD777777777777777777777777777777777777777777777777777UYP",
+      ],
+      [
+        Uint8Array.from({ length: 32 }, (_, index) => index),
+        "ZAAACAQDAQCQMBYIBEFAWDANBYHRAEISCMKBKFQXDAMRUGY4DUPB7GCZ",
+      ],
+    ];
+    for (const [bytes, expected] of vectors) {
+      expect(addressToStrkey(bytes)).toBe(expected);
+      expect(parseAddress(expected)).toEqual(bytes);
+    }
+    for (const text of [
+      z.toLowerCase(),
+      ` ${z}`,
+      `${z}\n`,
+      `${z.slice(0, -1)}A`,
+      `Z${c.slice(1)}`,
+      z.slice(1),
+      `${z}A`,
+    ])
+      expect(() => parseAddress(text)).toThrow();
   });
 
   it("matches the nonzero SEP-23 public-key vector", () => {
