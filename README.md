@@ -424,9 +424,6 @@ Malformed HTTP reply envelopes throw `RpcResponseError` with the raw reply.
 
 ## Wallet clients
 
-The next release changes address StrKeys from C to Z. Published client `0.24.0`
-uses C; base58 works with both formats.
-
 Human address inputs use `parseAddress(text)`, which accepts base58 or a Thruput
 `Z...` StrKey. `addressToStrkey(address)` formats the same bytes with the Z prefix.
 Stellar `C...` addresses are rejected. Z does not distinguish Thruput networks;
