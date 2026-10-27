@@ -1,6 +1,6 @@
 {
   "name": "@thruputchain/client",
-  "version": "0.24.0",
+  "version": "0.25.0",
   "description": "TypeScript client for the Thruput blockchain",
   "repository": {
     "type": "git",
@@ -113,8 +113,8 @@
     "@noble/hashes": "^2.2.0",
     "@noble/post-quantum": "^0.7.1",
     "@scure/base": "2.0.0",
-    "@thruputchain/contract-spec": "0.19.0",
-    "@thruputchain/protocol": "0.19.0",
-    "@thruputchain/xdr": "0.19.0"
+    "@thruputchain/contract-spec": "0.19.1",
+    "@thruputchain/protocol": "0.19.1",
+    "@thruputchain/xdr": "0.19.1"
   }
 }
