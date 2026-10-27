@@ -924,7 +924,7 @@ A known `localFundingUnresolved` error can preserve `transactionHash` and exact
 calls. Neither an uncertain response nor a later rejection authorizes a new nonce,
 replacement transaction or automatic funding repeat.
 
-## Publishing the renamed packages
+## Publishing
 
 The `@thruputchain/*` packages publish to GitHub Packages from repositories in
 `thruputchain`. Release workflows use the repository's `GITHUB_TOKEN` with
@@ -935,4 +935,4 @@ client and React repositories Actions read access to the protocol packages,
 and grant React read access to the client package. Refresh downstream lockfiles
 from the published artifacts before merging their PRs.
 
-Existing `@groundhogchain/*` releases retain their original identities.
+Published versions are immutable. Use a new version for each release.

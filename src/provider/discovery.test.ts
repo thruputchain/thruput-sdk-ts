@@ -18,6 +18,37 @@ function provider(id: string): WalletProvider {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("wallet provider discovery", () => {
+  it("uses the public Thruput event names with external wallets", () => {
+    const target = new EventTarget();
+    const wallet = provider("external");
+    const announce = () =>
+      target.dispatchEvent(
+        new CustomEvent("thruput:announceProvider", { detail: wallet }),
+      );
+    target.addEventListener("thruput:requestProvider", announce);
+    const listener = vi.fn();
+    const stop = discoverWalletProviders(listener, target);
+    expect(listener).toHaveBeenCalledExactlyOnceWith(wallet);
+    stop();
+    target.removeEventListener("thruput:requestProvider", announce);
+  });
+
+  it("announces registered providers to external Thruput consumers", () => {
+    const target = new EventTarget();
+    const announce = vi.fn();
+    target.addEventListener("thruput:announceProvider", announce);
+    const wallet = provider("registered");
+    const stop = registerWalletProvider(wallet, target);
+    target.dispatchEvent(new CustomEvent("thruput:requestProvider"));
+    expect(announce).toHaveBeenCalledTimes(2);
+    expect(announce).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ detail: wallet }),
+    );
+    stop();
+    target.removeEventListener("thruput:announceProvider", announce);
+  });
+
   it.each([true, false])(
     "supports either load order (provider first: %s)",
     (providerFirst) => {
@@ -95,13 +126,13 @@ describe("wallet provider discovery", () => {
   });
 
   it("uses window by default without overwriting a global wallet", () => {
-    const target = Object.assign(new EventTarget(), { groundhog: "untouched" });
+    const target = Object.assign(new EventTarget(), { thruput: "untouched" });
     vi.stubGlobal("window", target);
     const listener = vi.fn();
     const stop = discoverWalletProviders(listener);
     const unregister = registerWalletProvider(provider("default"));
     expect(listener).toHaveBeenCalledTimes(1);
-    expect(target.groundhog).toBe("untouched");
+    expect(target.thruput).toBe("untouched");
     stop();
     unregister();
   });
