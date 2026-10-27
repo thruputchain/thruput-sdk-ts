@@ -30,7 +30,7 @@
 ## Generated And Spec Files
 
 - `src/contracts/erc20.ts`, `src/contracts/recursive_type.ts`, `src/contracts/default_wallet.ts`, `src/contracts/dev_wallet.ts`, `src/contracts/signed_op.ts`, `src/contracts/erc20_permit.ts`, and the example-local bindings under `examples/generated/` are generated; do not hand-edit. Only standard bindings are exported from `src/contracts/index.ts`.
-- TypeScript binding codegen lives in `groundhog-rpc`. Regenerate every checked-in binding with `scripts/regenerate-contract-bindings.sh`, setting `THRUPUT_CLI` to a reviewed generator build; use `--check` to verify checked-in output. The script always uses the pinned inputs in `specs/contracts/`.
+- TypeScript binding codegen lives in `thruput-tools`. Regenerate every checked-in binding with `scripts/regenerate-contract-bindings.sh`, setting `THRUPUT_CLI` to a reviewed generator build; use `--check` to verify checked-in output. The script always uses the pinned inputs in `specs/contracts/`.
 - The regeneration script rewrites only the generated self-import to a repository-relative import. Generated output must compile for strict consumers, including `noUncheckedIndexedAccess`.
 - `specs/native-openrpc.json` is the Rust-owned native contract snapshot. Refresh it with `scripts/regen-openrpc.sh` using a reviewed native generator or its generated source file; preserve provenance, wire-version and page-limit checks.
 - After changing the fixture or request serialization, run `npm run rpc:check` and `npm test`; `src/rpc/client.test.ts` covers every native method against the generated schema and validates emitted named params.

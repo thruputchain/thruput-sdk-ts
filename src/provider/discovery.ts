@@ -2,9 +2,9 @@ import { WalletProviderError, type WalletProvider } from "./types.js";
 import { parseWalletProvider, parseWalletProviderInfo } from "./validation.js";
 
 /** Discovery request event name. */
-export const REQUEST_PROVIDER_EVENT = "groundhog:requestProvider";
+export const REQUEST_PROVIDER_EVENT = "thruput:requestProvider";
 /** Announcement detail is the provider itself, not an envelope. */
-export const ANNOUNCE_PROVIDER_EVENT = "groundhog:announceProvider";
+export const ANNOUNCE_PROVIDER_EVENT = "thruput:announceProvider";
 /** Maximum distinct provider IDs retained by one discovery subscription. */
 export const MAX_DISCOVERED_PROVIDERS = 32;
 
