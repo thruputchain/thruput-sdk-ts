@@ -14,8 +14,10 @@ named topic filters, and receipt extraction.
 npm install @thruputchain/client
 ```
 
-Requires Node.js 22.12.0 or newer. The package is currently distributed through GitHub Packages and requires a
-token with `read:packages`. See [Registry auth](#registry-auth-one-time-setup).
+Requires Node.js 22.12.0 or newer. Public npm installs need no authentication.
+Remove any GitHub Packages registry override for `@thruputchain` when using npm
+releases. Repository development still uses [registry auth](#registry-auth-one-time-setup)
+during the npm migration.
 
 ## Usage
 
@@ -926,13 +928,9 @@ replacement transaction or automatic funding repeat.
 
 ## Publishing
 
-The `@thruputchain/*` packages publish to GitHub Packages from repositories in
-`thruputchain`. Release workflows use the repository's `GITHUB_TOKEN` with
-`packages: write`.
-
-Publish the protocol packages first, then the client, then React. Grant the
-client and React repositories Actions read access to the protocol packages,
-and grant React read access to the client package. Refresh downstream lockfiles
-from the published artifacts before merging their PRs.
+The manual release workflow targets public npm and defaults to dry-run.
+See [RELEASING.md](RELEASING.md) for authentication, release order, and retries.
+Repository installs retain GitHub Packages during the first npm release;
+consumer registry settings and lockfiles switch after all seven packages exist.
 
 Published versions are immutable. Use a new version for each release.

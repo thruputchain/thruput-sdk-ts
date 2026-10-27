@@ -43,7 +43,7 @@
 
 ## Release
 
-- Publishing is manual via `.github/workflows/publish.yml`; a version bump does not authorize publishing. The workflow repeats formatting, docs, generated-contract, RPC, type, test, build, smoke, package-boundary and both live-node suites before tagging and publishing to GitHub Packages.
+- Publishing is manual via `.github/workflows/publish.yml`; a version bump does not authorize publishing. The workflow defaults to dry-run and repeats formatting, docs, generated-contract, RPC, type, test, build, smoke, package-boundary and both live-node suites before publishing to npm. See `RELEASING.md` for authentication and migration order.
 
 ## Native RPC boundary
 
