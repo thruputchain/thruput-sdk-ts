@@ -4,13 +4,14 @@
 
 - Use npm, `package-lock.json` is the lockfile and CI runs `npm ci`.
 - Develop with Node 24 (`.nvmrc`). The published runtime floor is Node 22.12.0; CI also tests the latest Node 22, 24, and 26 releases.
-- `@thruputchain/*` dependencies come from GitHub Packages. A clean install needs package-read authentication because `.npmrc` maps that scope to `https://npm.pkg.github.com`.
+- All dependencies, including `@thruputchain/*`, install anonymously from the public npm registry. Do not reintroduce a GitHub Packages scope mapping in `.npmrc`.
 
 ## Verify
 
 - Before a PR, run `npm run format:check`, `npm run docs:check`, `npm run typecheck`, `npm test`, `npm run build`, `npm run test:package-boundary`, and `npm run test:smoke`.
 - `test:package-boundary` and `test:smoke` inspect `dist/`; run `npm run build` first.
 - `npm run test:integration` builds and tests the package against a real local node on Linux / Node 24. CLI/devnode pins are in `scripts/integration-versions.json`; set `THRUPUT_CLI` to select the CLI executable. CI runs this separately from Vitest.
+- The pinned CLI is the public `thruput` crate on crates.io (`cargo install thruput@<version> --locked`), and golden vectors come from the public `thruput-test-vectors` crate. Only the live-node `integration` job is limited to pull requests from this repository, because it runs on the project's self-hosted runner.
 - Focused tests: `npm test -- src/actions/actions.test.ts` or `npm test -- src/actions/actions.test.ts -t "getEvents"`.
 - `tsdown.config.ts` builds ESM, CJS, source maps, and declarations for every package entrypoint.
 - There is no lint script; formatting is Prettier via `npm run format` / `npm run format:check`.
@@ -43,7 +44,7 @@
 
 ## Release
 
-- Publishing is manual via `.github/workflows/publish.yml`; a version bump does not authorize publishing. The workflow defaults to dry-run and repeats formatting, docs, generated-contract, RPC, type, test, build, smoke, package-boundary and both live-node suites before publishing to npm. See `RELEASING.md` for authentication and migration order.
+- Publishing is manual via `.github/workflows/publish.yml`; a version bump does not authorize publishing. The workflow defaults to dry-run and repeats formatting, docs, generated-contract, RPC, type, test, build, smoke, package-boundary and both live-node suites before publishing to npm. See `RELEASING.md` for authentication and release order.
 
 ## Native RPC boundary
 

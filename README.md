@@ -1,5 +1,9 @@
 # @thruputchain/client
 
+[![npm version](https://img.shields.io/npm/v/@thruputchain/client)](https://www.npmjs.com/package/@thruputchain/client)
+[![CI](https://github.com/thruputchain/thruput-sdk-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/thruputchain/thruput-sdk-ts/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 TypeScript client for the [Thruput](https://github.com/thruputchain) blockchain.
 
 It provides typed JSON-RPC actions, transaction construction and signing,
@@ -14,10 +18,10 @@ named topic filters, and receipt extraction.
 npm install @thruputchain/client
 ```
 
-Requires Node.js 22.12.0 or newer. Public npm installs need no authentication.
-Remove any GitHub Packages registry override for `@thruputchain` when using npm
-releases. Repository development still uses [registry auth](#registry-auth-one-time-setup)
-during the npm migration.
+Requires Node.js 22.12.0 or newer. The package and its `@thruputchain/*`
+dependencies are published to the public npm registry, so installs need no
+authentication. If you previously pointed the `@thruputchain` scope at GitHub
+Packages, remove that override from your `.npmrc`.
 
 ## Usage
 
@@ -714,7 +718,7 @@ helpers, generated standard contracts, signers, and standalone actions.
 - `src/types/rpc.ts` — typed RPC request/response shapes.
 - `specs/native-openrpc.json` — Rust-owned native OpenRPC snapshot; `scripts/regen-openrpc.sh` refreshes it with recorded provenance. `npm run rpc:check` verifies generated codecs and types; `src/rpc/client.test.ts` checks every method’s named params and results.
 - `docs/api/` — generated TypeDoc output from `npm run docs` (ignored by git; see [API docs](#api-docs)).
-- `Caddyfile` and `Staticfile` — configure the private TypeDoc host that serves `docs/api/`; they are not part of the published package.
+- `Caddyfile` and `Staticfile` — configure the static host that serves the generated `docs/api/`; they are not part of the published package.
 
 ## Subpath exports
 
@@ -789,35 +793,16 @@ The API reference is generated from the package's public entry points, matching 
 
 ## Developing
 
-### Registry auth (one-time setup)
-
-The `@thruputchain/*` dependencies are hosted on GitHub Packages, which
-requires a GitHub token even to download — a plain `npm install` on a fresh
-machine fails with `401 Unauthorized` from `npm.pkg.github.com`. To set up
-auth using the `gh` CLI:
+Use Node.js 24 (see `.nvmrc`) and npm. Every dependency installs anonymously
+from the public npm registry:
 
 ```sh
-# Add the read:packages scope to your gh login (one-time, opens github.com)
-gh auth refresh -h github.com -s read:packages
+npm ci
 ```
 
-Then add this line to `~/.npmrc` (it holds no secret — npm expands
-`${ENV_VARS}` from the environment; it cannot run commands like
-`$(gh auth token)` itself):
-
-```
-@thruputchain:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GH_NPM_TOKEN}
-```
-
-And run installs with the token pulled from gh's keychain:
-
-```sh
-GH_NPM_TOKEN="$(gh auth token)" npm install
-```
-
-If you forget the prefix, npm fails with `Failed to replace env in config` —
-that's your reminder.
+Before opening a pull request, run the checks listed under
+[Scripts](#scripts); CI runs the same set. Report vulnerabilities as described
+in [SECURITY.md](SECURITY.md), not through public issues.
 
 ## Scripts
 
@@ -841,13 +826,14 @@ keys, network hashes and transaction hashes use case-sensitive, unprefixed
 base58. Transaction and signed-transaction XDR remain canonical `0x` hex,
 with binary signatures intact.
 
-Run on Linux with Node 24. CI installs the published CLI crate and public devnode
+Run on Linux with Node 24. CI installs the `thruput` CLI crate from crates.io and the public devnode
 artifact pinned in
 [`scripts/integration-versions.json`](scripts/integration-versions.json): CLI
-0.39.0, devnode 0.1.31-rc.16 and wire 14.1.1. CI qualification uses the crate-built
-CLI; it does not verify a packaged CLI bundle. Locally, install that CLI version on
-`PATH` or set `THRUPUT_CLI` to its executable. The harness installs the pinned
-devnode when no runtime override is supplied.
+0.42.0, devnode 0.1.31 and wire 14.1.1. CI qualification uses the crate-built
+CLI; it does not verify a packaged CLI bundle. Locally, install that CLI version
+with `cargo install thruput@0.42.0 --locked` or set `THRUPUT_CLI` to its
+executable. The harness installs the pinned devnode when no runtime override is
+supplied.
 
 ```sh
 npm run test:integration
@@ -928,9 +914,11 @@ replacement transaction or automatic funding repeat.
 
 ## Publishing
 
-The manual release workflow targets public npm and defaults to dry-run.
+The manual release workflow publishes to public npm and defaults to dry-run.
 See [RELEASING.md](RELEASING.md) for authentication, release order, and retries.
-Repository installs retain GitHub Packages during the first npm release;
-consumer registry settings and lockfiles switch after all seven packages exist.
 
 Published versions are immutable. Use a new version for each release.
+
+## License
+
+[Apache License 2.0](LICENSE). Copyright 2026 Stellar Development Foundation.

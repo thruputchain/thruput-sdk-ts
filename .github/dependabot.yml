@@ -1,0 +1,17 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    # @thruputchain/* versions are pinned to a qualified protocol release and
+    # bumped deliberately alongside the live-node qualification pins.
+    ignore:
+      - dependency-name: "@thruputchain/*"
+    groups:
+      dev-dependencies:
+        dependency-type: development
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
