@@ -41,8 +41,13 @@ npm run test:package-boundary
 `test:smoke` and `test:package-boundary` inspect `dist/`, so run `npm run build`
 first. Use `npm run format` to apply Prettier formatting.
 
-Two further checks need the Thruput CLI release pinned in
-[`scripts/integration-versions.json`](scripts/integration-versions.json):
+Two further checks need the Thruput CLI at the version pinned in
+[`scripts/integration-versions.json`](scripts/integration-versions.json),
+installed from crates.io:
+
+```sh
+cargo install thruput@<version> --locked
+```
 
 - `npm run contracts:check` verifies that the generated contract bindings match
   their pinned specs. Set `THRUPUT_CLI` to the pinned CLI executable.

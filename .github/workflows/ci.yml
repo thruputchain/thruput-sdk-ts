@@ -118,21 +118,12 @@ jobs:
       - run: npm run build
       - run: npm run test:smoke
 
-  # The jobs below need the Thruput CLI release pinned in
-  # scripts/integration-versions.json. That release is served from the
-  # project's private crates registry, so they need repository secrets, which
-  # GitHub withholds from pull requests opened from forks. They run for pushes
-  # to main and for pull requests from branches in this repository; a
-  # maintainer runs them for fork contributions by pushing the change to a
-  # branch here.
+  # The jobs below build the `thruput` CLI release pinned in
+  # scripts/integration-versions.json from crates.io. Building it takes a
+  # while, which is why the fast static checks above run in their own job.
   contracts:
     name: Generated contract bindings
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    env:
-      CARGO_REGISTRIES_THRUPUT_INDEX: "sparse+https://crates.thruput.network/api/v1/crates/"
-      CARGO_REGISTRIES_THRUPUT_TOKEN: ${{ secrets.GROUNDHOG_REGISTRY_TOKEN }}
-      CARGO_REGISTRY_GLOBAL_CREDENTIAL_PROVIDERS: cargo:token
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
@@ -151,15 +142,16 @@ jobs:
 
       - run: npm run contracts:check
 
+  # The devnode needs the Ubuntu 26.04 runtime libraries that only the
+  # project's Namespace runner profile provides. Self-hosted runners must not
+  # execute code from forks, so this job runs for pushes to main and for pull
+  # requests from branches in this repository; a maintainer runs it for fork
+  # contributions by pushing the change to a branch here.
   integration:
     name: Live node integration
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: namespace-profile-hogd-linux-2604
     timeout-minutes: 60
-    env:
-      CARGO_REGISTRIES_THRUPUT_INDEX: "sparse+https://crates.thruput.network/api/v1/crates/"
-      CARGO_REGISTRIES_THRUPUT_TOKEN: ${{ secrets.GROUNDHOG_REGISTRY_TOKEN }}
-      CARGO_REGISTRY_GLOBAL_CREDENTIAL_PROVIDERS: cargo:token
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
@@ -193,12 +185,7 @@ jobs:
           retention-days: 7
 
   cross-sdk:
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    env:
-      CARGO_REGISTRIES_THRUPUT_INDEX: "sparse+https://crates.thruput.network/api/v1/crates/"
-      CARGO_REGISTRIES_THRUPUT_TOKEN: ${{ secrets.GROUNDHOG_REGISTRY_TOKEN }}
-      CARGO_REGISTRY_GLOBAL_CREDENTIAL_PROVIDERS: cargo:token
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 

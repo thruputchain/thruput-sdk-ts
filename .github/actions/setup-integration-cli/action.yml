@@ -66,5 +66,5 @@ runs:
         CLI_VERSION: ${{ steps.versions.outputs.cli }}
       run: |
         set -euo pipefail
-        cargo install "thruput-cli@$CLI_VERSION" --registry thruput --locked --force
+        cargo install "thruput@$CLI_VERSION" --locked --force
         echo "THRUPUT_CLI=$(command -v thruput)" >> "$GITHUB_ENV"
