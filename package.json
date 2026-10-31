@@ -103,14 +103,14 @@
     "access": "public"
   },
   "devDependencies": {
-    "@types/node": "25.9.1",
+    "@types/node": "26.6.5",
     "ajv": "8.20.0",
-    "prettier": "3.8.3",
-    "tsdown": "0.22.2",
-    "tsx": "4.22.4",
-    "typedoc": "0.28.19",
-    "typescript": "6.0.3",
-    "vitest": "4.1.12"
+    "prettier": "3.9.10",
+    "tsdown": "0.23.2",
+    "tsx": "4.23.15",
+    "typedoc": "0.28.20",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
   },
   "dependencies": {
     "@noble/ed25519": "^3.1.0",
