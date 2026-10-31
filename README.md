@@ -800,8 +800,9 @@ from the public npm registry:
 npm ci
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the checks to run before opening a
-pull request, and [SECURITY.md](SECURITY.md) for how to report vulnerabilities.
+Before opening a pull request, run the checks listed under
+[Scripts](#scripts); CI runs the same set. Report vulnerabilities as described
+in [SECURITY.md](SECURITY.md), not through public issues.
 
 ## Scripts
 
@@ -825,13 +826,14 @@ keys, network hashes and transaction hashes use case-sensitive, unprefixed
 base58. Transaction and signed-transaction XDR remain canonical `0x` hex,
 with binary signatures intact.
 
-Run on Linux with Node 24. CI installs the published CLI crate and public devnode
+Run on Linux with Node 24. CI installs the `thruput` CLI crate from crates.io and the public devnode
 artifact pinned in
 [`scripts/integration-versions.json`](scripts/integration-versions.json): CLI
-0.39.0, devnode 0.1.31-rc.16 and wire 14.1.1. CI qualification uses the crate-built
-CLI; it does not verify a packaged CLI bundle. Locally, install that CLI version on
-`PATH` or set `THRUPUT_CLI` to its executable. The harness installs the pinned
-devnode when no runtime override is supplied.
+0.42.0, devnode 0.1.31 and wire 14.1.1. CI qualification uses the crate-built
+CLI; it does not verify a packaged CLI bundle. Locally, install that CLI version
+with `cargo install thruput@0.42.0 --locked` or set `THRUPUT_CLI` to its
+executable. The harness installs the pinned devnode when no runtime override is
+supplied.
 
 ```sh
 npm run test:integration

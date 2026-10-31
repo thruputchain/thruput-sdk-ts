@@ -1,9 +1,10 @@
 # Contract Binding Inputs
 
 These canonical `.spec.xdr` files are the complete inputs to
-`scripts/regenerate-contract-bindings.sh`. CI and publishing use `thruput-cli`
-0.39.0. Set `THRUPUT_CLI` to that executable when checking or regenerating
-bindings locally.
+`scripts/regenerate-contract-bindings.sh`. CI and publishing use the `thruput`
+CLI crate at the version pinned in `scripts/integration-versions.json`
+(currently 0.42.0, installed with `cargo install thruput@0.42.0 --locked`). Set
+`THRUPUT_CLI` to that executable when checking or regenerating bindings locally.
 
 The generator nests each interface under its major and each named type, enum,
 and event under its spec id's crate and major. Every named type in these specs
