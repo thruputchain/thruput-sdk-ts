@@ -25,14 +25,25 @@ const provenance = JSON.parse(
     "utf8",
   ),
 );
+const localCandidate = provenance.localCandidate === true;
 if (
-  !/^[0-9a-f]{40}$/.test(provenance.commit) ||
+  localCandidate &&
+  (process.env.CI || process.env.THRUPUT_ALLOW_LOCAL_CANDIDATE !== "1")
+) {
+  throw new Error(
+    "Uncommitted native RPC candidate requires local candidate mode; pin a reviewed source commit before CI or release",
+  );
+}
+if (
+  !/^[0-9a-f]{40}$/.test(
+    localCandidate ? provenance.baseCommit : provenance.commit,
+  ) ||
   nativeSpecDigest(spec) !== provenance.sha256
 )
   throw new Error(
     "Native fixture differs from its recorded owner provenance; regenerate from Rust",
   );
-if (spec.info.version !== "14.1.1" || spec.methods.length !== 20)
+if (spec.info.version !== "14.3.0" || spec.methods.length !== 23)
   throw new Error("Expected the reviewed wire-14 method catalog");
 function tagField(s) {
   const variants = s.oneOf ?? s.anyOf;

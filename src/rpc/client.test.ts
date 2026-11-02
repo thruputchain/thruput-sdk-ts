@@ -49,11 +49,14 @@ const params: RpcRequests = {
   sendTransaction: { signedTransaction },
   getTransactionStatus: { transactionHash: hash },
   getTransactionReceipt: { transactionHash: hash },
+  getTransactionInput: { transactionHash: hash },
   simulateInvocation: invocation,
   simulateInvocations: { invocations: [invocation] },
   getStorage: { address, key: new Uint8Array([1]) },
   getBalance: { address },
   getRegisteredAuth: { address },
+  getContractDeployment: { address },
+  getContractArtifact: { hash },
   getEvents: {
     filters: [
       { addresses: [address], topics: { topic0: [new Uint8Array(32)] } },
@@ -93,6 +96,12 @@ const bounds = {
   nextCursor: null,
 };
 const wire: Record<RpcMethod, unknown> = {
+  getContractDeployment: {
+    address: base58,
+    stateBlockHeight: "5",
+    deployment: null,
+  },
+  getContractArtifact: { hash: hashText, contractXdr: "0x0000000300000000" },
   getVersionInfo: {
     wireFormat: "14.0.0",
     implementation: "test",
@@ -118,6 +127,7 @@ const wire: Record<RpcMethod, unknown> = {
   sendTransaction: { transactionHash: hashText, admission: "accepted" },
   getTransactionStatus: { status: "committed", blockHeight: "5" },
   getTransactionReceipt: receipt,
+  getTransactionInput: { status: "unavailable" },
   simulateInvocation: {
     stateBlockHeight: "5",
     output: { result: "return", returnData: "0x" },

@@ -4,6 +4,7 @@ export const NativeRpcErrorCode = {
   BackendDataInvalid: -32054,
   BackendTimeout: -32051,
   BackendUnavailable: -32050,
+  ContractArtifactUnavailable: -32014,
   FundingAttemptStopped: -32030,
   HistoryUnavailable: -32013,
   InvalidParams: -32602,
