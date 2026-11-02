@@ -139,6 +139,16 @@ export type RpcDecimalU64 = bigint;
 export type RpcDescendingAnchor =
   | { kind: "atEnd" }
   | { blockHeight: bigint; kind: "atHeight" };
+export type RpcEffectiveContract =
+  | { contract: RpcContractDeployment; source: "explicitDeployment" }
+  | { contract: RpcContractDeployment; source: "networkDefault" }
+  | UnsupportedRpcValue;
+export type RpcEffectiveContractResult = {
+  address: RpcBase58_ContractAddress;
+  context: RpcInvocationContext;
+  selection: RpcEffectiveContract | null;
+  stateBlockHeight: bigint;
+};
 export type RpcEmittedEvent = {
   address: RpcBase58_ContractAddress;
   data: Uint8Array;
@@ -192,6 +202,7 @@ export type RpcInvocation = {
   entrypoint: Uint8Array;
   gasLimit?: bigint;
 };
+export type RpcInvocationContext = "root" | "nested";
 export type RpcInvocationOutput =
   | { result: "return"; returnData: Uint8Array }
   | { abortData: Uint8Array; result: "abort" }
@@ -382,6 +393,10 @@ export interface RpcRequests {
   getBalance: { address: RpcBase58_ContractAddress };
   getRegisteredAuth: { address: RpcBase58_ContractAddress };
   getContractDeployment: { address: RpcBase58_ContractAddress };
+  getEffectiveContract: {
+    address: RpcBase58_ContractAddress;
+    context: RpcInvocationContext;
+  };
   getContractArtifact: { hash: RpcBase58_SHA256Hash };
   getEvents: { filters: RpcEventFilter[]; limit?: number } & (
     | { start: RpcHistoryStart; cursor?: never }
@@ -427,6 +442,7 @@ export interface RpcResults {
   getBalance: RpcBalanceResult;
   getRegisteredAuth: RpcRegisteredAuthResult;
   getContractDeployment: RpcContractDeploymentResult;
+  getEffectiveContract: RpcEffectiveContractResult;
   getContractArtifact: RpcContractArtifactResult;
   getEvents: RpcEventPage;
   getTransactionsByRootAddress: RpcTransactionRefPage;

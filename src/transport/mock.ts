@@ -14,6 +14,7 @@ const methods = [
   "getBalance",
   "getRegisteredAuth",
   "getContractDeployment",
+  "getEffectiveContract",
   "getContractArtifact",
   "getBlockByHeight",
   "dev_getPendingTransactionCount",
@@ -59,7 +60,7 @@ export class MockTransport implements Transport {
         break;
       case "getVersionInfo":
         result = {
-          wireFormat: "14.3.0",
+          wireFormat: "14.4.0",
           implementation: "mock",
           supportedMethods: [...methods],
         };
@@ -110,6 +111,14 @@ export class MockTransport implements Transport {
           address: params.address,
           stateBlockHeight,
           deployment: null,
+        };
+        break;
+      case "getEffectiveContract":
+        result = {
+          address: params.address,
+          context: params.context,
+          stateBlockHeight,
+          selection: null,
         };
         break;
       case "getContractArtifact":

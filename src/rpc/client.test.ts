@@ -56,6 +56,7 @@ const params: RpcRequests = {
   getBalance: { address },
   getRegisteredAuth: { address },
   getContractDeployment: { address },
+  getEffectiveContract: { address, context: "root" },
   getContractArtifact: { hash },
   getEvents: {
     filters: [
@@ -96,6 +97,12 @@ const bounds = {
   nextCursor: null,
 };
 const wire: Record<RpcMethod, unknown> = {
+  getEffectiveContract: {
+    address: base58,
+    context: "root",
+    stateBlockHeight: "5",
+    selection: null,
+  },
   getContractDeployment: {
     address: base58,
     stateBlockHeight: "5",
