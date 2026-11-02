@@ -36,6 +36,10 @@ export {
 export type { EventWalkQuery } from "./iterateEventPages.js";
 export { getContractSpec, type ContractSpecResult } from "./getContractSpec.js";
 export {
+  getEffectiveContractSpec,
+  type EffectiveContractSpecResult,
+} from "./getEffectiveContractSpec.js";
+export {
   decodeDefaultWalletRequests,
   type WalletRequests,
 } from "./decodeWalletRequests.js";

@@ -10,7 +10,10 @@ import {
 } from "../../contract/artifact.js";
 import { bytesEqual } from "../../contract/event.js";
 import type { RpcClient } from "../../rpc/client.js";
-import type { RpcContractDeploymentResult } from "../../rpc/generated.js";
+import type {
+  RpcContractDeployment,
+  RpcContractDeploymentResult,
+} from "../../rpc/generated.js";
 import type { TransportRequestOptions } from "../../transport/types.js";
 
 /** Snapshot deployment evidence and its authenticated metadata, if deployed. */
@@ -34,7 +37,18 @@ export async function getContractSpec(
   if (!bytesEqual(address, result.address))
     throw new Error("Contract deployment address mismatch");
   if (result.deployment === null) return { ...result, artifactSpec: null };
-  const deployment = result.deployment;
+  return {
+    ...result,
+    artifactSpec: await readDeploymentSpec(client, result.deployment, options),
+  };
+}
+
+/** Shared identity validation for explicit deployments and effective contract selection. */
+export async function readDeploymentSpec(
+  client: RpcClient,
+  deployment: RpcContractDeployment,
+  options?: TransportRequestOptions,
+): Promise<ContractArtifactSpec> {
   const artifact = await client.getContractArtifact(
     { hash: deployment.hash },
     options,
@@ -56,5 +70,5 @@ export async function getContractSpec(
   ) {
     throw new Error("Contract artifact does not match deployment metadata");
   }
-  return { ...result, artifactSpec };
+  return artifactSpec;
 }
