@@ -1,21 +1,20 @@
 # Counter artifact
 
-`counter.rv32a` is rebuilt with SDK 0.57.0 for hog-devnode 0.1.31-rc.16.
+`counter.rv32a` is a local RV32 v6 candidate built with the GH-558 Rust
+CLI/lowerer. It is not release-qualified.
 
-- Contract source: `contracts/counter/` in
-  `thruput-examples@c82a5d18e7e806ad449b2672124372f74a142c8f`.
-- SDK: `thruput-sdk` 0.57.0 from the `thruput` registry.
-- Toolchain: `nightly-2026-07-01`, CLI 0.39.0.
-- Artifact SHA-256: `f91cea94a5b80183e9b0a931a8944e30d28e1123c32df914906728b1880399c9`.
+- Artifact SHA-256: `2fd701db90657fd4caae5e2e70739e90cd73ea59b408228e4bba92f19db14f82`.
+- Artifact size: 6,421 bytes, including a 548-byte embedded spec.
+- Format fingerprint: `0x36f9478fa875ca39`.
+- Compiler: `rustc 1.98.0-nightly (f46ec5218 2026-06-30)`.
+- Shared fixture: `thruput-explorer`'s `tests/fixtures/counter-v6.rv32a`.
 
-Built with `thruput build -p counter` in a workspace holding only the
-`counter` package (its test-only dev-dependencies removed), the examples
-repository's `.cargo/config.toml`, `.cargo/contract.toml`, `rust-toolchain.toml`,
-and `trim-paths` release profile, and `thruput-sdk = "=0.57.0"`.
+The embedded spec is byte-identical to `specs/contracts/counter.spec.xdr`.
+The previous v5 fixture is rejected by the candidate v6 runtime. Published
+integration pins must be updated during the coordinated release.
 
-The build writes `counter.spec.xdr`, which is the pinned input in
-`specs/contracts/`. The spec is byte-identical to the previous SDK 0.38.0 build;
-only the artifact's code changed.
+Exact committed build provenance and independent reproduction remain release
+requirements. This fixture alone does not establish either.
 
 Regenerating TypeScript alone does not change an older artifact's embedded spec.
 Rebuild the artifact and regenerate bindings together when adopting an SDK

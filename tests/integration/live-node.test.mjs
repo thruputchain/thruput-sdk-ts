@@ -21,6 +21,7 @@ import {
   encodeCalldata,
 } from "@thruputchain/client";
 import { codec as specCodec, deserialize } from "@thruputchain/contract-spec";
+import { readTransactionInput } from "@thruputchain/client/actions";
 import {
   NativeRpcErrorCode,
   JsonRpcError,
@@ -351,6 +352,16 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       assert.deepEqual(values, [undefined]);
       assert.deepEqual(receipt.transactionHash, hash);
       assert.equal(receipt.execution.result, "return");
+      const input = await readTransactionInput(client, {
+        transactionHash: hash,
+      });
+      assert.equal(input.status, "available");
+      assert.equal(input.blockHeight, receipt.blockHeight);
+      assert.deepEqual(
+        input.transaction.invocation.invoked_address,
+        sender.address,
+      );
+      assert.ok(input.transaction.invocation.calldata.length > 0);
       assert.deepEqual(
         DefaultWallet.v0_1.execute.decodeReceipt(receipt).value,
         [new Uint8Array()],
