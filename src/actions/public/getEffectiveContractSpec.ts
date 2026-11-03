@@ -36,7 +36,7 @@ export async function getEffectiveContractSpec(
   options?: TransportRequestOptions,
 ): Promise<EffectiveContractSpecResult> {
   client.requireMethods(["getEffectiveContract", "getContractArtifact"]);
-  const address = request.address.slice();
+  const address = new Uint8Array(request.address);
   const context = request.context;
   const result = await client.getEffectiveContract(
     { address, context },

@@ -32,7 +32,7 @@ export async function getContractSpec(
   options?: TransportRequestOptions,
 ): Promise<ContractSpecResult> {
   client.requireMethods(["getContractDeployment", "getContractArtifact"]);
-  const address = request.address.slice();
+  const address = new Uint8Array(request.address);
   const result = await client.getContractDeployment({ address }, options);
   if (!bytesEqual(address, result.address))
     throw new Error("Contract deployment address mismatch");

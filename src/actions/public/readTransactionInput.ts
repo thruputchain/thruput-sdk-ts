@@ -33,7 +33,7 @@ export async function readTransactionInput(
   options?: TransportRequestOptions,
 ): Promise<VerifiedTransactionInput> {
   client.requireMethods(["getTransactionInput"]);
-  const hash = request.transactionHash.slice();
+  const hash = new Uint8Array(request.transactionHash);
   const result = await client.getTransactionInput(
     { transactionHash: hash },
     options,

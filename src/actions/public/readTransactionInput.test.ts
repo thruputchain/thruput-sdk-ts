@@ -20,6 +20,22 @@ const available = {
   transactionXdr: toHex0x(bytes),
 };
 
+it.each([false, true])(
+  "snapshots a Buffer hash during RPC (substituted: %s)",
+  async (substituted) => {
+    const input = Buffer.from(substituted ? new Uint8Array(32) : hash);
+    const request = vi.fn().mockImplementation(async () => {
+      input.set(substituted ? hash : new Uint8Array(32));
+      return available;
+    });
+    const result = readTransactionInput(await testRpc({ request }), {
+      transactionHash: input,
+    });
+    if (substituted) await expect(result).rejects.toThrow("hash mismatch");
+    else await expect(result).resolves.toMatchObject({ status: "available" });
+  },
+);
+
 it("verifies the Transaction hash preimage and exposes the retained root invocation", async () => {
   const request = vi.fn().mockResolvedValue(available);
   const result = await readTransactionInput(await testRpc({ request }), {

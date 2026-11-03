@@ -26,6 +26,26 @@ const artifact = {
   contractXdr: toHex0x(serialize(contract, codec.Contract)),
 };
 
+it.each([false, true])(
+  "snapshots a Buffer address during RPC (substituted: %s)",
+  async (substituted) => {
+    const input = Buffer.from(address);
+    const request = vi.fn().mockImplementation(async () => {
+      input.fill(8);
+      return {
+        ...deployment,
+        deployment: null,
+        address: toBase58(substituted ? input : address),
+      };
+    });
+    const result = getContractSpec(await testRpc({ request }), {
+      address: input,
+    });
+    if (substituted) await expect(result).rejects.toThrow("address mismatch");
+    else await expect(result).resolves.toMatchObject({ artifactSpec: null });
+  },
+);
+
 it("resolves one snapshot and verifies bytes by that deployment hash", async () => {
   const request = vi
     .fn()

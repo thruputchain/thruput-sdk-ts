@@ -14,6 +14,28 @@ import { toHex0x } from "../hex.js";
 import { getEffectiveContractSpec } from "./getEffectiveContractSpec.js";
 
 const address = new Uint8Array(32).fill(7);
+
+it.each([false, true])(
+  "snapshots a Buffer address during RPC (substituted: %s)",
+  async (substituted) => {
+    const input = Buffer.from(address);
+    const request = vi.fn().mockImplementation(async () => {
+      input.fill(8);
+      return {
+        address: toBase58(substituted ? input : address),
+        context: "nested",
+        stateBlockHeight: "42",
+        selection: null,
+      };
+    });
+    const result = getEffectiveContractSpec(await testRpc({ request }), {
+      address: input,
+      context: "nested",
+    });
+    if (substituted) await expect(result).rejects.toThrow("identity mismatch");
+    else await expect(result).resolves.toMatchObject({ artifactSpec: null });
+  },
+);
 const native: Contract = {
   contract_type: ContractType.kNative,
   native_contract_id:
