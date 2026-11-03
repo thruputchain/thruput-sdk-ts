@@ -376,7 +376,8 @@ export function defineContractEvent<
   return descriptor;
 }
 
-function topicRepresentation(
+/** Distinguish directly encoded indexed values from irreversible topic hashes. */
+export function topicRepresentation(
   type: ContractType,
 ): ContractEventTopicMetadata["representation"] {
   if (type.v === ContractTypeKind.Address) return "address";

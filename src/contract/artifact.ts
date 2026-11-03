@@ -1,6 +1,7 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { validateArtifactSpec } from "./specValidation.js";
 import { preflightContractSpec } from "./specPreflight.js";
+import { ContractVerificationError } from "./errors.js";
 import {
   codec,
   ContractType,
@@ -29,6 +30,20 @@ export type ContractArtifactSpec =
  * This proves byte identity, not deployment, executable validity, or spec truth.
  */
 export function readContractArtifactSpec(
+  contractXdr: Uint8Array,
+  expectedHash: SHA256Hash,
+): ContractArtifactSpec {
+  try {
+    return readArtifact(contractXdr, expectedHash);
+  } catch (cause) {
+    throw new ContractVerificationError(
+      cause instanceof Error ? cause.message : "Invalid contract artifact",
+      { cause },
+    );
+  }
+}
+
+function readArtifact(
   contractXdr: Uint8Array,
   expectedHash: SHA256Hash,
 ): ContractArtifactSpec {

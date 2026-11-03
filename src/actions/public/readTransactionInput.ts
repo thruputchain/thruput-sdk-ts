@@ -6,6 +6,7 @@ import {
   type Transaction,
 } from "@thruputchain/protocol";
 import { bytesEqual } from "../../contract/event.js";
+import { ContractVerificationError } from "../../contract/errors.js";
 import type { RpcClient } from "../../rpc/client.js";
 import { UnsupportedRpcValue } from "../../rpc/codec.js";
 import type { TransportRequestOptions } from "../../transport/types.js";
@@ -40,22 +41,29 @@ export async function readTransactionInput(
   );
   if (result instanceof UnsupportedRpcValue || result.status === "unavailable")
     return result;
-  if (result.transactionXdr.length > 4 * 1024 * 1024)
-    throw new Error("Transaction input exceeds 4 MiB");
-  if (
-    !bytesEqual(result.transactionHash, hash) ||
-    !bytesEqual(sha256(result.transactionXdr), hash)
-  ) {
-    throw new Error("Retained transaction input hash mismatch");
+  try {
+    if (result.transactionXdr.length > 4 * 1024 * 1024)
+      throw new Error("Transaction input exceeds 4 MiB");
+    if (
+      !bytesEqual(result.transactionHash, hash) ||
+      !bytesEqual(sha256(result.transactionXdr), hash)
+    ) {
+      throw new Error("Retained transaction input hash mismatch");
+    }
+    const transaction = deserialize(result.transactionXdr, codec.Transaction);
+    if (
+      !bytesEqual(
+        serialize(transaction, codec.Transaction),
+        result.transactionXdr,
+      )
+    ) {
+      throw new Error("Noncanonical Transaction XDR");
+    }
+    return { ...result, transaction };
+  } catch (cause) {
+    throw new ContractVerificationError(
+      cause instanceof Error ? cause.message : "Invalid transaction input",
+      { cause },
+    );
   }
-  const transaction = deserialize(result.transactionXdr, codec.Transaction);
-  if (
-    !bytesEqual(
-      serialize(transaction, codec.Transaction),
-      result.transactionXdr,
-    )
-  ) {
-    throw new Error("Noncanonical Transaction XDR");
-  }
-  return { ...result, transaction };
 }

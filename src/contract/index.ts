@@ -25,10 +25,11 @@ export {
   type ContractCodec,
   type ContractCodecContext,
 } from "./codec.js";
-export { ContractDecodeError } from "./errors.js";
+export { ContractDecodeError, ContractVerificationError } from "./errors.js";
 export {
   bytesEqual,
   createContractEventDecoder,
+  topicRepresentation,
   type SpecDecodedEvent,
   defineContractEvent,
   type ContractEvent,

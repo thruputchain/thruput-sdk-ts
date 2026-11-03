@@ -4,6 +4,7 @@ import {
 } from "@thruputchain/protocol";
 import { hashContract } from "../../contract/hash.js";
 import { bytesEqual } from "../../contract/event.js";
+import { ContractVerificationError } from "../../contract/errors.js";
 import type { ContractArtifactSpec } from "../../contract/artifact.js";
 import { spec as defaultWalletSpec } from "../../contracts/default_wallet.js";
 import type { ContractSpec } from "../../contract/spec.js";
@@ -43,13 +44,17 @@ export async function getEffectiveContractSpec(
     options,
   );
   if (!bytesEqual(address, result.address) || result.context !== context)
-    throw new Error("Effective contract request identity mismatch");
+    throw new ContractVerificationError(
+      "Effective contract request identity mismatch",
+    );
   if (result.selection instanceof UnsupportedRpcValue)
     throw new Error("Unsupported effective contract selection");
   if (result.selection === null)
     return { ...result, artifactSpec: null, nativeInterface: null };
   if (context === "nested" && result.selection.source === "networkDefault")
-    throw new Error("Network default cannot apply to a nested invocation");
+    throw new ContractVerificationError(
+      "Network default cannot apply to a nested invocation",
+    );
   const contract = result.selection.contract;
   const artifactSpec = await readDeploymentSpec(client, contract, options);
   const nativeInterface =

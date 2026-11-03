@@ -8,6 +8,7 @@ import {
   sha256Hash,
 } from "@thruputchain/protocol";
 import { readContractArtifactSpec } from "./artifact.js";
+import { ContractVerificationError } from "./errors.js";
 
 const spec = new Uint8Array(
   readFileSync(
@@ -75,7 +76,7 @@ describe("authenticated embedded specs", () => {
     );
     expect(() =>
       readContractArtifactSpec(bytes, sha256Hash(new Uint8Array(32))),
-    ).toThrow("hash mismatch");
+    ).toThrow(ContractVerificationError);
     const trailing = new Uint8Array(bytes.length + 4);
     trailing.set(bytes);
     expect(() =>

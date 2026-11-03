@@ -9,6 +9,7 @@ import {
   type ContractArtifactSpec,
 } from "../../contract/artifact.js";
 import { bytesEqual } from "../../contract/event.js";
+import { ContractVerificationError } from "../../contract/errors.js";
 import type { RpcClient } from "../../rpc/client.js";
 import type {
   RpcContractDeployment,
@@ -35,7 +36,7 @@ export async function getContractSpec(
   const address = new Uint8Array(request.address);
   const result = await client.getContractDeployment({ address }, options);
   if (!bytesEqual(address, result.address))
-    throw new Error("Contract deployment address mismatch");
+    throw new ContractVerificationError("Contract deployment address mismatch");
   if (result.deployment === null) return { ...result, artifactSpec: null };
   return {
     ...result,
@@ -54,7 +55,9 @@ export async function readDeploymentSpec(
     options,
   );
   if (!bytesEqual(artifact.hash, deployment.hash))
-    throw new Error("Contract artifact response hash mismatch");
+    throw new ContractVerificationError(
+      "Contract artifact response hash mismatch",
+    );
   const artifactSpec = readContractArtifactSpec(
     artifact.contractXdr,
     sha256Hash(deployment.hash),
@@ -68,7 +71,9 @@ export async function readDeploymentSpec(
     contract.contract_type !== deployment.contractType ||
     size !== deployment.size
   ) {
-    throw new Error("Contract artifact does not match deployment metadata");
+    throw new ContractVerificationError(
+      "Contract artifact does not match deployment metadata",
+    );
   }
   return artifactSpec;
 }
