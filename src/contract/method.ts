@@ -351,6 +351,41 @@ interface ResolvedException {
 export function defineContractMethod<TArgs, TResult, TDeclaredException>(
   definition: ContractMethodDefinition,
 ): ContractMethod<TArgs, TResult, TDeclaredException> {
+  return defineContractMethodWithExceptions(
+    definition,
+    resolveContractExceptions(definition),
+  );
+}
+
+// Dynamic specs share one resolved exception table per interface. Generated
+// descriptors retain the public single-definition constructor above.
+export function resolveContractExceptions(
+  definition: Pick<ContractMethodDefinition, "throws" | "codecs">,
+): ReadonlyMap<bigint, ResolvedException> {
+  const exceptions = new Map<bigint, ResolvedException>();
+  for (const metadata of definition.throws) {
+    if (exceptions.has(metadata.selector))
+      throw new Error(
+        `Duplicate contract exception selector ${metadata.selector}`,
+      );
+    exceptions.set(metadata.selector, {
+      name: metadata.name,
+      codec: resolveContextCodec(definition.codecs, metadata.type),
+      variant: (value) =>
+        contextEnumVariant(definition.codecs, metadata.type, value),
+    });
+  }
+  return exceptions;
+}
+
+export function defineContractMethodWithExceptions<
+  TArgs,
+  TResult,
+  TDeclaredException,
+>(
+  definition: ContractMethodDefinition,
+  exceptionBySelector: ReadonlyMap<bigint, ResolvedException>,
+): ContractMethod<TArgs, TResult, TDeclaredException> {
   const entrypoint = copyEntrypoint(definition.entrypoint);
   const effect = definition.effect ?? null;
   if (
@@ -385,20 +420,6 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
     definition.codecs,
     definition.returnType,
   );
-  const exceptionBySelector = new Map<bigint, ResolvedException>();
-  for (const metadata of definition.throws) {
-    if (exceptionBySelector.has(metadata.selector)) {
-      throw new Error(
-        `Duplicate contract exception selector ${metadata.selector}`,
-      );
-    }
-    exceptionBySelector.set(metadata.selector, {
-      name: metadata.name,
-      codec: resolveContextCodec(definition.codecs, metadata.type),
-      variant: (value) =>
-        contextEnumVariant(definition.codecs, metadata.type, value),
-    });
-  }
 
   const method: ContractMethod<TArgs, TResult, TDeclaredException> = {
     name,

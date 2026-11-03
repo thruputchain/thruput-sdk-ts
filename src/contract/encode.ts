@@ -188,6 +188,9 @@ export function resolveCodec(
   ty: ContractType,
   namedCodecs?: Record<string, XdrCodec<unknown>>,
 ): XdrCodec<unknown> {
+  // The named definition already owns its value-level budget wrapper.
+  if (ty.v === ContractTypeKind.Named)
+    return resolveUncachedCodec(ty, namedCodecs);
   if (!namedCodecs) return withDecodeBudget(resolveUncachedCodec(ty));
 
   const resolvedCache = resolvedCodecCaches.get(namedCodecs);

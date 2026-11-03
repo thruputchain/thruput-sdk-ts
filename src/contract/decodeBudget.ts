@@ -2,8 +2,12 @@ import type { XdrCodec } from "@thruputchain/xdr";
 
 type Reader = Parameters<XdrCodec<unknown>["decode"]>[0];
 const budgets = new WeakMap<Reader, { remaining: number; depth: number }>();
+type Writer = Parameters<XdrCodec<unknown>["encode"]>[0];
+const encodeDepth = new WeakMap<Writer, number>();
 
-// Charge codec visits, not bytes: opaque byte buffers remain a single value.
+// Charge value codecs, not aliases: named definitions own one wrapper, and
+// resolveCodec does not wrap their references again. Options and containers
+// each count as a value level. Opaque byte buffers remain a single value.
 // Allow small zero-width values and ordinary container overhead, but cap total
 // work even for large inputs. Each new reader gets its own budget.
 function budgetFor(reader: Reader) {
@@ -26,7 +30,16 @@ export function checkDecodeCapacity(reader: Reader, count: number): void {
 
 export function withDecodeBudget<T>(codec: XdrCodec<T>): XdrCodec<T> {
   return {
-    encode: codec.encode,
+    encode(writer, value) {
+      const depth = encodeDepth.get(writer) ?? 0;
+      if (depth >= 128) throw new Error("Contract encode depth limit exceeded");
+      encodeDepth.set(writer, depth + 1);
+      try {
+        codec.encode(writer, value);
+      } finally {
+        encodeDepth.set(writer, depth);
+      }
+    },
     decode(reader) {
       const budget = budgetFor(reader);
       checkDecodeCapacity(reader, 1);

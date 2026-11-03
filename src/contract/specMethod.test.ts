@@ -1,4 +1,6 @@
-import { expect, expectTypeOf, it } from "vitest";
+import { expect, expectTypeOf, it, vi } from "vitest";
+import * as codecs from "./codec.js";
+import { contractSpecString } from "@thruputchain/contract-spec";
 import { CxsWriter } from "@thruputchain/xdr";
 import { ContractTypeKind } from "./spec.js";
 import { calldata, contractAddress, gasAmount } from "@thruputchain/protocol";
@@ -8,6 +10,28 @@ import { createContractCallDecoder } from "./specMethod.js";
 import { decodeDefaultWalletRequests } from "../actions/public/decodeWalletRequests.js";
 
 const address = contractAddress(new Uint8Array(32).fill(3));
+
+it("resolves interface exceptions in linear work rather than once per method", () => {
+  const copy = structuredClone(spec);
+  const iface = copy.interfaces[0]!;
+  iface.methods = Array.from({ length: 500 }, (_, i) => ({
+    name: contractSpecString(`method${i}`),
+    args: [],
+    return_type: { v: ContractTypeKind.Void },
+    effect: null,
+  }));
+  iface.throws = Array.from({ length: 500 }, (_, i) => ({
+    selector: BigInt(i),
+    ty: { v: ContractTypeKind.U32 },
+  }));
+  const spy = vi.spyOn(codecs, "resolveContextCodec");
+  try {
+    createContractCallDecoder(copy);
+    expect(spy.mock.calls.length).toBeLessThanOrEqual(1500);
+  } finally {
+    spy.mockRestore();
+  }
+});
 const child = ERC20.v0_1.transfer.call({
   address,
   gasLimit: gasAmount(10000n),

@@ -1,5 +1,6 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { validateArtifactSpec } from "./specValidation.js";
+import { preflightContractSpec } from "./specPreflight.js";
 import {
   codec,
   ContractType,
@@ -78,6 +79,7 @@ export function readContractArtifactSpec(
   const specBytes = artifact.slice(specStart);
   if (schemaVersion !== 1)
     return { kind: "unsupportedSchema", schemaVersion, bytes: specBytes };
+  preflightContractSpec(specBytes);
   const spec = deserialize(specBytes, specCodec.ContractSpec);
   validateArtifactSpec(spec);
   if (!bytesEqual(serialize(spec, specCodec.ContractSpec), specBytes)) {

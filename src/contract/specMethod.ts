@@ -2,7 +2,11 @@ import type { Invocation } from "@thruputchain/protocol";
 import { deriveEntrypointID } from "../derivation/entrypointId.js";
 import { createContractCodecContext } from "./codec.js";
 import { ContractDecodeError } from "./errors.js";
-import { defineContractMethod, type ContractMethod } from "./method.js";
+import {
+  defineContractMethodWithExceptions,
+  resolveContractExceptions,
+  type ContractMethod,
+} from "./method.js";
 import type { ContractSpec } from "./spec.js";
 
 /** A declared exception decoded from a spec without generated value types. */
@@ -40,6 +44,12 @@ export function createContractCallDecoder(
   const codecs = createContractCodecContext(snapshot.type_defs);
   const methods = new Map<string, Omit<SpecDecodedCall, "args">>();
   for (const iface of snapshot.interfaces) {
+    const throws = iface.throws.map((exception) => ({
+      selector: exception.selector,
+      name: null,
+      type: exception.ty,
+    }));
+    const exceptions = resolveContractExceptions({ throws, codecs });
     for (const method of iface.methods) {
       const key = deriveEntrypointID(iface.name, iface.vers, method.name).join(
         ",",
@@ -55,30 +65,29 @@ export function createContractCallDecoder(
           "Duplicate argument name in contract spec",
         );
       }
-      const descriptor = defineContractMethod<
+      const descriptor = defineContractMethodWithExceptions<
         Record<string, unknown> | void,
         unknown,
         SpecDeclaredException
-      >({
-        interfaceName: iface.name,
-        interfaceVersion: iface.vers,
-        publicName: method.name,
-        abiName: method.name,
-        entrypoint: deriveEntrypointID(iface.name, iface.vers, method.name),
-        effect: method.effect,
-        args: method.args.map((arg) => ({
-          abiName: arg.name,
-          publicName: arg.name,
-          type: arg.ty,
-        })),
-        returnType: method.return_type,
-        throws: iface.throws.map((exception) => ({
-          selector: exception.selector,
-          name: null,
-          type: exception.ty,
-        })),
-        codecs,
-      });
+      >(
+        {
+          interfaceName: iface.name,
+          interfaceVersion: iface.vers,
+          publicName: method.name,
+          abiName: method.name,
+          entrypoint: deriveEntrypointID(iface.name, iface.vers, method.name),
+          effect: method.effect,
+          args: method.args.map((arg) => ({
+            abiName: arg.name,
+            publicName: arg.name,
+            type: arg.ty,
+          })),
+          returnType: method.return_type,
+          throws,
+          codecs,
+        },
+        exceptions,
+      );
       methods.set(key, {
         interfaceName: iface.name,
         interfaceVersion: iface.vers,

@@ -16,6 +16,22 @@ const gas = gasAmount(1_000_000n);
 const namedCodecs = buildNamedCodecs(spec.type_defs);
 
 describe("generated RecursiveTypeContract bindings", () => {
+  it("counts named values once and applies the same depth limit when encoding", () => {
+    let tree: Tree = { value: 1n, left: null, right: null };
+    for (let i = 1; i < 64; i++) tree = { value: 1n, left: tree, right: null };
+    const method = RecursiveTypeContract.v0_1.depth;
+    const invocation = method.invocation(contract, gas, { tree });
+    expect(method.decodeArgs(invocation.calldata)).toEqual({ tree });
+    tree = { value: 1n, left: tree, right: null };
+    expect(() => method.invocation(contract, gas, { tree })).toThrow(
+      "encode depth limit",
+    );
+    // One extra node prepends value=1, left=Some; right=None follows the child.
+    const deeper = new Uint8Array(invocation.calldata.length + 3);
+    deeper.set([1, 1]);
+    deeper.set(invocation.calldata, 2);
+    expect(() => method.decodeArgs(deeper)).toThrow("decode depth limit");
+  });
   it("depth() encodes a nested Tree and decodes back", () => {
     const tree: Tree = {
       value: 1n,
