@@ -5,13 +5,25 @@ import { ContractDecodeError } from "./errors.js";
 import { defineContractMethod, type ContractMethod } from "./method.js";
 import type { ContractSpec } from "./spec.js";
 
+/** A declared exception decoded from a spec without generated value types. */
+export interface SpecDeclaredException {
+  kind: "declared";
+  selector: bigint;
+  name: string | null;
+  value: unknown;
+}
+
 /** A call interpreted using the supplied spec, not evidence of code execution. */
 export interface SpecDecodedCall {
   interfaceName: string;
   interfaceVersion: string;
   methodName: string;
   args: Record<string, unknown> | undefined;
-  method: ContractMethod<Record<string, unknown> | void, unknown, never>;
+  method: ContractMethod<
+    Record<string, unknown> | void,
+    unknown,
+    SpecDeclaredException
+  >;
 }
 
 /**
@@ -46,7 +58,7 @@ export function createContractCallDecoder(
       const descriptor = defineContractMethod<
         Record<string, unknown> | void,
         unknown,
-        never
+        SpecDeclaredException
       >({
         interfaceName: iface.name,
         interfaceVersion: iface.vers,

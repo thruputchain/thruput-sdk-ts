@@ -11,6 +11,7 @@ export { encodeCalldata, decodeCalldata, resolveCodec } from "./encode.js";
 export {
   createContractCallDecoder,
   type SpecDecodedCall,
+  type SpecDeclaredException,
 } from "./specMethod.js";
 export { buildNamedCodecs } from "./codegen.js";
 export { hashContract } from "./hash.js";

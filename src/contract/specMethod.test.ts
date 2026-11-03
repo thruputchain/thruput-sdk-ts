@@ -1,4 +1,6 @@
-import { expect, it } from "vitest";
+import { expect, expectTypeOf, it } from "vitest";
+import { CxsWriter } from "@thruputchain/xdr";
+import { ContractTypeKind } from "./spec.js";
 import { calldata, contractAddress, gasAmount } from "@thruputchain/protocol";
 import { DefaultWallet, spec } from "../contracts/default_wallet.js";
 import { ERC20 } from "../contracts/erc20.js";
@@ -67,4 +69,46 @@ it("decodes only the root wallet output as its declared vector", () => {
   expect(decoded.method.decodeReturn(new Uint8Array([1, 1, 7]))).toEqual([
     new Uint8Array([7]),
   ]);
+});
+
+it("exposes declared exception values and preserves unknown payload types", () => {
+  const copy = structuredClone(spec);
+  copy.interfaces[0]!.throws = [
+    { selector: 7n, ty: { v: ContractTypeKind.U32 } },
+  ];
+  const method = createContractCallDecoder(copy)(root)!.method;
+  const writer = new CxsWriter();
+  writer.writeUint64(7n);
+  writer.writeUint32(42n);
+  const data = writer.finish();
+  const exception = method.decodeException(data);
+  expect(exception).toMatchObject({
+    kind: "declared",
+    selector: 7n,
+    value: 42n,
+  });
+  if (exception.kind === "declared") {
+    expectTypeOf(exception.value).toEqualTypeOf<unknown>();
+    expect(exception.value).toBe(42n);
+  }
+  const outcome = method.decodeViewOutcome({
+    output: { result: "abort", abortData: data },
+    stateBlockHeight: 1n,
+    gasUsed: 1n,
+    events: [],
+  });
+  expect(outcome.kind).toBe("abort");
+  if (outcome.kind === "abort" && outcome.exception.kind === "declared") {
+    expectTypeOf(outcome.exception.value).toEqualTypeOf<unknown>();
+    expect(outcome.exception.value).toBe(42n);
+  }
+  const unknownWriter = new CxsWriter();
+  unknownWriter.writeUint64(99n);
+  const unknownData = unknownWriter.finish();
+  const unknown = method.decodeException(unknownData);
+  expect(unknown.kind).toBe("unknown");
+  if (unknown.kind === "unknown") {
+    expectTypeOf(unknown.data).toEqualTypeOf<Uint8Array>();
+    expect(unknown.data).toEqual(unknownData);
+  }
 });
