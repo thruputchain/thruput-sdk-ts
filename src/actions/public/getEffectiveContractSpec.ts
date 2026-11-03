@@ -8,7 +8,7 @@ import { ContractVerificationError } from "../../contract/errors.js";
 import type { ContractArtifactSpec } from "../../contract/artifact.js";
 import { spec as defaultWalletSpec } from "../../contracts/default_wallet.js";
 import type { ContractSpec } from "../../contract/spec.js";
-import type { RpcClient } from "../../rpc/client.js";
+import { RpcCompatibilityError, type RpcClient } from "../../rpc/client.js";
 import type { RpcEffectiveContractResult } from "../../rpc/generated.js";
 import { UnsupportedRpcValue } from "../../rpc/codec.js";
 import type { TransportRequestOptions } from "../../transport/types.js";
@@ -48,7 +48,7 @@ export async function getEffectiveContractSpec(
       "Effective contract request identity mismatch",
     );
   if (result.selection instanceof UnsupportedRpcValue)
-    throw new Error("Unsupported effective contract selection");
+    throw new RpcCompatibilityError("Unsupported effective contract selection");
   if (result.selection === null)
     return { ...result, artifactSpec: null, nativeInterface: null };
   if (context === "nested" && result.selection.source === "networkDefault")
