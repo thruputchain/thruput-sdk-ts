@@ -29,6 +29,7 @@ import type { ContractType, ContractSpec, ContractSpecMethod } from "./spec.js";
 import { ContractTypeKind, formatSpecId, specIdKey } from "./spec.js";
 import { ContractDecodeError } from "./errors.js";
 import { SignedTokenCodec } from "./signedToken.js";
+import { checkDecodeCapacity, withDecodeBudget } from "./decodeBudget.js";
 
 const AddressCodec = requireByteArrayCodec(
   codec.ContractAddress as XdrCodec<Uint8Array>,
@@ -154,10 +155,6 @@ function requireArrayCodec<T>(codec: XdrCodec<T[]>): XdrCodec<T[]> {
   };
 }
 
-// Zero-width values can occupy no input bytes. Bound their materialization
-// independently of the target network's return-buffer byte limit.
-const MAX_ZERO_WIDTH_VECTOR_LENGTH = 1024;
-
 function safeVarArrayCodec<T>(
   inner: XdrCodec<T>,
   maxLength: number,
@@ -170,13 +167,7 @@ function safeVarArrayCodec<T>(
       if (length > maxLength) {
         throw new Error(`VarArray length ${length} exceeds max ${maxLength}`);
       }
-      // Non-empty values cannot outnumber the remaining bytes. Keep small
-      // zero-width vectors valid without letting a length prefix create a huge array.
-      if (length > reader.remaining && length > MAX_ZERO_WIDTH_VECTOR_LENGTH) {
-        throw new Error(
-          `VarArray length ${length} cannot be safely materialized from ${reader.remaining} remaining bytes`,
-        );
-      }
+      checkDecodeCapacity(reader, length);
 
       const values: T[] = [];
       for (let index = 0; index < length; index++) {
@@ -197,16 +188,16 @@ export function resolveCodec(
   ty: ContractType,
   namedCodecs?: Record<string, XdrCodec<unknown>>,
 ): XdrCodec<unknown> {
-  if (!namedCodecs) return resolveUncachedCodec(ty);
+  if (!namedCodecs) return withDecodeBudget(resolveUncachedCodec(ty));
 
   const resolvedCache = resolvedCodecCaches.get(namedCodecs);
   if (!resolvedCache?.cacheableTypes.has(ty)) {
-    return resolveUncachedCodec(ty, namedCodecs);
+    return withDecodeBudget(resolveUncachedCodec(ty, namedCodecs));
   }
   const cached = resolvedCache.codecs.get(ty);
   if (cached) return cached;
 
-  const codec = resolveUncachedCodec(ty, namedCodecs);
+  const codec = withDecodeBudget(resolveUncachedCodec(ty, namedCodecs));
   resolvedCache.codecs.set(ty, codec);
   return codec;
 }
@@ -276,6 +267,7 @@ function resolveUncachedCodec(
       return {
         encode: arrayCodec.encode,
         decode(reader) {
+          checkDecodeCapacity(reader, arrayLength);
           return fixedArray(arrayCodec.decode(reader), arrayLength);
         },
       } as XdrCodec<unknown>;

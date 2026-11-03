@@ -12,6 +12,7 @@ import {
   specIdKey,
 } from "./spec.js";
 import { resolveCodec } from "./encode.js";
+import { withDecodeBudget } from "./decodeBudget.js";
 
 /**
  * Build codecs for named contract-spec types.
@@ -33,7 +34,7 @@ export function buildNamedCodecs(
     if (Object.hasOwn(codecs, key)) {
       throw new Error(`Contract spec defines "${formatSpecId(id)}" twice`);
     }
-    codecs[key] = codec;
+    codecs[key] = withDecodeBudget(codec);
   };
 
   for (const def of typeDefs) {
