@@ -2,6 +2,7 @@ import type { TransportRequestOptions } from "../../transport/types.js";
 import type {
   EventPage,
   TransactionRefPage,
+  AddressTransactionPage,
   IterationOrder,
   HistoryStart,
 } from "../../types/rpc.js";
@@ -16,7 +17,7 @@ export interface HistoryCompletion {
 export class HistoryWalkError extends Error {
   constructor(
     message: string,
-    readonly page: EventPage | TransactionRefPage,
+    readonly page: EventPage | TransactionRefPage | AddressTransactionPage,
   ) {
     super(message);
     this.name = "HistoryWalkError";
@@ -31,9 +32,11 @@ const compare = (a: Key, b: Key) => {
   return 0;
 };
 /** Shared cross-page checks; single-page shape, filter and identity checks belong to RpcClient. */
-export async function* walkHistory<P extends EventPage | TransactionRefPage>(
+export async function* walkHistory<
+  P extends EventPage | TransactionRefPage | AddressTransactionPage,
+>(
   fetch: (cursor: string | undefined) => Promise<P>,
-  kind: "events" | "transactions",
+  kind: "events" | "transactions" | "addressTransactions",
   scope:
     | { start: HistoryStart }
     | { blockHeight: bigint; order: IterationOrder },
@@ -45,6 +48,7 @@ export async function* walkHistory<P extends EventPage | TransactionRefPage>(
     lowerBound: bigint | undefined,
     upperBound: bigint | undefined,
     last: Key | undefined;
+  let coverageFrom: bigint | undefined;
   const cursors = new Set<string>(),
     identities = new Set<string>();
   for (;;) {
@@ -54,18 +58,36 @@ export async function* walkHistory<P extends EventPage | TransactionRefPage>(
     const fail = (message: string): never => {
       throw new HistoryWalkError(message, page);
     };
+    const addressPage =
+      kind === "addressTransactions"
+        ? (page as AddressTransactionPage)
+        : undefined;
+    const from = addressPage
+      ? addressPage.coverage.fromBlockHeight
+      : (page as EventPage | TransactionRefPage).oldestIndexedBlockHeight;
+    const through = addressPage
+      ? addressPage.coverage.throughBlockHeight
+      : (page as EventPage | TransactionRefPage).latestIndexedBlockHeight;
+    if (addressPage) {
+      if (
+        watermark !== undefined &&
+        (from !== coverageFrom || through !== watermark)
+      )
+        fail("Address-history coverage changed during pagination");
+      coverageFrom = from;
+    }
     const rows =
       kind === "events"
         ? (page as EventPage).events
         : (page as TransactionRefPage).transactions;
     if (watermark === undefined) {
-      watermark = page.latestIndexedBlockHeight;
+      watermark = through;
       lowerBound =
         "start" in scope &&
         order === "ascending" &&
         scope.start.anchor.kind === "atHeight"
           ? scope.start.anchor.blockHeight
-          : page.oldestIndexedBlockHeight;
+          : from;
       upperBound =
         "start" in scope &&
         order === "descending" &&
@@ -75,15 +97,12 @@ export async function* walkHistory<P extends EventPage | TransactionRefPage>(
           : watermark;
     }
     if ("blockHeight" in scope) {
-      if (
-        scope.blockHeight < page.oldestIndexedBlockHeight ||
-        scope.blockHeight > page.latestIndexedBlockHeight
-      )
+      if (scope.blockHeight < from || scope.blockHeight > through)
         fail("Requested block is outside current indexed coverage");
     } else {
-      if (page.latestIndexedBlockHeight < watermark)
+      if (through < watermark)
         fail("History coverage regressed below the initial watermark");
-      if (page.oldestIndexedBlockHeight > lowerBound!)
+      if (from > lowerBound!)
         fail("History retention no longer covers the requested range");
     }
     for (const row of rows) {

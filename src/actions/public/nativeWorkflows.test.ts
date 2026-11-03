@@ -28,6 +28,7 @@ const hash = new Uint8Array(32).fill(1);
 const networkHash = new Uint8Array(32).fill(2);
 const recipient = new Uint8Array(32).fill(3);
 const receipt: TransactionReceipt = {
+  invokedAddresses: [],
   transactionHash: hash,
   blockHeight: 9n,
   execution: { result: "return", returnData: new Uint8Array() },
@@ -496,6 +497,7 @@ describe("single-call funding", () => {
       blockHeight: "9",
       execution: { result: "fault" },
       gasUsed: "5",
+      invokedAddresses: [],
       events: [],
     };
     const cause = new NativeRpcError(

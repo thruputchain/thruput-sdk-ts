@@ -1,40 +1,41 @@
 import type { RpcClient } from "../../rpc/client.js";
 import type { TransportRequestOptions } from "../../transport/types.js";
 import type {
-  RootAddressTransactionQuery,
+  AddressHistoryQuery,
+  AddressTransactionPage,
   BlockTransactionQuery,
   TransactionRefPage,
 } from "../../types/rpc.js";
 import { walkHistory, type HistoryCompletion } from "./historyWalk.js";
-export type RootAddressWalkQuery = Extract<
-  RootAddressTransactionQuery,
+export type AddressHistoryWalkQuery = Extract<
+  AddressHistoryQuery,
   { start: unknown }
 >;
 export type BlockTransactionWalkQuery = Extract<
   BlockTransactionQuery,
   { start: unknown }
 >;
-/** Transactions sent by this root address; incoming transfers use token events. */
-export function iterateTransactionsByRootAddress(
-  client: Pick<RpcClient, "getTransactionsByRootAddress">,
-  query: RootAddressWalkQuery,
+/** Walk root-target and entered-address history within pinned retained coverage. */
+export function iterateTransactionsByAddress(
+  client: Pick<RpcClient, "getTransactionsByAddress">,
+  query: AddressHistoryWalkQuery,
   options: TransportRequestOptions = {},
-): AsyncGenerator<TransactionRefPage, HistoryCompletion, unknown> {
+): AsyncGenerator<AddressTransactionPage, HistoryCompletion, unknown> {
   const snapshot = structuredClone(query);
   if (!snapshot.start || snapshot.cursor !== undefined)
-    throw new TypeError("Root-address walks require an explicit start");
+    throw new TypeError("Address-history walks require an explicit start");
   return walkHistory(
     (cursor) =>
-      client.getTransactionsByRootAddress(
+      client.getTransactionsByAddress(
         cursor === undefined
           ? snapshot
           : { address: snapshot.address, limit: snapshot.limit, cursor },
         options,
       ),
-    "transactions",
+    "addressTransactions",
     { start: snapshot.start },
     options,
-  ) as AsyncGenerator<TransactionRefPage, HistoryCompletion, unknown>;
+  ) as AsyncGenerator<AddressTransactionPage, HistoryCompletion, unknown>;
 }
 /** Walk one covered block. Completion never establishes a whole-chain checkpoint. */
 export function iterateTransactionsByBlock(

@@ -98,7 +98,20 @@ function convert(
     const name = s.$ref.split("/").at(-1)!;
     const target = catalog.schemas[name];
     if (!target) throw new Error(`Missing generated RPC schema ${name}`);
-    return convert(target, value, encode, path);
+    const converted = convert(target, value, encode, path);
+    if (!encode && name === "TransactionReceipt" && record(converted)) {
+      const addresses = converted.invokedAddresses as Uint8Array[];
+      for (let i = 1; i < addresses.length; i++) {
+        const previous = addresses[i - 1]!;
+        const current = addresses[i]!;
+        const differing = previous.findIndex(
+          (byte, index) => byte !== current[index],
+        );
+        if (differing < 0 || previous[differing]! > current[differing]!)
+          return fail();
+      }
+    }
+    return converted;
   }
   if (s["x-base58-bytes"] !== undefined) {
     if (encode) {

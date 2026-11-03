@@ -24,7 +24,7 @@ const methods = [
   "getTransactionReceipt",
   "getTransactionInput",
   "getTransactionStatus",
-  "getTransactionsByRootAddress",
+  "getTransactionsByAddress",
   "getTransactionsByBlock",
   "getEvents",
   "getStorage",
@@ -60,7 +60,7 @@ export class MockTransport implements Transport {
         break;
       case "getVersionInfo":
         result = {
-          wireFormat: "14.4.0",
+          wireFormat: "15.0.0",
           implementation: "mock",
           supportedMethods: [...methods],
         };
@@ -175,6 +175,7 @@ export class MockTransport implements Transport {
                 transactionHash: params.transactionHash,
                 blockHeight: height.toString(),
                 execution: { result: "return", returnData: "0x" },
+                invokedAddresses: [],
                 events: [],
                 gasUsed: "0",
               };
@@ -191,7 +192,17 @@ export class MockTransport implements Transport {
       case "getEvents":
         result = { ...bounds, events: [] };
         break;
-      case "getTransactionsByRootAddress":
+      case "getTransactionsByAddress":
+        if (this.#height < 1n) throw new Error("Address history is not ready");
+        result = {
+          transactions: [],
+          nextCursor: null,
+          coverage: {
+            fromBlockHeight: "1",
+            throughBlockHeight: stateBlockHeight,
+          },
+        };
+        break;
       case "getTransactionsByBlock":
         result = { ...bounds, transactions: [] };
         break;

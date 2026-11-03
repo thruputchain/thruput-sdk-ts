@@ -65,7 +65,7 @@ const params: RpcRequests = {
     start,
     limit: 2,
   },
-  getTransactionsByRootAddress: { address, start, limit: 2 },
+  getTransactionsByAddress: { address, start, limit: 2 },
   getBlockByHeight: { blockHeight: 5n },
   getTransactionsByBlock: {
     blockHeight: 5n,
@@ -85,6 +85,7 @@ const params: RpcRequests = {
   dev_getPendingTransactionCount: {},
 };
 const receipt = {
+  invokedAddresses: [base58],
   transactionHash: hashText,
   blockHeight: "5",
   execution: { result: "return", returnData: "0x" },
@@ -110,7 +111,7 @@ const wire: Record<RpcMethod, unknown> = {
   },
   getContractArtifact: { hash: hashText, contractXdr: "0x0000000300000000" },
   getVersionInfo: {
-    wireFormat: "14.0.0",
+    wireFormat: "15.0.0",
     implementation: "test",
     supportedMethods: spec.methods.map((m) => m.name),
   },
@@ -185,9 +186,17 @@ const wire: Record<RpcMethod, unknown> = {
       },
     ],
   },
-  getTransactionsByRootAddress: {
-    ...bounds,
-    transactions: [{ transactionHash: hashText, blockHeight: "5" }],
+  getTransactionsByAddress: {
+    nextCursor: null,
+    coverage: { fromBlockHeight: "1", throughBlockHeight: "6" },
+    transactions: [
+      {
+        transactionHash: hashText,
+        blockHeight: "5",
+        isRootTarget: true,
+        wasInvoked: true,
+      },
+    ],
   },
   getBlockByHeight: {
     blockHeight: "5",
@@ -408,9 +417,7 @@ describe("native RPC client", () => {
       { address, start, limit: 0 },
       { address, start, unexpected: 1 },
     ])
-      expect(() =>
-        encodeRequest("getTransactionsByRootAddress", input),
-      ).toThrow();
+      expect(() => encodeRequest("getTransactionsByAddress", input)).toThrow();
     expect(() =>
       encodeRequest("getBlockByHeight", { blockHeight: 5 }),
     ).toThrow();
@@ -433,7 +440,7 @@ describe("native RPC client", () => {
       }),
     ).toThrow();
     expect(
-      encodeRequest("getTransactionsByRootAddress", {
+      encodeRequest("getTransactionsByAddress", {
         address,
         cursor: "0x1234",
       }),
@@ -663,7 +670,16 @@ describe("native RPC client", () => {
   it("rejects missing history ranges, duplicate identities and wrong directions", async () => {
     const endpoint = server();
     const client = await createRpcClient({ transport: endpoint.transport });
-    const tx = { transactionHash: hashText, blockHeight: "5" };
+    const tx = {
+      transactionHash: hashText,
+      blockHeight: "5",
+      isRootTarget: false,
+      wasInvoked: true,
+    };
+    const addressBounds = {
+      nextCursor: null,
+      coverage: { fromBlockHeight: "1", throughBlockHeight: "6" },
+    };
     const request = {
       address,
       start: {
@@ -672,20 +688,26 @@ describe("native RPC client", () => {
       },
     } as const;
     for (const page of [
-      { ...bounds, oldestIndexedBlockHeight: "5", transactions: [tx] },
-      { ...bounds, transactions: [{ ...tx, blockHeight: "3" }] },
-      { ...bounds, transactions: [tx, { ...tx, blockHeight: "6" }] },
       {
-        ...bounds,
+        ...addressBounds,
+        coverage: { fromBlockHeight: "5", throughBlockHeight: "6" },
+        transactions: [tx],
+      },
+      { ...addressBounds, transactions: [{ ...tx, blockHeight: "3" }] },
+      { ...addressBounds, transactions: [tx, { ...tx, blockHeight: "6" }] },
+      { ...addressBounds, transactions: [{ ...tx, wasInvoked: false }] },
+      { ...addressBounds, transactions: [], nextCursor: "0x01" },
+      {
+        ...addressBounds,
         transactions: [
           { ...tx, blockHeight: "6" },
-          { transactionHash: base58, blockHeight: "5" },
+          { ...tx, transactionHash: base58, blockHeight: "5" },
         ],
       },
     ]) {
-      endpoint.results.getTransactionsByRootAddress = page;
+      endpoint.results.getTransactionsByAddress = page;
       await expect(
-        client.getTransactionsByRootAddress(request),
+        client.getTransactionsByAddress(request),
       ).rejects.toBeInstanceOf(RpcDecodingError);
     }
     const event = (wire.getEvents as { events: object[] }).events[0]!;
@@ -749,7 +771,7 @@ describe("native RPC client", () => {
     ).rejects.toBeInstanceOf(RpcDecodingError);
     const previous = client.discovery;
     for (const version of [
-      { ...(wire.getVersionInfo as object), wireFormat: "15.0.0" },
+      { ...(wire.getVersionInfo as object), wireFormat: "14.4.0" },
       {
         ...(wire.getVersionInfo as object),
         supportedMethods: ["getVersionInfo", "getNetworkInfo"],
@@ -857,6 +879,40 @@ describe("native RPC client", () => {
   });
 });
 
+it("retains failed receipt membership and rejects noncanonical addresses", async () => {
+  const low = toBase58(new Uint8Array(32).fill(1));
+  const high = toBase58(new Uint8Array(32).fill(2));
+  const endpoint = server({
+    getTransactionReceipt: {
+      ...receipt,
+      execution: { result: "abort", abortData: "0x01" },
+      invokedAddresses: [low, high],
+    },
+  });
+  const client = await createRpcClient({ transport: endpoint.transport });
+  await expect(
+    client.getTransactionReceipt({ transactionHash: hash }),
+  ).resolves.toMatchObject({
+    invokedAddresses: [new Uint8Array(32).fill(1), new Uint8Array(32).fill(2)],
+    execution: { result: "abort" },
+  });
+  for (const invokedAddresses of [
+    [high, low],
+    [low, low],
+    Array.from({ length: 1025 }, (_, index) => {
+      const bytes = new Uint8Array(32);
+      bytes[0] = index >> 8;
+      bytes[1] = index & 255;
+      return toBase58(bytes);
+    }),
+  ]) {
+    endpoint.results.getTransactionReceipt = { ...receipt, invokedAddresses };
+    await expect(
+      client.getTransactionReceipt({ transactionHash: hash }),
+    ).rejects.toBeInstanceOf(RpcDecodingError);
+  }
+});
+
 it("additive page fields cannot change the requested method's validation", async () => {
   const endpoint = server({
     getEvents: {
@@ -870,10 +926,12 @@ it("additive page fields cannot change the requested method's validation", async
         },
       ],
       transactions: [{ transactionHash: hashText, blockHeight: "999" }],
+      coverage: { fromBlockHeight: "999", throughBlockHeight: "0" },
     },
-    getTransactionsByRootAddress: {
-      ...bounds,
-      transactions: [{ transactionHash: hashText, blockHeight: "5" }],
+    getTransactionsByAddress: {
+      ...(wire.getTransactionsByAddress as object),
+      oldestIndexedBlockHeight: "999",
+      latestIndexedBlockHeight: "0",
       events: [],
     },
   });
@@ -882,6 +940,6 @@ it("additive page fields cannot change the requested method's validation", async
     client.getEvents({ filters: [{ addresses: [address] }], start }),
   ).resolves.toMatchObject({ events: [{ blockHeight: 5n }] });
   await expect(
-    client.getTransactionsByRootAddress({ address, start }),
+    client.getTransactionsByAddress({ address, start }),
   ).resolves.toMatchObject({ transactions: [{ blockHeight: 5n }] });
 });

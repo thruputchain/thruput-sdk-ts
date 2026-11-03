@@ -28,9 +28,9 @@ export {
 
 export { HistoryWalkError, type HistoryCompletion } from "./historyWalk.js";
 export {
-  iterateTransactionsByRootAddress,
+  iterateTransactionsByAddress,
   iterateTransactionsByBlock,
-  type RootAddressWalkQuery,
+  type AddressHistoryWalkQuery,
   type BlockTransactionWalkQuery,
 } from "./iterateTransactionPages.js";
 export type { EventWalkQuery } from "./iterateEventPages.js";

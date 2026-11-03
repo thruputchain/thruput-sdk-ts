@@ -19,6 +19,7 @@ import type {
   RpcNetworkInfo,
   RpcServerLimits,
   RpcTransactionRefPage,
+  RpcAddressTransactionPage,
   RpcEventPage,
   RpcHistoryStart,
   RpcEventFilter,
@@ -74,7 +75,7 @@ const equal = (a: Uint8Array, b: Uint8Array) =>
   a.length === b.length && a.every((v, i) => v === b[i]);
 
 /**
- * Connect a native wire-14 client. This layer reads once or sends once; it does
+ * Connect a native wire-15 client. This layer reads once or sends once; it does
  * not sign, poll, retry, refresh discovery on failure, or switch wire formats.
  * Unknown response variants are UnsupportedRpcValue objects retaining raw data.
  */
@@ -124,7 +125,7 @@ export async function createRpcClient(
   ): Promise<RpcDiscovery> => {
     const version = await read("getVersionInfo", control);
     // Only the wire identity selects codecs. Release and build versions are diagnostics.
-    if (!/^14\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.test(version.wireFormat))
+    if (!/^15\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.test(version.wireFormat))
       throw new RpcCompatibilityError(
         `Unsupported RPC wire format ${version.wireFormat}`,
       );
@@ -351,7 +352,29 @@ function checkResult(
   )
     invalid();
   if (!rpcPageMethods.has(method)) return;
-  const page = value as RpcTransactionRefPage | RpcEventPage;
+  const page = value as
+    | RpcTransactionRefPage
+    | RpcEventPage
+    | RpcAddressTransactionPage;
+  const addressPage =
+    method === "getTransactionsByAddress"
+      ? (page as RpcAddressTransactionPage)
+      : undefined;
+  const from = addressPage
+    ? addressPage.coverage.fromBlockHeight
+    : (page as RpcTransactionRefPage | RpcEventPage).oldestIndexedBlockHeight;
+  const through = addressPage
+    ? addressPage.coverage.throughBlockHeight
+    : (page as RpcTransactionRefPage | RpcEventPage).latestIndexedBlockHeight;
+  if (
+    addressPage &&
+    (from < 1n ||
+      (!addressPage.transactions.length && page.nextCursor !== null) ||
+      addressPage.transactions.some(
+        (entry) => !entry.isRootTarget && !entry.wasInvoked,
+      ))
+  )
+    invalid();
   const entries =
     method === "getEvents"
       ? (page as RpcEventPage).events
@@ -361,7 +384,7 @@ function checkResult(
       ? limits!.maxEventsPerPage
       : limits!.maxTransactionsPerPage;
   if (
-    page.oldestIndexedBlockHeight > page.latestIndexedBlockHeight ||
+    from > through ||
     entries.length >
       ((input.limit as number | undefined) ?? Math.min(50, cap)) ||
     (page.nextCursor !== null &&
@@ -371,27 +394,26 @@ function checkResult(
     invalid();
   if (
     entries.some(
-      (entry) =>
-        entry.blockHeight < page.oldestIndexedBlockHeight ||
-        entry.blockHeight > page.latestIndexedBlockHeight,
+      (entry) => entry.blockHeight < from || entry.blockHeight > through,
     )
   )
     invalid();
   const start = input.start as RpcHistoryStart | undefined;
   if (method === "getTransactionsByBlock") {
     if (
-      page.oldestIndexedBlockHeight < 1n ||
+      from < 1n ||
       (!entries.length && page.nextCursor !== null) ||
       (input.cursor !== undefined &&
-        ((input.blockHeight as bigint) < page.oldestIndexedBlockHeight ||
-          (input.blockHeight as bigint) > page.latestIndexedBlockHeight)) ||
+        ((input.blockHeight as bigint) < from ||
+          (input.blockHeight as bigint) > through)) ||
       entries.some((entry) => entry.blockHeight !== input.blockHeight)
     )
       invalid();
   } else if (start?.anchor.kind === "atHeight") {
     const anchor = start.anchor.blockHeight;
     if (
-      anchor < page.oldestIndexedBlockHeight ||
+      anchor < from ||
+      (method === "getTransactionsByAddress" && anchor > through) ||
       entries.some((entry) =>
         start.order === "ascending"
           ? entry.blockHeight < anchor

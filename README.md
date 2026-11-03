@@ -25,7 +25,7 @@ Packages, remove that override from your `.npmrc`.
 
 ## Usage
 
-This checkout pins RPC wire format **14.4.0**. Block queries require a compatible
+This checkout pins RPC wire format **15.0.0**. Block queries require a compatible
 RPC server and a node with the block-query index. RPC addresses, public keys,
 validator IDs and hashes use unprefixed, case-sensitive base58. Opaque payloads
 (including signed transactions, calldata, return data, storage keys, raw event
@@ -38,7 +38,7 @@ are canonical decimal strings in JSON and `bigint` in the client API, including
 heights, nanosecond timestamps, gas, mempool counts, wide server limits, and
 airdrop retry intervals. Smaller bounded fields, such as page limits and event
 sequence numbers, remain JSON numbers. Numeric JSON for wide fields is rejected,
-even when the value is small. Live qualification requires a matching wire-14
+even when the value is small. Live qualification requires a matching wire-15
 CLI and runtime.
 
 Pass heights as `bigint` (for example, `42n`). The actions serialize them as
@@ -377,13 +377,20 @@ for (const transfer of page.events) {
 This makes one request. To continue, repeat filters and pass `cursor: page.nextCursor`
 without `start`. Stop at `nextCursor: null`; an empty page can still have a cursor.
 Typed event filters convert address topics to the token's fixed-byte representation.
-`getTransactionsByRootAddress` returns transactions sent by the root address;
-incoming transfers use the token's Transfer event.
+`getTransactionsByAddress` returns each transaction once when its root targets
+the address or a runtime frame entered that address. `isRootTarget` and
+`wasInvoked` describe these relationships. Entry does not prove success: receipt
+`invokedAddresses` retains membership across failed frames. Incoming transfers
+use the token's Transfer event.
 
-`iterateEventPages` and `iterateTransactionsByRootAddress` start an explicit range
+`iterateEventPages` and `iterateTransactionsByAddress` start an explicit range
 and retain its initial upper watermark W. They reject regressed coverage, duplicate
 identities, out-of-order rows and cursor cycles. No retries, prefetching or silent
 restart occur. Cursor-only continuation remains available on the raw RPC methods.
+
+Address-history pages include inclusive `coverage.fromBlockHeight` and
+`coverage.throughBlockHeight`. Both remain fixed during a walk. An unavailable
+range is an error, not an empty page. Address history has no empty nonterminal pages.
 
 A range generator returns `HistoryCompletion` only when resumed after the terminal
 page has been processed. For ascending walks, `completedThroughBlockHeight` is W;
@@ -427,7 +434,7 @@ exported explicitly through `thruput keys export`; never log that output.
 
 ## Native RPC client
 
-`createRpcClient` exposes the native wire-14 methods directly. It validates the
+`createRpcClient` exposes the native wire-15 methods directly. It validates the
 wire version, configured methods and optional expected network before returning.
 Requests use byte arrays and bigints; cursors remain opaque strings.
 
@@ -926,7 +933,7 @@ npm run test:integration:blocks
 Use the same optional `HOGD_PROTOCOL_OVERRIDE` rule as above. This profile requires
 wire 14.1.1 and fails on unsupported nodes. The final native tools/runtime artifact
 set must pass both profiles before this SDK is released. Unit tests do not qualify
-a live node. `scripts/regen-openrpc.sh` imports a reviewed Rust-generated wire-14
+a live node. `scripts/regen-openrpc.sh` imports a reviewed Rust-generated wire-15
 snapshot or generator via explicit source path and commit; it does not install an
 older released generator.
 

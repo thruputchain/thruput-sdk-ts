@@ -25,7 +25,7 @@ const reads: Record<
   status: (client, signal) =>
     client.getTransactionStatus({ transactionHash: hash }, { signal }),
   transactions: (client, signal) =>
-    client.getTransactionsByRootAddress(
+    client.getTransactionsByAddress(
       {
         address,
         start: { order: "ascending", anchor: { kind: "atBeginning" } },

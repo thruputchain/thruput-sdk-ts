@@ -117,6 +117,7 @@ describe("high-level native submission", () => {
     const wait = vi
       .spyOn(client, "waitForTransactionReceipt")
       .mockImplementation(async (transactionHash) => ({
+        invokedAddresses: [],
         transactionHash,
         blockHeight: 7n,
         gasUsed: 1n,
@@ -254,6 +255,7 @@ describe("high-level native submission", () => {
     const { client, account, request } = await setup();
     vi.spyOn(client, "waitForTransactionReceipt").mockImplementation(
       async (transactionHash) => ({
+        invokedAddresses: [],
         transactionHash,
         blockHeight: 7n,
         gasUsed: 1n,
@@ -295,6 +297,7 @@ describe("high-level native submission", () => {
       const wait = vi
         .spyOn(client, "waitForTransactionReceipt")
         .mockImplementation(async (transactionHash) => ({
+          invokedAddresses: [],
           transactionHash,
           blockHeight: 7n,
           gasUsed: 1n,

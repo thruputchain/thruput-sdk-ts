@@ -34,6 +34,7 @@ const { WalletError } = default_wallet.v0_1.$interface;
 const address = contractAddress(new Uint8Array(32));
 const gas = gasAmount(100n);
 const receipt: TransactionReceipt = {
+  invokedAddresses: [],
   transactionHash: sha256Hash(new Uint8Array(32)),
   blockHeight: 1n,
   events: [],

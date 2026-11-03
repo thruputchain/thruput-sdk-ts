@@ -17,6 +17,7 @@ const receipt = {
   execution: { result: "return", returnData: "0x" },
   events: [],
   gasUsed: "7",
+  invokedAddresses: [],
 };
 const cases = [
   [

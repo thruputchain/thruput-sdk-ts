@@ -40,13 +40,16 @@ import {
   type ContractEventPage,
 } from "./actions/public/getContractEvents.js";
 import {
-  iterateTransactionsByRootAddress,
+  iterateTransactionsByAddress,
   iterateTransactionsByBlock,
-  type RootAddressWalkQuery,
+  type AddressHistoryWalkQuery,
   type BlockTransactionWalkQuery,
 } from "./actions/public/iterateTransactionPages.js";
 import type { HistoryCompletion } from "./actions/public/historyWalk.js";
-import type { TransactionRefPage } from "./types/rpc.js";
+import type {
+  TransactionRefPage,
+  AddressTransactionPage,
+} from "./types/rpc.js";
 import {
   iterateEventPages,
   type EventWalkQuery,
@@ -54,10 +57,10 @@ import {
 
 /** Native RPC methods plus workflows that never sign, replace or repeat writes. */
 export interface CoreThruputClient extends RpcClient {
-  iterateTransactionsByRootAddress(
-    query: RootAddressWalkQuery,
+  iterateTransactionsByAddress(
+    query: AddressHistoryWalkQuery,
     options?: TransportRequestOptions,
-  ): AsyncGenerator<TransactionRefPage, HistoryCompletion, unknown>;
+  ): AsyncGenerator<AddressTransactionPage, HistoryCompletion, unknown>;
   iterateTransactionsByBlock(
     query: BlockTransactionWalkQuery,
     options?: TransportRequestOptions,
@@ -161,10 +164,10 @@ export async function createThruputClient(
       query: ContractEventQuery<N, T, F, Q>,
       control?: TransportRequestOptions,
     ) => getContractEvents(rpc, query, control),
-    iterateTransactionsByRootAddress: (
-      query: RootAddressWalkQuery,
+    iterateTransactionsByAddress: (
+      query: AddressHistoryWalkQuery,
       options?: TransportRequestOptions,
-    ) => iterateTransactionsByRootAddress(rpc, query, options),
+    ) => iterateTransactionsByAddress(rpc, query, options),
     iterateTransactionsByBlock: (
       query: BlockTransactionWalkQuery,
       options?: TransportRequestOptions,

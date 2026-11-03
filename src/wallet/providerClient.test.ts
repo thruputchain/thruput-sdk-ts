@@ -186,6 +186,7 @@ describe("provider atomic batches", () => {
           transactionHash,
           blockHeight: 7n,
           gasUsed: 1n,
+          invokedAddresses: [],
           events: [],
           execution:
             outcome === "abort"
@@ -237,6 +238,7 @@ describe("provider atomic batches", () => {
         events: [],
         execution: { result: "return", returnData: plan.address },
         gasUsed: 1n,
+        invokedAddresses: [],
       }),
     );
     const onSigned = vi.fn((evidence: { signedTransaction: string }) => {
@@ -282,6 +284,7 @@ describe("provider atomic batches", () => {
         events: [],
         execution: { result: "return", returnData: new Uint8Array() },
         gasUsed: 0n,
+        invokedAddresses: [],
       }));
     const pending = wallet.executeAndWait(execution, {
       onSigned: async (evidence) => {
@@ -467,6 +470,7 @@ describe("provider atomic batches", () => {
           events: [],
           execution: { result: "return", returnData: new Uint8Array() },
           gasUsed: 0n,
+          invokedAddresses: [],
         }));
       const original = request.getMockImplementation()!;
       request.mockImplementation(async (input) => {
@@ -500,6 +504,7 @@ describe("provider atomic batches", () => {
         events: [],
         execution: { result: "return", returnData: new Uint8Array() },
         gasUsed: 0n,
+        invokedAddresses: [],
       }),
     );
     const original = request.getMockImplementation()!;
@@ -955,6 +960,7 @@ describe("external provider wallet", () => {
         execution: { result: "return", returnData: "0x" },
         events: [],
         gasUsed: "0",
+        invokedAddresses: [],
       });
     const receipt = await client.getTransactionReceipt({
       transactionHash: hashFromBase58(signed.hash),

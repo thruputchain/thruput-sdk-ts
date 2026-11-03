@@ -1,4 +1,4 @@
-/** SDK workflow names share the generated native wire-14 shapes and byte/bigint codecs. */
+/** SDK workflow names share the generated native wire-15 shapes and byte/bigint codecs. */
 import type * as Native from "../rpc/generated.js";
 
 export type AuthPublicKey = Native.RpcPublicKey;
@@ -44,6 +44,9 @@ export type ConflictCode = Native.RpcConflictCode;
 export type ConflictDiagnostic = Native.RpcConflictDiagnostic;
 export type TransactionRef = Native.RpcTransactionRef;
 export type TransactionRefPage = Native.RpcTransactionRefPage;
+export type AddressTransactionRef = Native.RpcAddressTransactionRef;
+export type AddressTransactionPage = Native.RpcAddressTransactionPage;
+export type AddressHistoryCoverage = Native.RpcAddressHistoryCoverage;
 export type TransactionReceipt = Native.RpcTransactionReceipt;
 export type EmittedEvent = Native.RpcEmittedEvent;
 export type IdentifiedEvent = Native.RpcIdentifiedEvent;
@@ -54,8 +57,8 @@ export type IterationOrder = Native.RpcIterationOrder;
 export type EventQuery = Native.RpcRequests["getEvents"];
 export type BlockTransactionQuery =
   Native.RpcRequests["getTransactionsByBlock"];
-export type RootAddressTransactionQuery =
-  Native.RpcRequests["getTransactionsByRootAddress"];
+export type AddressHistoryQuery =
+  Native.RpcRequests["getTransactionsByAddress"];
 export type StorageItemInfo = Native.RpcStorageItem;
 export type StorageItemRead = Native.RpcStorageResult;
 export type FundAccountRequest = Native.RpcRequests["dev_fundAccount"];

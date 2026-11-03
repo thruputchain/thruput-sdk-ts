@@ -1,11 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import { iterateEventPages, type EventWalkQuery } from "./iterateEventPages.js";
 import {
-  iterateTransactionsByRootAddress,
+  iterateTransactionsByAddress,
   iterateTransactionsByBlock,
 } from "./iterateTransactionPages.js";
 import { HistoryWalkError } from "./historyWalk.js";
-import type { EventPage, TransactionRefPage } from "../../types/rpc.js";
+import type {
+  EventPage,
+  TransactionRefPage,
+  AddressTransactionPage,
+} from "../../types/rpc.js";
 const address = new Uint8Array(32).fill(1);
 const query: EventWalkQuery = {
   filters: [{ addresses: [address] }],
@@ -138,30 +142,42 @@ describe("fixed native history walks", () => {
     controller.abort();
     await expect(walk.next()).rejects.toThrow();
   });
-  it("keeps root-address scope and follows unsigned hash ordering", async () => {
-    const first: TransactionRefPage = {
-      ...page("0x01"),
+  it("keeps address scope and follows unsigned hash ordering", async () => {
+    const first: AddressTransactionPage = {
+      nextCursor: "0x01",
+      coverage: { fromBlockHeight: 1n, throughBlockHeight: 10n },
       transactions: [
-        { transactionHash: new Uint8Array(32).fill(1), blockHeight: 5n },
+        {
+          transactionHash: new Uint8Array(32).fill(1),
+          blockHeight: 5n,
+          isRootTarget: false,
+          wasInvoked: true,
+        },
       ],
     };
-    const second: TransactionRefPage = {
-      ...page(),
+    const second: AddressTransactionPage = {
+      nextCursor: null,
+      coverage: { fromBlockHeight: 1n, throughBlockHeight: 10n },
       transactions: [
-        { transactionHash: new Uint8Array(32).fill(2), blockHeight: 5n },
+        {
+          transactionHash: new Uint8Array(32).fill(2),
+          blockHeight: 5n,
+          isRootTarget: true,
+          wasInvoked: true,
+        },
       ],
     };
-    const getTransactionsByRootAddress = vi
+    const getTransactionsByAddress = vi
         .fn()
         .mockResolvedValueOnce(first)
         .mockResolvedValueOnce(second),
-      walk = iterateTransactionsByRootAddress(
-        { getTransactionsByRootAddress },
+      walk = iterateTransactionsByAddress(
+        { getTransactionsByAddress },
         { address, start: query.start },
       );
     await walk.next();
     await walk.next();
-    expect(getTransactionsByRootAddress).toHaveBeenLastCalledWith(
+    expect(getTransactionsByAddress).toHaveBeenLastCalledWith(
       { address, limit: undefined, cursor: "0x01" },
       {},
     );
@@ -199,6 +215,41 @@ describe("fixed native history walks", () => {
     await walk.next();
     expect(await walk.next()).toEqual({ done: true, value: undefined });
   });
+
+  it.each([
+    { fromBlockHeight: 2n, throughBlockHeight: 10n },
+    { fromBlockHeight: 1n, throughBlockHeight: 11n },
+  ])(
+    "rejects changed address coverage before yielding a continuation",
+    async (coverage) => {
+      const first: AddressTransactionPage = {
+        transactions: [
+          {
+            transactionHash: new Uint8Array(32).fill(1),
+            blockHeight: 5n,
+            isRootTarget: false,
+            wasInvoked: true,
+          },
+        ],
+        nextCursor: "0x01",
+        coverage: { fromBlockHeight: 1n, throughBlockHeight: 10n },
+      };
+      const getTransactionsByAddress = vi
+        .fn()
+        .mockResolvedValueOnce(first)
+        .mockResolvedValueOnce({
+          transactions: [],
+          nextCursor: null,
+          coverage,
+        });
+      const walk = iterateTransactionsByAddress(
+        { getTransactionsByAddress },
+        { address, start: query.start },
+      );
+      await walk.next();
+      await expect(walk.next()).rejects.toThrow("coverage changed");
+    },
+  );
   it("does not report exact-block completion when the target is outside coverage", async () => {
     const getTransactionsByBlock = vi.fn().mockResolvedValue({
       transactions: [],

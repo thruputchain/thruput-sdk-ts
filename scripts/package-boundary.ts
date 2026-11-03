@@ -770,7 +770,7 @@ async function nativeConsumer(rpc: RpcClient) {
     const height: bigint = receipt.blockHeight;
     void [bytes, height];
   }
-  await rpc.getTransactionsByRootAddress({
+  await rpc.getTransactionsByAddress({
     address: new Uint8Array(32),
     cursor: "0x01",
   });
@@ -780,7 +780,7 @@ async function nativeConsumer(rpc: RpcClient) {
     start: { order: "ascending", anchor: { kind: "atBeginning" } },
   } as const;
   // @ts-expect-error Initial and continuation positions are exclusive.
-  await rpc.getTransactionsByRootAddress(conflictingPosition);
+  await rpc.getTransactionsByAddress(conflictingPosition);
   // @ts-expect-error Wide values are bigints in the SDK.
   await rpc.getBlockByHeight({ blockHeight: 1 });
 }

@@ -79,7 +79,7 @@ const requiredExports = {
     "TransactionReceiptObservationError",
     "waitForCommitment",
     "iterateEventPages",
-    "iterateTransactionsByRootAddress",
+    "iterateTransactionsByAddress",
     "iterateTransactionsByBlock",
     "requestAirdrop",
     "requestAirdropAttempt",

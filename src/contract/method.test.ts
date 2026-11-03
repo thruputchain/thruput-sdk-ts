@@ -86,6 +86,7 @@ function receipt(
 ): TransactionReceipt {
   return {
     transactionHash: txHash,
+    invokedAddresses: [],
     blockHeight: 12n,
     execution: { result: "return", returnData: new Uint8Array() },
     events,

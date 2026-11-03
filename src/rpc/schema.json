@@ -1,5 +1,80 @@
 {
   "schemas": {
+    "AddressHistoryCoverage": {
+      "properties": {
+        "fromBlockHeight": {
+          "maxLength": 19,
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-integer-maximum": "9223372036854775807",
+          "x-integer-minimum": "0"
+        },
+        "throughBlockHeight": {
+          "maxLength": 19,
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-integer-maximum": "9223372036854775807",
+          "x-integer-minimum": "0"
+        }
+      },
+      "required": ["fromBlockHeight", "throughBlockHeight"],
+      "type": "object"
+    },
+    "AddressTransactionPage": {
+      "properties": {
+        "coverage": {
+          "$ref": "#/components/schemas/AddressHistoryCoverage"
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "minLength": 4,
+              "pattern": "^0x(?:[0-9a-f]{2})*(?![\\s\\S])",
+              "type": "string",
+              "x-opaque-string": true
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "transactions": {
+          "items": {
+            "$ref": "#/components/schemas/AddressTransactionRef"
+          },
+          "type": "array"
+        }
+      },
+      "required": ["transactions", "nextCursor", "coverage"],
+      "type": "object"
+    },
+    "AddressTransactionRef": {
+      "properties": {
+        "blockHeight": {
+          "maxLength": 19,
+          "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+          "type": "string",
+          "x-integer-maximum": "9223372036854775807",
+          "x-integer-minimum": "0"
+        },
+        "isRootTarget": {
+          "type": "boolean"
+        },
+        "transactionHash": {
+          "$ref": "#/components/schemas/TxHash"
+        },
+        "wasInvoked": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "transactionHash",
+        "blockHeight",
+        "isRootTarget",
+        "wasInvoked"
+      ],
+      "type": "object"
+    },
     "Admission": {
       "anyOf": [
         {
@@ -1599,6 +1674,13 @@
         "gasUsed": {
           "$ref": "#/components/schemas/DecimalU64"
         },
+        "invokedAddresses": {
+          "items": {
+            "$ref": "#/components/schemas/Base58_ContractAddress"
+          },
+          "maxItems": 1024,
+          "type": "array"
+        },
         "transactionHash": {
           "$ref": "#/components/schemas/TxHash"
         }
@@ -1607,6 +1689,7 @@
         "transactionHash",
         "blockHeight",
         "execution",
+        "invokedAddresses",
         "events",
         "gasUsed"
       ],
@@ -2158,7 +2241,7 @@
       },
       "paged": true
     },
-    "getTransactionsByRootAddress": {
+    "getTransactionsByAddress": {
       "params": {
         "type": "object",
         "additionalProperties": false,
@@ -2184,7 +2267,7 @@
         "required": ["address"]
       },
       "result": {
-        "$ref": "#/components/schemas/TransactionRefPage"
+        "$ref": "#/components/schemas/AddressTransactionPage"
       },
       "paged": true
     },
@@ -7093,7 +7176,7 @@
         }
       }
     ],
-    "getTransactionsByRootAddress": [
+    "getTransactionsByAddress": [
       {
         "code": -32602,
         "schema": {
@@ -8290,6 +8373,17 @@
                       "x-integer-maximum": "18446744073709551615",
                       "x-integer-minimum": "0"
                     },
+                    "invokedAddresses": {
+                      "items": {
+                        "maxLength": 45,
+                        "minLength": 32,
+                        "pattern": "^[1-9A-HJ-NP-Za-km-z]+$",
+                        "type": "string",
+                        "x-base58-bytes": 32
+                      },
+                      "maxItems": 1024,
+                      "type": "array"
+                    },
                     "transactionHash": {
                       "maxLength": 45,
                       "minLength": 32,
@@ -8302,6 +8396,7 @@
                     "transactionHash",
                     "blockHeight",
                     "execution",
+                    "invokedAddresses",
                     "events",
                     "gasUsed"
                   ],
@@ -8747,6 +8842,17 @@
                       "x-integer-maximum": "18446744073709551615",
                       "x-integer-minimum": "0"
                     },
+                    "invokedAddresses": {
+                      "items": {
+                        "maxLength": 45,
+                        "minLength": 32,
+                        "pattern": "^[1-9A-HJ-NP-Za-km-z]+$",
+                        "type": "string",
+                        "x-base58-bytes": 32
+                      },
+                      "maxItems": 1024,
+                      "type": "array"
+                    },
                     "transactionHash": {
                       "maxLength": 45,
                       "minLength": 32,
@@ -8759,6 +8865,7 @@
                     "transactionHash",
                     "blockHeight",
                     "execution",
+                    "invokedAddresses",
                     "events",
                     "gasUsed"
                   ],
@@ -8927,6 +9034,17 @@
                               "x-integer-maximum": "18446744073709551615",
                               "x-integer-minimum": "0"
                             },
+                            "invokedAddresses": {
+                              "items": {
+                                "maxLength": 45,
+                                "minLength": 32,
+                                "pattern": "^[1-9A-HJ-NP-Za-km-z]+$",
+                                "type": "string",
+                                "x-base58-bytes": 32
+                              },
+                              "maxItems": 1024,
+                              "type": "array"
+                            },
                             "transactionHash": {
                               "maxLength": 45,
                               "minLength": 32,
@@ -8939,6 +9057,7 @@
                             "transactionHash",
                             "blockHeight",
                             "execution",
+                            "invokedAddresses",
                             "events",
                             "gasUsed"
                           ],
