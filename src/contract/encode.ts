@@ -29,6 +29,7 @@ import {
 import type { ContractType, ContractSpec, ContractSpecMethod } from "./spec.js";
 import { ContractTypeKind, formatSpecId, specIdKey } from "./spec.js";
 import { ContractDecodeError } from "./errors.js";
+import { contractValueLimits } from "./valueLimits.js";
 import { SignedTokenCodec } from "./signedToken.js";
 
 const AddressCodec = requireByteArrayCodec(
@@ -371,7 +372,7 @@ export function decodeCalldata(
   const method = lookupMethod(spec, interfaceName, methodName);
 
   try {
-    const r = new CxsReader(data);
+    const r = new CxsReader(data, contractValueLimits(data.length));
     const result: Record<string, unknown> = {};
     for (const arg of method.args) {
       const argCodec = resolveCodec(arg.ty, namedCodecs);

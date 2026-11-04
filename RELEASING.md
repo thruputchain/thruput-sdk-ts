@@ -24,7 +24,7 @@ Versions are immutable on npm. Never reuse a version number.
 ## Pending shared-codec dependency
 
 The onchain-specs branch requires the coordinated `0.20.0` protocol packages
-from `thruput-protocol-ts` commit `ce91001`. Local checks use packed builds of
+from `thruput-protocol-ts` commit `6c86563`. Local checks use packed builds of
 `xdr`, `protocol`, and `contract-spec` from that commit.
 
 Before merging this dependency update, publish those packages through their

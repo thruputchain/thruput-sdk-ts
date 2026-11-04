@@ -325,6 +325,20 @@ describe("contract codecs", () => {
       "XDR decode work budget exceeded",
     );
   });
+
+  it("retains the contract-value work cap for large valid byte inputs", () => {
+    const codec = createContractCodec<bigint[]>(
+      createContractCodecContext([]),
+      {
+        v: ContractTypeKind.Vector,
+        vector: { element: { v: ContractTypeKind.U32 }, max_len: 0xffffffffn },
+      },
+    );
+    const accepted = codec.encode(Array<bigint>(99_999).fill(0n));
+    expect(codec.decode(accepted)).toHaveLength(99_999);
+    const rejected = codec.encode(Array<bigint>(100_000).fill(0n));
+    expect(() => codec.decode(rejected)).toThrow("work budget exceeded");
+  });
 });
 
 describe("shared decode work budget", () => {

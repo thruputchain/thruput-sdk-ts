@@ -17,6 +17,7 @@ import type {
 import type { ContractCodecContext } from "./codec.js";
 import { createContractCodecContext, resolveContextCodec } from "./codec.js";
 import { ContractDecodeError } from "./errors.js";
+import { contractValueLimits } from "./valueLimits.js";
 import {
   ContractTypeKind,
   formatSpecId,
@@ -273,7 +274,10 @@ export function defineContractEvent<
           defineRecordValue(decodedTopics, metadata.name, value);
         }
 
-        const reader = new CxsReader(event.data);
+        const reader = new CxsReader(
+          event.data,
+          contractValueLimits(event.data.length),
+        );
         const decodedFields: Record<string, unknown> = {};
         for (const field of fields) {
           defineRecordValue(
@@ -448,7 +452,9 @@ function decodeTopic(topic: ResolvedTopic, bytes: Uint8Array): unknown {
     case "hash":
       return bytes;
     default: {
-      const value = topic.codec.decode(new CxsReader(bytes)) as bigint;
+      const value = topic.codec.decode(
+        new CxsReader(bytes, contractValueLimits(bytes.length)),
+      ) as bigint;
       // Range validation also rejects noncanonical zero/sign extension and bools other than 0/1.
       assertScalarRange(topic, value);
       return topic.representation === "bool" ? value === 1n : value;

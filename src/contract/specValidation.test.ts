@@ -12,9 +12,9 @@ it("bounds structural depth before named codec resolution", () => {
   for (let index = 0; index < 150; index++)
     type = { v: ContractTypeKind.Option, option_inner: type };
   copy.interfaces[0]!.methods[0]!.return_type = type;
-  expect(() =>
-    preflightContractSpec(serialize(copy, codec.ContractSpec)),
-  ).toThrow("nesting limit");
+  // Allow construction of hostile input beyond the encoder's normal limit.
+  const bytes = serialize(copy, codec.ContractSpec, { maxDepth: 256 });
+  expect(() => preflightContractSpec(bytes)).toThrow("nesting limit");
 });
 
 it("rejects unresolved method types even when their bytes are hash-bound", () => {

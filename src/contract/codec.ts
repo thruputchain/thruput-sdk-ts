@@ -9,6 +9,7 @@ import {
 import { buildNamedCodecs } from "./codegen.js";
 import { enableResolvedCodecCache, resolveCodec } from "./encode.js";
 import { ContractDecodeError } from "./errors.js";
+import { contractValueLimits } from "./valueLimits.js";
 
 /** Complete-input codec used by generated contract descriptors. */
 export interface ContractCodec<T> {
@@ -154,7 +155,7 @@ export function decodeComplete<T>(
   label: string,
 ): T {
   try {
-    const reader = new CxsReader(data);
+    const reader = new CxsReader(data, contractValueLimits(data.length));
     const value = valueCodec.decode(reader);
     if (reader.remaining !== 0) {
       throw new Error(`${reader.remaining} trailing bytes`);

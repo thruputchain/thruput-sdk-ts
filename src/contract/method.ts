@@ -31,6 +31,7 @@ import {
   contextEnumVariant,
 } from "./codec.js";
 import { ContractDecodeError } from "./errors.js";
+import { contractValueLimits } from "./valueLimits.js";
 import { toHex0x } from "../actions/hex.js";
 import { toBase58 } from "../encoding.js";
 import { serializeHeight } from "../actions/decimal.js";
@@ -475,7 +476,7 @@ export function defineContractMethodWithExceptions<
     },
 
     decodeArgs(data) {
-      const reader = new CxsReader(data);
+      const reader = new CxsReader(data, contractValueLimits(data.length));
       const args = Object.fromEntries(
         argumentCodecs.map((argument) => {
           try {
@@ -669,7 +670,7 @@ function decodeException<TDeclaredException>(
   exceptionBySelector: ReadonlyMap<bigint, ResolvedException>,
 ): ContractException<TDeclaredException> {
   try {
-    const reader = new CxsReader(data);
+    const reader = new CxsReader(data, contractValueLimits(data.length));
     const selector = reader.readUint64();
     const declared = exceptionBySelector.get(selector);
     if (!declared) {
