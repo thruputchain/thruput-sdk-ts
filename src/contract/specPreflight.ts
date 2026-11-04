@@ -1,4 +1,4 @@
-import { XdrReader } from "@thruputchain/xdr";
+import { XdrReader, type CodecLimits } from "@thruputchain/xdr";
 import {
   codec,
   ContractTypeKind,
@@ -6,6 +6,14 @@ import {
   ContractUnionCaseKind,
 } from "@thruputchain/contract-spec";
 import { ContractDecodeError } from "./errors.js";
+
+// Generated XDR counts envelope/option/container levels and value visits,
+// unlike schema-1's type levels and collection entries. Preflight remains the
+// authoritative schema limit; these bounds allow its accepted inputs to decode.
+export const contractSpecCodecLimits: CodecLimits = {
+  maxDepth: 256,
+  maxWork: 1_000_000,
+};
 
 /**
  * Schema-1 tooling limits, mirrored by tools' contract_spec/bounded.rs.

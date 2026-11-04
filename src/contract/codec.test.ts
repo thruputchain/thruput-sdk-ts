@@ -322,7 +322,7 @@ describe("contract codecs", () => {
     writer.writeUint32(0xffffffffn);
 
     expect(() => codec.decode(writer.finish())).toThrow(
-      "Contract decode work budget exceeded",
+      "XDR decode work budget exceeded",
     );
   });
 });

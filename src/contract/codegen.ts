@@ -1,4 +1,4 @@
-import type { XdrCodec } from "@thruputchain/xdr";
+import { withCodecBudget, type XdrCodec } from "@thruputchain/xdr";
 import { Int32Codec } from "@thruputchain/protocol";
 import type {
   ContractSpecId,
@@ -12,7 +12,6 @@ import {
   specIdKey,
 } from "./spec.js";
 import { resolveCodec } from "./encode.js";
-import { withDecodeBudget } from "./decodeBudget.js";
 
 /**
  * Build codecs for named contract-spec types.
@@ -34,7 +33,7 @@ export function buildNamedCodecs(
     if (Object.hasOwn(codecs, key)) {
       throw new Error(`Contract spec defines "${formatSpecId(id)}" twice`);
     }
-    codecs[key] = withDecodeBudget(codec);
+    codecs[key] = withCodecBudget(codec);
   };
 
   for (const def of typeDefs) {

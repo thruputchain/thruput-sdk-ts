@@ -21,6 +21,18 @@ then packs the client and previews publication. A dry-run does not publish or ta
 
 Versions are immutable on npm. Never reuse a version number.
 
+## Pending shared-codec dependency
+
+The onchain-specs branch requires the coordinated `0.20.0` protocol packages
+from `thruput-protocol-ts` commit `ce91001`. Local checks use packed builds of
+`xdr`, `protocol`, and `contract-spec` from that commit.
+
+Before merging this dependency update, publish those packages through their
+normal release process. Refresh `package-lock.json` from npm to record the
+published tarball integrity values, then repeat `npm ci` and the SDK checks.
+The prepared lockfile has registry URLs but no integrity values for these three
+unpublished packages. Local package checks do not qualify a registry install.
+
 ## Authentication
 
 `publishConfig` selects the public npm registry. The workflow authenticates

@@ -5,8 +5,10 @@ import {
   codec,
   ContractType,
   serialize,
+  deserialize,
   sha256Hash,
 } from "@thruputchain/protocol";
+import { codec as specCodec } from "@thruputchain/contract-spec";
 import { readContractArtifactSpec } from "./artifact.js";
 import { ContractVerificationError } from "./errors.js";
 
@@ -41,8 +43,11 @@ function inspect(payload: Uint8Array) {
 describe("authenticated embedded specs", () => {
   it("decodes the existing canonical spec using shared codecs", () => {
     const result = inspect(artifact());
-    expect(result.kind).toBe("spec");
-    if (result.kind === "spec") expect(result.bytes).toEqual(spec);
+    expect(result).toEqual({
+      kind: "spec",
+      schemaVersion: 1,
+      spec: deserialize(spec, specCodec.ContractSpec),
+    });
   });
   it("preserves unsupported schemas and distinguishes absent specs", () => {
     expect(inspect(artifact(2))).toEqual({

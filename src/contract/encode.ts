@@ -1,5 +1,6 @@
 import type { Calldata } from "@thruputchain/protocol";
 import {
+  withCodecBudget,
   fixedArray,
   FixedOpaqueCodec,
   Uint8Codec,
@@ -29,7 +30,6 @@ import type { ContractType, ContractSpec, ContractSpecMethod } from "./spec.js";
 import { ContractTypeKind, formatSpecId, specIdKey } from "./spec.js";
 import { ContractDecodeError } from "./errors.js";
 import { SignedTokenCodec } from "./signedToken.js";
-import { checkDecodeCapacity, withDecodeBudget } from "./decodeBudget.js";
 
 const AddressCodec = requireByteArrayCodec(
   codec.ContractAddress as XdrCodec<Uint8Array>,
@@ -117,6 +117,7 @@ function requireByteArrayCodec(
   label = "U8 container",
 ): XdrCodec<Uint8Array> {
   return {
+    ...codec,
     encode(writer, value) {
       if (!(value instanceof Uint8Array)) {
         throw new TypeError(`Expected Uint8Array for ${label}`);
@@ -132,6 +133,7 @@ function requireBigIntCodec(
   codec: XdrCodec<bigint>,
 ): XdrCodec<bigint> {
   return {
+    ...codec,
     encode(writer, value) {
       if (typeof value !== "bigint") {
         throw new TypeError(`${label} expected bigint`);
@@ -144,6 +146,7 @@ function requireBigIntCodec(
 
 function requireArrayCodec<T>(codec: XdrCodec<T[]>): XdrCodec<T[]> {
   return {
+    ...codec,
     encode(writer, value) {
       if (!Array.isArray(value)) {
         throw new TypeError("Expected array");
@@ -152,29 +155,6 @@ function requireArrayCodec<T>(codec: XdrCodec<T[]>): XdrCodec<T[]> {
       codec.encode(writer, value);
     },
     decode: codec.decode,
-  };
-}
-
-function safeVarArrayCodec<T>(
-  inner: XdrCodec<T>,
-  maxLength: number,
-): XdrCodec<T[]> {
-  const codec = VarArrayCodec(inner, maxLength);
-  return {
-    encode: codec.encode,
-    decode(reader) {
-      const length = Number(reader.readUint32());
-      if (length > maxLength) {
-        throw new Error(`VarArray length ${length} exceeds max ${maxLength}`);
-      }
-      checkDecodeCapacity(reader, length);
-
-      const values: T[] = [];
-      for (let index = 0; index < length; index++) {
-        values.push(inner.decode(reader));
-      }
-      return values;
-    },
   };
 }
 
@@ -191,16 +171,16 @@ export function resolveCodec(
   // The named definition already owns its value-level budget wrapper.
   if (ty.v === ContractTypeKind.Named)
     return resolveUncachedCodec(ty, namedCodecs);
-  if (!namedCodecs) return withDecodeBudget(resolveUncachedCodec(ty));
+  if (!namedCodecs) return withCodecBudget(resolveUncachedCodec(ty));
 
   const resolvedCache = resolvedCodecCaches.get(namedCodecs);
   if (!resolvedCache?.cacheableTypes.has(ty)) {
-    return withDecodeBudget(resolveUncachedCodec(ty, namedCodecs));
+    return withCodecBudget(resolveUncachedCodec(ty, namedCodecs));
   }
   const cached = resolvedCache.codecs.get(ty);
   if (cached) return cached;
 
-  const codec = withDecodeBudget(resolveUncachedCodec(ty, namedCodecs));
+  const codec = withCodecBudget(resolveUncachedCodec(ty, namedCodecs));
   resolvedCache.codecs.set(ty, codec);
   return codec;
 }
@@ -249,7 +229,7 @@ function resolveUncachedCodec(
         ) as XdrCodec<unknown>;
       }
       return requireArrayCodec(
-        safeVarArrayCodec(
+        VarArrayCodec(
           resolveCodec(ty.vector.element!, namedCodecs),
           Number(ty.vector.max_len),
         ),
@@ -268,9 +248,8 @@ function resolveUncachedCodec(
         ),
       );
       return {
-        encode: arrayCodec.encode,
+        ...arrayCodec,
         decode(reader) {
-          checkDecodeCapacity(reader, arrayLength);
           return fixedArray(arrayCodec.decode(reader), arrayLength);
         },
       } as XdrCodec<unknown>;

@@ -1,6 +1,9 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { validateArtifactSpec } from "./specValidation.js";
-import { preflightContractSpec } from "./specPreflight.js";
+import {
+  contractSpecCodecLimits,
+  preflightContractSpec,
+} from "./specPreflight.js";
 import { ContractVerificationError } from "./errors.js";
 import {
   codec,
@@ -22,7 +25,7 @@ export type ContractArtifactSpec =
   | { kind: "unsupportedFormat"; formatVersion: number }
   | { kind: "absent" }
   | { kind: "unsupportedSchema"; schemaVersion: number; bytes: Uint8Array }
-  | { kind: "spec"; schemaVersion: 1; bytes: Uint8Array; spec: ContractSpec };
+  | { kind: "spec"; schemaVersion: 1; spec: ContractSpec };
 
 /**
  * Verify complete Contract XDR against the requested hash, then read its spec.
@@ -95,10 +98,19 @@ function readArtifact(
   if (schemaVersion !== 1)
     return { kind: "unsupportedSchema", schemaVersion, bytes: specBytes };
   preflightContractSpec(specBytes);
-  const spec = deserialize(specBytes, specCodec.ContractSpec);
+  const spec = deserialize(
+    specBytes,
+    specCodec.ContractSpec,
+    contractSpecCodecLimits,
+  );
   validateArtifactSpec(spec);
-  if (!bytesEqual(serialize(spec, specCodec.ContractSpec), specBytes)) {
+  if (
+    !bytesEqual(
+      serialize(spec, specCodec.ContractSpec, contractSpecCodecLimits),
+      specBytes,
+    )
+  ) {
     throw new Error("Noncanonical contract spec XDR");
   }
-  return { kind: "spec", schemaVersion, bytes: specBytes, spec };
+  return { kind: "spec", schemaVersion, spec };
 }
