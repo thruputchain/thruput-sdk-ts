@@ -4,7 +4,13 @@
 [![CI](https://github.com/thruputchain/thruput-sdk-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/thruputchain/thruput-sdk-ts/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-TypeScript client for the [Thruput](https://github.com/thruputchain) blockchain.
+[Website](https://www.thruput.network/) ·
+[Developer docs](https://www.thruput.network/docs/) ·
+[Community discussions](https://github.com/thruputchain/thruput-docs/discussions) ·
+[Discord: #thruput](https://discord.com/channels/897514728459468821/1564948118162898954)
+([join server](https://discord.gg/stellardev))
+
+TypeScript client for the [Thruput](https://www.thruput.network/) blockchain.
 
 It provides typed JSON-RPC actions, transaction construction and signing,
 HTTP and mock transports, and generated contract bindings. Generated methods
