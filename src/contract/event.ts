@@ -15,9 +15,69 @@ import type {
   TransactionReceipt,
 } from "../types/rpc.js";
 import type { ContractCodecContext } from "./codec.js";
-import { resolveContextCodec } from "./codec.js";
+import { createContractCodecContext, resolveContextCodec } from "./codec.js";
 import { ContractDecodeError } from "./errors.js";
-import { ContractTypeKind, type ContractType } from "./spec.js";
+import { contractValueLimits } from "./valueLimits.js";
+import {
+  ContractTypeKind,
+  formatSpecId,
+  type ContractSpec,
+  type ContractType,
+} from "./spec.js";
+
+/** A generic event decoded from contract metadata. Hashed topics remain hashes. */
+export type SpecDecodedEvent = DecodedContractEvent<
+  string,
+  Record<string, unknown>,
+  Record<string, unknown>
+>;
+
+/**
+ * Build a decoder from a parsed spec using the same codecs as generated bindings.
+ * Unknown signatures return null; malformed known events throw. The caller must
+ * establish that this spec belongs to the contract that emitted the event.
+ */
+export function createContractEventDecoder(
+  spec: ContractSpec,
+): (event: Pick<EmittedEvent, "topics" | "data">) => SpecDecodedEvent | null {
+  const codecs = createContractCodecContext(spec.type_defs);
+  const signatures = new Set<string>();
+  const events = spec.events.map((event) => {
+    const key = event.signature.join(",");
+    if (signatures.has(key)) {
+      throw new ContractDecodeError(
+        "Duplicate event signature in contract spec",
+      );
+    }
+    signatures.add(key);
+    return defineContractEvent<
+      string,
+      Record<string, unknown>,
+      Record<string, unknown>,
+      Record<string, unknown>
+    >({
+      name: formatSpecId(event.name),
+      signature: event.signature,
+      topics: event.topics.map((field) => ({
+        name: field.name,
+        type: field.ty,
+        representation: topicRepresentation(field.ty),
+      })),
+      fields: event.fields.map((field) => ({
+        name: field.name,
+        type: field.ty,
+      })),
+      codecs,
+    });
+  });
+  return (event) => {
+    for (const descriptor of events) {
+      const decoded = descriptor.decode(event);
+      if (decoded !== null) return decoded;
+    }
+    return null;
+  };
+}
 
 const maxFilterContractAddresses = 5;
 const maxFilterTopicValues = 16;
@@ -214,7 +274,10 @@ export function defineContractEvent<
           defineRecordValue(decodedTopics, metadata.name, value);
         }
 
-        const reader = new CxsReader(event.data);
+        const reader = new CxsReader(
+          event.data,
+          contractValueLimits(event.data.length),
+        );
         const decodedFields: Record<string, unknown> = {};
         for (const field of fields) {
           defineRecordValue(
@@ -317,7 +380,8 @@ export function defineContractEvent<
   return descriptor;
 }
 
-function topicRepresentation(
+/** Distinguish directly encoded indexed values from irreversible topic hashes. */
+export function topicRepresentation(
   type: ContractType,
 ): ContractEventTopicMetadata["representation"] {
   if (type.v === ContractTypeKind.Address) return "address";
@@ -388,7 +452,9 @@ function decodeTopic(topic: ResolvedTopic, bytes: Uint8Array): unknown {
     case "hash":
       return bytes;
     default: {
-      const value = topic.codec.decode(new CxsReader(bytes)) as bigint;
+      const value = topic.codec.decode(
+        new CxsReader(bytes, contractValueLimits(bytes.length)),
+      ) as bigint;
       // Range validation also rejects noncanonical zero/sign extension and bools other than 0/1.
       assertScalarRange(topic, value);
       return topic.representation === "bool" ? value === 1n : value;

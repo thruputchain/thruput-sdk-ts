@@ -301,9 +301,9 @@ describe("contract codecs", () => {
     small.writeUint32(1024n);
     expect(codec.decode(small.finish())).toHaveLength(1024);
     const oversized = new CxsWriter();
-    oversized.writeUint32(1025n);
+    oversized.writeUint32(2048n);
     expect(() => codec.decode(oversized.finish())).toThrow(
-      /cannot be safely materialized/,
+      /decode work budget exceeded/,
     );
   });
 
@@ -322,8 +322,112 @@ describe("contract codecs", () => {
     writer.writeUint32(0xffffffffn);
 
     expect(() => codec.decode(writer.finish())).toThrow(
-      "VarArray length 4294967295 cannot be safely materialized from 0 remaining bytes",
+      "XDR decode work budget exceeded",
     );
+  });
+
+  it("retains the contract-value work cap for large valid byte inputs", () => {
+    const codec = createContractCodec<bigint[]>(
+      createContractCodecContext([]),
+      {
+        v: ContractTypeKind.Vector,
+        vector: { element: { v: ContractTypeKind.U32 }, max_len: 0xffffffffn },
+      },
+    );
+    const accepted = codec.encode(Array<bigint>(99_999).fill(0n));
+    expect(codec.decode(accepted)).toHaveLength(99_999);
+    const rejected = codec.encode(Array<bigint>(100_000).fill(0n));
+    expect(() => codec.decode(rejected)).toThrow("work budget exceeded");
+  });
+});
+
+describe("shared decode work budget", () => {
+  const context = createContractCodecContext([]);
+  const array = (element: ContractType, len: bigint): ContractType => ({
+    v: ContractTypeKind.Array,
+    array: { element, len },
+  });
+  const empty = new Uint8Array();
+
+  it.each([
+    array({ v: ContractTypeKind.Void }, 1_000_000n),
+    array(array({ v: ContractTypeKind.Void }, 32n), 32n),
+    array(array({ v: ContractTypeKind.Tuple, tuple: [] }, 32n), 32n),
+    {
+      v: ContractTypeKind.Tuple,
+      tuple: [
+        array({ v: ContractTypeKind.Void }, 600n),
+        array({ v: ContractTypeKind.Void }, 600n),
+      ],
+    } satisfies ContractType,
+  ])("bounds fixed and nested zero-width containers: %#", (type) => {
+    const codec = createContractCodec(context, type);
+    expect(() => codec.decode(empty)).toThrow("decode work budget exceeded");
+  });
+
+  it("shares the budget across vector elements and resets for new readers", () => {
+    const codec = createContractCodec(context, {
+      v: ContractTypeKind.Vector,
+      vector: {
+        element: array({ v: ContractTypeKind.Void }, 600n),
+        max_len: 2n,
+      },
+    });
+    const writer = new CxsWriter();
+    writer.writeUint32(2n);
+    expect(() => codec.decode(writer.finish())).toThrow(
+      "decode work budget exceeded",
+    );
+    const small = new CxsWriter();
+    small.writeUint32(1n);
+    for (let i = 0; i < 3; i++) {
+      expect(codec.decode(small.finish())).toEqual([
+        Array(600).fill(undefined),
+      ]);
+    }
+  });
+
+  it("does not charge opaque bytes as individual values", () => {
+    for (const type of [
+      { v: ContractTypeKind.Bytes },
+      array({ v: ContractTypeKind.U8 }, 200_000n),
+      {
+        v: ContractTypeKind.Vector,
+        vector: { element: { v: ContractTypeKind.U8 }, max_len: 200_000n },
+      },
+    ] satisfies ContractType[]) {
+      const codec = createContractCodec(context, type);
+      const bytes = new Uint8Array(200_000).fill(7);
+      expect(codec.decode(codec.encode(bytes))).toEqual(bytes);
+    }
+  });
+
+  it("caps work even when a large input would permit more visits", () => {
+    const codec = createContractCodec(
+      context,
+      array({ v: ContractTypeKind.Void }, 100_001n),
+    );
+    expect(() => codec.decode(new Uint8Array(100_000))).toThrow(
+      "decode work budget exceeded",
+    );
+  });
+
+  it("bounds named recursive decoding before the JavaScript stack overflows", () => {
+    const named: ContractType = {
+      v: ContractTypeKind.Named,
+      named: specId("Loop"),
+    };
+    const recursive = createContractCodecContext([
+      {
+        v: ContractTypeDefKind.TypeDefStruct,
+        struct_def: {
+          name: specId("Loop"),
+          fields: [{ name: s("next"), ty: named }],
+        },
+      },
+    ]);
+    const codec = createContractCodec(recursive, named);
+    expect(() => codec.decode(empty)).toThrow("decode depth limit exceeded");
   });
 });
 

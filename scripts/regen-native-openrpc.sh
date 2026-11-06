@@ -17,7 +17,7 @@ fi
 node --input-type=module - "$TEMP_SPEC" <<'JS'
 import { readFileSync } from "node:fs";
 const spec = JSON.parse(readFileSync(process.argv[2],"utf8"));
-if (spec.info.version !== "14.1.1" || spec.methods.length !== 20 || spec.methods.some(m=>m.paramStructure !== "by-name" || m.name.startsWith("groundhog_"))) throw new Error("Expected the complete native wire-14 catalog");
+if (spec.info.version !== "14.4.0" || spec.methods.length !== 24 || spec.methods.some(m=>m.paramStructure !== "by-name" || m.name.startsWith("groundhog_"))) throw new Error("Expected the complete native wire-14.4 catalog");
 for (const name of ["getTransactionsByRootAddress","getTransactionsByBlock","getEvents"]) {
  const method = spec.methods.find(m=>m.name===name);
  if (method?.params.find(p=>p.name==="limit")?.schema.minimum !== 1) throw new Error(`Missing positive pagination limit: ${name}`);
@@ -29,9 +29,11 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 const [root, commit] = process.argv.slice(2);
 if (!/^[0-9a-f]{40}$/.test(commit)) throw new Error("Expected full reviewed tools commit");
+const localCandidate = process.env.THRUPUT_ALLOW_LOCAL_CANDIDATE === "1";
+if (localCandidate && process.env.CI) throw new Error("Local candidate provenance is not allowed in CI");
 const { nativeSpecDigest } = await import(pathToFileURL(`${root}/scripts/native-spec-digest.mjs`));
 const sha256 = nativeSpecDigest(JSON.parse(readFileSync(`${root}/specs/native-openrpc.json`, "utf8")));
-writeFileSync(`${root}/specs/native-openrpc.provenance.json`, JSON.stringify({ repository: "https://github.com/thruputchain/thruput-tools", commit, sha256 }, null, 2) + "\n");
+writeFileSync(`${root}/specs/native-openrpc.provenance.json`, JSON.stringify({ repository: "https://github.com/thruputchain/thruput-tools", ...(localCandidate ? { localCandidate: true, baseCommit: commit } : { commit }), sha256 }, null, 2) + "\n");
 JS
 node "$ROOT/scripts/generate-native-rpc.mjs"
 npx --no-install prettier --write "$ROOT/specs/native-openrpc.json" "$ROOT/src/rpc/generated.ts" "$ROOT/src/rpc/schema.json" >/dev/null

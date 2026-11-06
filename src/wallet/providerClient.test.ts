@@ -768,6 +768,7 @@ describe("external provider wallet", () => {
     }
   });
 
+  // Repeatedly encode and sign 1 MiB transactions; Node 22 CI can exceed 5s.
   it("reserves the single signature envelope before approval and accepts exact size limits", async () => {
     const { wallet, request } = await setup();
     const input = {
@@ -882,7 +883,7 @@ describe("external provider wallet", () => {
       parseSignedTransactionHex(wireResult(oversizedSigned).signedTransaction),
     ).toThrow(expect.objectContaining({ code: -32602 }));
     wallet.dispose();
-  });
+  }, 15_000);
 
   it("reuses default-wallet preparation and constructs the claim without a raw signer", async () => {
     const { client, wallet } = await setup();

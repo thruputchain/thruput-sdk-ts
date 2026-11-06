@@ -31,6 +31,7 @@ import {
   contextEnumVariant,
 } from "./codec.js";
 import { ContractDecodeError } from "./errors.js";
+import { contractValueLimits } from "./valueLimits.js";
 import { toHex0x } from "../actions/hex.js";
 import { toBase58 } from "../encoding.js";
 import { serializeHeight } from "../actions/decimal.js";
@@ -351,6 +352,41 @@ interface ResolvedException {
 export function defineContractMethod<TArgs, TResult, TDeclaredException>(
   definition: ContractMethodDefinition,
 ): ContractMethod<TArgs, TResult, TDeclaredException> {
+  return defineContractMethodWithExceptions(
+    definition,
+    resolveContractExceptions(definition),
+  );
+}
+
+// Dynamic specs share one resolved exception table per interface. Generated
+// descriptors retain the public single-definition constructor above.
+export function resolveContractExceptions(
+  definition: Pick<ContractMethodDefinition, "throws" | "codecs">,
+): ReadonlyMap<bigint, ResolvedException> {
+  const exceptions = new Map<bigint, ResolvedException>();
+  for (const metadata of definition.throws) {
+    if (exceptions.has(metadata.selector))
+      throw new Error(
+        `Duplicate contract exception selector ${metadata.selector}`,
+      );
+    exceptions.set(metadata.selector, {
+      name: metadata.name,
+      codec: resolveContextCodec(definition.codecs, metadata.type),
+      variant: (value) =>
+        contextEnumVariant(definition.codecs, metadata.type, value),
+    });
+  }
+  return exceptions;
+}
+
+export function defineContractMethodWithExceptions<
+  TArgs,
+  TResult,
+  TDeclaredException,
+>(
+  definition: ContractMethodDefinition,
+  exceptionBySelector: ReadonlyMap<bigint, ResolvedException>,
+): ContractMethod<TArgs, TResult, TDeclaredException> {
   const entrypoint = copyEntrypoint(definition.entrypoint);
   const effect = definition.effect ?? null;
   if (
@@ -385,20 +421,6 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
     definition.codecs,
     definition.returnType,
   );
-  const exceptionBySelector = new Map<bigint, ResolvedException>();
-  for (const metadata of definition.throws) {
-    if (exceptionBySelector.has(metadata.selector)) {
-      throw new Error(
-        `Duplicate contract exception selector ${metadata.selector}`,
-      );
-    }
-    exceptionBySelector.set(metadata.selector, {
-      name: metadata.name,
-      codec: resolveContextCodec(definition.codecs, metadata.type),
-      variant: (value) =>
-        contextEnumVariant(definition.codecs, metadata.type, value),
-    });
-  }
 
   const method: ContractMethod<TArgs, TResult, TDeclaredException> = {
     name,
@@ -454,7 +476,7 @@ export function defineContractMethod<TArgs, TResult, TDeclaredException>(
     },
 
     decodeArgs(data) {
-      const reader = new CxsReader(data);
+      const reader = new CxsReader(data, contractValueLimits(data.length));
       const args = Object.fromEntries(
         argumentCodecs.map((argument) => {
           try {
@@ -648,7 +670,7 @@ function decodeException<TDeclaredException>(
   exceptionBySelector: ReadonlyMap<bigint, ResolvedException>,
 ): ContractException<TDeclaredException> {
   try {
-    const reader = new CxsReader(data);
+    const reader = new CxsReader(data, contractValueLimits(data.length));
     const selector = reader.readUint64();
     const declared = exceptionBySelector.get(selector);
     if (!declared) {

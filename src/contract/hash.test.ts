@@ -20,10 +20,10 @@ describe("hashContract", () => {
     } as const;
 
     const contractHash = hashContract(contract);
-    // Independently reproduced with thruput-signing 0.39.0's wallet_contract_hash
-    // and derive_deploy_address for the Counter fixture rebuilt with SDK 0.57.0.
+    // Independently checked with Python struct.pack(">II", 3, len(artifact)),
+    // XDR zero padding, and hashlib over the deployed v6 Counter fixture.
     expect(toHex(contractHash)).toBe(
-      "383645579d65975cacc8852dcead276808d0ee38a2e36de73a9368bc25ed6b01",
+      "7f48e0367507204bd87044f91b64ab13ec0d0577fe4d100e1ffca4a8fe068b1a",
     );
 
     const address = deriveContractAddress(
@@ -32,7 +32,7 @@ describe("hashContract", () => {
       contractHash,
     );
     expect(toHex(address)).toBe(
-      "23832469481e7ac462a7a37ad9cced56e4ab40446ba611e53be77913b93097c5",
+      "8858a11542a3ee66ddeeade4c3e4dda3817577b94b3abfca4114da871b125dd5",
     );
   });
 });

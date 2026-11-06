@@ -31,7 +31,7 @@ Packages, remove that override from your `.npmrc`.
 
 ## Usage
 
-This checkout pins RPC wire format **14.1.1**. Block queries require a compatible
+This checkout pins RPC wire format **14.4.0**. Block queries require a compatible
 RPC server and a node with the block-query index. RPC addresses, public keys,
 validator IDs and hashes use unprefixed, case-sensitive base58. Opaque payloads
 (including signed transactions, calldata, return data, storage keys, raw event
@@ -62,6 +62,30 @@ const client = await createThruputClient({
 const tip = await client.getChainTip();
 console.log(tip.blockHeight.toString(), toBase58(tip.blockHash));
 ```
+
+### Discover a wallet or contract
+
+```ts
+import { getEffectiveContractSpec } from "@thruputchain/client/actions";
+import { addressFromBase58 } from "@thruputchain/client";
+
+const result = await getEffectiveContractSpec(client, {
+  address: addressFromBase58("<base58-address>"),
+  context: "root",
+});
+```
+
+`getContractDeployment` reads explicit deployments only. `getEffectiveContract`
+also resolves the configured network default for undeployed root invocations.
+Use `context: "nested"` to exclude that fallback. Selection does not prove
+authorization, execution, or historical code identity. Transaction-local
+deployments are not part of this committed-state reading.
+
+The spec helper validates the selected artifact's full hash, type, and size.
+RV32 specs are artifact-bound. A recognized native DefaultWallet returns the
+shared `nativeInterface`, which is a built-in description, not an artifact-bound
+spec or proof of runtime code. Missing artifact data throws instead of reporting
+contract absence.
 
 ### Read a committed block
 
