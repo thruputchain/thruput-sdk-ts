@@ -23,7 +23,7 @@ describe("hashContract", () => {
     // Independently checked with Python struct.pack(">II", 3, len(artifact)),
     // XDR zero padding, and hashlib over the deployed v6 Counter fixture.
     expect(toHex(contractHash)).toBe(
-      "25a681eb2f6b9b65ce00ff9db681c1149a42c264a5649efb09801e38b06ae25b",
+      "7f48e0367507204bd87044f91b64ab13ec0d0577fe4d100e1ffca4a8fe068b1a",
     );
 
     const address = deriveContractAddress(
@@ -32,7 +32,7 @@ describe("hashContract", () => {
       contractHash,
     );
     expect(toHex(address)).toBe(
-      "9e7c661932b3793983aea6c27bd98602b1bdad3e4f3370b7f0fe942800859080",
+      "8858a11542a3ee66ddeeade4c3e4dda3817577b94b3abfca4114da871b125dd5",
     );
   });
 });

@@ -1,4 +1,5 @@
 import { sha256 } from "@noble/hashes/sha2.js";
+import { XdrReader } from "@thruputchain/xdr";
 import { validateArtifactSpec } from "./specValidation.js";
 import {
   contractSpecCodecLimits,
@@ -30,6 +31,8 @@ export type ContractArtifactSpec =
 /**
  * Verify complete Contract XDR against the requested hash, then read its spec.
  * Rejects malformed known envelopes. Unknown versions remain explicit results.
+ * Reads v5 as having no spec. In v6, validates all extension framing and skips
+ * unknown kinds. Only the contract-spec extension body is interpreted.
  * This proves byte identity, not deployment, executable validity, or spec truth.
  */
 export function readContractArtifactSpec(
@@ -78,23 +81,29 @@ function readArtifact(
     artifact.byteLength,
   );
   const formatVersion = header.getUint32(8, true);
-  if (formatVersion !== 6) return { kind: "unsupportedFormat", formatVersion };
-  if (artifact.length < 136 || header.getUint32(12, true) !== 136) {
-    throw new Error("Invalid RV32 v6 header size");
+  if (formatVersion !== 5 && formatVersion !== 6)
+    return { kind: "unsupportedFormat", formatVersion };
+  if (artifact.length < 128 || header.getUint32(12, true) !== 128) {
+    throw new Error("Invalid RV32 header size");
   }
   const codeSize = header.getUint32(52, true);
   const memorySize = header.getUint32(56, true);
-  const schemaVersion = header.getUint32(128, true);
-  const specSize = header.getUint32(132, true);
-  const specStart = 136 + codeSize + memorySize;
-  if (
-    specStart + specSize !== artifact.length ||
-    (schemaVersion === 0) !== (specSize === 0)
-  ) {
-    throw new Error("Invalid RV32 spec section layout");
+  const sectionsEnd = 128 + codeSize + memorySize;
+  if (sectionsEnd > artifact.length) {
+    throw new Error("Invalid RV32 section layout");
   }
-  if (schemaVersion === 0) return { kind: "absent" };
-  const specBytes = artifact.slice(specStart);
+  if (formatVersion === 5) {
+    if (sectionsEnd !== artifact.length)
+      throw new Error("Invalid RV32 v5 section layout");
+    return { kind: "absent" };
+  }
+  const body = readSpecExtension(artifact.subarray(sectionsEnd));
+  if (body === undefined) return { kind: "absent" };
+  const reader = new XdrReader(body);
+  const schemaVersion = Number(reader.readUint32());
+  const specBytes = reader.readVarOpaque(reader.remaining);
+  if (reader.remaining !== 0)
+    throw new Error("Trailing bytes in contract spec extension");
   if (schemaVersion !== 1)
     return { kind: "unsupportedSchema", schemaVersion, bytes: specBytes };
   preflightContractSpec(specBytes);
@@ -113,4 +122,28 @@ function readArtifact(
     throw new Error("Noncanonical contract spec XDR");
   }
   return { kind: "spec", schemaVersion, spec };
+}
+
+// Rv32ArtifactExtensions in protocol #259. Use the shared strict XDR reader
+// until the generated extension types are published. Do not decode unknown bodies.
+function readSpecExtension(bytes: Uint8Array): Uint8Array | undefined {
+  const reader = new XdrReader(bytes);
+  const count = Number(reader.readUint32());
+  if (count > Math.floor(reader.remaining / 8))
+    throw new Error("Truncated RV32 extension list");
+  let previousKind = 0;
+  let spec: Uint8Array | undefined;
+  for (let i = 0; i < count; i++) {
+    const kind = Number(reader.readUint32());
+    if (kind <= previousKind)
+      throw new Error(
+        "RV32 extension kinds must be nonzero and strictly ascending",
+      );
+    previousKind = kind;
+    const body = reader.readVarOpaque(reader.remaining);
+    if (kind === 1) spec = body;
+  }
+  if (reader.remaining !== 0)
+    throw new Error("Trailing bytes in RV32 extension list");
+  return spec;
 }

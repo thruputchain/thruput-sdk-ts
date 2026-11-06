@@ -59,3 +59,12 @@ hogd's `nightly-2026-05-01`:
   `thruputchain/thruput-examples@c82a5d18e7e806ad449b2672124372f74a142c8f`,
   built against SDK 0.57.0; see [fixture provenance](../../examples/fixtures/README.md).
   Its bytes are unchanged from the previous pin.
+
+## Artifact reader fixture
+
+`rv32-v6-extensions.rv32a` is the compiled SHA-256 fixture from
+hogd commit `9c796c0152eafa41abe3f2e4514dbc5f8a33e744` (PR #4752),
+regenerated with the tools #706 lowerer. It has a 128-byte v6 header
+and an empty XDR extension list. Its SHA-256 is
+`12b4118229b578b8e8f3bbd1a7fea9344a4ffcd593e278d75f05f6ae02e47aef`.
+The artifact reader test uses these producer bytes to check format compatibility.
