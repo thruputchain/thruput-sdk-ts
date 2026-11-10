@@ -34,3 +34,16 @@ export {
   type BlockTransactionWalkQuery,
 } from "./iterateTransactionPages.js";
 export type { EventWalkQuery } from "./iterateEventPages.js";
+export { getContractSpec, type ContractSpecResult } from "./getContractSpec.js";
+export {
+  getEffectiveContractSpec,
+  type EffectiveContractSpecResult,
+} from "./getEffectiveContractSpec.js";
+export {
+  decodeDefaultWalletRequests,
+  type WalletRequests,
+} from "./decodeWalletRequests.js";
+export {
+  readTransactionInput,
+  type VerifiedTransactionInput,
+} from "./readTransactionInput.js";

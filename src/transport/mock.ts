@@ -3,6 +3,7 @@ import { codec, deserialize } from "@thruputchain/protocol";
 import { toBase58 } from "../encoding.js";
 import { fromHex0x } from "../actions/hex.js";
 import { hashSignedTransaction } from "../derivation/transactionHash.js";
+import { JsonRpcError } from "./http.js";
 
 const methods = [
   "getVersionInfo",
@@ -12,12 +13,16 @@ const methods = [
   "getServerLimits",
   "getBalance",
   "getRegisteredAuth",
+  "getContractDeployment",
+  "getEffectiveContract",
+  "getContractArtifact",
   "getBlockByHeight",
   "dev_getPendingTransactionCount",
   "simulateInvocation",
   "simulateInvocations",
   "sendTransaction",
   "getTransactionReceipt",
+  "getTransactionInput",
   "getTransactionStatus",
   "getTransactionsByRootAddress",
   "getTransactionsByBlock",
@@ -50,9 +55,12 @@ export class MockTransport implements Transport {
     };
     let result: unknown;
     switch (method) {
+      case "getTransactionInput":
+        result = { status: "unavailable" };
+        break;
       case "getVersionInfo":
         result = {
-          wireFormat: "14.1.1",
+          wireFormat: "14.4.0",
           implementation: "mock",
           supportedMethods: [...methods],
         };
@@ -98,6 +106,31 @@ export class MockTransport implements Transport {
       case "getStorage":
         result = { item: null, stateBlockHeight };
         break;
+      case "getContractDeployment":
+        result = {
+          address: params.address,
+          stateBlockHeight,
+          deployment: null,
+        };
+        break;
+      case "getEffectiveContract":
+        result = {
+          address: params.address,
+          context: params.context,
+          stateBlockHeight,
+          selection: null,
+        };
+        break;
+      case "getContractArtifact":
+        throw new JsonRpcError(
+          -32014,
+          "Contract artifact unavailable",
+          {
+            kind: "contractArtifactUnavailable",
+            hash: params.hash,
+          },
+          method,
+        );
       case "dev_getPendingTransactionCount":
         result = { count: "0" };
         break;

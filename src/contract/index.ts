@@ -8,17 +8,29 @@
  * @module
  */
 export { encodeCalldata, decodeCalldata, resolveCodec } from "./encode.js";
+export {
+  createContractCallDecoder,
+  type SpecDecodedCall,
+  type SpecDeclaredException,
+} from "./specMethod.js";
 export { buildNamedCodecs } from "./codegen.js";
 export { hashContract } from "./hash.js";
+export {
+  readContractArtifactSpec,
+  type ContractArtifactSpec,
+} from "./artifact.js";
 export { deriveContractAddress } from "../derivation/contractAddress.js";
 export {
   createContractCodecContext,
   type ContractCodec,
   type ContractCodecContext,
 } from "./codec.js";
-export { ContractDecodeError } from "./errors.js";
+export { ContractDecodeError, ContractVerificationError } from "./errors.js";
 export {
   bytesEqual,
+  createContractEventDecoder,
+  topicRepresentation,
+  type SpecDecodedEvent,
   defineContractEvent,
   type ContractEvent,
   type ContractEventDefinition,

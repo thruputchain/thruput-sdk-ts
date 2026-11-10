@@ -1,21 +1,24 @@
 # Counter artifact
 
-`counter.rv32a` is rebuilt with SDK 0.57.0 for hog-devnode 0.1.31-rc.16.
+`counter.rv32a` is a local RV32 v6 candidate with XDR extensions. It is not
+release-qualified.
 
-- Contract source: `contracts/counter/` in
-  `thruput-examples@c82a5d18e7e806ad449b2672124372f74a142c8f`.
-- SDK: `thruput-sdk` 0.57.0 from the `thruput` registry.
-- Toolchain: `nightly-2026-07-01`, CLI 0.39.0.
-- Artifact SHA-256: `f91cea94a5b80183e9b0a931a8944e30d28e1123c32df914906728b1880399c9`.
+- Artifact SHA-256: `a30a03b40c243f94478169ba9a2f8e4367e1ec0d5a043971a5f6238c6f12f6e2`.
+- Artifact size: 6,433 bytes, including a 548-byte embedded spec.
+- Format fingerprint: `0x0e336ac8e46602e1`.
+- Compiler: `rustc 1.98.0-nightly (f46ec5218 2026-06-30)`.
+- Container writer: tools #706, commit `1d26e7020a9a5b4f4b22aeb4bc10ea0d399cb06b`.
 
-Built with `thruput build -p counter` in a workspace holding only the
-`counter` package (its test-only dev-dependencies removed), the examples
-repository's `.cargo/config.toml`, `.cargo/contract.toml`, `rust-toolchain.toml`,
-and `trim-paths` release profile, and `thruput-sdk = "=0.57.0"`.
+The embedded spec is byte-identical to `specs/contracts/counter.spec.xdr`.
+The container was regenerated from the earlier fixed-header v6 fixture
+(`2fd701db90657fd4caae5e2e70739e90cd73ea59b408228e4bba92f19db14f82`)
+with `build_artifact_with_spec`. Code, initial memory, execution header fields,
+and spec bytes are unchanged. Only the container encoding changed.
+The matching runtime retains v5 execution support. Published integration pins
+and explorer's counter fixture must be aligned during the coordinated release.
 
-The build writes `counter.spec.xdr`, which is the pinned input in
-`specs/contracts/`. The spec is byte-identical to the previous SDK 0.38.0 build;
-only the artifact's code changed.
+Exact committed build provenance and independent reproduction remain release
+requirements. This fixture alone does not establish either.
 
 Regenerating TypeScript alone does not change an older artifact's embedded spec.
 Rebuild the artifact and regenerate bindings together when adopting an SDK

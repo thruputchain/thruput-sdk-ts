@@ -1,5 +1,6 @@
 import type { Calldata } from "@thruputchain/protocol";
 import {
+  withCodecBudget,
   fixedArray,
   FixedOpaqueCodec,
   Uint8Codec,
@@ -28,6 +29,7 @@ import {
 import type { ContractType, ContractSpec, ContractSpecMethod } from "./spec.js";
 import { ContractTypeKind, formatSpecId, specIdKey } from "./spec.js";
 import { ContractDecodeError } from "./errors.js";
+import { contractValueLimits } from "./valueLimits.js";
 import { SignedTokenCodec } from "./signedToken.js";
 
 const AddressCodec = requireByteArrayCodec(
@@ -116,6 +118,7 @@ function requireByteArrayCodec(
   label = "U8 container",
 ): XdrCodec<Uint8Array> {
   return {
+    ...codec,
     encode(writer, value) {
       if (!(value instanceof Uint8Array)) {
         throw new TypeError(`Expected Uint8Array for ${label}`);
@@ -131,6 +134,7 @@ function requireBigIntCodec(
   codec: XdrCodec<bigint>,
 ): XdrCodec<bigint> {
   return {
+    ...codec,
     encode(writer, value) {
       if (typeof value !== "bigint") {
         throw new TypeError(`${label} expected bigint`);
@@ -143,6 +147,7 @@ function requireBigIntCodec(
 
 function requireArrayCodec<T>(codec: XdrCodec<T[]>): XdrCodec<T[]> {
   return {
+    ...codec,
     encode(writer, value) {
       if (!Array.isArray(value)) {
         throw new TypeError("Expected array");
@@ -151,39 +156,6 @@ function requireArrayCodec<T>(codec: XdrCodec<T[]>): XdrCodec<T[]> {
       codec.encode(writer, value);
     },
     decode: codec.decode,
-  };
-}
-
-// Zero-width values can occupy no input bytes. Bound their materialization
-// independently of the target network's return-buffer byte limit.
-const MAX_ZERO_WIDTH_VECTOR_LENGTH = 1024;
-
-function safeVarArrayCodec<T>(
-  inner: XdrCodec<T>,
-  maxLength: number,
-): XdrCodec<T[]> {
-  const codec = VarArrayCodec(inner, maxLength);
-  return {
-    encode: codec.encode,
-    decode(reader) {
-      const length = Number(reader.readUint32());
-      if (length > maxLength) {
-        throw new Error(`VarArray length ${length} exceeds max ${maxLength}`);
-      }
-      // Non-empty values cannot outnumber the remaining bytes. Keep small
-      // zero-width vectors valid without letting a length prefix create a huge array.
-      if (length > reader.remaining && length > MAX_ZERO_WIDTH_VECTOR_LENGTH) {
-        throw new Error(
-          `VarArray length ${length} cannot be safely materialized from ${reader.remaining} remaining bytes`,
-        );
-      }
-
-      const values: T[] = [];
-      for (let index = 0; index < length; index++) {
-        values.push(inner.decode(reader));
-      }
-      return values;
-    },
   };
 }
 
@@ -197,16 +169,19 @@ export function resolveCodec(
   ty: ContractType,
   namedCodecs?: Record<string, XdrCodec<unknown>>,
 ): XdrCodec<unknown> {
-  if (!namedCodecs) return resolveUncachedCodec(ty);
+  // The named definition already owns its value-level budget wrapper.
+  if (ty.v === ContractTypeKind.Named)
+    return resolveUncachedCodec(ty, namedCodecs);
+  if (!namedCodecs) return withCodecBudget(resolveUncachedCodec(ty));
 
   const resolvedCache = resolvedCodecCaches.get(namedCodecs);
   if (!resolvedCache?.cacheableTypes.has(ty)) {
-    return resolveUncachedCodec(ty, namedCodecs);
+    return withCodecBudget(resolveUncachedCodec(ty, namedCodecs));
   }
   const cached = resolvedCache.codecs.get(ty);
   if (cached) return cached;
 
-  const codec = resolveUncachedCodec(ty, namedCodecs);
+  const codec = withCodecBudget(resolveUncachedCodec(ty, namedCodecs));
   resolvedCache.codecs.set(ty, codec);
   return codec;
 }
@@ -255,7 +230,7 @@ function resolveUncachedCodec(
         ) as XdrCodec<unknown>;
       }
       return requireArrayCodec(
-        safeVarArrayCodec(
+        VarArrayCodec(
           resolveCodec(ty.vector.element!, namedCodecs),
           Number(ty.vector.max_len),
         ),
@@ -274,7 +249,7 @@ function resolveUncachedCodec(
         ),
       );
       return {
-        encode: arrayCodec.encode,
+        ...arrayCodec,
         decode(reader) {
           return fixedArray(arrayCodec.decode(reader), arrayLength);
         },
@@ -397,7 +372,7 @@ export function decodeCalldata(
   const method = lookupMethod(spec, interfaceName, methodName);
 
   try {
-    const r = new CxsReader(data);
+    const r = new CxsReader(data, contractValueLimits(data.length));
     const result: Record<string, unknown> = {};
     for (const arg of method.args) {
       const argCodec = resolveCodec(arg.ty, namedCodecs);
