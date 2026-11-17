@@ -83,6 +83,11 @@ const params: RpcRequests = {
     rawAmount: 7n,
   },
   dev_getPendingTransactionCount: {},
+  dev_produceBlock: { blockTimepoint: 1_700_000_000_000_000_000n },
+  dev_produceBlocks: { count: 2, intervalNanoseconds: 12_000_000_000n },
+  dev_setNextBlockTimepoint: { blockTimepoint: 1_800_000_000_000_000_000n },
+  dev_increaseTime: { nanoseconds: 86_400_000_000_000n },
+  dev_setBlockDriver: { mode: "interval", intervalMilliseconds: 250n },
 };
 const receipt = {
   transactionHash: hashText,
@@ -222,6 +227,16 @@ const wire: Record<RpcMethod, unknown> = {
     signedTransaction: toHex0x(signedTransaction),
   },
   dev_getPendingTransactionCount: { count: "2" },
+  dev_produceBlock: { blockHeight: "6", blockTimepoint: "1700000000000000000" },
+  dev_produceBlocks: {
+    blocks: [
+      { blockHeight: "7", blockTimepoint: "1700000000000000000" },
+      { blockHeight: "8", blockTimepoint: "1700000012000000000" },
+    ],
+  },
+  dev_setNextBlockTimepoint: { nextBlockTimepoint: "1800000000000000000" },
+  dev_increaseTime: { nextBlockTimepoint: "1800086400000000000" },
+  dev_setBlockDriver: { mode: "interval", intervalMilliseconds: "250" },
 };
 
 function server(
@@ -842,6 +857,73 @@ describe("native RPC client", () => {
         expect(endpoint.fetch).toHaveBeenCalledTimes(4);
       }
     }
+  });
+  it("rejects block and time results that contradict their request", async () => {
+    const endpoint = server();
+    const client = await createRpcClient({ transport: endpoint.transport });
+    const cases: [RpcMethod, unknown, () => Promise<unknown>][] = [
+      [
+        "dev_produceBlock",
+        { blockHeight: "6", blockTimepoint: "1700000000000000001" },
+        () => client.dev_produceBlock(params.dev_produceBlock),
+      ],
+      [
+        "dev_produceBlocks",
+        { blocks: [{ blockHeight: "7", blockTimepoint: "1" }] },
+        () => client.dev_produceBlocks(params.dev_produceBlocks),
+      ],
+      [
+        "dev_produceBlocks",
+        {
+          blocks: [
+            { blockHeight: "7", blockTimepoint: "1700000000000000000" },
+            { blockHeight: "9", blockTimepoint: "1700000012000000000" },
+          ],
+        },
+        () => client.dev_produceBlocks(params.dev_produceBlocks),
+      ],
+      [
+        "dev_produceBlocks",
+        {
+          blocks: [
+            { blockHeight: "7", blockTimepoint: "1700000000000000000" },
+            { blockHeight: "8", blockTimepoint: "1700000000000000001" },
+          ],
+        },
+        () => client.dev_produceBlocks(params.dev_produceBlocks),
+      ],
+      [
+        "dev_setNextBlockTimepoint",
+        { nextBlockTimepoint: "1" },
+        () =>
+          client.dev_setNextBlockTimepoint(params.dev_setNextBlockTimepoint),
+      ],
+      [
+        "dev_setBlockDriver",
+        { mode: "manual", intervalMilliseconds: "250" },
+        () => client.dev_setBlockDriver(params.dev_setBlockDriver),
+      ],
+      [
+        "dev_setBlockDriver",
+        { mode: "interval", intervalMilliseconds: "500" },
+        () => client.dev_setBlockDriver(params.dev_setBlockDriver),
+      ],
+    ];
+    for (const [method, result, call] of cases) {
+      endpoint.results[method] = result;
+      await expect(call()).rejects.toBeInstanceOf(RpcDecodingError);
+      endpoint.results[method] = wire[method];
+    }
+    // Without a pinned time or interval, any committed time is accepted.
+    endpoint.results.dev_produceBlocks = {
+      blocks: [
+        { blockHeight: "7", blockTimepoint: "5" },
+        { blockHeight: "8", blockTimepoint: "5" },
+      ],
+    };
+    await expect(client.dev_produceBlocks({ count: 2 })).resolves.toMatchObject(
+      { blocks: [{ blockHeight: 7n }, { blockHeight: 8n }] },
+    );
   });
   it("rejects a non-null block at the uncommitted height zero", async () => {
     const endpoint = server({

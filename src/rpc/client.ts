@@ -278,6 +278,61 @@ function checkLimits(
   }
 }
 
+/**
+ * Local block and time results must match their own request: a pinned
+ * timepoint comes back exactly, a multi-block request returns `count`
+ * consecutive heights (exactly `intervalNanoseconds` apart when set), and a
+ * mode change reports the requested mode and interval.
+ */
+function checkBlockControlResult(
+  method: RpcMethod,
+  input: Record<string, unknown>,
+  value: unknown,
+  invalid: () => never,
+) {
+  if (method === "dev_produceBlock") {
+    const block = value as RpcResults["dev_produceBlock"];
+    if (
+      block.blockHeight <= 0n ||
+      (input.blockTimepoint !== undefined &&
+        block.blockTimepoint !== input.blockTimepoint)
+    )
+      invalid();
+  }
+  if (method === "dev_produceBlocks") {
+    const { blocks } = value as RpcResults["dev_produceBlocks"];
+    const interval = input.intervalNanoseconds as bigint | undefined;
+    if (blocks.length !== input.count) invalid();
+    for (const [index, block] of blocks.entries()) {
+      const previous = blocks[index - 1];
+      if (
+        block.blockHeight <= 0n ||
+        (previous &&
+          (block.blockHeight !== previous.blockHeight + 1n ||
+            block.blockTimepoint < previous.blockTimepoint ||
+            (interval !== undefined &&
+              block.blockTimepoint - previous.blockTimepoint !== interval)))
+      )
+        invalid();
+    }
+  }
+  if (
+    method === "dev_setNextBlockTimepoint" &&
+    (value as RpcResults["dev_setNextBlockTimepoint"]).nextBlockTimepoint !==
+      input.blockTimepoint
+  )
+    invalid();
+  if (method === "dev_setBlockDriver") {
+    const status = value as RpcResults["dev_setBlockDriver"];
+    if (
+      (typeof status.mode === "string" && status.mode !== input.mode) ||
+      (input.intervalMilliseconds !== undefined &&
+        status.intervalMilliseconds !== input.intervalMilliseconds)
+    )
+      invalid();
+  }
+}
+
 function checkResult(
   method: RpcMethod,
   input: Record<string, unknown>,
@@ -344,6 +399,7 @@ function checkResult(
       invalid();
     }
   }
+  checkBlockControlResult(method, input, value, invalid);
   if (
     method === "faucet_requestAirdrop" &&
     "recipient" in result &&
