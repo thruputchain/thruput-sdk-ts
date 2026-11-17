@@ -26,12 +26,13 @@ import type {
 
 export type RpcMethod = keyof RpcRequests;
 /**
- * Exact low-level operations. Each accepts one named object; empty requests default to {}.
+ * Exact low-level operations. Each accepts one named object; a request whose
+ * fields are all optional can be omitted and defaults to {}.
  * Cancellation options are always the second argument, including for empty requests:
  * `client.getChainTip({}, { signal })`.
  */
 export type RpcMethods = {
-  [M in RpcMethod]: keyof RpcRequests[M] extends never
+  [M in RpcMethod]: {} extends RpcRequests[M]
     ? (
         request?: RpcRequests[M],
         options?: TransportRequestOptions,

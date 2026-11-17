@@ -149,11 +149,21 @@ function convert(
   if (s["x-integer-minimum"] !== undefined) {
     const minimum = BigInt(s["x-integer-minimum"]);
     const maximum = BigInt(s["x-integer-maximum"]!);
+    // A pattern can be stricter than the numeric bounds, such as a positive
+    // interval whose minimum is still "0". Check both.
+    const allowed = (text: string) =>
+      s.pattern === undefined || matches(s.pattern, text);
     if (encode) {
-      if (typeof value !== "bigint" || value < minimum || value > maximum)
+      if (
+        typeof value !== "bigint" ||
+        value < minimum ||
+        value > maximum ||
+        !allowed(value.toString())
+      )
         return fail();
       return value.toString();
     }
+    if (typeof value === "string" && !allowed(value)) return fail();
     try {
       return parseDecimal(value, path, minimum, maximum);
     } catch {

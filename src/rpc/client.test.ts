@@ -858,6 +858,23 @@ describe("native RPC client", () => {
       }
     }
   });
+  it("omits all-optional requests and refuses a zero driver interval before dispatch", async () => {
+    const endpoint = server();
+    const client = await createRpcClient({ transport: endpoint.transport });
+    // dev_produceBlock's only field is optional, so the request can be omitted.
+    await expect(client.dev_produceBlock()).resolves.toMatchObject({
+      blockHeight: 6n,
+    });
+    expect(endpoint.calls.at(-1)).toMatchObject({
+      method: "dev_produceBlock",
+      params: {},
+    });
+    const before = endpoint.calls.length;
+    await expect(
+      client.dev_setBlockDriver({ mode: "interval", intervalMilliseconds: 0n }),
+    ).rejects.toBeInstanceOf(RpcRequestValidationError);
+    expect(endpoint.calls).toHaveLength(before);
+  });
   it("rejects block and time results that contradict their request", async () => {
     const endpoint = server();
     const client = await createRpcClient({ transport: endpoint.transport });
