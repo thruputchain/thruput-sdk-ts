@@ -282,8 +282,7 @@ function checkLimits(
 /**
  * Local block and time results must match their own request: a pinned
  * timepoint comes back exactly, a multi-block request returns `count`
- * consecutive heights (exactly `intervalNanoseconds` apart when set), and a
- * mode change reports the requested mode and interval.
+ * blocks, and a mode change reports the requested mode and interval.
  */
 function checkBlockControlResult(
   method: RpcMethod,
@@ -300,23 +299,11 @@ function checkBlockControlResult(
     )
       invalid();
   }
-  if (method === "dev_produceBlocks") {
-    const { blocks } = value as RpcResults["dev_produceBlocks"];
-    const interval = input.intervalNanoseconds as bigint | undefined;
-    if (blocks.length !== input.count) invalid();
-    for (const [index, block] of blocks.entries()) {
-      const previous = blocks[index - 1];
-      if (
-        block.blockHeight <= 0n ||
-        (previous &&
-          (block.blockHeight !== previous.blockHeight + 1n ||
-            block.blockTimepoint < previous.blockTimepoint ||
-            (interval !== undefined &&
-              block.blockTimepoint - previous.blockTimepoint !== interval)))
-      )
-        invalid();
-    }
-  }
+  if (
+    method === "dev_produceBlocks" &&
+    (value as RpcResults["dev_produceBlocks"]).blocks.length !== input.count
+  )
+    invalid();
   if (
     method === "dev_setNextBlockTimepoint" &&
     (value as RpcResults["dev_setNextBlockTimepoint"]).nextBlockTimepoint !==

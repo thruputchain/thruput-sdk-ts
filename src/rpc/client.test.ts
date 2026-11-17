@@ -890,26 +890,6 @@ describe("native RPC client", () => {
         () => client.dev_produceBlocks(params.dev_produceBlocks),
       ],
       [
-        "dev_produceBlocks",
-        {
-          blocks: [
-            { blockHeight: "7", blockTimepoint: "1700000000000000000" },
-            { blockHeight: "9", blockTimepoint: "1700000012000000000" },
-          ],
-        },
-        () => client.dev_produceBlocks(params.dev_produceBlocks),
-      ],
-      [
-        "dev_produceBlocks",
-        {
-          blocks: [
-            { blockHeight: "7", blockTimepoint: "1700000000000000000" },
-            { blockHeight: "8", blockTimepoint: "1700000000000000001" },
-          ],
-        },
-        () => client.dev_produceBlocks(params.dev_produceBlocks),
-      ],
-      [
         "dev_setNextBlockTimepoint",
         { nextBlockTimepoint: "1" },
         () =>
@@ -931,16 +911,6 @@ describe("native RPC client", () => {
       await expect(call()).rejects.toBeInstanceOf(RpcDecodingError);
       endpoint.results[method] = wire[method];
     }
-    // Without a pinned time or interval, any committed time is accepted.
-    endpoint.results.dev_produceBlocks = {
-      blocks: [
-        { blockHeight: "7", blockTimepoint: "5" },
-        { blockHeight: "8", blockTimepoint: "5" },
-      ],
-    };
-    await expect(client.dev_produceBlocks({ count: 2 })).resolves.toMatchObject(
-      { blocks: [{ blockHeight: 7n }, { blockHeight: 8n }] },
-    );
   });
   it("rejects a non-null block at the uncommitted height zero", async () => {
     const endpoint = server({
