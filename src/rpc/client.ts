@@ -26,12 +26,13 @@ import type {
 
 export type RpcMethod = keyof RpcRequests;
 /**
- * Exact low-level operations. Each accepts one named object; empty requests default to {}.
+ * Exact low-level operations. Each accepts one named object; a request whose
+ * fields are all optional can be omitted and defaults to {}.
  * Cancellation options are always the second argument, including for empty requests:
  * `client.getChainTip({}, { signal })`.
  */
 export type RpcMethods = {
-  [M in RpcMethod]: keyof RpcRequests[M] extends never
+  [M in RpcMethod]: {} extends RpcRequests[M]
     ? (
         request?: RpcRequests[M],
         options?: TransportRequestOptions,
@@ -278,6 +279,48 @@ function checkLimits(
   }
 }
 
+/**
+ * Local block and time results must match their own request: a pinned
+ * timepoint comes back exactly, a multi-block request returns `count`
+ * blocks, and a mode change reports the requested mode and interval.
+ */
+function checkBlockControlResult(
+  method: RpcMethod,
+  input: Record<string, unknown>,
+  value: unknown,
+  invalid: () => never,
+) {
+  if (method === "dev_produceBlock") {
+    const block = value as RpcResults["dev_produceBlock"];
+    if (
+      block.blockHeight <= 0n ||
+      (input.blockTimepoint !== undefined &&
+        block.blockTimepoint !== input.blockTimepoint)
+    )
+      invalid();
+  }
+  if (
+    method === "dev_produceBlocks" &&
+    (value as RpcResults["dev_produceBlocks"]).blocks.length !== input.count
+  )
+    invalid();
+  if (
+    method === "dev_setNextBlockTimepoint" &&
+    (value as RpcResults["dev_setNextBlockTimepoint"]).nextBlockTimepoint !==
+      input.blockTimepoint
+  )
+    invalid();
+  if (method === "dev_setBlockDriver") {
+    const status = value as RpcResults["dev_setBlockDriver"];
+    if (
+      (typeof status.mode === "string" && status.mode !== input.mode) ||
+      (input.intervalMilliseconds !== undefined &&
+        status.intervalMilliseconds !== input.intervalMilliseconds)
+    )
+      invalid();
+  }
+}
+
 function checkResult(
   method: RpcMethod,
   input: Record<string, unknown>,
@@ -344,6 +387,7 @@ function checkResult(
       invalid();
     }
   }
+  checkBlockControlResult(method, input, value, invalid);
   if (
     method === "faucet_requestAirdrop" &&
     "recipient" in result &&

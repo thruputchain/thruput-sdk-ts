@@ -31,7 +31,7 @@ Packages, remove that override from your `.npmrc`.
 
 ## Usage
 
-This checkout pins RPC wire format **14.4.0**. Block queries require a compatible
+This checkout pins RPC wire format **14.6.0** and works with any 14.x endpoint. Block queries require a compatible
 RPC server and a node with the block-query index. RPC addresses, public keys,
 validator IDs and hashes use unprefixed, case-sensitive base58. Opaque payloads
 (including signed transactions, calldata, return data, storage keys, raw event
@@ -457,6 +457,31 @@ from unclassified errors; both retain the complete raw error. Neither classifica
 authorizes retries. Transaction evidence is compared with the requested hash.
 Malformed HTTP reply envelopes throw `RpcResponseError` with the raw reply.
 `refreshDiscovery()` performs only discovery reads and never replays writes.
+
+### Local block and time control
+
+A local `thruput node` that serves wire 14.6.0 or later advertises
+`dev_produceBlock`, `dev_produceBlocks`, `dev_setNextBlockTimepoint`,
+`dev_increaseTime` and `dev_setBlockDriver`. They produce blocks on request
+(empty blocks included) and move block time forward, so a test of
+time-dependent logic can cover days in seconds. Timepoints are Unix nanoseconds
+as bigints, the value contracts read with `get_block_timepoint()`. Hosted
+networks do not offer these methods.
+
+```ts
+const rpc = await createRpcClient({
+  transport: new HttpTransport("http://127.0.0.1:9545"),
+  requiredMethods: ["dev_increaseTime", "dev_produceBlock"],
+});
+const thirtyDays = 30n * 24n * 60n * 60n * 1_000_000_000n;
+await rpc.dev_increaseTime({ nanoseconds: thirtyDays });
+// Views see the new time once a block exists at it.
+const block = await rpc.dev_produceBlock();
+```
+
+After a time change, later blocks continue from the new time. A timepoint
+earlier than the chain tip's is rejected (`-32602`). A result that contradicts
+its request, such as a different pinned timepoint, throws `RpcDecodingError`.
 
 ## Wallet clients
 
