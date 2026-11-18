@@ -31,7 +31,7 @@ Packages, remove that override from your `.npmrc`.
 
 ## Usage
 
-This checkout pins RPC wire format **14.6.0** and works with any 14.x endpoint. Block queries require a compatible
+This checkout pins RPC wire format **14.6.1** and works with any 14.x endpoint. Block queries require a compatible
 RPC server and a node with the block-query index. RPC addresses, public keys,
 validator IDs and hashes use unprefixed, case-sensitive base58. Opaque payloads
 (including signed transactions, calldata, return data, storage keys, raw event
