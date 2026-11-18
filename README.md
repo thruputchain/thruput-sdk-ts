@@ -889,7 +889,7 @@ with binary signatures intact.
 Run on Linux with Node 24. CI installs the `thruput` CLI crate from crates.io and the public devnode
 artifact pinned in
 [`scripts/integration-versions.json`](scripts/integration-versions.json): CLI
-0.46.0, devnode 0.1.34 and wire 14.6.0. CI qualification uses the crate-built
+0.46.0, devnode 0.1.34 and wire 14.6.1. CI qualification uses the crate-built
 CLI; it does not verify a packaged CLI bundle. Locally, install that CLI version
 with `cargo install thruput@0.46.0 --locked` or set `THRUPUT_CLI` to its
 executable. The harness installs the pinned devnode when no runtime override is
