@@ -233,7 +233,11 @@ export type ContractViewOptions<TArgs> = ContractMethodInputs<TArgs> & {
   assumedAuth?: AuthClaim;
   client: Pick<ThruputClient, "simulateInvocation">;
   caller?: ContractAddress;
-  /** Minimum committed snapshot height. No waiting or request-driven refresh. */
+  /**
+   * Minimum committed snapshot height. The SDK does not wait or retry. From
+   * wire 14.6.1, the server waits up to 2 s for a floor at or below the
+   * committed tip.
+   */
   minStateBlockHeight?: bigint;
   /** Cancel this read without affecting other requests on the same client. */
   signal?: AbortSignal;

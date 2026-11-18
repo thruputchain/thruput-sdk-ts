@@ -31,7 +31,7 @@ Packages, remove that override from your `.npmrc`.
 
 ## Usage
 
-This checkout pins RPC wire format **14.6.0** and works with any 14.x endpoint. Block queries require a compatible
+This checkout pins RPC wire format **14.6.1** and works with any 14.x endpoint. Block queries require a compatible
 RPC server and a node with the block-query index. RPC addresses, public keys,
 validator IDs and hashes use unprefixed, case-sensitive base58. Opaque payloads
 (including signed transactions, calldata, return data, storage keys, raw event
@@ -301,10 +301,14 @@ const balance = await ERC20.v0_1.getBalanceOf.view({
 
 This requires a matching RPC wire format 14.1.1 endpoint and also works with `.viewOutcome()`, bound
 views, and raw `client.simulateInvocation()`. The result must come from a committed snapshot at
-or above that height. An older snapshot produces `stateHeightUnavailable`
-(`NativeRpcErrorCode.StateHeightUnavailable`, `-32012`) with requested and observed heights. It does not undo transaction
-confirmation. The SDK does not poll, wait, or retry; your application decides how
-to handle a backend that is behind. Omit `minStateBlockHeight` for an unconstrained read.
+or above that height. From wire format 14.6.1, if the floor is at or below the
+committed tip, the server waits up to 2 s for its view to reach the floor. If the
+view is still behind after the wait, or the floor is above the committed tip, the
+read fails with `stateHeightUnavailable` (`NativeRpcErrorCode.StateHeightUnavailable`,
+`-32012`) and the requested and observed heights. Older endpoints fail at once.
+The error does not undo transaction confirmation. The SDK does not poll, wait, or
+retry; your application decides how to handle a backend that is behind. Omit
+`minStateBlockHeight` for an unconstrained read.
 
 ### Simulated authorization
 
@@ -342,10 +346,11 @@ if (supply.kind === "return" && balance.kind === "return") {
 
 Each tuple position retains its generated return and exception types. Results are
 `return`, `abort`, `fault`, or `unsupported`, with events. Simulated writes stay within each call.
-Omit `minStateBlockHeight` if no freshness floor is needed. If the selected snapshot is
-behind, the server returns `stateHeightUnavailable` with requested and observed
-heights. The request neither waits for a block nor forces a refresh; your
-application decides whether and when to retry.
+Omit `minStateBlockHeight` if no freshness floor is needed. The floor works as it
+does for a single read: from wire format 14.6.1, the server waits up to 2 s for a
+committed floor, then returns `stateHeightUnavailable` with requested and observed
+heights. A floor above the committed tip fails at once. The request does not wait
+for a new block; your application decides whether and when to retry.
 
 This requires `simulateInvocations` (RPC wire format 14.1.1). Existing generated
 bindings gain `viewRequest` through the runtime. The low-level API is
