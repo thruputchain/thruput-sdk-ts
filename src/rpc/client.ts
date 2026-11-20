@@ -282,7 +282,8 @@ function checkLimits(
 /**
  * Local block and time results must match their own request: a pinned
  * timepoint comes back exactly, a multi-block request returns `count`
- * blocks, and a mode change reports the requested mode and interval.
+ * blocks, a step change reports the requested step (none when cleared), and a
+ * mode change reports the requested mode and interval.
  */
 function checkBlockControlResult(
   method: RpcMethod,
@@ -308,6 +309,12 @@ function checkBlockControlResult(
     method === "dev_setNextBlockTimepoint" &&
     (value as RpcResults["dev_setNextBlockTimepoint"]).nextBlockTimepoint !==
       input.blockTimepoint
+  )
+    invalid();
+  if (
+    method === "dev_setBlockTimeStep" &&
+    (value as RpcResults["dev_setBlockTimeStep"]).stepNanoseconds !==
+      input.stepNanoseconds
   )
     invalid();
   if (method === "dev_setBlockDriver") {

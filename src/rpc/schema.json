@@ -406,6 +406,18 @@
       "required": ["order"],
       "type": "object"
     },
+    "BlockTimeStep": {
+      "properties": {
+        "nextBlockTimepoint": {
+          "$ref": "#/components/schemas/DecimalTimePoint"
+        },
+        "stepNanoseconds": {
+          "$ref": "#/components/schemas/DecimalU64"
+        }
+      },
+      "required": ["nextBlockTimepoint"],
+      "type": "object"
+    },
     "ChainConfig": {
       "properties": {
         "execution": {
@@ -2488,6 +2500,26 @@
       },
       "result": {
         "$ref": "#/components/schemas/BlockClock"
+      },
+      "paged": false
+    },
+    "dev_setBlockTimeStep": {
+      "params": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "stepNanoseconds": {
+            "maxLength": 20,
+            "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+            "type": "string",
+            "x-integer-maximum": "18446744073709551615",
+            "x-integer-minimum": "0"
+          }
+        },
+        "required": []
+      },
+      "result": {
+        "$ref": "#/components/schemas/BlockTimeStep"
       },
       "paged": false
     },
@@ -10584,6 +10616,288 @@
       }
     ],
     "dev_increaseTime": [
+      {
+        "code": -32602,
+        "schema": {
+          "oneOf": [
+            {
+              "properties": {
+                "kind": {
+                  "const": "invalidParams",
+                  "type": "string"
+                },
+                "path": {
+                  "pattern": "^(?:/(?:[^~/]|~[01])*)*(?![\\s\\S])",
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": ["kind"],
+              "type": "object",
+              "x-forbidden": [
+                "admission",
+                "transactionHash",
+                "signedTransaction",
+                "observation",
+                "receipt",
+                "cause",
+                "serviceCode",
+                "error"
+              ]
+            }
+          ],
+          "x-tag": "kind"
+        }
+      },
+      {
+        "code": -32050,
+        "schema": {
+          "oneOf": [
+            {
+              "properties": {
+                "admission": {
+                  "enum": ["notAttempted", "rejected", "unknown"],
+                  "type": "string"
+                },
+                "error": {
+                  "properties": {
+                    "code": {
+                      "maximum": 2147483647,
+                      "minimum": -2147483648,
+                      "type": "integer"
+                    },
+                    "source": {
+                      "anyOf": [
+                        {
+                          "enum": ["auth", "scheduler", "executor", "other"],
+                          "type": "string"
+                        }
+                      ],
+                      "x-extensible": true
+                    }
+                  },
+                  "required": ["source", "code"],
+                  "type": "object"
+                },
+                "kind": {
+                  "const": "backendUnavailable",
+                  "type": "string"
+                },
+                "retryAfterMs": {
+                  "maxLength": 20,
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-integer-maximum": "18446744073709551615",
+                  "x-integer-minimum": "0"
+                },
+                "serviceCode": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "transactionHash": {
+                  "maxLength": 45,
+                  "minLength": 32,
+                  "pattern": "^[1-9A-HJ-NP-Za-km-z]+$",
+                  "type": "string",
+                  "x-base58-bytes": 32
+                }
+              },
+              "required": ["kind"],
+              "type": "object",
+              "x-forbidden": [
+                "admission",
+                "transactionHash",
+                "signedTransaction",
+                "observation",
+                "receipt",
+                "cause",
+                "serviceCode",
+                "error"
+              ]
+            }
+          ],
+          "x-tag": "kind"
+        }
+      },
+      {
+        "code": -32051,
+        "schema": {
+          "oneOf": [
+            {
+              "properties": {
+                "admission": {
+                  "enum": ["notAttempted", "rejected", "unknown"],
+                  "type": "string"
+                },
+                "kind": {
+                  "const": "backendTimeout",
+                  "type": "string"
+                },
+                "retryAfterMs": {
+                  "maxLength": 20,
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-integer-maximum": "18446744073709551615",
+                  "x-integer-minimum": "0"
+                },
+                "transactionHash": {
+                  "maxLength": 45,
+                  "minLength": 32,
+                  "pattern": "^[1-9A-HJ-NP-Za-km-z]+$",
+                  "type": "string",
+                  "x-base58-bytes": 32
+                }
+              },
+              "required": ["kind"],
+              "type": "object",
+              "x-forbidden": [
+                "admission",
+                "transactionHash",
+                "signedTransaction",
+                "observation",
+                "receipt",
+                "cause",
+                "serviceCode",
+                "error"
+              ]
+            }
+          ],
+          "x-tag": "kind"
+        }
+      },
+      {
+        "code": -32053,
+        "schema": {
+          "oneOf": [
+            {
+              "properties": {
+                "admission": {
+                  "enum": ["notAttempted", "rejected", "unknown"],
+                  "type": "string"
+                },
+                "error": {
+                  "properties": {
+                    "code": {
+                      "maximum": 2147483647,
+                      "minimum": -2147483648,
+                      "type": "integer"
+                    },
+                    "source": {
+                      "anyOf": [
+                        {
+                          "enum": ["auth", "scheduler", "executor", "other"],
+                          "type": "string"
+                        }
+                      ],
+                      "x-extensible": true
+                    }
+                  },
+                  "required": ["source", "code"],
+                  "type": "object"
+                },
+                "kind": {
+                  "const": "overloaded",
+                  "type": "string"
+                },
+                "retryAfterMs": {
+                  "maxLength": 20,
+                  "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                  "type": "string",
+                  "x-integer-maximum": "18446744073709551615",
+                  "x-integer-minimum": "0"
+                },
+                "transactionHash": {
+                  "maxLength": 45,
+                  "minLength": 32,
+                  "pattern": "^[1-9A-HJ-NP-Za-km-z]+$",
+                  "type": "string",
+                  "x-base58-bytes": 32
+                }
+              },
+              "required": ["kind"],
+              "type": "object",
+              "x-forbidden": [
+                "admission",
+                "transactionHash",
+                "signedTransaction",
+                "observation",
+                "receipt",
+                "cause",
+                "serviceCode",
+                "error"
+              ]
+            }
+          ],
+          "x-tag": "kind"
+        }
+      },
+      {
+        "code": -32054,
+        "schema": {
+          "oneOf": [
+            {
+              "properties": {
+                "admission": {
+                  "enum": ["notAttempted", "rejected", "unknown"],
+                  "type": "string"
+                },
+                "kind": {
+                  "const": "backendDataInvalid",
+                  "type": "string"
+                },
+                "observation": {
+                  "properties": {
+                    "blockHeight": {
+                      "maxLength": 19,
+                      "pattern": "^(0|[1-9][0-9]*)(?![\\s\\S])",
+                      "type": "string",
+                      "x-integer-maximum": "9223372036854775807",
+                      "x-integer-minimum": "0"
+                    },
+                    "transactionHash": {
+                      "maxLength": 45,
+                      "minLength": 32,
+                      "pattern": "^[1-9A-HJ-NP-Za-km-z]+$",
+                      "type": "string",
+                      "x-base58-bytes": 32
+                    }
+                  },
+                  "required": ["transactionHash", "blockHeight"],
+                  "type": "object"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "transactionHash": {
+                  "maxLength": 45,
+                  "minLength": 32,
+                  "pattern": "^[1-9A-HJ-NP-Za-km-z]+$",
+                  "type": "string",
+                  "x-base58-bytes": 32
+                }
+              },
+              "required": ["kind"],
+              "type": "object",
+              "x-forbidden": [
+                "admission",
+                "transactionHash",
+                "signedTransaction",
+                "observation",
+                "receipt",
+                "cause",
+                "serviceCode",
+                "error"
+              ]
+            }
+          ],
+          "x-tag": "kind"
+        }
+      }
+    ],
+    "dev_setBlockTimeStep": [
       {
         "code": -32602,
         "schema": {
