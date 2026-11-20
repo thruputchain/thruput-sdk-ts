@@ -87,6 +87,7 @@ const params: RpcRequests = {
   dev_produceBlocks: { count: 2, intervalNanoseconds: 12_000_000_000n },
   dev_setNextBlockTimepoint: { blockTimepoint: 1_800_000_000_000_000_000n },
   dev_increaseTime: { nanoseconds: 86_400_000_000_000n },
+  dev_setBlockTimeStep: { stepNanoseconds: 0n },
   dev_setBlockDriver: { mode: "interval", intervalMilliseconds: 250n },
 };
 const receipt = {
@@ -236,6 +237,10 @@ const wire: Record<RpcMethod, unknown> = {
   },
   dev_setNextBlockTimepoint: { nextBlockTimepoint: "1800000000000000000" },
   dev_increaseTime: { nextBlockTimepoint: "1800086400000000000" },
+  dev_setBlockTimeStep: {
+    stepNanoseconds: "0",
+    nextBlockTimepoint: "1800086400000000000",
+  },
   dev_setBlockDriver: { mode: "interval", intervalMilliseconds: "250" },
 };
 
@@ -875,6 +880,25 @@ describe("native RPC client", () => {
     ).rejects.toBeInstanceOf(RpcRequestValidationError);
     expect(endpoint.calls).toHaveLength(before);
   });
+  it("clears the block time step with an empty or omitted request", async () => {
+    const endpoint = server();
+    endpoint.results.dev_setBlockTimeStep = {
+      nextBlockTimepoint: "1800086400000000000",
+    };
+    const client = await createRpcClient({ transport: endpoint.transport });
+    for (const call of [
+      () => client.dev_setBlockTimeStep({}),
+      () => client.dev_setBlockTimeStep(),
+    ]) {
+      await expect(call()).resolves.toEqual({
+        nextBlockTimepoint: 1_800_086_400_000_000_000n,
+      });
+      expect(endpoint.calls.at(-1)).toMatchObject({
+        method: "dev_setBlockTimeStep",
+        params: {},
+      });
+    }
+  });
   it("rejects block and time results that contradict their request", async () => {
     const endpoint = server();
     const client = await createRpcClient({ transport: endpoint.transport });
@@ -894,6 +918,16 @@ describe("native RPC client", () => {
         { nextBlockTimepoint: "1" },
         () =>
           client.dev_setNextBlockTimepoint(params.dev_setNextBlockTimepoint),
+      ],
+      [
+        "dev_setBlockTimeStep",
+        { stepNanoseconds: "1", nextBlockTimepoint: "1" },
+        () => client.dev_setBlockTimeStep(params.dev_setBlockTimeStep),
+      ],
+      [
+        "dev_setBlockTimeStep",
+        { stepNanoseconds: "0", nextBlockTimepoint: "1" },
+        () => client.dev_setBlockTimeStep({}),
       ],
       [
         "dev_setBlockDriver",

@@ -78,6 +78,10 @@ export type RpcBlockInfo = {
   upgrades: Uint8Array[];
 };
 export type RpcBlockStart = { order: RpcIterationOrder };
+export type RpcBlockTimeStep = {
+  nextBlockTimepoint: RpcDecimalTimePoint;
+  stepNanoseconds?: RpcDecimalU64;
+};
 export type RpcChainConfig = {
   execution?: RpcExecutionConfig;
   stated: RpcConfigLimits;
@@ -450,6 +454,7 @@ export interface RpcRequests {
   dev_produceBlocks: { count: number; intervalNanoseconds?: bigint };
   dev_setNextBlockTimepoint: { blockTimepoint: RpcDecimalTimePoint };
   dev_increaseTime: { nanoseconds: bigint };
+  dev_setBlockTimeStep: { stepNanoseconds?: bigint };
   dev_setBlockDriver: {
     mode: RpcBlockDriverMode;
     intervalMilliseconds?: bigint;
@@ -484,6 +489,7 @@ export interface RpcResults {
   dev_produceBlocks: RpcProducedBlocks;
   dev_setNextBlockTimepoint: RpcBlockClock;
   dev_increaseTime: RpcBlockClock;
+  dev_setBlockTimeStep: RpcBlockTimeStep;
   dev_setBlockDriver: RpcBlockDriverStatus;
 }
 export type RpcErrorData =
