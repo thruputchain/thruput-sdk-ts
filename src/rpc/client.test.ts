@@ -880,6 +880,25 @@ describe("native RPC client", () => {
     ).rejects.toBeInstanceOf(RpcRequestValidationError);
     expect(endpoint.calls).toHaveLength(before);
   });
+  it("clears the block time step with an empty or omitted request", async () => {
+    const endpoint = server();
+    endpoint.results.dev_setBlockTimeStep = {
+      nextBlockTimepoint: "1800086400000000000",
+    };
+    const client = await createRpcClient({ transport: endpoint.transport });
+    for (const call of [
+      () => client.dev_setBlockTimeStep({}),
+      () => client.dev_setBlockTimeStep(),
+    ]) {
+      await expect(call()).resolves.toEqual({
+        nextBlockTimepoint: 1_800_086_400_000_000_000n,
+      });
+      expect(endpoint.calls.at(-1)).toMatchObject({
+        method: "dev_setBlockTimeStep",
+        params: {},
+      });
+    }
+  });
   it("rejects block and time results that contradict their request", async () => {
     const endpoint = server();
     const client = await createRpcClient({ transport: endpoint.transport });
