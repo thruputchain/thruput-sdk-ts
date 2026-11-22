@@ -5,7 +5,8 @@
  * or request pipeline. The transport is responsible for sending a JSON-RPC
  * method name and named params object, then returning the raw decoded `result` value.
  *
- * Report failures with `ThruputError`, so native clients can classify them:
+ * Report failures with `ThruputError`, imported from `@thruputchain/client`, so
+ * native clients can classify them:
  *
  * - A JSON-RPC error object: code `rpcError`, with the complete object in `context.raw`.
  * - A network failure: code `httpRequestFailed`.

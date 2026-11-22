@@ -5,7 +5,7 @@ import type { TransactionReason } from "../errors/transaction.js";
 import { classifyReadError } from "../transport/readError.js";
 import type { TransactionReceipt } from "../types/rpc.js";
 import { receiptFacts } from "../errors/transaction.js";
-import type { SubmissionEvidence } from "./execution.js";
+import type { SubmissionEvidence } from "../transaction/submissionEvidence.js";
 
 // Internal constructors for transaction errors. Public APIs re-export none of these.
 
@@ -69,6 +69,7 @@ export function withSubmission(
     );
   return new ThruputError("transactionOutcomeUnknown", error.shortMessage, {
     context: { ...error.context, ...extra },
+    ...(error.details === undefined ? {} : { details: error.details }),
     ...(error.cause === undefined ? {} : { cause: error.cause }),
     transaction: { ...error.transaction, submission },
   });
@@ -117,14 +118,10 @@ export function transactionResultUndecodable(
   cause: unknown,
   submission?: SubmissionEvidence,
 ): ThruputError<"transactionResultUndecodable"> {
-  const text = isThruputError(cause)
-    ? cause.shortMessage
-    : cause instanceof Error
-      ? cause.message
-      : String(cause);
+  // Adapters are application code, so their messages stay in `cause` only.
   return new ThruputError(
     "transactionResultUndecodable",
-    `Transaction ${toBase58(receipt.transactionHash)} committed, but result decoding failed: ${text}`,
+    `Transaction ${toBase58(receipt.transactionHash)} committed, but result decoding failed`,
     {
       cause,
       transaction: receiptFacts(receipt, "resultUndecodable", submission),

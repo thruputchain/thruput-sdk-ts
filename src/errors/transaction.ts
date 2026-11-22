@@ -1,6 +1,6 @@
 import { UnsupportedRpcValue } from "../rpc/codec.js";
 import type { TransactionReceipt } from "../types/rpc.js";
-import type { SubmissionEvidence } from "../wallet/execution.js";
+import type { SubmissionEvidence } from "../transaction/submissionEvidence.js";
 
 /**
  * What the client knows about a transaction's execution.
@@ -10,11 +10,7 @@ import type { SubmissionEvidence } from "../wallet/execution.js";
  * - `notSubmitted`: the client did not dispatch the transaction.
  * - `unknown`: the client cannot know. **Never resend.** Observe `hash` instead.
  */
-export type TransactionOutcome =
-  | "succeeded"
-  | "failed"
-  | "notSubmitted"
-  | "unknown";
+export type TransactionOutcome = (typeof transactionOutcomes)[number];
 
 /**
  * Why the operation stopped. Use it for messages and diagnostics; decide whether
@@ -45,38 +41,18 @@ export type TransactionOutcome =
  * | `admissionUnsupported` | Submission returned an admission value this client does not support. |
  * | `outcomeUnsupported` | The receipt has an execution value this client does not support. |
  */
-export type TransactionReason =
-  | "aborted"
-  | "faulted"
-  | "executionFailed"
-  | "resultUndecodable"
-  | "resultUnavailable"
-  | "cancelled"
-  | "timeout"
-  | "persistenceFailed"
-  | "notDispatched"
-  | "requestInvalid"
-  | "nodeRejected"
-  | "submissionFailed"
-  | "disconnected"
-  | "statusUnknown"
-  | "recentFailure"
-  | "networkChanged"
-  | "commitmentConflict"
-  | "observationFailed"
-  | "admissionUnsupported"
-  | "outcomeUnsupported";
+export type TransactionReason = (typeof transactionReasons)[number];
 
-/** All transaction outcomes, for strict validation. */
-export const transactionOutcomes: readonly TransactionOutcome[] = [
+/** Every {@link TransactionOutcome}, for example to validate stored values. */
+export const transactionOutcomes = Object.freeze([
   "succeeded",
   "failed",
   "notSubmitted",
   "unknown",
-];
+] as const);
 
-/** All transaction reasons, for strict validation. */
-export const transactionReasons: readonly TransactionReason[] = [
+/** Every {@link TransactionReason}, for example to validate stored values. */
+export const transactionReasons = Object.freeze([
   "aborted",
   "faulted",
   "executionFailed",
@@ -97,7 +73,7 @@ export const transactionReasons: readonly TransactionReason[] = [
   "observationFailed",
   "admissionUnsupported",
   "outcomeUnsupported",
-];
+] as const);
 
 /**
  * Facts about one signed transaction, present on every {@link ThruputError}

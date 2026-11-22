@@ -22,9 +22,11 @@ export type {
   TransactionOutcomeUnknownContext,
   WalletErrorContext,
 } from "./codes.js";
-export type {
-  TransactionFacts,
-  TransactionFactsInput,
-  TransactionOutcome,
-  TransactionReason,
+export {
+  transactionOutcomes,
+  transactionReasons,
+  type TransactionFacts,
+  type TransactionFactsInput,
+  type TransactionOutcome,
+  type TransactionReason,
 } from "./transaction.js";

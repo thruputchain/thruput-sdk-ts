@@ -195,6 +195,24 @@ describe("ThruputError serialization", () => {
     });
   });
 
+  it("shortens long messages so the output always parses", () => {
+    const error = new ThruputError("rpcIncompatible", "x".repeat(2000), {
+      details: "y".repeat(5000),
+    });
+    const parsed = parseThruputError(JSON.parse(JSON.stringify(error)));
+    expect(parsed.shortMessage).toHaveLength(1024);
+    expect(parsed.details).toHaveLength(4096);
+  });
+
+  it("does not treat serialized output as a live error", () => {
+    const json = failed().toJSON();
+    expect(isThruputError(json)).toBe(false);
+    const error = new ThruputError("transactionOutcomeUnknown", "Stopped", {
+      context: { submissionError: json },
+    });
+    expect(() => JSON.stringify(error)).not.toThrow();
+  });
+
   it("keeps only the name of other errors in context", () => {
     const error = new ThruputError("transactionOutcomeUnknown", "Stopped", {
       context: { submissionError: new TypeError("secret") },

@@ -173,6 +173,8 @@ export interface ThruputErrorContext {
   /**
    * A root contract receipt did not produce a typed return. Has
    * `transaction` facts. Use the method's `decodeError` for the typed exception.
+   * When the receipt shows success but the return is unsupported, the facts are
+   * outcome `succeeded` with reason `resultUndecodable`.
    */
   contractCallFailed: {
     /** Qualified method name. */

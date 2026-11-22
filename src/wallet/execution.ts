@@ -1,8 +1,7 @@
-import { codec, deserialize } from "@thruputchain/protocol";
-import { hashSignedTransaction } from "../derivation/transactionHash.js";
 import { UnsupportedRpcValue } from "../rpc/codec.js";
 import { isThruputError, ThruputError } from "../errors/thruputError.js";
 import { receiptFacts } from "../errors/transaction.js";
+import { contractDecodeFailed } from "../contract/errors.js";
 import { gasAmount, type GasAmount } from "@thruputchain/protocol";
 import type { CoreThruputClient } from "../client.js";
 import type { TransactionReceipt } from "../types/rpc.js";
@@ -15,6 +14,10 @@ import {
 import { beforeDeadline, validateTimer } from "../actions/deadline.js";
 import { toBase58 } from "../encoding.js";
 import type { RpcSendTransactionResult } from "../rpc/generated.js";
+import {
+  createSubmissionEvidence,
+  type SubmissionEvidence,
+} from "../transaction/submissionEvidence.js";
 import {
   isNodeRejection,
   reasonAfterDispatch,
@@ -77,35 +80,10 @@ export function assertTransactionAdmission(
       },
     );
 }
-export interface SubmissionEvidence {
-  readonly signedTransaction: Uint8Array;
-  readonly transactionHash: Uint8Array;
-  readonly networkHash: Uint8Array;
-}
-/** Snapshot approved bytes before submission; accessor copies protect the retained record. */
-export function createSubmissionEvidence(
-  bytes: Uint8Array,
-  network: Uint8Array,
-): SubmissionEvidence {
-  const signedTransaction = new Uint8Array(bytes);
-  const networkHash = new Uint8Array(network);
-  if (networkHash.length !== 32)
-    throw new RangeError("networkHash must contain 32 bytes");
-  const transactionHash = hashSignedTransaction(
-    deserialize(signedTransaction, codec.SignedTransaction),
-  );
-  return Object.freeze({
-    get signedTransaction() {
-      return signedTransaction.slice();
-    },
-    get transactionHash() {
-      return transactionHash.slice();
-    },
-    get networkHash() {
-      return networkHash.slice();
-    },
-  });
-}
+export {
+  createSubmissionEvidence,
+  type SubmissionEvidence,
+} from "../transaction/submissionEvidence.js";
 export interface ExecutionResult {
   transactionHash: Uint8Array;
   receipt: TransactionReceipt;
@@ -216,7 +194,7 @@ export function decodeExecution<T extends readonly ContractCall[]>(
     const buffers = adapter.decodeExecutionReturns?.(receipt);
     if (buffers == null) throw resultUnavailable(receipt, submission);
     if (buffers.length !== calls.length)
-      throw new Error(
+      throw contractDecodeFailed(
         `Returned ${buffers.length} child results; expected ${calls.length}`,
       );
     return calls.map((call, index) =>

@@ -13,11 +13,9 @@ import type {
   AirdropResponse,
   AirdropSucceeded,
 } from "../../types/rpc.js";
-import {
-  waitForTransactionReceipt,
-  type KnownCommitment,
-} from "./waitForTransactionReceipt.js";
+import { waitForTransactionReceipt } from "./waitForTransactionReceipt.js";
 import { assertTransactionSuccess } from "../../wallet/execution.js";
+import { classifyReadError } from "../../transport/readError.js";
 import { beforeDeadline, validateTimer } from "../deadline.js";
 
 export interface RequestAirdropOptions {
@@ -145,10 +143,12 @@ export async function requestAirdrop(
       : timedOut
         ? "timeout"
         : native
-          ? "nodeRejected"
+          ? classifyReadError(cause) === "transient"
+            ? "disconnected"
+            : "nodeRejected"
           : "observationFailed";
     const transaction: TransactionFactsInput | undefined = receipt
-      ? receiptFacts(receipt, reason)
+      ? receiptFacts(receipt, "observationFailed")
       : observed
         ? {
             hash: observed.hash,

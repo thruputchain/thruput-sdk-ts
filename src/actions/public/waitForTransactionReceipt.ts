@@ -30,13 +30,14 @@ export interface WaitForTransactionReceiptOptions {
 function outcomeUnknown(
   transactionHash: Uint8Array,
   reason: TransactionReason,
+  timedOut: boolean,
   cause: unknown,
   knownCommitment: KnownCommitment | undefined,
   lastStatus: TransactionStatus | undefined,
 ): ThruputError<"transactionOutcomeUnknown"> {
   return new ThruputError(
     "transactionOutcomeUnknown",
-    reason === "timeout"
+    timedOut
       ? `Timed out waiting for transaction ${toBase58(transactionHash)}`
       : `Could not observe transaction ${toBase58(transactionHash)}`,
     {
@@ -315,6 +316,7 @@ async function observe(
     throw outcomeUnknown(
       transactionHash,
       reason,
+      timedOut && reason !== "cancelled",
       cause instanceof ObservationTimeout ? lastFailure : cause,
       commitment && structuredClone(commitment),
       lastStatus,

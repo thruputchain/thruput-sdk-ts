@@ -129,8 +129,6 @@ export class ThruputError<
    * Walk the `cause` chain, starting with this error. With a predicate, return
    * the first error that matches, or `null`. Without one, return the last cause.
    */
-  walk(): unknown;
-  walk(predicate: (error: unknown) => boolean): unknown;
   walk(predicate?: (error: unknown) => boolean): unknown {
     const seen = new Set<unknown>();
     let current: unknown = this;
@@ -151,46 +149,67 @@ export class ThruputError<
    * Return a JSON-safe form for `postMessage` or storage. Structured clone keeps
    * only `name`, `message`, `stack`, and `cause`, so use this across message
    * boundaries and rebuild the error with {@link parseThruputError}. `cause` is
-   * not included. Bytes become hex and bigints become decimal strings.
+   * not included. Bytes become hex and bigints become decimal strings. Messages
+   * longer than the limits of `parseThruputError` are shortened.
    */
   toJSON(): SerializedThruputError {
-    const transaction = this.transaction;
-    return {
-      name: "ThruputError",
-      code: this.code,
-      shortMessage: this.shortMessage,
-      ...(this.details === undefined ? {} : { details: this.details }),
-      context: encodeJson(this.context),
-      ...(transaction
-        ? {
-            transaction: {
-              hash: toHex0x(transaction.hash),
-              outcome: transaction.outcome,
-              reason: transaction.reason,
-              ...(transaction.receipt
-                ? { receipt: encodeJson(transaction.receipt) }
-                : {}),
-              ...(transaction.submission
-                ? {
-                    submission: {
-                      signedTransaction: toHex0x(
-                        transaction.submission.signedTransaction,
-                      ),
-                      networkHash: toHex0x(transaction.submission.networkHash),
-                    },
-                  }
-                : {}),
-            },
-          }
-        : {}),
-    };
+    return serialize(this, 0);
   }
+}
+
+/** Longest `shortMessage` and `details` in serialized form. */
+export const serializedMessageLimits = { shortMessage: 1024, details: 4096 };
+
+function truncate(text: string, limit: number): string {
+  return text.length <= limit ? text : `${text.slice(0, limit - 1)}…`;
+}
+
+function serialize(error: ThruputError, depth: number): SerializedThruputError {
+  const transaction = error.transaction;
+  return {
+    name: "ThruputError",
+    code: error.code,
+    shortMessage: truncate(
+      error.shortMessage,
+      serializedMessageLimits.shortMessage,
+    ),
+    ...(error.details === undefined
+      ? {}
+      : {
+          details: truncate(error.details, serializedMessageLimits.details),
+        }),
+    context: encodeJson(error.context, depth + 1),
+    ...(transaction
+      ? {
+          transaction: {
+            hash: toHex0x(transaction.hash),
+            outcome: transaction.outcome,
+            reason: transaction.reason,
+            ...(transaction.receipt
+              ? { receipt: encodeJson(transaction.receipt, depth + 1) }
+              : {}),
+            ...(transaction.submission
+              ? {
+                  submission: {
+                    signedTransaction: toHex0x(
+                      transaction.submission.signedTransaction,
+                    ),
+                    networkHash: toHex0x(transaction.submission.networkHash),
+                  },
+                }
+              : {}),
+          },
+        }
+      : {}),
+  };
 }
 
 /**
  * Check whether a value is a {@link ThruputError}, and optionally whether it has
  * a given code. Checks `name` and `code`, not `instanceof`, so it works across
- * realms and with more than one copy of the package.
+ * realms and with more than one copy of the package. It requires an `Error`
+ * object, so the plain output of `toJSON()` does not match; rebuild it with
+ * {@link parseThruputError} first.
  *
  * @example
  * ```ts
@@ -203,6 +222,8 @@ export function isThruputError<
   TCode extends ThruputErrorCode = ThruputErrorCode,
 >(error: unknown, code?: TCode): error is ThruputErrorOf<TCode> {
   return (
+    // Error.isError would be realm-safe, but needs Node 24. Check the tag instead.
+    Object.prototype.toString.call(error) === "[object Error]" &&
     error !== null &&
     typeof error === "object" &&
     "name" in error &&
@@ -268,7 +289,8 @@ function isUnsupportedRpcValue(
 /**
  * Encode a value as JSON-safe data with tagged objects: `$bytes` (hex),
  * `$bigint` (decimal), `$unsupported` (an unsupported RPC value), and `$error`.
- * Other errors keep only their name, because messages can be private.
+ * Other errors keep only their name, because messages can be private. A plain
+ * object whose only key is one of these tags decodes as the tagged value.
  */
 export function encodeJson(value: unknown, depth = 0): unknown {
   if (depth > 64) throw new RangeError("Error context is nested too deeply");
@@ -279,7 +301,7 @@ export function encodeJson(value: unknown, depth = 0): unknown {
       : value;
   }
   if (value instanceof Uint8Array) return { $bytes: toHex0x(value) };
-  if (isThruputError(value)) return { $error: value.toJSON() };
+  if (isThruputError(value)) return { $error: serialize(value, depth + 1) };
   if (value instanceof Error) return { $error: { name: value.name } };
   if (isUnsupportedRpcValue(value))
     return { $unsupported: encodeJson(value.raw, depth + 1) };

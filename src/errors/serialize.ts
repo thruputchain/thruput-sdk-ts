@@ -1,7 +1,7 @@
 import { fromHex0x } from "../actions/hex.js";
 import { UnsupportedRpcValue } from "../rpc/codec.js";
 import type { TransactionReceipt } from "../types/rpc.js";
-import { createSubmissionEvidence } from "../wallet/execution.js";
+import { createSubmissionEvidence } from "../transaction/submissionEvidence.js";
 import type { ThruputErrorCode } from "./codes.js";
 import { defineEntry, ThruputError } from "./thruputError.js";
 import {

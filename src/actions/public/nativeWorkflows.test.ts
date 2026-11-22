@@ -517,6 +517,21 @@ describe("single-call funding", () => {
     });
     expect(c.faucet_requestAirdrop).toHaveBeenCalledTimes(1);
   });
+  it("reports no transaction facts when a transient faucet error has no hash", async () => {
+    const c = client();
+    const cause = nativeRpcError(
+      rpcError(-32053, "busy", { kind: "overloaded" }).context,
+      "faucet_requestAirdrop",
+    );
+    expect(cause.context.kind).toBe("overloaded");
+    c.faucet_requestAirdrop.mockRejectedValue(cause);
+    const error = await requestAirdrop(c, { recipient }).catch((e) => e);
+    expect(error).toMatchObject({ code: "fundingStopped", cause });
+    expect(error.transaction).toBeUndefined();
+    expect(error.context.request.clientNonce).toBeInstanceOf(Uint8Array);
+    expect(c.faucet_requestAirdrop).toHaveBeenCalledTimes(1);
+  });
+
   it("retains commitment from a terminal faucet error without another call", async () => {
     const c = client();
     const rawReceipt = {

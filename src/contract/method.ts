@@ -660,8 +660,10 @@ export function defineContractMethodWithExceptions<
         !isThruputError(error, "contractCallFailed")
       )
         return undefined;
-      const { entrypoint: failed, outcome } = error.context;
-      return failed.length === entrypoint.length &&
+      // The throwing definition decoded the outcome, so require the same method.
+      const { method: failedName, entrypoint: failed, outcome } = error.context;
+      return failedName === name &&
+        failed.length === entrypoint.length &&
         failed.every((byte, index) => byte === entrypoint[index])
         ? (outcome as ContractFailure<ContractException<TDeclaredException>>)
         : undefined;
