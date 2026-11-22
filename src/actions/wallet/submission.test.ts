@@ -192,6 +192,30 @@ describe("high-level native submission", () => {
     ).toBe(false);
   });
 
+  it("does not write when persistence fails", async () => {
+    const { client, account, request, rpc } = await setup();
+    const cause = new Error("disk full");
+    const error = await sendInvocation(
+      client,
+      account,
+      signingNetwork,
+      request,
+      {
+        onSigned() {
+          throw cause;
+        },
+      },
+    ).catch((error) => error);
+    expect(error).toMatchObject({
+      code: "transactionNotSubmitted",
+      transaction: { outcome: "notSubmitted", reason: "persistenceFailed" },
+      cause,
+    });
+    expect(
+      rpc.mock.calls.some(([method]) => method === "sendTransaction"),
+    ).toBe(false);
+  });
+
   it("retains signed evidence and does not write when discovery changes during persistence", async () => {
     const { client, account, request, rpc } = await setup();
     let discovery = client.discovery;

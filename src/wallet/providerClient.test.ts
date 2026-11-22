@@ -427,6 +427,7 @@ describe("provider atomic batches", () => {
       }),
     ).rejects.toMatchObject({
       code: "transactionNotSubmitted",
+      transaction: { outcome: "notSubmitted", reason: "persistenceFailed" },
       cause: { message: "disk full" },
     });
     expect(methodCalls(request, "submitTransaction")).toHaveLength(0);
