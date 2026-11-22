@@ -32,12 +32,6 @@ export interface RpcErrorFields {
   readonly raw: unknown;
 }
 
-type KnownNativeRpcError = RpcErrorData extends infer TData
-  ? TData extends { kind: infer TKind }
-    ? { readonly kind: TKind; readonly data: TData }
-    : never
-  : never;
-
 /**
  * A native RPC error. Narrow on `kind` to read typed `data`. The kind
  * `unrecognized` means the error was unknown, malformed, or contradicted the
@@ -46,7 +40,11 @@ type KnownNativeRpcError = RpcErrorData extends infer TData
 export type NativeRpcErrorContext = Omit<RpcErrorFields, "data"> & {
   readonly method: string;
 } & (
-    | KnownNativeRpcError
+    | (RpcErrorData extends infer TData
+        ? TData extends { kind: infer TKind }
+          ? { readonly kind: TKind; readonly data: TData }
+          : never
+        : never)
     | { readonly kind: "unrecognized"; readonly data?: undefined }
   );
 

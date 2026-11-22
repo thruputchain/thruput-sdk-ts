@@ -165,7 +165,9 @@ available for reconciliation. The generated nonce is not persisted. For crash
 recovery, generate and persist `clientNonce`, recipient and network hash before
 calling `requestAirdrop({ recipient, clientNonce })`. Use `requestAirdropAttempt`
 to control read-only observation yourself. Faucet errors and pending responses
-without a transaction hash stop immediately. The SDK never repeats the faucet request.
+without a transaction hash stop immediately with code `fundingStopped`. Its
+`context.request.clientNonce` reconciles the attempt; a new nonce can fund twice.
+The SDK never repeats the faucet request.
 
 The predefined clusters are `mainnet`, `futurenet`, and `localnet`. Declare a
 deployment-specific cluster inline, or use `defineCluster` when the descriptor
@@ -436,6 +438,70 @@ Use `Ed25519Signer` with `createPubkeyAccount`, then request an airdrop or
 supply its public key in the node's initial allocations. Stored CLI keys can be
 exported explicitly through `thruput keys export`; never log that output.
 
+## Errors
+
+The client throws one error class, `ThruputError`. Identify an error by its
+stable `code`, and read typed data from `context`. `isThruputError` checks
+`name` and `code`, not `instanceof`, so it also works across realms and with
+more than one copy of the package.
+
+```ts
+import { isThruputError } from "@thruputchain/client";
+
+try {
+  await token.balanceOf.view({ client, address, args });
+} catch (error) {
+  if (
+    isThruputError(error, "nativeRpcError") &&
+    error.context.kind === "stateHeightUnavailable"
+  ) {
+    // The node is behind the requested height. Try again later.
+  }
+  throw error;
+}
+```
+
+Every error raised after a transaction is signed has `transaction` facts:
+`hash`, `outcome`, `reason`, and, when known, `receipt` and the signed
+`submission`. Decide what to do from `outcome` only:
+
+| Outcome        | Meaning                                                                       |
+| -------------- | ----------------------------------------------------------------------------- |
+| `succeeded`    | The receipt shows success. The error is about a later step, such as decoding. |
+| `failed`       | The receipt shows failed execution.                                           |
+| `notSubmitted` | The client did not dispatch the transaction.                                  |
+| `unknown`      | The client cannot know. Never send it again. Observe `hash` instead.          |
+
+```ts
+try {
+  await wallet.executeAndWait(request);
+} catch (error) {
+  if (isThruputError(error) && error.transaction?.outcome === "unknown") {
+    saveForLaterObservation(error.transaction.hash);
+  }
+  throw error;
+}
+```
+
+`reason` tells you why the operation stopped, for example `timeout`,
+`cancelled`, `nodeRejected`, or `persistenceFailed`. A node rejection keeps the
+outcome `unknown`, because another node or path can still have the transaction.
+
+`message` combines `shortMessage`, `details`, and a link to the code's
+documentation. `details` comes only from a `ThruputError` cause; the client
+never copies messages from your callbacks or signers. Invalid arguments, such as
+a wrong byte length, throw native `TypeError` or `RangeError` before any network
+call.
+
+Structured clone keeps only the name, message, stack, and cause of an error. To
+send an error across `postMessage` or store it, use `error.toJSON()` and rebuild
+it with `parseThruputError(value)`. Generated contract methods read their typed
+failure from an error with `method.decodeError(error)`.
+
+Custom transports report failures with the same class, for example
+`new ThruputError("httpRequestFailed", message, { context, cause })`. Other
+packages can add codes by augmenting the `ThruputErrorContext` interface.
+
 ## Native RPC client
 
 `createRpcClient` exposes the native wire-14 methods directly. It validates the
@@ -455,12 +521,13 @@ const balance = await rpc.getBalance({ address: accountAddress });
 
 Each method makes one RPC call. There are no retries, transaction signing or
 receipt waits in this layer. Unknown response variants retain their original
-payload in `UnsupportedRpcValue`; malformed known results throw
-`RpcDecodingError`. Invalid local inputs throw `RpcRequestValidationError`
-before dispatch. `NativeRpcError.decoded` distinguishes known, valid evidence
-from unclassified errors; both retain the complete raw error. Neither classification
-authorizes retries. Transaction evidence is compared with the requested hash.
-Malformed HTTP reply envelopes throw `RpcResponseError` with the raw reply.
+payload in `UnsupportedRpcValue`; malformed known results throw code
+`rpcValueInvalid`. Invalid local inputs throw code `rpcRequestInvalid` before
+dispatch. A native error throws code `nativeRpcError`: `context.kind` names a
+known, valid error and narrows `context.data`, or is `unrecognized`. Both keep
+the complete raw error in `context.raw`. Neither authorizes retries. Transaction
+evidence is compared with the requested hash. Malformed HTTP reply envelopes
+throw code `rpcResponseInvalid` with the raw reply.
 `refreshDiscovery()` performs only discovery reads and never replays writes.
 
 ### Local block and time control
@@ -489,7 +556,7 @@ After a time change, later blocks continue from the new time.
 returns it to the wall clock. From thruput CLI 0.47.0, a contract view runs at
 the time the next block would get, so it sees a time change at once. A timepoint
 earlier than the chain tip's is rejected (`-32602`). A result that contradicts
-its request, such as a different pinned timepoint, throws `RpcDecodingError`.
+its request, such as a different pinned timepoint, throws code `rpcValueInvalid`.
 
 ## Wallet clients
 
@@ -805,8 +872,8 @@ use legacy single-call behavior without sending an unknown request to the bridge
 `getCapabilities` takes `{ account, networkHash }` and returns the same scope
 plus `atomicBatch: { maxCalls }`, or `atomicBatch: null` when unsupported.
 The current DefaultWallet limit is 16 calls. The provider must verify origin,
-account, and network authorization without prompting. Error 4200 also means
-unsupported; other failures and malformed responses remain errors.
+account, and network authorization without prompting. Provider code 4200 also
+means unsupported; other failures and malformed responses remain errors.
 
 An external `ProviderWalletClient` exposes `getCapabilities()` and
 `prepareBatchExecution({ invocations, gasLimit, ...transactionOptions })`.

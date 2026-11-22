@@ -19,15 +19,13 @@ const failures = [];
 let checked = 0;
 const requiredExports = {
   ".": [
-    "ContractViewError",
-    "HttpResponseError",
+    "ThruputError",
+    "isThruputError",
+    "parseThruputError",
     "HttpTransport",
-    "TransactionReceiptObservationError",
     "Ed25519Signer",
     "createThruputClient",
     "createRpcClient",
-    "NativeRpcError",
-    "FundingObservationError",
     "createPubkeyAccount",
     "createSourceAddressAccount",
     "createTransaction",
@@ -49,14 +47,10 @@ const requiredExports = {
   "./transport": [
     "NativeRpcErrorCode",
     "txInvalidDetail",
-    "HttpResponseError",
     "HttpTransport",
-    "JsonRpcError",
     "MockTransport",
   ],
   "./contract": [
-    "ContractDecodeError",
-    "ContractViewError",
     "createContractCodecContext",
     "defineContractEvent",
     "defineContractMethod",
@@ -76,7 +70,6 @@ const requiredExports = {
   ],
   "./signers": ["Ed25519Signer", "MlDsa65Signer", "verifyMlDsa65"],
   "./actions": [
-    "TransactionReceiptObservationError",
     "waitForCommitment",
     "iterateEventPages",
     "iterateTransactionsByRootAddress",
@@ -147,6 +140,23 @@ for (const [subpath, entry] of Object.entries(pkg.exports)) {
       failures.push(`${subpath} (${condition}): ${message}`);
     }
   }
+}
+
+// The ESM and CJS builds are two copies of the package. isThruputError must
+// recognize an error from either copy, which instanceof cannot do.
+try {
+  const esm = await import(pkg.name);
+  const cjs = require(pkg.name);
+  const error = new cjs.ThruputError("rpcIncompatible", "Endpoint mismatch");
+  if (!esm.isThruputError(error, "rpcIncompatible"))
+    failures.push("isThruputError: rejected an error from the CJS copy");
+  const parsed = esm.parseThruputError(JSON.parse(JSON.stringify(error)));
+  if (parsed.code !== "rpcIncompatible")
+    failures.push("parseThruputError: did not round-trip the code");
+} catch (error) {
+  failures.push(
+    `ThruputError: ${error instanceof Error ? error.message : error}`,
+  );
 }
 
 if (failures.length > 0) {

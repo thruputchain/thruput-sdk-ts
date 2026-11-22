@@ -19,13 +19,11 @@ import {
   toBase58,
   deriveEntrypointID,
   encodeCalldata,
+  isThruputError,
 } from "@thruputchain/client";
 import { codec as specCodec, deserialize } from "@thruputchain/contract-spec";
 import { readTransactionInput } from "@thruputchain/client/actions";
-import {
-  NativeRpcErrorCode,
-  JsonRpcError,
-} from "@thruputchain/client/transport";
+import { NativeRpcErrorCode } from "@thruputchain/client/transport";
 import {
   DefaultWallet,
   ERC20,
@@ -226,8 +224,8 @@ test("built SDK against a real local node", { timeout }, async (t) => {
     assert.deepEqual(missing, { status: "fulfilled", value: null });
     assert.deepEqual(duplicate, missing);
     assert.equal(invalid.status, "rejected");
-    assert.ok(invalid.reason instanceof JsonRpcError);
-    assert.equal(invalid.reason.code, NativeRpcErrorCode.InvalidParams);
+    assert.ok(isThruputError(invalid.reason, "rpcError"));
+    assert.equal(invalid.reason.context.code, NativeRpcErrorCode.InvalidParams);
   });
 
   await t.test(
@@ -388,8 +386,8 @@ test("built SDK against a real local node", { timeout }, async (t) => {
           break;
         } catch (error) {
           if (
-            !(error instanceof JsonRpcError) ||
-            error.code !== NativeRpcErrorCode.StateHeightUnavailable
+            !isThruputError(error, "nativeRpcError") ||
+            error.context.code !== NativeRpcErrorCode.StateHeightUnavailable
           ) {
             throw error;
           }
@@ -780,10 +778,10 @@ test("built SDK against a real local node", { timeout }, async (t) => {
         signedTransaction: "not-valid-hex",
       }),
       (error) => {
-        assert.ok(error instanceof JsonRpcError);
-        assert.equal(error.code, NativeRpcErrorCode.InvalidParams);
-        assert.equal(error.method, "sendTransaction");
-        assert.equal(typeof error.message, "string");
+        assert.ok(isThruputError(error, "rpcError"));
+        assert.equal(error.context.code, NativeRpcErrorCode.InvalidParams);
+        assert.equal(error.context.method, "sendTransaction");
+        assert.equal(typeof error.context.rpcMessage, "string");
         return true;
       },
     );
