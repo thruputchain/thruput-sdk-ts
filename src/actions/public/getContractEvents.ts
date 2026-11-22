@@ -3,7 +3,7 @@ import type {
   ContractEventFilterInput,
   DecodedContractEvent,
 } from "../../contract/event.js";
-import { ContractDecodeError } from "../../contract/errors.js";
+import { contractDecodeFailed } from "../../contract/errors.js";
 import type { TransportRequestOptions } from "../../transport/types.js";
 import type {
   EmittedEvent,
@@ -50,7 +50,7 @@ export type ContractEventPage<TName extends string, TTopics, TFields> = Omit<
  *
  * No additional pages are fetched. Pass the returned cursor into the next call
  * with the same filters. Malformed events and unexpected signatures throw
- * ContractDecodeError rather than silently disappearing from the page.
+ * code `contractDecodeFailed` rather than silently disappearing from the page.
  *
  * @example
  * ```ts
@@ -87,7 +87,7 @@ export async function getContractEvents<
     events: page.events.map(({ event: raw, ...identity }) => {
       const decoded = event.decode(raw);
       if (decoded === null) {
-        throw new ContractDecodeError(
+        throw contractDecodeFailed(
           "Event query returned an unexpected event signature",
         );
       }

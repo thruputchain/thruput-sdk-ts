@@ -8,11 +8,16 @@ import { codec, serialize, sha256Hash } from "@thruputchain/protocol";
 import {
   createSubmissionEvidence,
   assertTransactionAdmission,
-  TransactionObservationError,
   type SubmissionEvidence,
 } from "../../wallet/execution.js";
-import { RpcRequestValidationError } from "../../rpc/codec.js";
-import { RpcCompatibilityError } from "../../rpc/client.js";
+import { isThruputError } from "../../errors/thruputError.js";
+import { rpcIncompatible } from "../../rpc/client.js";
+import {
+  reasonAfterDispatch,
+  reasonBeforeDispatch,
+  transactionNotSubmitted,
+  transactionOutcomeUnknown,
+} from "../../wallet/transactionErrors.js";
 import type { CoreThruputClient } from "../../client.js";
 import type { WalletAccount } from "../../wallet/account.js";
 import { signTransaction as sign } from "../../transaction/sign.js";
@@ -54,7 +59,7 @@ export async function sendInvocation(
       discovered.length !== 32 ||
       signingNetwork.some((value, index) => value !== discovered[index])
     )
-      throw new RpcCompatibilityError(
+      throw rpcIncompatible(
         "Signing network does not match endpoint discovery",
       );
   };
@@ -70,28 +75,39 @@ export async function sendInvocation(
     serialize(signed, codec.SignedTransaction),
     signingNetwork,
   );
-  let phase: "beforeSubmission" | "submission" = "beforeSubmission";
   try {
     await controls.onSigned?.(evidence);
+  } catch (cause) {
+    throw transactionNotSubmitted(evidence, "persistenceFailed", cause);
+  }
+  try {
     controls.signal?.throwIfAborted();
     checkNetwork();
-    phase = "submission";
-    const result = await client.sendTransaction(
+  } catch (cause) {
+    throw transactionNotSubmitted(
+      evidence,
+      reasonBeforeDispatch(cause, controls.signal),
+      cause,
+    );
+  }
+  let result;
+  try {
+    result = await client.sendTransaction(
       { signedTransaction: evidence.signedTransaction },
       { signal: controls.signal },
     );
-    assertTransactionAdmission(result);
-    return sha256Hash(result.transactionHash);
   } catch (cause) {
-    throw new TransactionObservationError(
+    if (
+      isThruputError(cause, "rpcRequestInvalid") ||
+      isThruputError(cause, "rpcIncompatible")
+    )
+      throw transactionNotSubmitted(evidence, "requestInvalid", cause);
+    throw transactionOutcomeUnknown(
       evidence,
+      reasonAfterDispatch(cause, controls.signal),
       cause,
-      undefined,
-      undefined,
-      cause instanceof RpcRequestValidationError ||
-        cause instanceof RpcCompatibilityError
-        ? "beforeSubmission"
-        : phase,
     );
   }
+  assertTransactionAdmission(result, evidence);
+  return sha256Hash(result.transactionHash);
 }

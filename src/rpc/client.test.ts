@@ -7,21 +7,10 @@ import vectors from "../../specs/test-vectors/pubkey_auth.json";
 import { fromHex0x, toHex0x } from "../actions/hex.js";
 import { toBase58 } from "../encoding.js";
 import { hashSignedTransaction } from "../derivation/transactionHash.js";
-import { RpcResponseError } from "../transport/responseError.js";
-import { HttpTransport, JsonRpcError } from "../transport/http.js";
-import {
-  createRpcClient,
-  RpcCompatibilityError,
-  type RpcMethod,
-} from "./client.js";
-import {
-  decodeResult,
-  encodeRequest,
-  RpcDecodingError,
-  RpcRequestValidationError,
-  UnsupportedRpcValue,
-} from "./codec.js";
-import { NativeRpcError } from "./errorReader.js";
+import { HttpTransport } from "../transport/http.js";
+import type { ThruputError } from "../errors/thruputError.js";
+import { createRpcClient, type RpcMethod } from "./client.js";
+import { decodeResult, encodeRequest, UnsupportedRpcValue } from "./codec.js";
 import type { RpcRequests } from "./generated.js";
 
 const address = new Uint8Array(32).fill(1);
@@ -303,9 +292,9 @@ describe("native RPC client", () => {
       });
       expected.fill(2);
       endpoint.results.getNetworkInfo = { networkHash: toBase58(expected) };
-      await expect(client.refreshDiscovery()).rejects.toBeInstanceOf(
-        RpcCompatibilityError,
-      );
+      await expect(client.refreshDiscovery()).rejects.toMatchObject({
+        code: "rpcIncompatible",
+      });
       expect(client.discovery.network.networkHash).toEqual(address);
     },
   );
@@ -415,8 +404,10 @@ describe("native RPC client", () => {
         decodeResult("getTransactionReceipt", raw);
         throw new Error("expected invalid result");
       } catch (error) {
-        expect(error).toBeInstanceOf(RpcDecodingError);
-        expect((error as RpcDecodingError).raw).toBe(raw);
+        expect(error).toMatchObject({ code: "rpcValueInvalid" });
+        expect((error as ThruputError<"rpcValueInvalid">).context.raw).toEqual(
+          raw,
+        );
       }
     }
   });
@@ -484,7 +475,7 @@ describe("native RPC client", () => {
       const endpoint = server(override);
       await expect(
         createRpcClient({ transport: endpoint.transport, ...options }),
-      ).rejects.toBeInstanceOf(RpcCompatibilityError);
+      ).rejects.toMatchObject({ code: "rpcIncompatible" });
       expect(endpoint.calls.some((c) => c.method === "sendTransaction")).toBe(
         false,
       );
@@ -539,8 +530,10 @@ describe("native RPC client", () => {
       await client.sendTransaction({ signedTransaction });
       throw new Error("expected error");
     } catch (error) {
-      expect(error).toBeInstanceOf(JsonRpcError);
-      expect((error as JsonRpcError).data).toEqual(data);
+      expect(error).toMatchObject({
+        code: "nativeRpcError",
+        context: { kind: "unrecognized", raw: { data } },
+      });
     }
     expect(endpoint.fetch).toHaveBeenCalledTimes(count + 1);
   });
@@ -554,28 +547,28 @@ describe("native RPC client", () => {
     expect((await client.getEvents(params.getEvents)).nextCursor).toBe("0x01");
     await expect(
       client.getEvents({ filters: params.getEvents.filters, cursor: "0x01" }),
-    ).rejects.toBeInstanceOf(RpcDecodingError);
+    ).rejects.toMatchObject({ code: "rpcValueInvalid" });
     endpoint.results.getTransactionReceipt = {
       ...receipt,
       transactionHash: base58,
     };
     await expect(
       client.getTransactionReceipt({ transactionHash: hash }),
-    ).rejects.toBeInstanceOf(RpcDecodingError);
+    ).rejects.toMatchObject({ code: "rpcValueInvalid" });
     endpoint.results.getTransactionsByBlock = {
       ...bounds,
       transactions: [{ transactionHash: hashText, blockHeight: "4" }],
     };
     await expect(
       client.getTransactionsByBlock(params.getTransactionsByBlock),
-    ).rejects.toBeInstanceOf(RpcDecodingError);
+    ).rejects.toMatchObject({ code: "rpcValueInvalid" });
     endpoint.results.sendTransaction = {
       transactionHash: base58,
       admission: "accepted",
     };
     await expect(
       client.sendTransaction({ signedTransaction }),
-    ).rejects.toBeInstanceOf(RpcDecodingError);
+    ).rejects.toMatchObject({ code: "rpcValueInvalid" });
   });
   it("uses object params in reordered HTTP batches and preserves per-call cancellation", async () => {
     const endpoint = server({}, true);
@@ -614,8 +607,10 @@ describe("native RPC client", () => {
       await createRpcClient({ transport });
       throw new Error("expected RPC failure");
     } catch (error) {
-      expect(error).toBeInstanceOf(JsonRpcError);
-      expect((error as JsonRpcError).data).toEqual(data);
+      expect(error).toMatchObject({
+        code: "nativeRpcError",
+        context: { kind: "unrecognized", raw: { data } },
+      });
     }
   });
   it("separates local validation from dispatched response failures and keeps malformed funding evidence", async () => {
@@ -630,7 +625,7 @@ describe("native RPC client", () => {
         await client.sendTransaction(request);
         throw new Error("expected failure");
       } catch (error) {
-        expect(error).toBeInstanceOf(RpcRequestValidationError);
+        expect(error).toMatchObject({ code: "rpcRequestInvalid" });
         expect(error).not.toHaveProperty("raw");
       }
     }
@@ -644,8 +639,10 @@ describe("native RPC client", () => {
       await client.dev_fundAccount(params.dev_fundAccount);
       throw new Error("expected failure");
     } catch (error) {
-      expect(error).toBeInstanceOf(RpcDecodingError);
-      expect((error as RpcDecodingError).raw).toEqual(raw);
+      expect(error).toMatchObject({ code: "rpcValueInvalid" });
+      expect((error as ThruputError<"rpcValueInvalid">).context.raw).toEqual(
+        raw,
+      );
     }
     expect(endpoint.calls).toHaveLength(count + 1);
   });
@@ -671,10 +668,11 @@ describe("native RPC client", () => {
         await client.sendTransaction({ signedTransaction });
         throw new Error("expected error");
       } catch (error) {
-        expect(error).toBeInstanceOf(NativeRpcError);
-        expect((error as NativeRpcError).raw).toEqual(raw);
-        expect((error as NativeRpcError).decoded.classification).toBe(
-          transactionHash === hashText ? "known" : "unclassified",
+        expect(error).toMatchObject({ code: "nativeRpcError" });
+        const { context } = error as ThruputError<"nativeRpcError">;
+        expect(context.raw).toEqual(raw);
+        expect(context.kind).toBe(
+          transactionHash === hashText ? "backendTimeout" : "unrecognized",
         );
       }
     }
@@ -706,7 +704,7 @@ describe("native RPC client", () => {
       endpoint.results.getTransactionsByRootAddress = page;
       await expect(
         client.getTransactionsByRootAddress(request),
-      ).rejects.toBeInstanceOf(RpcDecodingError);
+      ).rejects.toMatchObject({ code: "rpcValueInvalid" });
     }
     const event = (wire.getEvents as { events: object[] }).events[0]!;
     for (const page of [
@@ -739,9 +737,9 @@ describe("native RPC client", () => {
       },
     ]) {
       endpoint.results.getEvents = page;
-      await expect(client.getEvents(params.getEvents)).rejects.toBeInstanceOf(
-        RpcDecodingError,
-      );
+      await expect(client.getEvents(params.getEvents)).rejects.toMatchObject({
+        code: "rpcValueInvalid",
+      });
     }
     for (const page of [
       { ...bounds, nextCursor: "0x01", transactions: [] },
@@ -751,7 +749,7 @@ describe("native RPC client", () => {
       endpoint.results.getTransactionsByBlock = page;
       await expect(
         client.getTransactionsByBlock({ blockHeight: 5n, cursor: "0x02" }),
-      ).rejects.toBeInstanceOf(RpcDecodingError);
+      ).rejects.toMatchObject({ code: "rpcValueInvalid" });
     }
   });
   it("rejects a block from another network and preserves discovery on invalid refresh", async () => {
@@ -766,7 +764,7 @@ describe("native RPC client", () => {
     };
     await expect(
       client.getBlockByHeight({ blockHeight: 5n }),
-    ).rejects.toBeInstanceOf(RpcDecodingError);
+    ).rejects.toMatchObject({ code: "rpcValueInvalid" });
     const previous = client.discovery;
     for (const version of [
       { ...(wire.getVersionInfo as object), wireFormat: "15.0.0" },
@@ -776,9 +774,9 @@ describe("native RPC client", () => {
       },
     ]) {
       endpoint.results.getVersionInfo = version;
-      await expect(client.refreshDiscovery()).rejects.toBeInstanceOf(
-        RpcCompatibilityError,
-      );
+      await expect(client.refreshDiscovery()).rejects.toMatchObject({
+        code: "rpcIncompatible",
+      });
       expect(client.discovery).toEqual(previous);
     }
   });
@@ -853,11 +851,11 @@ describe("native RPC client", () => {
           await client.sendTransaction({ signedTransaction });
           throw new Error("expected failure");
         } catch (error) {
-          expect(error).toBeInstanceOf(RpcResponseError);
+          expect(error).toMatchObject({ code: "rpcResponseInvalid" });
           // Per-call malformed data retains that envelope; invalid batch structure retains the array.
-          expect((error as RpcResponseError).raw).toEqual(
-            batch && shape === "code" ? (raw as unknown[])[0] : raw,
-          );
+          expect(
+            (error as ThruputError<"rpcResponseInvalid">).context.raw,
+          ).toEqual(batch && shape === "code" ? (raw as unknown[])[0] : raw);
         }
         expect(endpoint.fetch).toHaveBeenCalledTimes(4);
       }
@@ -877,7 +875,7 @@ describe("native RPC client", () => {
     const before = endpoint.calls.length;
     await expect(
       client.dev_setBlockDriver({ mode: "interval", intervalMilliseconds: 0n }),
-    ).rejects.toBeInstanceOf(RpcRequestValidationError);
+    ).rejects.toMatchObject({ code: "rpcRequestInvalid" });
     expect(endpoint.calls).toHaveLength(before);
   });
   it("clears the block time step with an empty or omitted request", async () => {
@@ -942,7 +940,7 @@ describe("native RPC client", () => {
     ];
     for (const [method, result, call] of cases) {
       endpoint.results[method] = result;
-      await expect(call()).rejects.toBeInstanceOf(RpcDecodingError);
+      await expect(call()).rejects.toMatchObject({ code: "rpcValueInvalid" });
       endpoint.results[method] = wire[method];
     }
   });
@@ -956,7 +954,7 @@ describe("native RPC client", () => {
     const client = await createRpcClient({ transport: endpoint.transport });
     await expect(
       client.getBlockByHeight({ blockHeight: 0n }),
-    ).rejects.toBeInstanceOf(RpcDecodingError);
+    ).rejects.toMatchObject({ code: "rpcValueInvalid" });
   });
 });
 

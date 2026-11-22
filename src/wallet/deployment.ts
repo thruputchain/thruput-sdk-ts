@@ -21,9 +21,9 @@ import type { PrepareTransactionRequest } from "../actions/wallet/prepareTransac
 import { toBase58 } from "../encoding.js";
 import {
   assertTransactionSuccess,
-  ExecutionDecodeError,
   type SubmissionEvidence,
 } from "./execution.js";
+import { transactionResultUndecodable } from "./transactionErrors.js";
 
 /** Stable deployment identity, available before transaction preparation. */
 export interface ContractDeployment {
@@ -137,6 +137,6 @@ export function decodeDeployment(
       );
     return address;
   } catch (cause) {
-    throw new ExecutionDecodeError(receipt, cause, submission);
+    throw transactionResultUndecodable(receipt, cause, submission);
   }
 }

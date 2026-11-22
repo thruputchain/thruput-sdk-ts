@@ -25,10 +25,7 @@ import type {
   ViewResponse,
 } from "../types/rpc.js";
 import { createContractCodecContext } from "./codec.js";
-import { ContractDecodeError } from "./errors.js";
 import {
-  ContractReceiptError,
-  ContractViewError,
   defineContractMethod,
   type ContractMethodDefinition,
 } from "./method.js";
@@ -261,7 +258,7 @@ describe("contract argument decoding", () => {
       method.decodeArgs(encode((writer) => writer.writeUint32(300n))),
     ).toThrow('Example.update: argument "first"');
     expect(() => method.decodeArgs(new Uint8Array())).toThrow(
-      ContractDecodeError,
+      expect.objectContaining({ code: "contractDecodeFailed" }),
     );
   });
 
@@ -278,7 +275,7 @@ describe("contract argument decoding", () => {
   it("returns undefined only for valid no-argument calldata", () => {
     expect(ERC20.v0_1.getBalance.decodeArgs(new Uint8Array())).toBeUndefined();
     expect(() => ERC20.v0_1.getBalance.decodeArgs(new Uint8Array([0]))).toThrow(
-      ContractDecodeError,
+      expect.objectContaining({ code: "contractDecodeFailed" }),
     );
   });
 
@@ -348,8 +345,8 @@ describe("contract method decoding", () => {
   });
 
   it("rejects malformed and trailing return data", () => {
-    expect(() => method.decodeReturn(new Uint8Array())).toThrowError(
-      ContractDecodeError,
+    expect(() => method.decodeReturn(new Uint8Array())).toThrow(
+      expect.objectContaining({ code: "contractDecodeFailed" }),
     );
 
     const data = encode((writer) => {
@@ -406,10 +403,10 @@ describe("contract method decoding", () => {
     ).toMatchObject({ kind: "return", value });
     expect(() =>
       descriptor.decodeReturn(returned.subarray(0, returned.length - 1)),
-    ).toThrow(ContractDecodeError);
+    ).toThrow(expect.objectContaining({ code: "contractDecodeFailed" }));
     expect(() =>
       descriptor.decodeException(aborted.subarray(0, aborted.length - 1)),
-    ).toThrow(ContractDecodeError);
+    ).toThrow(expect.objectContaining({ code: "contractDecodeFailed" }));
   });
 
   it("preserves unknown abort payloads beyond the former buffer limit", () => {
@@ -543,9 +540,25 @@ describe("contract method receipts", () => {
       blockHeight: 12n,
       events,
     });
-    expect(() => method.decodeReceipt(reverted)).toThrowError(
-      ContractReceiptError,
+    let error: unknown;
+    try {
+      method.decodeReceipt(reverted);
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toMatchObject({
+      code: "contractCallFailed",
+      transaction: { outcome: "failed", reason: "aborted" },
+    });
+    const failure = method.decodeError(error);
+    expect(failure?.kind === "abort" && failure.exception).toMatchObject({
+      name: "BadValue",
+      value: -9n,
+    });
+    const other = defineContractMethod<void, void, never>(
+      definition({ entrypoint: contractEntrypointID(new Uint8Array(8)) }),
     );
+    expect(other.decodeError(error)).toBeUndefined();
   });
 
   it("preserves faults and rejects truncated successful return bytes", () => {
@@ -554,8 +567,18 @@ describe("contract method receipts", () => {
       kind: "failure",
       execution: { result: "fault" },
     });
-    expect(() => method.decodeReceipt(failed)).toThrow(ContractReceiptError);
-    expect(() => method.decodeReceipt(receipt())).toThrow(ContractDecodeError);
+    expect(() => method.decodeReceipt(failed)).toThrow(
+      expect.objectContaining({
+        code: "contractCallFailed",
+        transaction: expect.objectContaining({
+          outcome: "failed",
+          reason: "faulted",
+        }),
+      }),
+    );
+    expect(() => method.decodeReceipt(receipt())).toThrow(
+      expect.objectContaining({ code: "contractDecodeFailed" }),
+    );
   });
 });
 
@@ -725,7 +748,7 @@ describe("contract method views", () => {
   });
 
   it.each(["abort", "fault"] as const)(
-    "the ergonomic view throws ContractViewError for %s outcomes",
+    "the ergonomic view throws contractViewFailed for %s outcomes",
     async (result) => {
       const abortData = encode((writer) => writer.writeUint64(88n));
       const client = clientReturning({
@@ -740,10 +763,16 @@ describe("contract method views", () => {
         address,
         args: { first: 1n, second: 2n },
       });
-      await expect(promise).rejects.toBeInstanceOf(ContractViewError);
       await expect(promise).rejects.toMatchObject({
-        outcome: { kind: result, gasUsed: 42n },
+        code: "contractViewFailed",
+        context: {
+          method: method.name,
+          outcome: { kind: result, gasUsed: 42n },
+        },
       });
+      const error = await promise.catch((error: unknown) => error);
+      expect(method.decodeError(error)).toMatchObject({ kind: result });
+      expect(method.decodeError(new Error("other"))).toBeUndefined();
     },
   );
 

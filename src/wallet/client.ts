@@ -37,7 +37,6 @@ import type {
 import {
   submitAndObserve,
   createSubmissionEvidence,
-  TransactionObservationError,
   type SubmissionEvidence,
   assertTransactionSuccess,
   assertTransactionAdmission,
@@ -45,6 +44,8 @@ import {
   type CallResults,
   type ExecutionResult,
 } from "./execution.js";
+import { transactionNotSubmitted } from "./transactionErrors.js";
+import { rpcIncompatible } from "../rpc/client.js";
 import type { ContractCall } from "../contract/method.js";
 import type { ExecuteCallsRequest } from "./providerClient.js";
 import type { WaitForTransactionReceiptOptions } from "../actions/public/waitForTransactionReceipt.js";
@@ -250,7 +251,9 @@ export function createWalletClient<
       (v, i) => v !== client.discovery.network.networkHash[i],
     )
   )
-    throw new Error("Wallet signing network does not match endpoint discovery");
+    throw rpcIncompatible(
+      "Wallet signing network does not match endpoint discovery",
+    );
   const signingNetworkHash = toNetworkHash(
     sha256Hash(new Uint8Array(sourceNetworkHash)),
   );
@@ -378,15 +381,8 @@ export function createWalletClient<
     );
     try {
       await onSigned?.(evidence);
-      wait?.signal?.throwIfAborted();
     } catch (cause) {
-      throw new TransactionObservationError(
-        evidence,
-        cause,
-        undefined,
-        undefined,
-        "beforeSubmission",
-      );
+      throw transactionNotSubmitted(evidence, "persistenceFailed", cause);
     }
     return submitAndObserve(
       client,
@@ -396,7 +392,7 @@ export function createWalletClient<
           { signedTransaction: evidence.signedTransaction },
           { signal },
         );
-        assertTransactionAdmission(response);
+        assertTransactionAdmission(response, evidence);
       },
       { ...wait, expectedNetworkHash: signingNetworkHash },
     );

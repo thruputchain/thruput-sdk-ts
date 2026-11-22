@@ -8,7 +8,6 @@ import {
 import { ContractTypeKind } from "@thruputchain/contract-spec";
 import type { EmittedEvent } from "../types/rpc.js";
 import { createContractCodecContext } from "./codec.js";
-import { ContractDecodeError } from "./errors.js";
 import { defineContractEvent, type ContractEventDefinition } from "./event.js";
 
 const { PingEvent } = counter.v0_1.implementation;
@@ -209,7 +208,7 @@ describe("contract event construction and decoding", () => {
 
     expect(() =>
       descriptor.decode(emitted({ topics: [signature, account, id.slice(1)] })),
-    ).toThrowError(ContractDecodeError);
+    ).toThrow(expect.objectContaining({ code: "contractDecodeFailed" }));
     expect(() =>
       descriptor.decode(emitted({ data: new Uint8Array() })),
     ).toThrow(/Failed to decode Changed/);
@@ -502,7 +501,7 @@ describe("direct scalar topics (SDK sdk_rs#463 encoding)", () => {
             topics: [signature, topicBytes(value)],
             data: new Uint8Array(),
           }),
-        ).toThrow(ContractDecodeError);
+        ).toThrow(expect.objectContaining({ code: "contractDecodeFailed" }));
       }
       expect(() =>
         descriptor.filter({
@@ -547,7 +546,7 @@ describe("direct scalar topics (SDK sdk_rs#463 encoding)", () => {
           topics: [signature, topicBytes(value)],
           data: new Uint8Array(),
         }),
-      ).toThrow(ContractDecodeError);
+      ).toThrow(expect.objectContaining({ code: "contractDecodeFailed" }));
     }
     for (const enabled of [0, 1n, "true"]) {
       expect(() =>
@@ -639,7 +638,7 @@ describe("contract event receipt extraction", () => {
         { events: [malformedA] },
         { address: emitterA },
       ),
-    ).toThrow(ContractDecodeError);
+    ).toThrow(expect.objectContaining({ code: "contractDecodeFailed" }));
   });
 
   it("enforces zero and multiple match cardinality", () => {

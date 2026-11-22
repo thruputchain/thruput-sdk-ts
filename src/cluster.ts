@@ -5,6 +5,7 @@ import {
 } from "@thruputchain/protocol";
 import type { NetworkInfo } from "./types/rpc.js";
 import { toBase58 } from "./encoding.js";
+import { ThruputError } from "./errors/thruputError.js";
 
 /** Public Thruput Futurenet JSON-RPC endpoint. */
 export const FUTURENET_RPC_URL = "https://rpc.thruput.network";
@@ -130,26 +131,7 @@ export function localnet(
   });
 }
 
-/** Error thrown when an RPC endpoint does not match its declared cluster. */
-export class NetworkMismatchError extends Error {
-  readonly cluster: Cluster;
-  readonly actual: NetworkInfo;
-
-  constructor(cluster: Cluster, actual: NetworkInfo) {
-    const expected =
-      cluster.networkHash === undefined
-        ? "an unpinned network"
-        : `network ${toBase58(cluster.networkHash)}`;
-    super(
-      `Network mismatch${cluster.name ? ` for ${cluster.name}` : ""}: expected ${expected}, received network ${toBase58(actual.networkHash)}`,
-    );
-    this.name = "NetworkMismatchError";
-    this.cluster = cluster;
-    this.actual = actual;
-  }
-}
-
-/** Assert that runtime network information matches a cluster descriptor. */
+/** Assert that runtime network information matches a cluster descriptor. Throws code `networkMismatch`. */
 export function assertNetworkMatchesCluster(
   cluster: Cluster,
   actual: NetworkInfo,
@@ -158,7 +140,11 @@ export function assertNetworkMatchesCluster(
     cluster.networkHash !== undefined &&
     !bytesEqual(actual.networkHash, cluster.networkHash)
   ) {
-    throw new NetworkMismatchError(cluster, actual);
+    throw new ThruputError(
+      "networkMismatch",
+      `Network mismatch${cluster.name ? ` for ${cluster.name}` : ""}: expected network ${toBase58(cluster.networkHash)}, received network ${toBase58(actual.networkHash)}`,
+      { context: { cluster, actual } },
+    );
   }
 }
 

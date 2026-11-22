@@ -1,0 +1,147 @@
+import { toBase58 } from "../encoding.js";
+import { isThruputError, ThruputError } from "../errors/thruputError.js";
+import type { TransactionOutcomeUnknownContext } from "../errors/codes.js";
+import type { TransactionReason } from "../errors/transaction.js";
+import { classifyReadError } from "../transport/readError.js";
+import type { TransactionReceipt } from "../types/rpc.js";
+import { receiptFacts } from "../errors/transaction.js";
+import type { SubmissionEvidence } from "./execution.js";
+
+// Internal constructors for transaction errors. Public APIs re-export none of these.
+
+/** The client did not dispatch the signed transaction. */
+export function transactionNotSubmitted(
+  submission: SubmissionEvidence,
+  reason: TransactionReason,
+  cause: unknown,
+): ThruputError<"transactionNotSubmitted"> {
+  return new ThruputError(
+    "transactionNotSubmitted",
+    `Transaction ${toBase58(submission.transactionHash)} was not submitted`,
+    {
+      cause,
+      transaction: {
+        hash: submission.transactionHash,
+        outcome: "notSubmitted",
+        reason,
+        submission,
+      },
+    },
+  );
+}
+
+/** Submission stopped, and the outcome is unknown. Never resend. */
+export function transactionOutcomeUnknown(
+  submission: SubmissionEvidence,
+  reason: TransactionReason,
+  cause: unknown,
+  context: TransactionOutcomeUnknownContext = {},
+): ThruputError<"transactionOutcomeUnknown"> {
+  return new ThruputError(
+    "transactionOutcomeUnknown",
+    `Could not complete transaction ${toBase58(submission.transactionHash)}`,
+    {
+      context,
+      cause,
+      transaction: {
+        hash: submission.transactionHash,
+        outcome: "unknown",
+        reason,
+        submission,
+      },
+    },
+  );
+}
+
+/** Add the signed bytes, and an earlier submission failure, to an observation error. */
+export function withSubmission(
+  error: unknown,
+  submission: SubmissionEvidence,
+  submissionError?: unknown,
+): ThruputError<"transactionOutcomeUnknown"> {
+  const extra = submissionError === undefined ? {} : { submissionError };
+  if (!isThruputError(error, "transactionOutcomeUnknown") || !error.transaction)
+    return transactionOutcomeUnknown(
+      submission,
+      "observationFailed",
+      error,
+      extra,
+    );
+  return new ThruputError("transactionOutcomeUnknown", error.shortMessage, {
+    context: { ...error.context, ...extra },
+    ...(error.cause === undefined ? {} : { cause: error.cause }),
+    transaction: { ...error.transaction, submission },
+  });
+}
+
+/** A failure before dispatch, after signing and `onSigned`. */
+export function reasonBeforeDispatch(
+  cause: unknown,
+  signal: AbortSignal | undefined,
+): TransactionReason {
+  if (signal?.aborted) return "cancelled";
+  if (
+    isThruputError(cause, "rpcRequestInvalid") ||
+    isThruputError(cause, "rpcIncompatible")
+  )
+    return "requestInvalid";
+  if (isTimeout(cause)) return "timeout";
+  return "notDispatched";
+}
+
+/** True when the node answered that it did not admit the transaction. */
+export function isNodeRejection(cause: unknown): boolean {
+  return (
+    isThruputError(cause, "nativeRpcError") &&
+    (cause.context.kind === "invalidParams" ||
+      cause.context.kind === "transactionInvalid" ||
+      cause.context.kind === "transactionRejected")
+  );
+}
+
+/** A failure after dispatch. None of these proves that the node did not receive it. */
+export function reasonAfterDispatch(
+  cause: unknown,
+  signal: AbortSignal | undefined,
+): TransactionReason {
+  if (signal?.aborted) return "cancelled";
+  if (isNodeRejection(cause)) return "nodeRejected";
+  if (isTimeout(cause)) return "timeout";
+  if (classifyReadError(cause) === "transient") return "disconnected";
+  return "submissionFailed";
+}
+
+/** Execution succeeded, but its return data did not decode. */
+export function transactionResultUndecodable(
+  receipt: TransactionReceipt,
+  cause: unknown,
+  submission?: SubmissionEvidence,
+): ThruputError<"transactionResultUndecodable"> {
+  const text = isThruputError(cause)
+    ? cause.shortMessage
+    : cause instanceof Error
+      ? cause.message
+      : String(cause);
+  return new ThruputError(
+    "transactionResultUndecodable",
+    `Transaction ${toBase58(receipt.transactionHash)} committed, but result decoding failed: ${text}`,
+    {
+      cause,
+      transaction: receiptFacts(receipt, "resultUndecodable", submission),
+    },
+  );
+}
+
+/** A deadline error. Uses the web-standard `TimeoutError` name. */
+export function timeoutError(message: string): DOMException {
+  return new DOMException(message, "TimeoutError");
+}
+
+function isTimeout(cause: unknown): boolean {
+  return (
+    cause !== null &&
+    typeof cause === "object" &&
+    "name" in cause &&
+    cause.name === "TimeoutError"
+  );
+}

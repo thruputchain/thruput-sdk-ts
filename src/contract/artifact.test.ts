@@ -11,7 +11,6 @@ import {
 } from "@thruputchain/protocol";
 import { codec as specCodec } from "@thruputchain/contract-spec";
 import { readContractArtifactSpec } from "./artifact.js";
-import { ContractVerificationError } from "./errors.js";
 
 const spec = new Uint8Array(
   readFileSync(
@@ -137,7 +136,7 @@ describe("authenticated embedded specs", () => {
     ["huge body", words(1, 7, 0xffffffff)],
   ])("rejects malformed extension framing: %s", (_, raw) => {
     expect(() => inspect(withRawExtensions(raw))).toThrow(
-      ContractVerificationError,
+      expect.objectContaining({ code: "contractVerificationFailed" }),
     );
   });
   it.each([
@@ -146,14 +145,14 @@ describe("authenticated embedded specs", () => {
     ["inner trailing bytes", words(1, 0, 0)],
   ])("rejects malformed spec bodies: %s", (_, body) => {
     expect(() => inspect(withExtensions([{ kind: 1, body }]))).toThrow(
-      ContractVerificationError,
+      expect.objectContaining({ code: "contractVerificationFailed" }),
     );
   });
   it("rejects every truncation of a spec-bearing artifact", () => {
     const bytes = artifact();
     for (let end = 0; end < bytes.length; end++)
       expect(() => inspect(bytes.subarray(0, end))).toThrow(
-        ContractVerificationError,
+        expect.objectContaining({ code: "contractVerificationFailed" }),
       );
   });
   it("reads the fixture regenerated with tools #706", () => {
@@ -194,7 +193,7 @@ describe("authenticated embedded specs", () => {
     );
     expect(() =>
       readContractArtifactSpec(bytes, sha256Hash(new Uint8Array(32))),
-    ).toThrow(ContractVerificationError);
+    ).toThrow(expect.objectContaining({ code: "contractVerificationFailed" }));
     const trailing = new Uint8Array(bytes.length + 4);
     trailing.set(bytes);
     expect(() =>

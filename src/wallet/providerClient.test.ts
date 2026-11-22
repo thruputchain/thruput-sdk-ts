@@ -42,10 +42,7 @@ import { createPubkeyAccount } from "./account.js";
 import { createProviderWalletClient } from "./providerClient.js";
 import { defaultWalletAdapter } from "./invocationAdapter.js";
 import { prepareContractDeployment } from "./deployment.js";
-import {
-  ExecutionDecodeError,
-  TransactionExecutionError,
-} from "./execution.js";
+import { isThruputError } from "../errors/thruputError.js";
 import { DefaultWallet } from "../contracts/default_wallet.js";
 import { Counter } from "../../examples/generated/counter.js";
 import { ed25519Of } from "../testing/signatures.js";
@@ -200,16 +197,29 @@ describe("provider atomic batches", () => {
           { onSigned: () => {} },
         )
         .catch((error) => error);
-      expect(error).toBeInstanceOf(
-        outcome === "abort" ? TransactionExecutionError : ExecutionDecodeError,
+      expect(error).toMatchObject(
+        outcome === "abort"
+          ? {
+              code: "transactionFailed",
+              transaction: { outcome: "failed", reason: "aborted" },
+            }
+          : {
+              code: "transactionResultUndecodable",
+              transaction: {
+                outcome: "succeeded",
+                reason: "resultUndecodable",
+              },
+            },
       );
       if (outcome === "mismatch")
         expect(error.cause.message).toMatch(/expected/);
-      expect(error.receipt.blockHeight).toBe(7n);
-      expect(error.submission.transactionHash).toEqual(
-        error.receipt.transactionHash,
+      expect(error.transaction.receipt.blockHeight).toBe(7n);
+      expect(error.transaction.submission.transactionHash).toEqual(
+        error.transaction.receipt.transactionHash,
       );
-      expect(error.submission.signedTransaction.length).toBeGreaterThan(0);
+      expect(
+        error.transaction.submission.signedTransaction.length,
+      ).toBeGreaterThan(0);
       expect(
         request.mock.calls.filter(
           ([call]) => call.method === "submitTransaction",
@@ -336,14 +346,16 @@ describe("provider atomic batches", () => {
       await entered.promise;
       if (mode === "abort") controller.abort(Error("cancelled"));
       const error = await outcome;
-      expect(error.phase).toBe("beforeSubmission");
-      expect(error.submission.signedTransaction.length).toBeGreaterThan(0);
+      expect(error.transaction.outcome).toBe("notSubmitted");
+      expect(
+        error.transaction.submission.signedTransaction.length,
+      ).toBeGreaterThan(0);
       session.resolve({ networkHash, accounts: [account] });
       await new Promise((resolve) => setTimeout(resolve, 0));
       expect(methodCalls(request, "submitTransaction")).toHaveLength(0);
       expect(wait).not.toHaveBeenCalled();
       await expect(wallet.submitTransaction(saved!)).rejects.toMatchObject({
-        code: 4100,
+        code: "walletUnauthorized",
       });
       expect(methodCalls(request, "submitTransaction")).toHaveLength(0);
       wallet.dispose();
@@ -375,7 +387,7 @@ describe("provider atomic batches", () => {
         .catch((error) => error);
       await entered.promise;
       controller.abort(Error("cancelled"));
-      expect((await outcome).phase).toBe("submission");
+      expect((await outcome).transaction.outcome).toBe("unknown");
       const calls = request.mock.calls.length;
       response.resolve({
         hash: wrongHash ? toBase58(new Uint8Array(32).fill(99)) : signedHash,
@@ -385,7 +397,7 @@ describe("provider atomic batches", () => {
       expect(wait).not.toHaveBeenCalled();
       if (wrongHash)
         await expect(wallet.getCapabilities()).rejects.toMatchObject({
-          code: 4100,
+          code: "walletUnauthorized",
         });
       wallet.dispose();
     },
@@ -401,7 +413,7 @@ describe("provider atomic batches", () => {
         account,
         networkHash: toBase58(new Uint8Array(32)),
       }),
-    ).toThrow(expect.objectContaining({ code: 4901 }));
+    ).toThrow(expect.objectContaining({ code: "walletNetworkMismatch" }));
     wallet.dispose();
   });
 
@@ -414,7 +426,7 @@ describe("provider atomic batches", () => {
         },
       }),
     ).rejects.toMatchObject({
-      phase: "beforeSubmission",
+      code: "transactionNotSubmitted",
       cause: { message: "disk full" },
     });
     expect(methodCalls(request, "submitTransaction")).toHaveLength(0);
@@ -442,14 +454,14 @@ describe("provider atomic batches", () => {
       change({ networkHash, accounts: [] }, emit);
       persisted.resolve();
       await expect(pending).rejects.toMatchObject({
-        phase: "beforeSubmission",
-        cause: { code: 4100 },
+        code: "transactionNotSubmitted",
+        cause: { code: "walletUnauthorized" },
       });
       expect(methodCalls(request, "submitTransaction")).toHaveLength(0);
       expect(wait).not.toHaveBeenCalled();
       // The lifecycle guard is released, while the old binding stays invalidated.
       await expect(wallet.getCapabilities()).rejects.toMatchObject({
-        code: 4100,
+        code: "walletUnauthorized",
       });
       wallet.dispose();
     },
@@ -605,9 +617,11 @@ describe("provider atomic batches", () => {
             ...execution,
             invocations: [execution.invocation],
           }),
-        ).rejects.toMatchObject({ code: 4200 });
+        ).rejects.toMatchObject({ code: "walletMethodUnsupported" });
       } else
-        await expect(wallet.getCapabilities()).rejects.toMatchObject({ code });
+        await expect(wallet.getCapabilities()).rejects.toMatchObject({
+          context: { providerCode: code },
+        });
       expect(methodCalls(request, "signTransaction")).toHaveLength(0);
     },
   );
@@ -631,10 +645,10 @@ describe("provider atomic batches", () => {
         : original(input),
     );
     await expect(wallet.getCapabilities()).rejects.toMatchObject({
-      code: -32603,
+      code: "walletInternalError",
     });
     await expect(wallet.prepareExecution(execution)).rejects.toMatchObject({
-      code: 4100,
+      code: "walletUnauthorized",
     });
   });
 
@@ -655,7 +669,7 @@ describe("provider atomic batches", () => {
         ...execution,
         invocations: [execution.invocation, execution.invocation],
       }),
-    ).rejects.toMatchObject({ code: 4200 });
+    ).rejects.toMatchObject({ code: "walletMethodUnsupported" });
   });
 
   it("invalidates capabilities on a concurrent session change", async () => {
@@ -667,7 +681,7 @@ describe("provider atomic batches", () => {
       return original(input);
     });
     await expect(wallet.getCapabilities()).rejects.toMatchObject({
-      code: 4100,
+      code: "walletUnauthorized",
     });
   });
 });
@@ -723,7 +737,7 @@ describe("external provider wallet", () => {
         "disconnect response",
       ]);
       await expect(wallet.prepareExecution(execution)).rejects.toMatchObject({
-        code: 4100,
+        code: "walletUnauthorized",
       });
     } finally {
       wallet.dispose();
@@ -761,7 +775,7 @@ describe("external provider wallet", () => {
       // Delayed delivery violates the ordering contract, even for matching data.
       change(session);
       await expect(wallet.prepareExecution(execution)).rejects.toMatchObject({
-        code: 4100,
+        code: "walletUnauthorized",
       });
     } finally {
       wallet.dispose();
@@ -858,7 +872,7 @@ describe("external provider wallet", () => {
       new Uint8Array(input.invocation.calldata.length + 4),
     );
     await expect(wallet.prepareExecution(input)).rejects.toMatchObject({
-      code: -32602,
+      code: "walletInvalidParams",
     });
     tx.invocation.calldata = calldata(
       new Uint8Array(tx.invocation.calldata.length + 4),
@@ -867,7 +881,7 @@ describe("external provider wallet", () => {
       MAX_UNSIGNED_TRANSACTION_BYTES + 4,
     );
     await expect(wallet.signTransaction(tx)).rejects.toMatchObject({
-      code: -32602,
+      code: "walletInvalidParams",
     });
     expect(methodCalls(request, "signTransaction")).toHaveLength(0);
     expect(methodCalls(request, "submitTransaction")).toHaveLength(0);
@@ -967,7 +981,7 @@ describe("external provider wallet", () => {
     expect(toBase58(receipt!.transactionHash)).toBe(signed.hash);
     expect(send).not.toHaveBeenCalled();
     await expect(wallet.submitTransaction(signed)).rejects.toMatchObject({
-      code: 4100,
+      code: "walletUnauthorized",
     });
     wallet.dispose();
   });
@@ -1049,11 +1063,11 @@ describe("external provider wallet", () => {
       return result;
     });
     await expect(wallet.signTransaction(tx)).rejects.toMatchObject({
-      code: -32603,
+      code: "walletInternalError",
     });
     expect(methodCalls(request, "submitTransaction")).toHaveLength(0);
     await expect(wallet.signTransaction(tx)).rejects.toMatchObject({
-      code: 4100,
+      code: "walletUnauthorized",
     });
     wallet.dispose();
   });
@@ -1063,13 +1077,13 @@ describe("external provider wallet", () => {
     const tx = await wallet.prepareExecution(execution);
     tx.invocation.invoked_address = execution.invocation.invoked_address;
     await expect(wallet.signTransaction(tx)).rejects.toMatchObject({
-      code: 4100,
+      code: "walletUnauthorized",
     });
     tx.invocation.invoked_address = localAccount.address;
     if (tx.auth_claim.claim_type === AuthClaimType.kPubkeySignature)
       tx.auth_claim.pubkey_preimage.nonce++;
     await expect(wallet.signTransaction(tx)).rejects.toMatchObject({
-      code: 4100,
+      code: "walletUnauthorized",
     });
     expect(methodCalls(request, "signTransaction")).toHaveLength(0);
     wallet.dispose();
@@ -1121,7 +1135,7 @@ describe("external provider wallet", () => {
           : original(input),
       );
       await expect(wallet.signTransaction(tx)).rejects.toMatchObject({
-        code: -32603,
+        code: "walletInternalError",
       });
       expect(methodCalls(request, "submitTransaction")).toHaveLength(0);
       wallet.dispose();
@@ -1143,13 +1157,13 @@ describe("external provider wallet", () => {
           await wallet.prepareExecution(execution),
         );
         change(session, emit);
-        await expect(wallet.submitTransaction(signed)).rejects.toBeInstanceOf(
-          WalletProviderError,
+        await expect(wallet.submitTransaction(signed)).rejects.toSatisfy(
+          (error) => isThruputError(error) && "providerCode" in error.context,
         );
         expect(methodCalls(request, "submitTransaction")).toHaveLength(0);
         change({ networkHash, accounts: [account] }, false);
         await expect(wallet.submitTransaction(signed)).rejects.toMatchObject({
-          code: 4100,
+          code: "walletUnauthorized",
         });
         wallet.dispose();
       }
@@ -1163,7 +1177,7 @@ describe("external provider wallet", () => {
       if (disconnect) await provider.request({ method: "disconnect" });
       else change({ networkHash, accounts: [account] });
       await expect(wallet.signTransaction(tx)).rejects.toMatchObject({
-        code: 4100,
+        code: "walletUnauthorized",
       });
       wallet.dispose();
     }
@@ -1182,7 +1196,7 @@ describe("external provider wallet", () => {
         return result;
       });
       await expect(wallet.signTransaction(tx)).rejects.toMatchObject({
-        code: 4100,
+        code: "walletUnauthorized",
       });
       expect(methodCalls(request, "submitTransaction")).toHaveLength(0);
       wallet.dispose();
@@ -1226,12 +1240,12 @@ describe("external provider wallet", () => {
     request.mockReturnValueOnce(barrier.promise);
     const signing = wallet.signTransaction(tx);
     await expect(wallet.signTransaction(tx)).rejects.toMatchObject({
-      code: -32002,
+      code: "walletRequestPending",
     });
     wallet.dispose();
     wallet.dispose();
     barrier.resolve({ networkHash, accounts: [account] });
-    await expect(signing).rejects.toMatchObject({ code: 4100 });
+    await expect(signing).rejects.toMatchObject({ code: "walletUnauthorized" });
     expect(unsubscribe).toHaveBeenCalledTimes(1);
     expect(listeners.size).toBe(0);
     expect(methodCalls(request, "signTransaction")).toHaveLength(0);
@@ -1248,7 +1262,9 @@ describe("external provider wallet", () => {
           ? Promise.reject({ code, message: "Failure" })
           : original(input),
       );
-      await expect(wallet.signTransaction(tx)).rejects.toMatchObject({ code });
+      await expect(wallet.signTransaction(tx)).rejects.toMatchObject({
+        context: { providerCode: code },
+      });
       expect(methodCalls(request, "submitTransaction")).toHaveLength(0);
       wallet.dispose();
     },
@@ -1270,11 +1286,11 @@ describe("external provider wallet", () => {
           hash: fault === "bad hash" ? "0x" + "00".repeat(32) : signed.hash,
         };
       });
-      await expect(wallet.submitTransaction(signed)).rejects.toBeInstanceOf(
-        WalletProviderError,
+      await expect(wallet.submitTransaction(signed)).rejects.toSatisfy(
+        (error) => isThruputError(error) && "providerCode" in error.context,
       );
       await expect(wallet.submitTransaction(signed)).rejects.toMatchObject({
-        code: 4100,
+        code: "walletUnauthorized",
       });
       expect(methodCalls(request, "submitTransaction")).toHaveLength(1);
       wallet.dispose();
@@ -1295,13 +1311,13 @@ describe("external provider wallet", () => {
     bytes[0] = firstByte ^ 1;
     await expect(
       wallet.submitTransaction(wireResult(changed)),
-    ).rejects.toMatchObject({ code: 4100 });
+    ).rejects.toMatchObject({ code: "walletUnauthorized" });
     expect(methodCalls(request, "submitTransaction")).toHaveLength(0);
     const newer = await wallet.signTransaction(
       await wallet.prepareExecution({ ...execution, nonce: 43n }),
     );
     await expect(wallet.submitTransaction(signed)).rejects.toMatchObject({
-      code: 4100,
+      code: "walletUnauthorized",
     });
     expect(await wallet.submitTransaction(newer)).toEqual({ hash: newer.hash });
     wallet.dispose();
@@ -1318,10 +1334,10 @@ describe("external provider wallet", () => {
           accounts: [{ ...account, nonce: "8" }],
         });
       await expect(wallet.prepareExecution(execution)).rejects.toMatchObject({
-        code: failure ? 4900 : -32603,
+        code: failure ? "walletDisconnected" : "walletInternalError",
       });
       await expect(wallet.prepareExecution(execution)).rejects.toMatchObject({
-        code: 4100,
+        code: "walletUnauthorized",
       });
       wallet.dispose();
     }
@@ -1353,7 +1369,7 @@ describe("external provider wallet", () => {
         account,
         networkHash,
       }),
-    ).toThrow(expect.objectContaining({ code: 4901 }));
+    ).toThrow(expect.objectContaining({ code: "walletNetworkMismatch" }));
     wallet.dispose();
   });
 
@@ -1377,7 +1393,7 @@ describe("external provider wallet", () => {
         account,
         networkHash,
       }),
-    ).toThrow(expect.objectContaining({ code: 4901 }));
+    ).toThrow(expect.objectContaining({ code: "walletNetworkMismatch" }));
     wallet.dispose();
   });
 });

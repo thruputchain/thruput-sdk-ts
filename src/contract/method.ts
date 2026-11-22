@@ -30,7 +30,9 @@ import {
   resolveContextCodec,
   contextEnumVariant,
 } from "./codec.js";
-import { ContractDecodeError } from "./errors.js";
+import { contractDecodeFailed, errorText } from "./errors.js";
+import { isThruputError, ThruputError } from "../errors/thruputError.js";
+import { receiptFacts } from "../errors/transaction.js";
 import { contractValueLimits } from "./valueLimits.js";
 import { toHex0x } from "../actions/hex.js";
 import { toBase58 } from "../encoding.js";
@@ -113,44 +115,43 @@ export type ContractReceiptOutcome<TResult, TException> =
   | ({ kind: "return" } & ContractReceipt<TResult>)
   | ContractReceiptFailure<TException>;
 
-/** Error thrown by the view API for aborts, faults, or unsupported outcomes. */
-export class ContractViewError<TException> extends Error {
-  readonly outcome: ContractViewFailure<TException>;
+/** A typed failure that {@link ContractMethod.decodeError} reads from an error. */
+export type ContractFailure<TException> =
+  | ContractViewFailure<TException>
+  | ContractReceiptFailure<TException>;
 
-  constructor(outcome: ContractViewFailure<TException>) {
-    const selector =
-      outcome.kind === "abort"
-        ? exceptionSelector(outcome.exception)
-        : undefined;
-    super(
-      outcome.kind === "abort"
-        ? `Contract view aborted with ${formatException(outcome.exception, selector)}`
-        : outcome.kind === "unsupported"
-          ? "Unsupported contract simulation outcome"
-          : "Contract view faulted",
-    );
-    this.name = "ContractViewError";
-    this.outcome = outcome;
-  }
+function viewFailed(
+  method: { name: string; entrypoint: ContractEntrypointID },
+  outcome: ContractViewFailure<unknown>,
+): ThruputError<"contractViewFailed"> {
+  return new ThruputError(
+    "contractViewFailed",
+    outcome.kind === "abort"
+      ? `Contract view aborted with ${formatException(outcome.exception, exceptionSelector(outcome.exception))}`
+      : outcome.kind === "unsupported"
+        ? "Unsupported contract simulation outcome"
+        : "Contract view faulted",
+    {
+      context: { method: method.name, entrypoint: method.entrypoint, outcome },
+    },
+  );
 }
 
-/** Error thrown when a root contract receipt does not produce a typed return. */
-export class ContractReceiptError<TException> extends Error {
-  readonly outcome: ContractReceiptFailure<TException>;
-
-  constructor(outcome: ContractReceiptFailure<TException>) {
-    const selector =
-      outcome.kind === "abort"
-        ? exceptionSelector(outcome.exception)
-        : undefined;
-    super(
-      outcome.kind === "abort"
-        ? `Contract transaction ${toBase58(outcome.transactionHash)} aborted with ${formatException(outcome.exception, selector)}`
-        : `Contract transaction ${toBase58(outcome.transactionHash)} did not return a supported successful result`,
-    );
-    this.name = "ContractReceiptError";
-    this.outcome = outcome;
-  }
+function callFailed(
+  method: { name: string; entrypoint: ContractEntrypointID },
+  outcome: ContractReceiptFailure<unknown>,
+  receipt: TransactionReceipt,
+): ThruputError<"contractCallFailed"> {
+  return new ThruputError(
+    "contractCallFailed",
+    outcome.kind === "abort"
+      ? `Contract transaction ${toBase58(outcome.transactionHash)} aborted with ${formatException(outcome.exception, exceptionSelector(outcome.exception))}`
+      : `Contract transaction ${toBase58(outcome.transactionHash)} did not return a supported successful result`,
+    {
+      context: { method: method.name, entrypoint: method.entrypoint, outcome },
+      transaction: receiptFacts(receipt, "resultUndecodable"),
+    },
+  );
 }
 
 function formatException(exception: unknown, selector?: bigint): string {
@@ -333,6 +334,24 @@ export interface ContractMethod<TArgs, TResult, TDeclaredException> {
   decodeReceiptOutcome(
     receipt: TransactionReceipt,
   ): ContractReceiptOutcome<TResult, ContractException<TDeclaredException>>;
+  /**
+   * Read this method's typed failure from an error that `view`, `decodeView`, or
+   * `decodeReceipt` threw (codes `contractViewFailed` and `contractCallFailed`).
+   * Returns undefined for other errors, including failures of other methods.
+   *
+   * @example
+   * ```ts
+   * try {
+   *   await token.transfer.view({ client, address, args });
+   * } catch (error) {
+   *   const failure = token.transfer.decodeError(error);
+   *   if (failure?.kind === "abort") console.log(failure.exception);
+   * }
+   * ```
+   */
+  decodeError(
+    error: unknown,
+  ): ContractFailure<ContractException<TDeclaredException>> | undefined;
   view(options: ContractViewOptions<TArgs>): Promise<ContractView<TResult>>;
   viewOutcome(
     options: ContractViewOptions<TArgs>,
@@ -486,8 +505,9 @@ export function defineContractMethodWithExceptions<
           try {
             return [argument.publicName, argument.codec.decode(reader)];
           } catch (cause) {
-            const detail = cause instanceof Error ? `: ${cause.message}` : "";
-            throw new ContractDecodeError(
+            const text = errorText(cause);
+            const detail = text === undefined ? "" : `: ${text}`;
+            throw contractDecodeFailed(
               `${name}: argument "${argument.publicName}"${detail}`,
               { cause },
             );
@@ -495,7 +515,7 @@ export function defineContractMethodWithExceptions<
         }),
       );
       if (reader.remaining !== 0) {
-        throw new ContractDecodeError(
+        throw contractDecodeFailed(
           `${name}: ${reader.remaining} trailing calldata bytes`,
         );
       }
@@ -547,12 +567,12 @@ export function defineContractMethodWithExceptions<
           blockHeight: outcome.blockHeight,
           events: outcome.events,
         };
-      throw new ContractReceiptError(outcome);
+      throw callFailed(method, outcome, receipt);
     },
 
     decodeView(response) {
       const outcome = method.decodeViewOutcome(response);
-      if (outcome.kind !== "return") throw new ContractViewError(outcome);
+      if (outcome.kind !== "return") throw viewFailed(method, outcome);
       return {
         value: outcome.value,
         stateBlockHeight: outcome.stateBlockHeight,
@@ -631,7 +651,20 @@ export function defineContractMethodWithExceptions<
           events: outcome.events,
         };
       }
-      throw new ContractViewError(outcome);
+      throw viewFailed(method, outcome);
+    },
+
+    decodeError(error) {
+      if (
+        !isThruputError(error, "contractViewFailed") &&
+        !isThruputError(error, "contractCallFailed")
+      )
+        return undefined;
+      const { entrypoint: failed, outcome } = error.context;
+      return failed.length === entrypoint.length &&
+        failed.every((byte, index) => byte === entrypoint[index])
+        ? (outcome as ContractFailure<ContractException<TDeclaredException>>)
+        : undefined;
     },
   };
 
@@ -697,10 +730,10 @@ function decodeException<TDeclaredException>(
       ...(variant === undefined ? {} : { variant }),
     } as unknown as ContractException<TDeclaredException>;
   } catch (cause) {
-    const detail = cause instanceof Error ? `: ${cause.message}` : "";
-    throw new ContractDecodeError(
-      `Failed to decode contract exception${detail}`,
-      { cause },
-    );
+    const text = errorText(cause);
+    const detail = text === undefined ? "" : `: ${text}`;
+    throw contractDecodeFailed(`Failed to decode contract exception${detail}`, {
+      cause,
+    });
   }
 }

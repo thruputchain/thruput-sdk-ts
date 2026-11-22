@@ -6,21 +6,13 @@ import type {
   HistoryStart,
 } from "../../types/rpc.js";
 import { toHex0x } from "../hex.js";
+import { ThruputError } from "../../errors/thruputError.js";
 
 /** Returned only after the caller resumes past the terminal page. Persist with processed data. */
 export interface HistoryCompletion {
   readonly watermarkBlockHeight: bigint;
   /** Ascending range fully consumed; absent for descending or an anchor above the watermark. */
   readonly completedThroughBlockHeight?: bigint;
-}
-export class HistoryWalkError extends Error {
-  constructor(
-    message: string,
-    readonly page: EventPage | TransactionRefPage,
-  ) {
-    super(message);
-    this.name = "HistoryWalkError";
-  }
 }
 type Key = readonly [bigint, string, number];
 const compare = (a: Key, b: Key) => {
@@ -52,7 +44,9 @@ export async function* walkHistory<P extends EventPage | TransactionRefPage>(
     const page = await fetch(cursor);
     options.signal?.throwIfAborted();
     const fail = (message: string): never => {
-      throw new HistoryWalkError(message, page);
+      throw new ThruputError("historyWalkFailed", message, {
+        context: { page },
+      });
     };
     const rows =
       kind === "events"

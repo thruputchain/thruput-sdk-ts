@@ -664,10 +664,10 @@ describe("local wallet submission evidence", () => {
       })
       .catch((e) => e);
     expect(error).toMatchObject({
-      phase: "beforeSubmission",
+      code: "transactionNotSubmitted",
       cause: { message: "disk full" },
     });
-    expect(error.submission.signedTransaction).toEqual(
+    expect(error.transaction.submission.signedTransaction).toEqual(
       captured!.signedTransaction,
     );
     expect(submit).not.toHaveBeenCalled();
@@ -697,10 +697,12 @@ describe("local wallet submission evidence", () => {
       )
       .catch((e) => e);
     expect(error).toMatchObject({
-      phase: "beforeSubmission",
+      code: "transactionNotSubmitted",
       cause: { message: "cancelled" },
     });
-    expect(error.submission.signedTransaction.length).toBeGreaterThan(0);
+    expect(
+      error.transaction.submission.signedTransaction.length,
+    ).toBeGreaterThan(0);
     expect(submit).not.toHaveBeenCalled();
   });
 });

@@ -1,16 +1,16 @@
 import { codec, deserialize } from "@thruputchain/protocol";
 import { hashSignedTransaction } from "../derivation/transactionHash.js";
-import { JsonRpcError } from "../transport/http.js";
-import { NativeRpcError } from "./errorReader.js";
+import { isThruputError, ThruputError } from "../errors/thruputError.js";
+import { nativeRpcError } from "./errorReader.js";
 import { toHex0x } from "../actions/hex.js";
 import type { Transport, TransportRequestOptions } from "../transport/types.js";
 import {
   decodeResult,
   encodeRequest,
-  RpcDecodingError,
   rpcMethodNames,
   rpcPageMethods,
-  RpcRequestValidationError,
+  rpcRequestInvalid,
+  rpcValueInvalid,
 } from "./codec.js";
 import type {
   RpcRequests,
@@ -64,11 +64,11 @@ export interface RpcClientOptions {
   signal?: AbortSignal;
 }
 
-export class RpcCompatibilityError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "RpcCompatibilityError";
-  }
+/** The endpoint, network, or method set does not match what the client requires. */
+export function rpcIncompatible(
+  message: string,
+): ThruputError<"rpcIncompatible"> {
+  return new ThruputError("rpcIncompatible", message);
 }
 
 const equal = (a: Uint8Array, b: Uint8Array) =>
@@ -94,9 +94,7 @@ export async function createRpcClient(
   const requireMethods = (methods: readonly RpcMethod[]) => {
     for (const method of methods)
       if (!configured.has(method))
-        throw new RpcCompatibilityError(
-          `Endpoint does not advertise ${method}`,
-        );
+        throw rpcIncompatible(`Endpoint does not advertise ${method}`);
   };
   const requestOnce = async (
     method: RpcMethod,
@@ -107,8 +105,8 @@ export async function createRpcClient(
     try {
       return await transport.request(method, params, control);
     } catch (error) {
-      if (error instanceof JsonRpcError)
-        throw new NativeRpcError(error, method, hash);
+      if (isThruputError(error, "rpcError"))
+        throw nativeRpcError(error.context, method, hash);
       throw error;
     }
   };
@@ -126,19 +124,17 @@ export async function createRpcClient(
     const version = await read("getVersionInfo", control);
     // Only the wire identity selects codecs. Release and build versions are diagnostics.
     if (!/^14\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.test(version.wireFormat))
-      throw new RpcCompatibilityError(
+      throw rpcIncompatible(
         `Unsupported RPC wire format ${version.wireFormat}`,
       );
     const methods = new Set(version.supportedMethods);
     for (const method of ["getVersionInfo", "getNetworkInfo", ...required])
       if (!methods.has(method))
-        throw new RpcCompatibilityError(
-          `Endpoint does not advertise ${method}`,
-        );
+        throw rpcIncompatible(`Endpoint does not advertise ${method}`);
     const network = await read("getNetworkInfo", control);
     const wanted = expected ?? discovery?.network.networkHash;
     if (wanted && !equal(wanted, network.networkHash))
-      throw new RpcCompatibilityError("RPC network identity does not match");
+      throw rpcIncompatible("RPC network identity does not match");
     const limits = methods.has("getServerLimits")
       ? await read("getServerLimits", control)
       : undefined;
@@ -169,7 +165,7 @@ export async function createRpcClient(
               ),
             );
           } catch {
-            throw new RpcRequestValidationError(
+            throw rpcRequestInvalid(
               "/params/signedTransaction",
               "Invalid signed transaction XDR",
             );
@@ -212,15 +208,13 @@ function checkLimits(
 ) {
   if (rpcPageMethods.has(method)) {
     if (!limits)
-      throw new RpcCompatibilityError(
-        "History calls require advertised server limits",
-      );
+      throw rpcIncompatible("History calls require advertised server limits");
     const cap =
       method === "getEvents"
         ? limits.maxEventsPerPage
         : limits.maxTransactionsPerPage;
     if (input.limit !== undefined && (input.limit as number) > cap)
-      throw new RpcRequestValidationError(
+      throw rpcRequestInvalid(
         "/params/limit",
         `limit exceeds endpoint cap ${cap}`,
       );
@@ -228,14 +222,11 @@ function checkLimits(
       typeof input.cursor === "string" &&
       BigInt((input.cursor.length - 2) / 2) > limits.maxCursorBytes
     )
-      throw new RpcRequestValidationError(
-        "/params/cursor",
-        "cursor exceeds endpoint cap",
-      );
+      throw rpcRequestInvalid("/params/cursor", "cursor exceeds endpoint cap");
   }
   if (method === "simulateInvocation" || method === "simulateInvocations") {
     if (!limits)
-      throw new RpcCompatibilityError(
+      throw rpcIncompatible(
         "Simulation calls require advertised server limits",
       );
     const calls =
@@ -247,13 +238,13 @@ function checkLimits(
     for (const call of calls) {
       const callGas = call.gasLimit as bigint | undefined;
       if (callGas !== undefined && callGas > limits.maxSimulationGas)
-        throw new RpcRequestValidationError(
+        throw rpcRequestInvalid(
           "/params/gasLimit",
           "gasLimit exceeds endpoint cap",
         );
       const size = (call.calldata as Uint8Array).length;
       if (BigInt(size) > limits.maxSimulationCalldataBytes)
-        throw new RpcRequestValidationError(
+        throw rpcRequestInvalid(
           "/params/calldata",
           "calldata exceeds endpoint cap",
         );
@@ -263,15 +254,13 @@ function checkLimits(
     if (method === "simulateInvocations") {
       const batch = limits.simulationBatch;
       if (!batch)
-        throw new RpcCompatibilityError(
-          "Batch simulation limits are unavailable",
-        );
+        throw rpcIncompatible("Batch simulation limits are unavailable");
       if (
         calls.length > batch.maxInvocations ||
         bytes > batch.maxCalldataBytes ||
         gas > batch.maxGas
       )
-        throw new RpcRequestValidationError(
+        throw rpcRequestInvalid(
           "/params/invocations",
           "simulation batch exceeds endpoint cap",
         );
@@ -338,7 +327,7 @@ function checkResult(
   networkHash: Uint8Array,
 ) {
   const invalid = (): never => {
-    throw new RpcDecodingError("/result", raw);
+    throw rpcValueInvalid("/result", raw);
   };
   if (value === null) return;
   const result = value as Record<string, unknown>;

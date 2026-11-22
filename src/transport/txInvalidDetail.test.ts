@@ -1,16 +1,16 @@
 import { NativeRpcErrorCode } from "../rpc/errors.js";
-import { NativeRpcError } from "../rpc/errorReader.js";
+import { nativeRpcError } from "../rpc/errorReader.js";
 import { describe, expect, it } from "vitest";
-import { JsonRpcError } from "./http.js";
+import { rpcError } from "./errors.js";
 import { txInvalidDetail } from "./txInvalidDetail.js";
 
-function txInvalid(data: unknown): JsonRpcError {
-  return new NativeRpcError(
-    new JsonRpcError(
-      NativeRpcErrorCode.TransactionInvalid,
-      "Invalid transaction",
-      { kind: "transactionInvalid", admission: "notAttempted", detail: data },
-    ),
+function txInvalid(data: unknown) {
+  return nativeRpcError(
+    rpcError(NativeRpcErrorCode.TransactionInvalid, "Invalid transaction", {
+      kind: "transactionInvalid",
+      admission: "notAttempted",
+      detail: data,
+    }).context,
     "sendTransaction",
   );
 }
@@ -62,7 +62,7 @@ describe("txInvalidDetail", () => {
   it.each([
     [
       "another error code",
-      new JsonRpcError(NativeRpcErrorCode.TransactionRejected, "x", {
+      rpcError(NativeRpcErrorCode.TransactionRejected, "x", {
         reason: "tooManyContracts",
         attached: 5,
         max: 4,

@@ -1,16 +1,16 @@
-/** Invalid decimal input to {@link parseUnits}. */
-export class ParseUnitsError extends Error {
-  constructor(
-    readonly code: "malformed" | "precision",
-    decimals: number,
-  ) {
-    super(
-      code === "malformed"
-        ? "Use a plain decimal amount"
-        : `Use at most ${decimals} decimal places`,
-    );
-    this.name = "ParseUnitsError";
-  }
+import { ThruputError } from "./errors/thruputError.js";
+
+function amountInvalid(
+  kind: "malformed" | "precision",
+  decimals: number,
+): ThruputError<"amountInvalid"> {
+  return new ThruputError(
+    "amountInvalid",
+    kind === "malformed"
+      ? "Use a plain decimal amount"
+      : `Use at most ${decimals} decimal places`,
+    { context: { kind, decimals } },
+  );
 }
 
 /**
@@ -18,7 +18,8 @@ export class ParseUnitsError extends Error {
  *
  * Accepts a leading minus sign. Rejects whitespace, exponent notation, and
  * excess fractional digits, including zeroes. Decimals must be 0–255.
- * Token positivity and ABI bounds are separate validation steps.
+ * Token positivity and ABI bounds are separate validation steps. Invalid text
+ * throws code `amountInvalid`, with `context.kind` `malformed` or `precision`.
  *
  * @example `parseUnits("12.05", 2)` returns `1205n`.
  */
@@ -29,12 +30,11 @@ export function parseUnits(text: string, decimals: number): bigint {
     text.trim() !== text ||
     !/^-?[0-9]+(?:\.[0-9]+)?$/.test(text)
   ) {
-    throw new ParseUnitsError("malformed", decimals);
+    throw amountInvalid("malformed", decimals);
   }
   const negative = text.startsWith("-");
   const [whole, fraction = ""] = (negative ? text.slice(1) : text).split(".");
-  if (fraction.length > decimals)
-    throw new ParseUnitsError("precision", decimals);
+  if (fraction.length > decimals) throw amountInvalid("precision", decimals);
   const units = BigInt(whole! + fraction.padEnd(decimals, "0"));
   return negative ? -units : units;
 }

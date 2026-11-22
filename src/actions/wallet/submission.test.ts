@@ -13,12 +13,6 @@ import { createPubkeyAccount } from "../../wallet/account.js";
 import { defaultWalletAdapter } from "../../wallet/invocationAdapter.js";
 import { createWalletClient } from "../../wallet/client.js";
 import { prepareContractDeployment } from "../../wallet/deployment.js";
-import {
-  ExecutionDecodeError,
-  TransactionExecutionError,
-  TransactionObservationError,
-  UnsupportedTransactionAdmissionError,
-} from "../../wallet/execution.js";
 import { UnsupportedRpcValue } from "../../rpc/codec.js";
 import { sendInvocation, signWalletTransaction } from "./sendInvocation.js";
 import { sendTransaction } from "./sendTransaction.js";
@@ -66,15 +60,18 @@ describe("high-level native submission", () => {
           ? sendInvocation(client, account, signingNetwork, request)
           : sendTransaction(client, signed)
       ).catch((error) => error);
-      expect(error).toBeInstanceOf(TransactionObservationError);
-      expect(error.phase).toBe("submission");
-      expect(error.cause).toBeInstanceOf(UnsupportedTransactionAdmissionError);
-      expect(error.cause.response.admission).toBeInstanceOf(
+      expect(error).toMatchObject({
+        code: "transactionAdmissionUnsupported",
+        transaction: { outcome: "unknown", reason: "admissionUnsupported" },
+      });
+      expect(error.context.response.admission).toBeInstanceOf(
         UnsupportedRpcValue,
       );
-      expect(error.cause.response.admission.raw).toBe("queued");
-      expect(error.submission.signedTransaction.length).toBeGreaterThan(0);
-      expect(error.submission.networkHash).toEqual(signingNetwork);
+      expect(error.context.response.admission.raw).toBe("queued");
+      expect(
+        error.transaction.submission.signedTransaction.length,
+      ).toBeGreaterThan(0);
+      expect(error.transaction.submission.networkHash).toEqual(signingNetwork);
       expect(
         rpc.mock.calls.filter(([method]) => method === "sendTransaction"),
       ).toHaveLength(1);
@@ -98,14 +95,20 @@ describe("high-level native submission", () => {
         gasLimit: gasAmount(1000n),
       })
       .catch((error) => error);
-    expect(error).toBeInstanceOf(TransactionObservationError);
-    expect(error.phase).toBe("observation");
+    expect(error).toMatchObject({
+      code: "transactionOutcomeUnknown",
+      transaction: { outcome: "unknown", reason: "observationFailed" },
+    });
     expect(error.cause).toBe(lookup);
-    expect(error.submissionCause).toBeInstanceOf(
-      UnsupportedTransactionAdmissionError,
+    expect(error.context.submissionError).toMatchObject({
+      code: "transactionAdmissionUnsupported",
+    });
+    expect(error.context.submissionError.context.response.admission.raw).toBe(
+      "queued",
     );
-    expect(error.submissionCause.response.admission.raw).toBe("queued");
-    expect(error.submission.signedTransaction.length).toBeGreaterThan(0);
+    expect(
+      error.transaction.submission.signedTransaction.length,
+    ).toBeGreaterThan(0);
     expect(wait).toHaveBeenCalledOnce();
     expect(
       rpc.mock.calls.filter(([method]) => method === "sendTransaction"),
@@ -214,9 +217,13 @@ describe("high-level native submission", () => {
         },
       },
     ).catch((error) => error);
-    expect(error).toBeInstanceOf(TransactionObservationError);
-    expect(error.phase).toBe("beforeSubmission");
-    expect(error.submission.signedTransaction.length).toBeGreaterThan(0);
+    expect(error).toMatchObject({
+      code: "transactionNotSubmitted",
+      transaction: { outcome: "notSubmitted", reason: "requestInvalid" },
+    });
+    expect(
+      error.transaction.submission.signedTransaction.length,
+    ).toBeGreaterThan(0);
     expect(
       rpc.mock.calls.some(([method]) => method === "sendTransaction"),
     ).toBe(false);
@@ -272,11 +279,13 @@ describe("high-level native submission", () => {
         gasLimit: gasAmount(1000n),
       })
       .catch((error) => error);
-    expect(error).toBeInstanceOf(TransactionExecutionError);
-    expect(error.submission.transactionHash).toEqual(
-      error.receipt.transactionHash,
+    expect(error).toMatchObject({ code: "transactionFailed" });
+    expect(error.transaction.submission.transactionHash).toEqual(
+      error.transaction.receipt.transactionHash,
     );
-    expect(error.submission.signedTransaction.length).toBeGreaterThan(0);
+    expect(
+      error.transaction.submission.signedTransaction.length,
+    ).toBeGreaterThan(0);
   });
 
   it.each(["abort", "mismatch"] as const)(
@@ -307,16 +316,21 @@ describe("high-level native submission", () => {
       const error = await wallet
         .deployContractAndWait(plan, { gasLimit: gasAmount(1000n), amount: 0n })
         .catch((error) => error);
-      expect(error).toBeInstanceOf(
-        outcome === "abort" ? TransactionExecutionError : ExecutionDecodeError,
-      );
+      expect(error).toMatchObject({
+        code:
+          outcome === "abort"
+            ? "transactionFailed"
+            : "transactionResultUndecodable",
+      });
       if (outcome === "mismatch")
         expect(error.cause.message).toMatch(/expected/);
-      expect(error.receipt.blockHeight).toBe(7n);
-      expect(error.submission.transactionHash).toEqual(
-        error.receipt.transactionHash,
+      expect(error.transaction.receipt.blockHeight).toBe(7n);
+      expect(error.transaction.submission.transactionHash).toEqual(
+        error.transaction.receipt.transactionHash,
       );
-      expect(error.submission.signedTransaction.length).toBeGreaterThan(0);
+      expect(
+        error.transaction.submission.signedTransaction.length,
+      ).toBeGreaterThan(0);
       expect(wait).toHaveBeenCalledOnce();
       expect(
         rpc.mock.calls.filter(([method]) => method === "sendTransaction"),

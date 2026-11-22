@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  decodeResult,
-  RpcDecodingError,
-  UnsupportedRpcValue,
-} from "./codec.js";
+import { decodeResult, UnsupportedRpcValue } from "./codec.js";
 import type { RpcTransactionStatus } from "./generated.js";
 
 const diagnostic = {
@@ -68,8 +64,10 @@ describe("optional status attempt diagnostics", () => {
       } catch (error) {
         caught = error;
       }
-      expect(caught).toBeInstanceOf(RpcDecodingError);
-      expect((caught as RpcDecodingError).raw).toBe(raw);
+      expect(caught).toMatchObject({
+        code: "rpcValueInvalid",
+        context: { raw },
+      });
     },
   );
 

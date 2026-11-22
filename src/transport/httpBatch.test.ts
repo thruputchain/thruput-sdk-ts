@@ -2,7 +2,7 @@ import { MockTransport } from "./mock.js";
 import { toBase58 } from "../encoding.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createThruputClient } from "../client.js";
-import { HttpRequestError, HttpResponseError, HttpTransport } from "./http.js";
+import { HttpTransport } from "./http.js";
 import { classifyReadError } from "./readError.js";
 
 interface Request {
@@ -158,10 +158,12 @@ describe("HTTP batching", () => {
     expect(result[0]).toMatchObject({
       status: "rejected",
       reason: {
-        name: "JsonRpcError",
-        method: "groundhog_sendRawTransaction",
-        code: -32001,
-        data: "detail",
+        code: "rpcError",
+        context: {
+          method: "groundhog_sendRawTransaction",
+          code: -32001,
+          data: "detail",
+        },
       },
     });
     expect(result[1]).toEqual({ status: "fulfilled", value: null });
@@ -247,7 +249,10 @@ describe("HTTP batching", () => {
     ]);
     expect(results[0]).toMatchObject({
       status: "rejected",
-      reason: { message: "Invalid JSON-RPC error response" },
+      reason: {
+        code: "rpcResponseInvalid",
+        shortMessage: "Invalid JSON-RPC error response",
+      },
     });
     expect(results[1]).toEqual({ status: "fulfilled", value: 1 });
   });
@@ -272,9 +277,8 @@ describe("HTTP batching", () => {
       expect(result).toMatchObject({
         status: "rejected",
         reason: {
-          name: "JsonRpcError",
-          code: -32053,
-          method: index === 0 ? "a" : "b",
+          code: "rpcError",
+          context: { code: -32053, method: index === 0 ? "a" : "b" },
         },
       });
     }
@@ -480,17 +484,14 @@ describe("HTTP batching", () => {
       for (const [index, result] of results.entries()) {
         expect(result.status).toBe("rejected");
         if (result.status !== "rejected") continue;
-        expect(result.reason).toBeInstanceOf(
-          kind === "http"
-            ? HttpResponseError
-            : kind === "json"
-              ? SyntaxError
-              : HttpRequestError,
-        );
-        if (kind !== "json") {
+        if (kind === "json") expect(result.reason).toBeInstanceOf(SyntaxError);
+        else {
           expect(result.reason).toMatchObject({
-            method: index === 0 ? "a" : "b",
-            endpoint: "https://rpc.example",
+            code: kind === "http" ? "httpResponseError" : "httpRequestFailed",
+            context: {
+              method: index === 0 ? "a" : "b",
+              endpoint: "https://rpc.example",
+            },
           });
           expect(classifyReadError(result.reason)).toBe("transient");
         }

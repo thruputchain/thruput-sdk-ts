@@ -1,0 +1,161 @@
+import { fromHex0x } from "../actions/hex.js";
+import { UnsupportedRpcValue } from "../rpc/codec.js";
+import type { TransactionReceipt } from "../types/rpc.js";
+import { createSubmissionEvidence } from "../wallet/execution.js";
+import type { ThruputErrorCode } from "./codes.js";
+import { defineEntry, ThruputError } from "./thruputError.js";
+import {
+  transactionOutcomes,
+  transactionReasons,
+  type TransactionFactsInput,
+  type TransactionOutcome,
+  type TransactionReason,
+} from "./transaction.js";
+
+const invalid = (message: string): never => {
+  throw new TypeError(`Invalid serialized ThruputError: ${message}`);
+};
+
+const record = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+
+const hex = (value: unknown, field: string): Uint8Array => {
+  if (typeof value !== "string" || !/^0x(?:[0-9a-f]{2})*$/.test(value))
+    invalid(`${field} must be lowercase 0x hex`);
+  return fromHex0x(value as string);
+};
+
+/**
+ * Rebuild a {@link ThruputError} from the output of `toJSON()`, for example
+ * after `postMessage`. Checks the shape and the transaction facts strictly; a
+ * submission must hash to the transaction hash. Context values are decoded but
+ * not checked against the code's type, so treat them as untrusted. Invalid input
+ * throws a `TypeError`.
+ */
+export function parseThruputError(value: unknown): ThruputError {
+  return parse(value, 0);
+}
+
+function parse(value: unknown, depth: number): ThruputError {
+  if (!record(value)) return invalid("expected an object");
+  const { name, code, shortMessage, details, context, transaction } = value;
+  if (name !== "ThruputError") invalid("name must be ThruputError");
+  if (typeof code !== "string" || !/^[a-z][A-Za-z0-9]{0,63}$/.test(code))
+    invalid("code must be a camelCase string");
+  if (typeof shortMessage !== "string" || shortMessage.length > 1024)
+    invalid("shortMessage must be a string of at most 1024 characters");
+  if (
+    details !== undefined &&
+    (typeof details !== "string" || details.length > 4096)
+  )
+    invalid("details must be a string of at most 4096 characters");
+  if (!record(context)) invalid("context must be an object");
+  return new ThruputError(code as ThruputErrorCode, shortMessage as string, {
+    context: decodeJson(context, depth + 1) as never,
+    ...(details === undefined ? {} : { details: details as string }),
+    ...(transaction === undefined
+      ? {}
+      : { transaction: parseTransaction(transaction, depth + 1) }),
+  });
+}
+
+function parseTransaction(
+  value: unknown,
+  depth: number,
+): TransactionFactsInput {
+  if (!record(value)) return invalid("transaction must be an object");
+  const hash = hex(value.hash, "transaction.hash");
+  if (hash.length !== 32) invalid("transaction.hash must have 32 bytes");
+  if (!transactionOutcomes.includes(value.outcome as TransactionOutcome))
+    invalid("transaction.outcome is not supported");
+  if (!transactionReasons.includes(value.reason as TransactionReason))
+    invalid("transaction.reason is not supported");
+  let submission;
+  if (value.submission !== undefined) {
+    if (!record(value.submission))
+      invalid("transaction.submission must be an object");
+    const fields = value.submission as Record<string, unknown>;
+    const signedTransaction = hex(
+      fields.signedTransaction,
+      "transaction.submission.signedTransaction",
+    );
+    const networkHash = hex(
+      fields.networkHash,
+      "transaction.submission.networkHash",
+    );
+    try {
+      submission = createSubmissionEvidence(signedTransaction, networkHash);
+    } catch {
+      return invalid("transaction.submission is not a signed transaction");
+    }
+    if (!equal(submission.transactionHash, hash))
+      invalid("transaction.submission does not match transaction.hash");
+  }
+  const receipt =
+    value.receipt === undefined
+      ? undefined
+      : (decodeJson(value.receipt, depth + 1) as TransactionReceipt);
+  if (receipt !== undefined) {
+    if (
+      !record(receipt) ||
+      !(receipt.transactionHash instanceof Uint8Array) ||
+      !equal(receipt.transactionHash, hash)
+    )
+      invalid("transaction.receipt does not match transaction.hash");
+  }
+  return {
+    hash,
+    outcome: value.outcome as TransactionOutcome,
+    reason: value.reason as TransactionReason,
+    ...(receipt ? { receipt } : {}),
+    ...(submission ? { submission } : {}),
+  };
+}
+
+function decodeJson(value: unknown, depth: number): unknown {
+  if (depth > 64) invalid("value is nested too deeply");
+  if (value === null || typeof value !== "object") {
+    if (typeof value === "number" && !Number.isFinite(value))
+      invalid("numbers must be finite");
+    return value;
+  }
+  if (Array.isArray(value))
+    return value.map((entry) => decodeJson(entry, depth + 1));
+  const keys = Object.keys(value);
+  const tagged = value as Record<string, unknown>;
+  if (keys.length === 1) {
+    if (keys[0] === "$bytes") return hex(tagged.$bytes, "$bytes");
+    if (keys[0] === "$bigint") {
+      if (
+        typeof tagged.$bigint !== "string" ||
+        !/^-?(?:0|[1-9][0-9]*)$/.test(tagged.$bigint)
+      )
+        invalid("$bigint must be a decimal string");
+      return BigInt(tagged.$bigint as string);
+    }
+    if (keys[0] === "$unsupported")
+      return new UnsupportedRpcValue(
+        decodeJson(tagged.$unsupported, depth + 1),
+      );
+    if (keys[0] === "$error") {
+      const error = tagged.$error;
+      if (record(error) && error.name === "ThruputError")
+        return parse(error, depth + 1);
+      if (!record(error) || typeof error.name !== "string")
+        invalid("$error must have a name");
+      return Object.assign(new Error(), {
+        name: (error as { name: string }).name,
+      });
+    }
+  }
+  const result: Record<string, unknown> = {};
+  for (const key of keys)
+    defineEntry(result, key, decodeJson(tagged[key], depth + 1));
+  return result;
+}
+
+function equal(left: Uint8Array, right: Uint8Array): boolean {
+  return (
+    left.length === right.length && left.every((byte, i) => byte === right[i])
+  );
+}

@@ -10,14 +10,14 @@ import type { TransportRequestOptions } from "../../transport/types.js";
 import {
   assertTransactionAdmission,
   createSubmissionEvidence,
-  TransactionObservationError,
 } from "../../wallet/execution.js";
 
 /**
  * Serialize and submit once through the native RPC boundary.
- * Unknown admission throws TransactionObservationError with the signed bytes and
- * destination discovery network; that network does not prove the signing network
- * of an already-signed envelope. RPC and transport failures propagate unchanged.
+ * Unknown admission throws code `transactionAdmissionUnsupported` with the signed
+ * bytes and destination discovery network; that network does not prove the
+ * signing network of an already-signed envelope. RPC and transport failures
+ * propagate unchanged.
  */
 export async function sendTransaction(
   client: Pick<RpcClient, "sendTransaction" | "discovery">,
@@ -32,16 +32,6 @@ export async function sendTransaction(
     { signedTransaction: evidence.signedTransaction },
     options,
   );
-  try {
-    assertTransactionAdmission(result);
-  } catch (cause) {
-    throw new TransactionObservationError(
-      evidence,
-      cause,
-      undefined,
-      undefined,
-      "submission",
-    );
-  }
+  assertTransactionAdmission(result, evidence);
   return sha256Hash(result.transactionHash);
 }

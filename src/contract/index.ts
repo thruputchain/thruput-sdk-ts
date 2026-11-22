@@ -25,7 +25,6 @@ export {
   type ContractCodec,
   type ContractCodecContext,
 } from "./codec.js";
-export { ContractDecodeError, ContractVerificationError } from "./errors.js";
 export {
   bytesEqual,
   createContractEventDecoder,
@@ -43,9 +42,8 @@ export {
   type DecodedContractEvent,
 } from "./event.js";
 export {
-  ContractReceiptError,
-  ContractViewError,
   defineContractMethod,
+  type ContractFailure,
   type ContractException,
   type ContractArgumentMetadata,
   type ContractExceptionMetadata,

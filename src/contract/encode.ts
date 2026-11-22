@@ -28,7 +28,7 @@ import {
 } from "@thruputchain/protocol";
 import type { ContractType, ContractSpec, ContractSpecMethod } from "./spec.js";
 import { ContractTypeKind, formatSpecId, specIdKey } from "./spec.js";
-import { ContractDecodeError } from "./errors.js";
+import { contractDecodeFailed, errorText } from "./errors.js";
 import { contractValueLimits } from "./valueLimits.js";
 import { SignedTokenCodec } from "./signedToken.js";
 
@@ -385,8 +385,9 @@ export function decodeCalldata(
     }
     return result;
   } catch (cause) {
-    const detail = cause instanceof Error ? `: ${cause.message}` : "";
-    throw new ContractDecodeError(
+    const text = errorText(cause);
+    const detail = text === undefined ? "" : `: ${text}`;
+    throw contractDecodeFailed(
       `Failed to decode calldata for "${interfaceName}.${methodName}"${detail}`,
       { cause },
     );

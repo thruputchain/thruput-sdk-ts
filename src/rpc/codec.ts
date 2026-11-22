@@ -2,6 +2,7 @@ import schema from "./schema.json" with { type: "json" };
 import { fixedFromBase58, toBase58 } from "../encoding.js";
 import { fromHex0x, toHex0x } from "../actions/hex.js";
 import { parseDecimal } from "../actions/decimal.js";
+import { ThruputError } from "../errors/thruputError.js";
 
 /** An unfamiliar variant is data, never success, absence, or retry permission. */
 export class UnsupportedRpcValue {
@@ -10,25 +11,25 @@ export class UnsupportedRpcValue {
 }
 
 /** Malformed known result data, with the complete original result retained. */
-export class RpcDecodingError extends Error {
-  constructor(
-    readonly path: string,
-    readonly raw: unknown,
-  ) {
-    super(`Invalid native RPC value at ${path}`);
-    this.name = "RpcDecodingError";
-  }
+export function rpcValueInvalid(
+  path: string,
+  raw: unknown,
+): ThruputError<"rpcValueInvalid"> {
+  return new ThruputError(
+    "rpcValueInvalid",
+    `Invalid native RPC value at ${path}`,
+    { context: { path, raw } },
+  );
 }
 
 /** Invalid local input. The transport was not called; this is not retry permission. */
-export class RpcRequestValidationError extends Error {
-  constructor(
-    readonly path: string,
-    message = "Invalid native RPC request",
-  ) {
-    super(`${message} at ${path}`);
-    this.name = "RpcRequestValidationError";
-  }
+export function rpcRequestInvalid(
+  path: string,
+  message = "Invalid native RPC request",
+): ThruputError<"rpcRequestInvalid"> {
+  return new ThruputError("rpcRequestInvalid", `${message} at ${path}`, {
+    context: { path },
+  });
 }
 
 interface Schema {
@@ -84,6 +85,11 @@ function record(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+/** Cheap internal decode failure; each boundary converts it to a `ThruputError` once. */
+class SchemaMismatch {
+  constructor(readonly path: string) {}
+}
+
 /** The codec implements only the schema forms emitted by the pinned Rust owner. */
 function convert(
   s: Schema,
@@ -92,7 +98,7 @@ function convert(
   path: string,
 ): unknown {
   const fail = (): never => {
-    throw new RpcDecodingError(path, value);
+    throw new SchemaMismatch(path);
   };
   if (s.$ref) {
     const name = s.$ref.split("/").at(-1)!;
@@ -139,7 +145,7 @@ function convert(
       try {
         return convert(variant, value, encode, path);
       } catch (error) {
-        if (!(error instanceof RpcDecodingError)) throw error;
+        if (!(error instanceof SchemaMismatch)) throw error;
       }
     }
     if (!encode && s["x-extensible"] && typeof value === "string")
@@ -256,11 +262,10 @@ export function encodeRequest(
       entry.paged &&
       Object.hasOwn(encoded, "start") === Object.hasOwn(encoded, "cursor")
     )
-      throw new RpcDecodingError("/params", value);
+      throw new SchemaMismatch("/params");
     return encoded;
   } catch (error) {
-    if (error instanceof RpcDecodingError)
-      throw new RpcRequestValidationError(error.path);
+    if (error instanceof SchemaMismatch) throw rpcRequestInvalid(error.path);
     throw error;
   }
 }
@@ -271,8 +276,8 @@ export function decodeResult(method: string, value: unknown): unknown {
   try {
     return convert(entry.result, value, false, "/result");
   } catch (error) {
-    if (error instanceof RpcDecodingError)
-      throw new RpcDecodingError(error.path, value);
+    if (error instanceof SchemaMismatch)
+      throw rpcValueInvalid(error.path, value);
     throw error;
   }
 }
@@ -284,6 +289,12 @@ export function decodeErrorData(
   value: unknown,
 ): unknown {
   const entry = catalog.errors[method]?.find((entry) => entry.code === code);
-  if (!entry) throw new RpcDecodingError("/error", value);
-  return convert(entry.schema, value, false, "/error/data");
+  if (!entry) throw rpcValueInvalid("/error", value);
+  try {
+    return convert(entry.schema, value, false, "/error/data");
+  } catch (error) {
+    if (error instanceof SchemaMismatch)
+      throw rpcValueInvalid(error.path, value);
+    throw error;
+  }
 }

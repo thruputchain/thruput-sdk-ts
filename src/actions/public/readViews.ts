@@ -5,7 +5,7 @@ import type {
   ContractException,
 } from "../../contract/method.js";
 import type { TransportRequestOptions } from "../../transport/types.js";
-import { ContractDecodeError } from "../../contract/errors.js";
+import { contractDecodeFailed } from "../../contract/errors.js";
 
 /** Typed calls and an optional minimum committed height for one snapshot read. */
 export interface ReadViewsRequest<
@@ -78,7 +78,7 @@ export async function readViews<
         stateBlockHeight: response.stateBlockHeight,
       });
     } catch (cause) {
-      throw new ContractDecodeError(
+      throw contractDecodeFailed(
         `Failed to decode readViews result ${index} (${call.name})`,
         { cause },
       );

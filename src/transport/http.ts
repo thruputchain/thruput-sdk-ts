@@ -1,78 +1,12 @@
 import type { Transport, TransportRequestOptions, RpcParams } from "./types.js";
-import { RpcResponseError } from "./responseError.js";
+import { isThruputError } from "../errors/thruputError.js";
+import {
+  httpRequestFailed,
+  httpResponseError,
+  rpcError,
+  rpcResponseInvalid,
+} from "./errors.js";
 import { HttpBatch } from "./httpBatch.js";
-
-/**
- * Error thrown when a JSON-RPC response contains an `error` object.
- *
- * Malformed envelopes throw `RpcResponseError`, preserving the raw reply.
- */
-export class JsonRpcError extends Error {
-  /** JSON-RPC numeric error code. */
-  code: number;
-
-  /** Optional JSON-RPC error data returned by the gateway. */
-  data?: unknown;
-
-  /** JSON-RPC method associated with the failed request, when known. */
-  method?: string;
-
-  /** Complete original JSON-RPC error object, including additive fields. */
-  readonly raw: unknown;
-  readonly rpcMessage: string;
-
-  constructor(
-    code: number,
-    message: string,
-    data?: unknown,
-    method?: string,
-    raw?: unknown,
-  ) {
-    super(`${method ? `${method}: ` : ""}${message} (RPC ${code})`);
-    this.name = "JsonRpcError";
-    this.code = code;
-    this.data = data;
-    this.method = method;
-    this.rpcMessage = message;
-    this.raw = raw ?? {
-      code,
-      message,
-      ...(data === undefined ? {} : { data }),
-    };
-  }
-}
-
-/** Error thrown when an HTTP response has a non-successful status. */
-export class HttpResponseError extends Error {
-  readonly status: number;
-  readonly statusText: string;
-
-  constructor(
-    status: number,
-    statusText: string,
-    readonly endpoint?: string,
-    readonly method?: string,
-  ) {
-    super(
-      `HTTP ${status}: ${statusText}${method ? ` (${method} at ${endpoint})` : ""}`,
-    );
-    this.name = "HttpResponseError";
-    this.status = status;
-    this.statusText = statusText;
-  }
-}
-
-/** Network failure with sanitized endpoint and method context. */
-export class HttpRequestError extends TypeError {
-  constructor(
-    readonly endpoint: string,
-    readonly method: string,
-    cause: unknown,
-  ) {
-    super(`${method}: request to ${endpoint} failed`, { cause });
-    this.name = "HttpRequestError";
-  }
-}
 
 /** Limits for opt-in HTTP JSON-RPC batching. */
 export interface HttpBatchOptions {
@@ -117,7 +51,9 @@ export interface HttpTransportOptions {
  *
  * `HttpTransport` handles request IDs, JSON-RPC envelopes, optional custom
  * headers, optional timeout cancellation, and conversion of JSON-RPC error
- * responses into {@link JsonRpcError}.
+ * responses into `ThruputError` with code `rpcError`. Network failures use
+ * `httpRequestFailed`, failed HTTP statuses use `httpResponseError`, and
+ * malformed replies use `rpcResponseInvalid`.
  *
  * @example
  * ```ts
@@ -182,13 +118,13 @@ export class HttpTransport implements Transport {
       } catch (error) {
         if (options.signal?.aborted) throw options.signal.reason;
         // Keep the original method on shared HTTP failures for each caller.
-        if (error instanceof HttpRequestError)
-          throw new HttpRequestError(error.endpoint, method, error.cause);
-        if (error instanceof HttpResponseError)
-          throw new HttpResponseError(
-            error.status,
-            error.statusText,
-            error.endpoint,
+        if (isThruputError(error, "httpRequestFailed"))
+          throw httpRequestFailed(error.context.endpoint, method, error.cause);
+        if (isThruputError(error, "httpResponseError"))
+          throw httpResponseError(
+            error.context.status,
+            error.context.statusText,
+            error.context.endpoint,
             method,
           );
         throw error;
@@ -235,11 +171,11 @@ export class HttpTransport implements Transport {
           (cause.name === "AbortError" || cause.name === "TimeoutError")
         )
           throw cause;
-        throw new HttpRequestError(new URL(this.#url).origin, method, cause);
+        throw httpRequestFailed(new URL(this.#url).origin, method, cause);
       }
 
       if (!response.ok) {
-        throw new HttpResponseError(
+        throw httpResponseError(
           response.status,
           response.statusText,
           new URL(this.#url).origin,
@@ -257,7 +193,7 @@ export class HttpTransport implements Transport {
           "name" in cause &&
           cause.name === "TypeError"
         )
-          throw new HttpRequestError(new URL(this.#url).origin, method, cause);
+          throw httpRequestFailed(new URL(this.#url).origin, method, cause);
         throw cause;
       }
     } catch (cause) {
@@ -278,7 +214,7 @@ function decodeResponse(
   expectedId?: number,
 ): unknown {
   if (!json || typeof json !== "object" || Array.isArray(json)) {
-    throw new RpcResponseError("Invalid JSON-RPC response", json);
+    throw rpcResponseInvalid("Invalid JSON-RPC response", json);
   }
 
   const envelope = json as Record<string, unknown>;
@@ -295,7 +231,7 @@ function decodeResponse(
       !frameworkError) ||
     Object.hasOwn(envelope, "result") === Object.hasOwn(envelope, "error")
   ) {
-    throw new RpcResponseError(
+    throw rpcResponseInvalid(
       "Invalid JSON-RPC response envelope or request ID",
       json,
     );
@@ -303,27 +239,21 @@ function decodeResponse(
   if (envelope.error !== undefined) {
     const error = envelope.error;
     if (!error || typeof error !== "object" || Array.isArray(error)) {
-      throw new RpcResponseError("Invalid JSON-RPC error response", json);
+      throw rpcResponseInvalid("Invalid JSON-RPC error response", json);
     }
-    const rpcError = error as Record<string, unknown>;
+    const body = error as Record<string, unknown>;
     if (
-      typeof rpcError.code !== "number" ||
-      !Number.isSafeInteger(rpcError.code) ||
-      typeof rpcError.message !== "string"
+      typeof body.code !== "number" ||
+      !Number.isSafeInteger(body.code) ||
+      typeof body.message !== "string"
     ) {
-      throw new RpcResponseError("Invalid JSON-RPC error response", json);
+      throw rpcResponseInvalid("Invalid JSON-RPC error response", json);
     }
-    throw new JsonRpcError(
-      rpcError.code,
-      rpcError.message,
-      rpcError.data,
-      method,
-      rpcError,
-    );
+    throw rpcError(body.code, body.message, body.data, method, body);
   }
 
   if (!Object.prototype.hasOwnProperty.call(envelope, "result")) {
-    throw new RpcResponseError("Invalid JSON-RPC response", json);
+    throw rpcResponseInvalid("Invalid JSON-RPC response", json);
   }
   return envelope.result;
 }

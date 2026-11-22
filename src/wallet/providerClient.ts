@@ -14,7 +14,6 @@ import { fixedFromBase58, hashFromBase58, toBase58 } from "../encoding.js";
 import {
   submitAndObserve,
   createSubmissionEvidence,
-  TransactionObservationError,
   assertTransactionSuccess,
   decodeExecution,
   type CallResults,
@@ -32,8 +31,11 @@ import type { CoreThruputClient } from "../client.js";
 import { toHex0x } from "../actions/hex.js";
 import { pubkeyAccountPreimage } from "../derivation/pubkeyAccount.js";
 import { prepareTransaction } from "../actions/wallet/prepareTransaction.js";
+import { isThruputError } from "../errors/thruputError.js";
+import { providerError, toAppError } from "./providerErrors.js";
+import { transactionNotSubmitted } from "./transactionErrors.js";
 import {
-  WalletProviderError,
+  type WalletProviderError,
   assertWalletTransaction,
   parseSignTransactionResult,
   parseSubmitTransactionResult,
@@ -104,7 +106,10 @@ export interface CreateProviderWalletClientOptions {
 
 /**
  * Explicit prepare/sign/persist/submit flow without access to a raw signer.
- * Allows one in-flight operation; concurrent calls fail with code -32002. Checks
+ * Errors are `ThruputError`s with named codes: provider code 4001 becomes
+ * `userRejected`, and the others become `wallet*` codes, with the wire code in
+ * `context.providerCode`. Allows one in-flight operation; concurrent calls fail
+ * with code `walletRequestPending` (provider code -32002). Checks
  * `getSession` before each operation and permanently invalidates on every `change`,
  * a failed session read, or a mismatched session. Dispose and recreate after a
  * change or reconnect; there is no automatic reconnect or retry.
@@ -137,7 +142,7 @@ export interface ProviderWalletClient {
     request: ExecuteCallsRequest<T>,
     options: ProviderExecutionOptions,
   ): Promise<ExecutionResult & { values: CallResults<T> }>;
-  /** Read fresh account/network capabilities; only 4200 falls back to unsupported. */
+  /** Read fresh account/network capabilities; only provider code 4200 falls back to unsupported. */
   getCapabilities(): Promise<WalletCapabilities>;
   /** Prepare one atomic batch after checking support. Does not sign or submit. */
   prepareBatchExecution(
@@ -257,14 +262,16 @@ export function createProviderWalletClient(
   options: CreateProviderWalletClientOptions,
 ): ProviderWalletClient {
   const { client } = options;
-  const provider = parseWalletProvider(options.provider);
-  const account = parseWalletAccount(options.account);
-  const networkHash = parseWalletNetworkHash(options.networkHash);
+  let provider: WalletProvider, account: WalletAccount, networkHash: string;
+  try {
+    provider = parseWalletProvider(options.provider);
+    account = parseWalletAccount(options.account);
+    networkHash = parseWalletNetworkHash(options.networkHash);
+  } catch (error) {
+    throw toAppError(error);
+  }
   if (toBase58(client.discovery.network.networkHash) !== networkHash)
-    throw new WalletProviderError(
-      4901,
-      "Client and provider network hashes differ",
-    );
+    throw providerError(4901, "Client and provider network hashes differ");
   if ("network" in client) {
     const network = client.network;
     if (
@@ -274,10 +281,7 @@ export function createProviderWalletClient(
       !isBytes(network.networkHash) ||
       toBase58(network.networkHash) !== networkHash
     ) {
-      throw new WalletProviderError(
-        4901,
-        "Client and provider network hashes differ",
-      );
+      throw providerError(4901, "Client and provider network hashes differ");
     }
   }
   const preparationAccount = {
@@ -306,7 +310,7 @@ export function createProviderWalletClient(
   };
   const unsubscribe = provider.on("change", invalidate);
   if (typeof unsubscribe !== "function") {
-    throw new WalletProviderError(
+    throw providerError(
       -32603,
       "Provider did not return an unsubscribe function",
     );
@@ -315,7 +319,7 @@ export function createProviderWalletClient(
 
   function assertActive(): void {
     if (invalidated)
-      throw new WalletProviderError(
+      throw providerError(
         4100,
         "Wallet session changed or adapter was disposed",
       );
@@ -333,17 +337,18 @@ export function createProviderWalletClient(
       onDispatch?.();
       return await providerRequest(value);
     } catch (error) {
-      let failure: WalletProviderError;
+      let failure: WalletProviderError | undefined;
       try {
         failure = parseWalletProviderError(error);
       } catch {
-        failure = new WalletProviderError(
-          4900,
-          "Wallet provider request failed",
-        );
+        // Reported below as a disconnected provider.
       }
-      if ([4100, 4900, 4901].includes(failure.code)) invalidate();
-      throw failure;
+      const code = failure?.code ?? 4900;
+      if ([4100, 4900, 4901].includes(code)) invalidate();
+      throw providerError(
+        code,
+        failure?.message ?? "Wallet provider request failed",
+      );
     }
   }
 
@@ -355,10 +360,10 @@ export function createProviderWalletClient(
       try {
         session = parseWalletSession(value);
       } catch {
-        throw new WalletProviderError(-32603, "Invalid provider session");
+        throw providerError(-32603, "Invalid provider session");
       }
       if (session.networkHash !== networkHash) {
-        throw new WalletProviderError(4901, "Wallet network changed");
+        throw providerError(4901, "Wallet network changed");
       }
       if (
         !session.accounts.some(
@@ -368,11 +373,11 @@ export function createProviderWalletClient(
             entry.nonce === account.nonce,
         )
       ) {
-        throw new WalletProviderError(4100, "Wallet account is not authorized");
+        throw providerError(4100, "Wallet account is not authorized");
       }
       const snapshot = JSON.stringify(session);
       if (sessionSnapshot !== undefined && sessionSnapshot !== snapshot) {
-        throw new WalletProviderError(4100, "Wallet session changed");
+        throw providerError(4100, "Wallet session changed");
       }
       sessionSnapshot = snapshot;
     } catch (error) {
@@ -384,15 +389,15 @@ export function createProviderWalletClient(
   async function run<T>(operation: () => Promise<T>): Promise<T> {
     assertActive();
     if (busy)
-      throw new WalletProviderError(
-        -32002,
-        "Another wallet operation is pending",
-      );
+      throw providerError(-32002, "Another wallet operation is pending");
     busy = true;
     try {
       const result = await operation();
       assertActive();
       return result;
+    } catch (error) {
+      // Wire parsers throw WalletProviderError; apps see the named codes.
+      throw toAppError(error);
     } finally {
       busy = false;
     }
@@ -414,8 +419,7 @@ export function createProviderWalletClient(
         params: { account: account.address, networkHash },
       });
     } catch (error) {
-      if (!(error instanceof WalletProviderError) || error.code !== 4200)
-        throw error;
+      if (!isThruputError(error, "walletMethodUnsupported")) throw error;
       value = { account: account.address, networkHash, atomicBatch: null };
     }
     assertActive();
@@ -429,7 +433,7 @@ export function createProviderWalletClient(
         throw new Error("Capability scope mismatch");
     } catch {
       invalidate();
-      throw new WalletProviderError(-32603, "Invalid provider capabilities");
+      throw providerError(-32603, "Invalid provider capabilities");
     }
     await checkSession();
     assertActive();
@@ -456,7 +460,7 @@ export function createProviderWalletClient(
         approved.signedTransaction !== signed.signedTransaction ||
         approved.hash !== signed.hash
       ) {
-        throw new WalletProviderError(
+        throw providerError(
           4100,
           "Signed bytes were not approved by this adapter",
         );
@@ -484,7 +488,7 @@ export function createProviderWalletClient(
         if (result.hash !== signed.hash) throw new Error("Hash mismatch");
       } catch {
         invalidate();
-        throw new WalletProviderError(
+        throw providerError(
           -32603,
           "Provider submission hash mismatch; broadcast may have occurred",
         );
@@ -535,7 +539,7 @@ export function createProviderWalletClient(
           !capabilities.atomicBatch ||
           count > capabilities.atomicBatch.maxCalls
         )
-          throw new WalletProviderError(
+          throw providerError(
             4200,
             "Atomic batch execution is not supported for these calls",
           );
@@ -610,10 +614,7 @@ export function createProviderWalletClient(
   let executing = false;
   function assertIdle() {
     if (executing)
-      throw new WalletProviderError(
-        -32002,
-        "Another wallet execution is pending",
-      );
+      throw providerError(-32002, "Another wallet execution is pending");
   }
   async function execute(
     prepare: () => Promise<Transaction>,
@@ -631,11 +632,14 @@ export function createProviderWalletClient(
         "getTransactionStatus",
       ]);
       const signed = await base.signTransaction(await prepare());
+      let signedTransaction;
+      try {
+        signedTransaction = parseSignedTransactionHex(signed.signedTransaction);
+      } catch (error) {
+        throw toAppError(error);
+      }
       const evidence = createSubmissionEvidence(
-        serialize(
-          parseSignedTransactionHex(signed.signedTransaction),
-          codec.SignedTransaction,
-        ),
+        serialize(signedTransaction, codec.SignedTransaction),
         hashFromBase58(networkHash),
       );
       try {
@@ -646,17 +650,11 @@ export function createProviderWalletClient(
             networkHash,
           }),
         );
-        options.wait?.signal?.throwIfAborted();
       } catch (cause) {
         approved = undefined;
-        throw new TransactionObservationError(
-          evidence,
-          cause,
-          undefined,
-          undefined,
-          "beforeSubmission",
-        );
+        throw transactionNotSubmitted(evidence, "persistenceFailed", cause);
       }
+      if (options.wait?.signal?.aborted) approved = undefined;
       let submissionDispatched = false;
       const result = await submitAndObserve(
         client,

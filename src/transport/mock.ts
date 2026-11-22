@@ -3,7 +3,7 @@ import { codec, deserialize } from "@thruputchain/protocol";
 import { toBase58 } from "../encoding.js";
 import { fromHex0x } from "../actions/hex.js";
 import { hashSignedTransaction } from "../derivation/transactionHash.js";
-import { JsonRpcError } from "./http.js";
+import { rpcError } from "./errors.js";
 
 const methods = [
   "getVersionInfo",
@@ -122,7 +122,7 @@ export class MockTransport implements Transport {
         };
         break;
       case "getContractArtifact":
-        throw new JsonRpcError(
+        throw rpcError(
           -32014,
           "Contract artifact unavailable",
           {

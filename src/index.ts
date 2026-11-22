@@ -8,6 +8,7 @@
  *
  * @module
  */
+export * from "./errors/index.js";
 export * from "./transaction/index.js";
 export * from "./contract/index.js";
 export * from "./actions/index.js";
@@ -25,11 +26,7 @@ export type {
   RpcParams,
 } from "./transport/index.js";
 export {
-  HttpResponseError,
-  RpcResponseError,
-  HttpRequestError,
   HttpTransport,
-  JsonRpcError,
   MockTransport,
   classifyReadError,
   txInvalidDetail,
@@ -54,7 +51,6 @@ export {
   localnet,
   defineCluster,
   assertNetworkMatchesCluster,
-  NetworkMismatchError,
   DEVNET_RPC_URL,
   FUTURENET_RPC_URL,
   LOCALNET_RPC_URL,
@@ -84,7 +80,7 @@ export {
   majorVersionFromSemver,
 } from "./derivation/entrypointId.js";
 export type * from "./types/rpc.js";
-export { parseUnits, formatUnits, ParseUnitsError } from "./units.js";
+export { parseUnits, formatUnits } from "./units.js";
 export {
   contractAddress,
   blockHeight,
