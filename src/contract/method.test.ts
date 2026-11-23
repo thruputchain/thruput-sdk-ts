@@ -588,7 +588,7 @@ describe("contract method receipts", () => {
     );
     expect(() => method.decodeReceipt(receipt())).toThrow(
       expect.objectContaining({
-        code: "contractDecodeFailed",
+        code: "transactionResultUndecodable",
         transaction: expect.objectContaining({
           outcome: "succeeded",
           reason: "resultUndecodable",
@@ -604,7 +604,7 @@ describe("contract method receipts", () => {
     });
     expect(() => method.decodeReceiptOutcome(receipt())).toThrow(
       expect.objectContaining({
-        code: "contractDecodeFailed",
+        code: "transactionResultUndecodable",
         transaction: expect.objectContaining({ outcome: "succeeded" }),
       }),
     );

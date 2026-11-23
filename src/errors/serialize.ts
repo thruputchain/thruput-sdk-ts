@@ -12,6 +12,7 @@ import {
 } from "./codes.js";
 import {
   defineEntry,
+  serializedMessageLimits,
   ThruputError,
   type ThruputErrorOptions,
   type ThruputErrorRequiredOptions,
@@ -55,13 +56,19 @@ function parse(value: unknown, depth: number): ThruputError {
   if (name !== "ThruputError") invalid("name must be ThruputError");
   if (typeof code !== "string" || !/^[a-z][A-Za-z0-9]{0,63}$/.test(code))
     invalid("code must be a camelCase string");
-  if (typeof shortMessage !== "string" || shortMessage.length > 1024)
-    invalid("shortMessage must be a string of at most 1024 characters");
+  const limits = serializedMessageLimits;
+  if (
+    typeof shortMessage !== "string" ||
+    shortMessage.length > limits.shortMessage
+  )
+    invalid(
+      `shortMessage must be a string of at most ${limits.shortMessage} characters`,
+    );
   if (
     details !== undefined &&
-    (typeof details !== "string" || details.length > 4096)
+    (typeof details !== "string" || details.length > limits.details)
   )
-    invalid("details must be a string of at most 4096 characters");
+    invalid(`details must be a string of at most ${limits.details} characters`);
   if (!record(context)) invalid("context must be an object");
   if (
     transaction === undefined &&

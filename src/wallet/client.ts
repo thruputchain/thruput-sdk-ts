@@ -41,6 +41,7 @@ import {
   assertTransactionSuccess,
   assertTransactionAdmission,
   decodeExecution,
+  validateExecutionWait,
   type CallResults,
   type ExecutionResult,
 } from "./execution.js";
@@ -362,6 +363,7 @@ export function createWalletClient<
     wait?: WaitForTransactionReceiptOptions,
   ): Promise<ExecutionResult> {
     wait?.signal?.throwIfAborted();
+    validateExecutionWait(wait);
     client.requireMethods([
       "getChainTip",
       "sendTransaction",
@@ -381,6 +383,9 @@ export function createWalletClient<
       serialize(signed, codec.SignedTransaction),
       signingNetworkHash,
     );
+    // Do not persist a transaction the caller cancelled while it was signed.
+    if (wait?.signal?.aborted)
+      throw transactionNotSubmitted(evidence, "cancelled", wait.signal.reason);
     try {
       await onSigned?.(evidence);
     } catch (cause) {

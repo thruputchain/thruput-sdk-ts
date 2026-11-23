@@ -1,6 +1,9 @@
 import { isUnsupportedRpcValue } from "../rpc/unsupported.js";
 import { isThruputError, ThruputError } from "../errors/thruputError.js";
-import { receiptFacts } from "../errors/transaction.js";
+import {
+  receiptFacts,
+  transactionResultUndecodable,
+} from "../errors/transaction.js";
 import { contractDecodeFailed } from "../contract/errors.js";
 import { gasAmount, type GasAmount } from "@thruputchain/protocol";
 import type { CoreThruputClient } from "../client.js";
@@ -27,7 +30,6 @@ import {
   timeoutError,
   transactionNotSubmitted,
   transactionOutcomeUnknown,
-  transactionResultUndecodable,
   withSubmission,
 } from "./transactionErrors.js";
 
@@ -159,6 +161,22 @@ export async function submitAndObserve(
     throw withSubmission(cause, submission, submissionError);
   }
 }
+/**
+ * Check execution wait options before preparing or signing, so an invalid
+ * option never leaves a signed or sent transaction. `knownCommitment` applies
+ * only to observing an existing hash, so execution rejects it.
+ */
+export function validateExecutionWait(
+  wait: WaitForTransactionReceiptOptions | undefined,
+): void {
+  validateTimer(wait?.timeoutMs ?? 30000, "timeoutMs");
+  validateTimer(wait?.pollingIntervalMs ?? 250, "pollingIntervalMs");
+  if (wait?.knownCommitment !== undefined)
+    throw new TypeError(
+      "knownCommitment applies only when observing an existing transaction",
+    );
+}
+
 /** Wait for a committed receipt, then require execution success. */
 export async function waitForExecution(
   client: Pick<CoreThruputClient, "waitForTransactionReceipt">,

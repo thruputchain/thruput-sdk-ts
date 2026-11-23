@@ -23,7 +23,7 @@ import {
   assertTransactionSuccess,
   type SubmissionEvidence,
 } from "./execution.js";
-import { transactionResultUndecodable } from "./transactionErrors.js";
+import { transactionResultUndecodable } from "../errors/transaction.js";
 import { contractDecodeFailed } from "../contract/errors.js";
 
 /** Stable deployment identity, available before transaction preparation. */

@@ -3,8 +3,6 @@ import { isThruputError, ThruputError } from "../errors/thruputError.js";
 import type { TransactionOutcomeUnknownContext } from "../errors/codes.js";
 import type { TransactionReason } from "../errors/transaction.js";
 import { classifyReadError } from "../transport/readError.js";
-import type { TransactionReceipt } from "../types/rpc.js";
-import { receiptFacts } from "../errors/transaction.js";
 import type { SubmissionEvidence } from "../transaction/submissionEvidence.js";
 
 // Internal constructors for transaction errors. Public APIs re-export none of these.
@@ -129,23 +127,6 @@ export function reasonAfterDispatch(
   if (isTimeout(cause)) return "timeout";
   if (classifyReadError(cause) === "transient") return "disconnected";
   return "submissionFailed";
-}
-
-/** Execution succeeded, but its return data did not decode. */
-export function transactionResultUndecodable(
-  receipt: TransactionReceipt,
-  cause: unknown,
-  submission?: SubmissionEvidence,
-): ThruputError<"transactionResultUndecodable"> {
-  // Adapters are application code, so their messages stay in `cause` only.
-  return new ThruputError(
-    "transactionResultUndecodable",
-    `Transaction ${toBase58(receipt.transactionHash)} committed, but result decoding failed`,
-    {
-      cause,
-      transaction: receiptFacts(receipt, "resultUndecodable", submission),
-    },
-  );
 }
 
 /** A deadline error. Uses the web-standard `TimeoutError` name. */

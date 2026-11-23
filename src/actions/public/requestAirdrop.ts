@@ -1,6 +1,10 @@
 import type { RpcClient } from "../../rpc/client.js";
 import { rpcIncompatible } from "../../rpc/client.js";
-import { rpcValueInvalid, UnsupportedRpcValue } from "../../rpc/codec.js";
+import {
+  isUnsupportedRpcValue,
+  rpcValueInvalid,
+  type UnsupportedRpcValue,
+} from "../../rpc/codec.js";
 import { isThruputError, ThruputError } from "../../errors/thruputError.js";
 import type {
   TransactionFactsInput,
@@ -99,10 +103,10 @@ export async function requestAirdrop(
         { signal },
       ),
     );
-    if (lastResponse instanceof UnsupportedRpcValue)
+    if (isUnsupportedRpcValue(lastResponse))
       throw unsupported("Unsupported faucet response", lastResponse);
     if (lastResponse.attemptStatus === "succeeded") {
-      if (lastResponse.execution instanceof UnsupportedRpcValue)
+      if (isUnsupportedRpcValue(lastResponse.execution))
         throw unsupported(
           "Unsupported faucet execution outcome",
           lastResponse.execution,
@@ -133,8 +137,9 @@ export async function requestAirdrop(
   } catch (cause) {
     // An abort reason can be any value, so take no evidence from it.
     const cancelled = isCancellation(cause, options.signal);
-    const response =
-      lastResponse instanceof UnsupportedRpcValue ? undefined : lastResponse;
+    const response = isUnsupportedRpcValue(lastResponse)
+      ? undefined
+      : lastResponse;
     const native =
       !cancelled &&
       phase === "faucet" &&

@@ -417,25 +417,35 @@ describe("provider atomic batches", () => {
     wallet.dispose();
   });
 
-  it("does not ask the wallet to sign after an abort during preparation", async () => {
-    const { wallet, request } = await setup();
-    const controller = new AbortController();
-    const reason = new Error("stop");
-    const original = request.getMockImplementation()!;
-    // Preparation checks the session; the caller cancels while it runs.
-    request.mockImplementation((input) => {
-      if (input.method === "getSession") controller.abort(reason);
-      return original(input);
-    });
-    await expect(
-      wallet.executeAndWait(execution, {
-        onSigned: vi.fn(),
-        wait: { signal: controller.signal },
-      }),
-    ).rejects.toBe(reason);
-    expect(methodCalls(request, "signTransaction")).toHaveLength(0);
-    wallet.dispose();
-  });
+  it.each([
+    ["preparation", 1],
+    ["the session check before the prompt", 2],
+  ])(
+    "does not ask the wallet to sign after an abort during %s",
+    async (_, abortAtSessionCheck) => {
+      const { wallet, request } = await setup();
+      const controller = new AbortController();
+      const reason = new Error("stop");
+      const original = request.getMockImplementation()!;
+      let sessionChecks = 0;
+      request.mockImplementation((input) => {
+        if (
+          input.method === "getSession" &&
+          ++sessionChecks === abortAtSessionCheck
+        )
+          controller.abort(reason);
+        return original(input);
+      });
+      await expect(
+        wallet.executeAndWait(execution, {
+          onSigned: vi.fn(),
+          wait: { signal: controller.signal },
+        }),
+      ).rejects.toBe(reason);
+      expect(methodCalls(request, "signTransaction")).toHaveLength(0);
+      wallet.dispose();
+    },
+  );
 
   it("does not submit when the lifecycle persistence callback fails", async () => {
     const { wallet, request } = await setup();
@@ -1349,6 +1359,46 @@ describe("external provider wallet", () => {
       transaction: { outcome: "unknown" },
     });
     expect(methodCalls(request, "submitTransaction")).toHaveLength(1);
+    wallet.dispose();
+  });
+
+  it("does not report notSubmitted for re-signed bytes this adapter sent", async () => {
+    const { wallet, request } = await setup();
+    const transaction = await wallet.prepareExecution(execution);
+    const first = await wallet.signTransaction(transaction);
+    await wallet.submitTransaction(first);
+    // Deterministic signing gives the same bytes and a fresh approval.
+    const again = await wallet.signTransaction(transaction);
+    expect(again.signedTransaction).toBe(first.signedTransaction);
+    const original = request.getMockImplementation()!;
+    request.mockImplementation((input) =>
+      input.method === "getSession"
+        ? Promise.reject({ code: -32603, message: "lost" })
+        : original(input),
+    );
+    await expect(wallet.submitTransaction(again)).rejects.toMatchObject({
+      transaction: { outcome: "unknown" },
+    });
+    expect(methodCalls(request, "submitTransaction")).toHaveLength(1);
+    wallet.dispose();
+  });
+
+  it("adds facts when the session fails after a valid signature", async () => {
+    const { wallet, request } = await setup();
+    const transaction = await wallet.prepareExecution(execution);
+    const original = request.getMockImplementation()!;
+    let sessionChecks = 0;
+    // The second check runs after the wallet returns a valid signature.
+    request.mockImplementation((input) =>
+      input.method === "getSession" && ++sessionChecks === 2
+        ? Promise.reject({ code: -32603, message: "lost" })
+        : original(input),
+    );
+    await expect(wallet.signTransaction(transaction)).rejects.toMatchObject({
+      code: "walletInternalError",
+      transaction: { outcome: "notSubmitted", reason: "notDispatched" },
+    });
+    expect(methodCalls(request, "signTransaction")).toHaveLength(1);
     wallet.dispose();
   });
 

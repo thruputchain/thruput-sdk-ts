@@ -30,11 +30,11 @@ export type TransactionOutcome = (typeof transactionOutcomes)[number];
  * | `cancelled` | The caller's signal was aborted. |
  * | `timeout` | The time budget ended. |
  * | `persistenceFailed` | The `onSigned` callback rejected, so the client did not submit. |
- * | `notDispatched` | The transport did not send the request. |
+ * | `notDispatched` | This call did not send the request. With outcome `unknown`, an earlier call may have sent the same bytes. |
  * | `requestInvalid` | A local request or compatibility check failed before dispatch. |
  * | `nodeRejected` | The node answered `invalidParams`, `transactionInvalid`, or `transactionRejected`, or stopped a funding attempt. |
  * | `submissionFailed` | Submission failed in a way that does not prove the node did not receive the transaction. |
- * | `disconnected` | The time budget ended after the last read failed. |
+ * | `disconnected` | A transient network or node failure: during submission, or the last read before the time budget ended. |
  * | `statusUnknown` | The time budget ended, and the node's last status was `unknown` or unsupported. |
  * | `recentFailure` | The time budget ended, and the node's last status was `recentFailure`. |
  * | `networkChanged` | The observation endpoint reported a different network. |
@@ -152,6 +152,26 @@ export function receiptFacts(
     receipt,
     ...(submission ? { submission } : {}),
   };
+}
+
+/**
+ * Execution succeeded, but its return data did not decode.
+ * @internal
+ */
+export function transactionResultUndecodable(
+  receipt: TransactionReceipt,
+  cause: unknown,
+  submission?: SubmissionEvidence,
+): ThruputError<"transactionResultUndecodable"> {
+  // Adapters are application code, so their messages stay in `cause` only.
+  return new ThruputError(
+    "transactionResultUndecodable",
+    `Transaction ${toBase58(receipt.transactionHash)} committed, but result decoding failed`,
+    {
+      cause,
+      transaction: receiptFacts(receipt, "resultUndecodable", submission),
+    },
+  );
 }
 
 /**

@@ -1,4 +1,4 @@
-import { UnsupportedRpcValue } from "../rpc/codec.js";
+import { isUnsupportedRpcValue } from "../rpc/unsupported.js";
 import type {
   AuthClaim,
   ContractAddress,
@@ -32,7 +32,11 @@ import {
 } from "./codec.js";
 import { contractDecodeFailed, errorText } from "./errors.js";
 import { isThruputError, ThruputError } from "../errors/thruputError.js";
-import { receiptFacts, withTransactionFacts } from "../errors/transaction.js";
+import {
+  receiptFacts,
+  transactionResultUndecodable,
+  withTransactionFacts,
+} from "../errors/transaction.js";
 import { contractValueLimits } from "./valueLimits.js";
 import { toHex0x } from "../actions/hex.js";
 import { toBase58 } from "../encoding.js";
@@ -327,10 +331,19 @@ export interface ContractMethod<TArgs, TResult, TDeclaredException> {
     response: ViewResponse,
   ): ContractViewOutcome<TResult, ContractException<TDeclaredException>>;
 
-  /** Decode a receipt whose root invocation called this method; nested invocation results are not inspected. */
+  /**
+   * Decode a receipt whose root invocation called this method; nested invocation
+   * results are not inspected. A failed execution throws `contractCallFailed`;
+   * an undecodable successful return throws `transactionResultUndecodable`.
+   */
   decodeReceipt(receipt: TransactionReceipt): ContractReceipt<TResult>;
 
-  /** Decode the outcome of a root invocation of this method; nested invocation results are not inspected. */
+  /**
+   * Decode the outcome of a root invocation of this method; nested invocation
+   * results are not inspected. An undecodable successful return throws
+   * `transactionResultUndecodable`; malformed abort data throws
+   * `contractDecodeFailed` with the receipt's `transaction` facts.
+   */
   decodeReceiptOutcome(
     receipt: TransactionReceipt,
   ): ContractReceiptOutcome<TResult, ContractException<TDeclaredException>>;
@@ -541,28 +554,35 @@ export function defineContractMethodWithExceptions<
         events: receipt.events,
       };
       const execution = receipt.execution;
-      if (execution instanceof UnsupportedRpcValue)
+      if (isUnsupportedRpcValue(execution))
         return { kind: "unsupported", raw: receipt, ...metadata };
-      try {
-        if (execution.result === "return")
-          return {
-            kind: "return",
-            value: method.decodeReturn(execution.returnData),
-            ...metadata,
-          };
-        if (execution.result === "abort")
-          return {
-            kind: "abort",
-            exception: method.decodeException(execution.abortData),
-            abortData: execution.abortData,
-            ...metadata,
-          };
-      } catch (error) {
-        // Malformed return or abort bytes must not hide what executed.
-        throw withTransactionFacts(
-          error,
-          receiptFacts(receipt, "resultUndecodable"),
-        );
+      // Malformed return or abort bytes must not hide what executed.
+      if (execution.result === "return") {
+        let value;
+        try {
+          value = method.decodeReturn(execution.returnData);
+        } catch (error) {
+          // Same code as decodeExecution and decodeDeployment.
+          throw transactionResultUndecodable(receipt, error);
+        }
+        return { kind: "return", value, ...metadata };
+      }
+      if (execution.result === "abort") {
+        let exception;
+        try {
+          exception = method.decodeException(execution.abortData);
+        } catch (error) {
+          throw withTransactionFacts(
+            error,
+            receiptFacts(receipt, "resultUndecodable"),
+          );
+        }
+        return {
+          kind: "abort",
+          exception,
+          abortData: execution.abortData,
+          ...metadata,
+        };
       }
       return { kind: "failure", execution, ...metadata };
     },
@@ -613,7 +633,7 @@ export function defineContractMethodWithExceptions<
     },
 
     decodeViewOutcome(response) {
-      if (response.output instanceof UnsupportedRpcValue)
+      if (isUnsupportedRpcValue(response.output))
         return {
           kind: "unsupported",
           raw: response,

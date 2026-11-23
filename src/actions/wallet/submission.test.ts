@@ -318,6 +318,38 @@ describe("high-level native submission", () => {
     expect(onSigned).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["timeoutMs", { timeoutMs: -1 }, RangeError],
+    ["pollingIntervalMs", { pollingIntervalMs: -1 }, RangeError],
+    [
+      "knownCommitment",
+      {
+        knownCommitment: {
+          networkHash: new Uint8Array(32),
+          transactionHash: new Uint8Array(32),
+          blockHeight: 1n,
+        },
+      },
+      TypeError,
+    ],
+  ] as const)("rejects an invalid %s before signing", async (_, wait, type) => {
+    const { client, signer, account, request, rpc } = await setup();
+    const sign = vi.spyOn(signer, "sign");
+    const wallet = createWalletClient({
+      client,
+      account,
+      networkHash: signingNetwork,
+    });
+    await expect(
+      wallet.executeAndWait(
+        { invocation: request.invocation, gasLimit: gasAmount(1000n) },
+        wait,
+      ),
+    ).rejects.toBeInstanceOf(type);
+    expect(sign).not.toHaveBeenCalled();
+    expect(rpc.mock.calls.some(([m]) => m === "sendTransaction")).toBe(false);
+  });
+
   it("does not write when persistence fails", async () => {
     const { client, account, request, rpc } = await setup();
     const cause = new Error("disk full");
