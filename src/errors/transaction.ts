@@ -1,4 +1,5 @@
 import { isUnsupportedRpcValue } from "../rpc/unsupported.js";
+import { toBase58 } from "../encoding.js";
 import { isThruputError, ThruputError } from "./thruputError.js";
 import type { TransactionReceipt } from "../types/rpc.js";
 import type { SubmissionEvidence } from "../transaction/submissionEvidence.js";
@@ -155,17 +156,40 @@ export function receiptFacts(
 
 /**
  * Add transaction facts to a `ThruputError` that has none, keeping its code.
+ * An error with facts for another transaction, for example an abort reason, is
+ * wrapped instead, so its facts never describe this transaction.
  * @internal
  */
 export function withTransactionFacts(
   error: unknown,
   transaction: TransactionFactsInput,
 ): unknown {
-  if (!isThruputError(error) || error.transaction) return error;
+  if (!isThruputError(error)) return error;
+  if (error.transaction) {
+    if (bytesEqual(error.transaction.hash, transaction.hash)) return error;
+    const notSubmitted = transaction.outcome === "notSubmitted";
+    return new ThruputError(
+      notSubmitted ? "transactionNotSubmitted" : "transactionOutcomeUnknown",
+      `Could not complete transaction ${toBase58(transaction.hash)}`,
+      {
+        cause: error,
+        transaction: {
+          ...transaction,
+          outcome: notSubmitted ? "notSubmitted" : "unknown",
+        },
+      },
+    );
+  }
   return new ThruputError(error.code, error.shortMessage, {
     context: error.context,
     ...(error.details === undefined ? {} : { details: error.details }),
     ...(error.cause === undefined ? {} : { cause: error.cause }),
     transaction,
   });
+}
+
+function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
+  return (
+    left.length === right.length && left.every((byte, i) => byte === right[i])
+  );
 }

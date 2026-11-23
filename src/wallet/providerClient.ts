@@ -34,9 +34,11 @@ import { prepareTransaction } from "../actions/wallet/prepareTransaction.js";
 import { isThruputError } from "../errors/thruputError.js";
 import { providerError, toAppError } from "./providerErrors.js";
 import {
+  isCancellation,
   reasonAfterDispatch,
   reasonBeforeDispatch,
   transactionNotSubmitted,
+  transactionOutcomeUnknown,
 } from "./transactionErrors.js";
 import { withTransactionFacts } from "../errors/transaction.js";
 import {
@@ -522,16 +524,20 @@ export function createProviderWalletClient(
       await checkSession();
       return Object.freeze(result);
     }).catch((error: unknown) => {
+      const outcome = !dispatched && ownsApproval ? "notSubmitted" : "unknown";
+      // An abort reason can be any value, including another transaction's error.
+      if (isCancellation(error, signal))
+        throw outcome === "notSubmitted"
+          ? transactionNotSubmitted(submission, "cancelled", error)
+          : transactionOutcomeUnknown(submission, "cancelled", error);
       // Keep the wallet code; add the signed transaction so apps can recover.
       throw withTransactionFacts(error, {
         hash: submission.transactionHash,
         submission,
-        ...(dispatched
-          ? { outcome: "unknown", reason: reasonAfterDispatch(error, signal) }
-          : {
-              outcome: ownsApproval ? "notSubmitted" : "unknown",
-              reason: reasonBeforeDispatch(error, signal),
-            }),
+        outcome,
+        reason: dispatched
+          ? reasonAfterDispatch(error, signal)
+          : reasonBeforeDispatch(error, signal),
       });
     });
   }

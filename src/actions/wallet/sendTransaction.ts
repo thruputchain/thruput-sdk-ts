@@ -14,6 +14,7 @@ import {
 import { isThruputError } from "../../errors/thruputError.js";
 import { withTransactionFacts } from "../../errors/transaction.js";
 import {
+  isCancellation,
   isLocalRequestError,
   reasonAfterDispatch,
   transactionOutcomeUnknown,
@@ -44,6 +45,9 @@ export async function sendTransaction(
     );
   } catch (cause) {
     const signal = options?.signal;
+    // An abort reason can be any value, including another transaction's error.
+    if (isCancellation(cause, signal))
+      throw transactionOutcomeUnknown(evidence, "cancelled", cause);
     const local = isLocalRequestError(cause, signal);
     const reason = local
       ? "requestInvalid"

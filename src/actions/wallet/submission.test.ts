@@ -246,6 +246,40 @@ describe("high-level native submission", () => {
     );
   });
 
+  it("does not report another transaction's facts for an abort reason", async () => {
+    const { client, account, request, rpc } = await setup();
+    const signed = await signWalletTransaction(
+      account,
+      await prepareTransaction(client, account, request),
+      signingNetwork,
+    );
+    const previous = new ThruputError("transactionNotSubmitted", "Earlier", {
+      transaction: {
+        hash: new Uint8Array(32).fill(9),
+        outcome: "notSubmitted",
+        reason: "cancelled",
+      },
+    });
+    const controller = new AbortController();
+    rpc.mockImplementation(async (method) => {
+      if (method !== "sendTransaction") throw new Error(`unexpected ${method}`);
+      controller.abort(previous);
+      throw previous;
+    });
+    const error = await sendTransaction(client, signed, {
+      signal: controller.signal,
+    }).catch((e) => e);
+    expect(error).toMatchObject({
+      code: "transactionOutcomeUnknown",
+      transaction: { outcome: "unknown", reason: "cancelled" },
+      cause: previous,
+    });
+    expect(error.transaction.hash).toEqual(
+      error.transaction.submission.transactionHash,
+    );
+    expect(error.transaction.hash).not.toEqual(new Uint8Array(32).fill(9));
+  });
+
   it("does not write when persistence fails", async () => {
     const { client, account, request, rpc } = await setup();
     const cause = new Error("disk full");

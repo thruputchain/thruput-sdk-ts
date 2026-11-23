@@ -10,6 +10,8 @@ import type { RpcClient } from "../rpc/client.js";
 import { httpRequestFailed, rpcError } from "../transport/errors.js";
 import type { TransactionReceipt, TransactionStatus } from "../types/rpc.js";
 import { createSubmissionEvidence, submitAndObserve } from "./execution.js";
+import { withTransactionFacts } from "../errors/transaction.js";
+import { ThruputError } from "../errors/thruputError.js";
 
 // One test for each row of the transaction reason table in the design.
 
@@ -339,5 +341,43 @@ describe("observation reasons", () => {
       "unknown",
       "cancelled",
     );
+  });
+});
+
+describe("withTransactionFacts", () => {
+  const facts = {
+    hash,
+    outcome: "unknown",
+    reason: "disconnected",
+    submission: evidence,
+  } as const;
+
+  it("adds facts to an error without them, keeping its code", () => {
+    const error = httpRequestFailed(
+      "https://rpc.example",
+      "sendTransaction",
+      0,
+    );
+    expect(withTransactionFacts(error, facts)).toMatchObject({
+      code: "httpRequestFailed",
+      transaction: { outcome: "unknown", reason: "disconnected" },
+    });
+  });
+
+  it("wraps an error whose facts describe another transaction", () => {
+    const other = new ThruputError("transactionNotSubmitted", "Earlier", {
+      transaction: {
+        hash: new Uint8Array(32).fill(9),
+        outcome: "notSubmitted",
+        reason: "cancelled",
+      },
+    });
+    const wrapped = withTransactionFacts(other, facts);
+    expect(wrapped).toMatchObject({
+      code: "transactionOutcomeUnknown",
+      cause: other,
+      transaction: { outcome: "unknown" },
+    });
+    expect((wrapped as ThruputError).transaction!.hash).toEqual(hash);
   });
 });
