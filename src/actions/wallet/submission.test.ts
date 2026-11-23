@@ -222,6 +222,30 @@ describe("high-level native submission", () => {
     });
   });
 
+  it("keeps the recovery hash when the submit response is lost", async () => {
+    const { client, account, request, rpc } = await setup();
+    const signed = await signWalletTransaction(
+      account,
+      await prepareTransaction(client, account, request),
+      signingNetwork,
+    );
+    const lost = new ThruputError("httpRequestFailed", "connection reset", {
+      context: { endpoint: "https://rpc.example", method: "sendTransaction" },
+    });
+    rpc.mockImplementation(async (method) => {
+      if (method === "sendTransaction") throw lost;
+      throw new Error(`unexpected ${method}`);
+    });
+    const error = await sendTransaction(client, signed).catch((e) => e);
+    expect(error).toMatchObject({
+      code: "httpRequestFailed",
+      transaction: { outcome: "unknown", reason: "disconnected" },
+    });
+    expect(error.transaction.hash).toEqual(
+      error.transaction.submission.transactionHash,
+    );
+  });
+
   it("does not write when persistence fails", async () => {
     const { client, account, request, rpc } = await setup();
     const cause = new Error("disk full");

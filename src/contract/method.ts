@@ -543,25 +543,20 @@ export function defineContractMethodWithExceptions<
       const execution = receipt.execution;
       if (execution instanceof UnsupportedRpcValue)
         return { kind: "unsupported", raw: receipt, ...metadata };
-      if (execution.result === "return")
-        return {
-          kind: "return",
-          value: method.decodeReturn(execution.returnData),
-          ...metadata,
-        };
-      if (execution.result === "abort")
-        return {
-          kind: "abort",
-          exception: method.decodeException(execution.abortData),
-          abortData: execution.abortData,
-          ...metadata,
-        };
-      return { kind: "failure", execution, ...metadata };
-    },
-    decodeReceipt(receipt) {
-      let outcome;
       try {
-        outcome = method.decodeReceiptOutcome(receipt);
+        if (execution.result === "return")
+          return {
+            kind: "return",
+            value: method.decodeReturn(execution.returnData),
+            ...metadata,
+          };
+        if (execution.result === "abort")
+          return {
+            kind: "abort",
+            exception: method.decodeException(execution.abortData),
+            abortData: execution.abortData,
+            ...metadata,
+          };
       } catch (error) {
         // Malformed return or abort bytes must not hide what executed.
         throw withTransactionFacts(
@@ -569,6 +564,10 @@ export function defineContractMethodWithExceptions<
           receiptFacts(receipt, "resultUndecodable"),
         );
       }
+      return { kind: "failure", execution, ...metadata };
+    },
+    decodeReceipt(receipt) {
+      const outcome = method.decodeReceiptOutcome(receipt);
       if (outcome.kind === "return")
         return {
           value: outcome.value,
@@ -669,13 +668,25 @@ export function defineContractMethodWithExceptions<
         !isThruputError(error, "contractCallFailed")
       )
         return undefined;
-      // The throwing definition decoded the outcome, so require the same method.
       const { method: failedName, entrypoint: failed, outcome } = error.context;
-      return failedName === name &&
-        failed.length === entrypoint.length &&
-        failed.every((byte, index) => byte === entrypoint[index])
-        ? (outcome as ContractFailure<ContractException<TDeclaredException>>)
-        : undefined;
+      if (
+        failedName !== name ||
+        failed.length !== entrypoint.length ||
+        failed.some((byte, index) => byte !== entrypoint[index])
+      )
+        return undefined;
+      type Failure = ContractFailure<ContractException<TDeclaredException>>;
+      if (outcome.kind !== "abort") return outcome as Failure;
+      // Another definition, such as a dynamic one, can decode the same
+      // entrypoint differently. Decode the abort data with this method's ABI.
+      try {
+        return {
+          ...outcome,
+          exception: method.decodeException(outcome.abortData),
+        } as Failure;
+      } catch {
+        return undefined;
+      }
     },
   };
 

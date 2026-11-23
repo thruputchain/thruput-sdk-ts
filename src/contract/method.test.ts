@@ -559,6 +559,16 @@ describe("contract method receipts", () => {
       definition({ entrypoint: contractEntrypointID(new Uint8Array(8)) }),
     );
     expect(other.decodeError(error)).toBeUndefined();
+    // Same method and entrypoint, but no declared exceptions: decode again.
+    const undeclared = defineContractMethod<void, void, never>(
+      definition({ throws: [] }),
+    );
+    expect(undeclared.name).toBe(method.name);
+    const redecoded = undeclared.decodeError(error);
+    expect(redecoded?.kind === "abort" && redecoded.exception).toMatchObject({
+      kind: "unknown",
+      selector: 7n,
+    });
   });
 
   it("preserves faults and rejects truncated successful return bytes", () => {
@@ -592,6 +602,12 @@ describe("contract method receipts", () => {
         abortData: encode((writer) => writer.writeUint64(7n)),
       },
     });
+    expect(() => method.decodeReceiptOutcome(receipt())).toThrow(
+      expect.objectContaining({
+        code: "contractDecodeFailed",
+        transaction: expect.objectContaining({ outcome: "succeeded" }),
+      }),
+    );
     expect(() => method.decodeReceipt(badAbort)).toThrow(
       expect.objectContaining({
         code: "contractDecodeFailed",

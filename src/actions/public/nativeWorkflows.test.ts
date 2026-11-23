@@ -17,7 +17,8 @@ import {
 } from "../../wallet/execution.js";
 import type { TransactionReceipt } from "../../types/rpc.js";
 import vectors from "../../../specs/test-vectors/pubkey_auth.json";
-import { fromHex0x } from "../hex.js";
+import { fromHex0x, toHex0x } from "../hex.js";
+import { parseThruputError } from "../../errors/serialize.js";
 import { toBase58 } from "../../encoding.js";
 import { NativeRpcErrorCode } from "../../rpc/errors.js";
 
@@ -561,6 +562,61 @@ describe("single-call funding", () => {
       code: "fundingStopped",
       transaction: { outcome: "succeeded", reason: "nodeRejected" },
     });
+  });
+
+  it("takes no transaction evidence from an abort reason", async () => {
+    const c = client();
+    const previous = new ThruputError("transactionFailed", "Earlier failure", {
+      transaction: {
+        hash: new Uint8Array(32).fill(9),
+        outcome: "failed",
+        reason: "aborted",
+      },
+    });
+    const error = await requestAirdrop(c, {
+      recipient,
+      signal: AbortSignal.abort(previous),
+    }).catch((e) => e);
+    expect(error).toMatchObject({ code: "fundingStopped", cause: previous });
+    expect(error.transaction).toBeUndefined();
+    expect(error.context.knownCommitment).toBeUndefined();
+    expect(c.faucet_requestAirdrop).not.toHaveBeenCalled();
+  });
+
+  it("keeps verified signed bytes from a stopped faucet attempt", async () => {
+    const c = client();
+    const signedBytes = fromHex0x(
+      "0x" + vectors.signing[0]!.signed_transaction_xdr,
+    );
+    const signedHash = createSubmissionEvidence(
+      signedBytes,
+      networkHash,
+    ).transactionHash;
+    const cause = nativeRpcError(
+      rpcError(
+        NativeRpcErrorCode.FundingAttemptStopped,
+        "stopped",
+        {
+          kind: "fundingAttemptStopped",
+          transactionHash: toBase58(signedHash),
+          signedTransaction: toHex0x(signedBytes),
+        },
+        "faucet_requestAirdrop",
+      ).context,
+      "faucet_requestAirdrop",
+    );
+    expect(cause.context.kind).toBe("fundingAttemptStopped");
+    c.faucet_requestAirdrop.mockRejectedValue(cause);
+    const error = await requestAirdrop(c, { recipient }).catch((e) => e);
+    expect(error.transaction).toMatchObject({
+      outcome: "unknown",
+      reason: "nodeRejected",
+    });
+    expect(error.transaction.submission.signedTransaction).toEqual(signedBytes);
+    const restored = parseThruputError(JSON.parse(JSON.stringify(error)));
+    expect(restored.transaction?.submission?.transactionHash).toEqual(
+      signedHash,
+    );
   });
 
   it("retains commitment from a terminal faucet error without another call", async () => {

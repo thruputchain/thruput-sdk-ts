@@ -11,13 +11,21 @@ import {
   assertTransactionAdmission,
   createSubmissionEvidence,
 } from "../../wallet/execution.js";
+import { isThruputError } from "../../errors/thruputError.js";
+import { withTransactionFacts } from "../../errors/transaction.js";
+import {
+  isLocalRequestError,
+  reasonAfterDispatch,
+  transactionOutcomeUnknown,
+} from "../../wallet/transactionErrors.js";
 
 /**
  * Serialize and submit once through the native RPC boundary.
- * Unknown admission throws code `transactionAdmissionUnsupported` with the signed
- * bytes and destination discovery network; that network does not prove the
- * signing network of an already-signed envelope. RPC and transport failures
- * propagate unchanged.
+ * Every failure has `transaction` facts with the signed bytes and destination
+ * discovery network; that network does not prove the signing network of an
+ * already-signed envelope. Unknown admission throws code
+ * `transactionAdmissionUnsupported`. RPC and transport failures keep their
+ * code, with outcome `unknown`, or `notSubmitted` for a local request error.
  */
 export async function sendTransaction(
   client: Pick<RpcClient, "sendTransaction" | "discovery">,
@@ -28,10 +36,27 @@ export async function sendTransaction(
     serialize(signedTx, codec.SignedTransaction),
     client.discovery.network.networkHash,
   );
-  const result = await client.sendTransaction(
-    { signedTransaction: evidence.signedTransaction },
-    options,
-  );
+  let result;
+  try {
+    result = await client.sendTransaction(
+      { signedTransaction: evidence.signedTransaction },
+      options,
+    );
+  } catch (cause) {
+    const signal = options?.signal;
+    const local = isLocalRequestError(cause, signal);
+    const reason = local
+      ? "requestInvalid"
+      : reasonAfterDispatch(cause, signal);
+    if (!isThruputError(cause))
+      throw transactionOutcomeUnknown(evidence, reason, cause);
+    throw withTransactionFacts(cause, {
+      hash: evidence.transactionHash,
+      outcome: local ? "notSubmitted" : "unknown",
+      reason,
+      submission: evidence,
+    });
+  }
   assertTransactionAdmission(result, evidence);
   return sha256Hash(result.transactionHash);
 }

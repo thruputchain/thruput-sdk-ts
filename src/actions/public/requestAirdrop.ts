@@ -16,6 +16,11 @@ import type {
 import { waitForTransactionReceipt } from "./waitForTransactionReceipt.js";
 import { assertTransactionSuccess } from "../../wallet/execution.js";
 import { classifyReadError } from "../../transport/readError.js";
+import { isCancellation } from "../../wallet/transactionErrors.js";
+import {
+  createSubmissionEvidence,
+  type SubmissionEvidence,
+} from "../../transaction/submissionEvidence.js";
 import { beforeDeadline, validateTimer } from "../deadline.js";
 
 export interface RequestAirdropOptions {
@@ -78,12 +83,15 @@ export async function requestAirdrop(
   };
   const run = <T>(operation: (signal: AbortSignal) => Promise<T>) =>
     beforeDeadline(operation, deadline, options.signal, timeout);
+  // Evidence must come from this faucet call or from observing its hash.
+  let phase: "network" | "faucet" | "observe" = "network";
   try {
     const network = await run((signal) =>
       client.getNetworkInfo({}, { signal }),
     );
     if (network.networkHash.some((v, i) => v !== request.networkHash[i]))
       throw rpcIncompatible("Funding endpoint network does not match");
+    phase = "faucet";
     lastResponse = await run((signal) =>
       requestAirdropAttempt(
         client,
@@ -103,6 +111,7 @@ export async function requestAirdrop(
     }
     if (!lastResponse.transactionHash)
       throw rpcValueInvalid("/result/transactionHash", lastResponse);
+    phase = "observe";
     const receipt = await waitForTransactionReceipt(
       client,
       lastResponse.transactionHash,
@@ -122,15 +131,28 @@ export async function requestAirdrop(
       execution: receipt.execution,
     };
   } catch (cause) {
+    // An abort reason can be any value, so take no evidence from it.
+    const cancelled = isCancellation(cause, options.signal);
     const response =
       lastResponse instanceof UnsupportedRpcValue ? undefined : lastResponse;
-    const native = isThruputError(cause, "nativeRpcError")
-      ? cause.context.data
-      : undefined;
-    const nativeReceipt =
-      native && "receipt" in native ? native.receipt : undefined;
-    const observed = isThruputError(cause) ? cause.transaction : undefined;
-    const receipt = observed?.receipt ?? nativeReceipt;
+    const native =
+      !cancelled &&
+      phase === "faucet" &&
+      isThruputError(cause, "nativeRpcError")
+        ? cause.context.data
+        : undefined;
+    const observed =
+      !cancelled &&
+      phase === "observe" &&
+      isThruputError(cause) &&
+      cause.transaction &&
+      response?.transactionHash &&
+      bytesEqual(cause.transaction.hash, response.transactionHash)
+        ? cause.transaction
+        : undefined;
+    const receipt =
+      observed?.receipt ??
+      (native && "receipt" in native ? native.receipt : undefined);
     const hash =
       receipt?.transactionHash ??
       observed?.hash ??
@@ -138,6 +160,15 @@ export async function requestAirdrop(
         ? native.transactionHash
         : undefined) ??
       response?.transactionHash;
+    // The native reader checked these signed bytes against the hash.
+    const signed =
+      native && "signedTransaction" in native
+        ? native.signedTransaction
+        : undefined;
+    const submission =
+      signed && hash
+        ? fundingSubmission(signed, request.networkHash, hash)
+        : undefined;
     const reason: TransactionReason = options.signal?.aborted
       ? "cancelled"
       : timedOut
@@ -147,8 +178,9 @@ export async function requestAirdrop(
             ? "disconnected"
             : "nodeRejected"
           : "observationFailed";
+    const extra = submission ? { submission } : {};
     const transaction: TransactionFactsInput | undefined = receipt
-      ? receiptFacts(receipt, reason)
+      ? { ...receiptFacts(receipt, reason), ...extra }
       : observed
         ? {
             hash: observed.hash,
@@ -164,20 +196,22 @@ export async function requestAirdrop(
                 response?.attemptStatus === "succeeded"
                   ? "outcomeUnsupported"
                   : reason,
+              ...extra,
             }
           : undefined;
     const committed =
       receipt ??
       (response?.attemptStatus === "succeeded" ? response : undefined);
-    const knownCommitment = isThruputError(cause, "transactionOutcomeUnknown")
-      ? cause.context.knownCommitment
-      : committed
-        ? {
-            networkHash: request.networkHash.slice(),
-            transactionHash: new Uint8Array(committed.transactionHash),
-            blockHeight: committed.blockHeight,
-          }
-        : undefined;
+    const knownCommitment =
+      observed && isThruputError(cause, "transactionOutcomeUnknown")
+        ? cause.context.knownCommitment
+        : committed
+          ? {
+              networkHash: request.networkHash.slice(),
+              transactionHash: new Uint8Array(committed.transactionHash),
+              blockHeight: committed.blockHeight,
+            }
+          : undefined;
     throw new ThruputError("fundingStopped", "Funding observation stopped", {
       context: {
         request,
@@ -188,6 +222,26 @@ export async function requestAirdrop(
       ...(transaction ? { transaction } : {}),
     });
   }
+}
+
+/** Signed faucet bytes as submission evidence, when they match the hash. */
+function fundingSubmission(
+  signedTransaction: Uint8Array,
+  networkHash: Uint8Array,
+  hash: Uint8Array,
+): SubmissionEvidence | undefined {
+  try {
+    const evidence = createSubmissionEvidence(signedTransaction, networkHash);
+    return bytesEqual(evidence.transactionHash, hash) ? evidence : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
+  return (
+    left.length === right.length && left.every((byte, i) => byte === right[i])
+  );
 }
 
 function unsupported(
