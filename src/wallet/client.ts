@@ -370,6 +370,8 @@ export function createWalletClient<
       "getNetworkInfo",
     ]);
     const transaction = await prepareTransaction(client, account, request);
+    // Do not sign a transaction the caller has cancelled.
+    wait?.signal?.throwIfAborted();
     const signed = await signWalletTransaction(
       account,
       transaction,

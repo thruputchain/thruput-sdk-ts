@@ -69,6 +69,8 @@ export async function sendInvocation(
     publicKeyId,
   }));
   const transaction = await prepareTransaction(client, account, request);
+  // Do not sign a transaction the caller has cancelled.
+  controls.signal?.throwIfAborted();
   checkNetwork();
   const signed = await sign(transaction, signers, signingNetwork);
   const evidence = createSubmissionEvidence(

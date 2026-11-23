@@ -226,7 +226,9 @@ async function observe(
           return commitmentOnly ? structuredClone(commitment!) : receipt;
         }
       } catch (cause) {
-        if (cause instanceof ObservationTimeout) throw cause;
+        // An abort reason can be another transaction's error; read nothing from it.
+        if (cause instanceof ObservationTimeout || options.signal?.aborted)
+          throw cause;
         lastFailure = cause;
         failed = true;
         if (isThruputError(cause, "nativeRpcError") && cause.context.data) {

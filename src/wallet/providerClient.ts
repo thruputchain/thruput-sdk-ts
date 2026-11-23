@@ -674,7 +674,10 @@ export function createProviderWalletClient(
         "getTransactionReceipt",
         "getTransactionStatus",
       ]);
-      const signed = await base.signTransaction(await prepare());
+      const transaction = await prepare();
+      // Do not ask the wallet to approve a transaction the caller has cancelled.
+      options.wait?.signal?.throwIfAborted();
+      const signed = await base.signTransaction(transaction);
       let signedTransaction;
       try {
         signedTransaction = parseSignedTransactionHex(signed.signedTransaction);

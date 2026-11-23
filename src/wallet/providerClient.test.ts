@@ -417,6 +417,26 @@ describe("provider atomic batches", () => {
     wallet.dispose();
   });
 
+  it("does not ask the wallet to sign after an abort during preparation", async () => {
+    const { wallet, request } = await setup();
+    const controller = new AbortController();
+    const reason = new Error("stop");
+    const original = request.getMockImplementation()!;
+    // Preparation checks the session; the caller cancels while it runs.
+    request.mockImplementation((input) => {
+      if (input.method === "getSession") controller.abort(reason);
+      return original(input);
+    });
+    await expect(
+      wallet.executeAndWait(execution, {
+        onSigned: vi.fn(),
+        wait: { signal: controller.signal },
+      }),
+    ).rejects.toBe(reason);
+    expect(methodCalls(request, "signTransaction")).toHaveLength(0);
+    wallet.dispose();
+  });
+
   it("does not submit when the lifecycle persistence callback fails", async () => {
     const { wallet, request } = await setup();
     await expect(

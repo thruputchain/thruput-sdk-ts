@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import vectors from "../../specs/test-vectors/pubkey_auth.json";
 import { fromHex0x } from "../actions/hex.js";
-import { waitForTransactionReceipt } from "../actions/public/waitForTransactionReceipt.js";
+import {
+  waitForCommitment,
+  waitForTransactionReceipt,
+} from "../actions/public/waitForTransactionReceipt.js";
+import { toBase58 } from "../encoding.js";
 import type { TransactionReason } from "../errors/transaction.js";
 import { rpcIncompatible } from "../rpc/client.js";
 import { rpcRequestInvalid } from "../rpc/codec.js";
@@ -329,6 +333,34 @@ describe("observation reasons", () => {
       "unknown",
       "observationFailed",
     );
+  });
+
+  it("takes no commitment from an abort reason", async () => {
+    // A receipt error for another transaction, carrying its block height.
+    const other = nativeRpcError(
+      rpcError(-32054, "invalid", {
+        kind: "backendDataInvalid",
+        observation: {
+          blockHeight: "7",
+          transactionHash: toBase58(new Uint8Array(32).fill(9)),
+        },
+      }).context,
+      "getTransactionReceipt",
+    );
+    expect(other.context.kind).toBe("backendDataInvalid");
+    const controller = new AbortController();
+    const error = await waitForCommitment(
+      observer({
+        receipt: async () => {
+          controller.abort(other);
+          throw other;
+        },
+      }),
+      hash,
+      { signal: controller.signal },
+    ).catch((e: unknown) => e);
+    expectFacts(error, "transactionOutcomeUnknown", "unknown", "cancelled");
+    expect(error).toMatchObject({ cause: other });
   });
 
   it("reports cancellation", async () => {

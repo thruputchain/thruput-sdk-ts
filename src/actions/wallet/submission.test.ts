@@ -280,6 +280,44 @@ describe("high-level native submission", () => {
     expect(error.transaction.hash).not.toEqual(new Uint8Array(32).fill(9));
   });
 
+  it("reports an abort before the call as notSubmitted", async () => {
+    const { client, account, request, rpc } = await setup();
+    const signed = await signWalletTransaction(
+      account,
+      await prepareTransaction(client, account, request),
+      signingNetwork,
+    );
+    const error = await sendTransaction(client, signed, {
+      signal: AbortSignal.abort(new Error("stop")),
+    }).catch((e) => e);
+    expect(error).toMatchObject({
+      code: "transactionNotSubmitted",
+      transaction: { outcome: "notSubmitted", reason: "cancelled" },
+    });
+    expect(rpc.mock.calls.some(([m]) => m === "sendTransaction")).toBe(false);
+  });
+
+  it("does not sign after an abort during preparation", async () => {
+    const { client, signer, account, request, rpc } = await setup();
+    const sign = vi.spyOn(signer, "sign");
+    const onSigned = vi.fn();
+    const controller = new AbortController();
+    const reason = new Error("stop");
+    const original = rpc.getMockImplementation()!;
+    rpc.mockImplementation(async (method, params, options) => {
+      if (method === "getChainTip") controller.abort(reason);
+      return original(method, params, options);
+    });
+    await expect(
+      sendInvocation(client, account, signingNetwork, request, {
+        signal: controller.signal,
+        onSigned,
+      }),
+    ).rejects.toBe(reason);
+    expect(sign).not.toHaveBeenCalled();
+    expect(onSigned).not.toHaveBeenCalled();
+  });
+
   it("does not write when persistence fails", async () => {
     const { client, account, request, rpc } = await setup();
     const cause = new Error("disk full");

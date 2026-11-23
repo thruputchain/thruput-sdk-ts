@@ -17,6 +17,7 @@ import {
   isCancellation,
   isLocalRequestError,
   reasonAfterDispatch,
+  transactionNotSubmitted,
   transactionOutcomeUnknown,
 } from "../../wallet/transactionErrors.js";
 
@@ -37,6 +38,9 @@ export async function sendTransaction(
     serialize(signedTx, codec.SignedTransaction),
     client.discovery.network.networkHash,
   );
+  // Nothing was sent yet, so an earlier abort is notSubmitted, not unknown.
+  if (options?.signal?.aborted)
+    throw transactionNotSubmitted(evidence, "cancelled", options.signal.reason);
   let result;
   try {
     result = await client.sendTransaction(
