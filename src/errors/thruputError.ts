@@ -7,9 +7,12 @@ import type {
   TransactionReason,
 } from "./transaction.js";
 
-/** Base URL of the error code reference. Each code has an anchor in lowercase. */
+/**
+ * Base URL of the error code reference in the Thruput docs. Each code has an
+ * anchor in lowercase.
+ */
 export const errorDocsBaseUrl =
-  "https://docs.thruput.network/tools/typescript-sdk/errors/";
+  "https://www.thruput.network/docs/typescript/reference/errors/";
 
 /** Options for a {@link ThruputError}. */
 export interface ThruputErrorOptions<TCode extends ThruputErrorCode> {

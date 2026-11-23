@@ -53,7 +53,10 @@ describe("ThruputError", () => {
     expect(error.name).toBe("ThruputError");
     expect(error.shortMessage).toBe("Endpoint mismatch");
     expect(error.details).toBe("getChainTip failed");
-    expect(error.docsUrl).toBe(`${errorDocsBaseUrl}#rpcincompatible`);
+    expect(error.docsUrl).toBe(
+      "https://www.thruput.network/docs/typescript/reference/errors/#rpcincompatible",
+    );
+    expect(error.docsUrl.startsWith(errorDocsBaseUrl)).toBe(true);
     expect(error.message).toBe(
       `Endpoint mismatch\n\nDetails: getChainTip failed\n\nDocs: ${error.docsUrl}`,
     );
