@@ -168,6 +168,25 @@ describe("native read observation", () => {
       receipt: result,
     });
   });
+  it.each([
+    // An UnsupportedRpcValue from another package copy, such as the CJS build.
+    [
+      "a foreign unsupported value",
+      { unsupported: true, raw: { result: "x" } },
+    ],
+    ["an unknown result", { result: "future" }],
+  ])("treats %s as an unsupported outcome, not a failure", (_, execution) => {
+    const result = { ...receipt, execution } as unknown as TransactionReceipt;
+    expect(() => assertTransactionSuccess(result)).toThrow(
+      expect.objectContaining({
+        code: "transactionOutcomeUnsupported",
+        transaction: expect.objectContaining({
+          outcome: "unknown",
+          reason: "outcomeUnsupported",
+        }),
+      }),
+    );
+  });
   it("keeps commitment through retry, dropped, unknown and lookup errors", async () => {
     vi.useFakeTimers();
     const c = client();

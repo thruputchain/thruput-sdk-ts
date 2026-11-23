@@ -3,6 +3,7 @@ import { nativeRpcError } from "../rpc/errorReader.js";
 import { describe, expect, it } from "vitest";
 import { rpcError } from "./errors.js";
 import { txInvalidDetail } from "./txInvalidDetail.js";
+import { ThruputError } from "../errors/thruputError.js";
 
 function txInvalid(data: unknown) {
   return nativeRpcError(
@@ -39,6 +40,24 @@ describe("txInvalidDetail", () => {
     },
   ])("reads the $reason bound", (detail) => {
     expect(txInvalidDetail(txInvalid(detail))).toEqual(detail);
+  });
+
+  it("rejects an unsupported detail from another package copy", () => {
+    const error = txInvalid({
+      reason: "tooManyContracts",
+      attached: 5,
+      max: 4,
+    });
+    const foreign = new ThruputError("nativeRpcError", error.shortMessage, {
+      context: {
+        ...error.context,
+        data: {
+          ...(error.context.data as object),
+          detail: { unsupported: true, raw: "future" },
+        },
+      } as ThruputError<"nativeRpcError">["context"],
+    });
+    expect(txInvalidDetail(foreign)).toBeNull();
   });
 
   it("preserves additive fields alongside validated known evidence", () => {

@@ -1,4 +1,5 @@
 import { toHex0x } from "../actions/hex.js";
+import { isUnsupportedRpcValue } from "../rpc/unsupported.js";
 import type {
   ThruputErrorCode,
   ThruputErrorContext,
@@ -34,14 +35,23 @@ export interface ThruputErrorOptions<TCode extends ThruputErrorCode> {
   readonly transaction?: TransactionFactsInput;
 }
 
-/** Options that a code requires: context with required fields, and facts for transaction codes. */
-export type ThruputErrorRequiredOptions<TCode extends ThruputErrorCode> =
-  ({} extends ThruputErrorContext[TCode]
+/**
+ * Options that a code requires: context with required fields, and facts for
+ * transaction codes. For a union of codes, an option is required when any code
+ * in the union requires it.
+ */
+export type ThruputErrorRequiredOptions<TCode extends ThruputErrorCode> = ([
+  TCode extends unknown
+    ? {} extends ThruputErrorContext[TCode]
+      ? never
+      : TCode
+    : never,
+] extends [never]
+  ? {}
+  : { readonly context: ThruputErrorContext[TCode] }) &
+  ([Extract<TCode, TransactionErrorCode>] extends [never]
     ? {}
-    : { readonly context: ThruputErrorContext[TCode] }) &
-    (TCode extends TransactionErrorCode
-      ? { readonly transaction: TransactionFactsInput }
-      : {});
+    : { readonly transaction: TransactionFactsInput });
 
 /** Options are optional only for codes that require none of them. */
 export type ThruputErrorArgs<TCode extends ThruputErrorCode> =
@@ -327,17 +337,12 @@ export function snapshot<T>(value: T, seen = new Map<object, unknown>()): T {
   return Object.freeze(copy) as T;
 }
 
-function isUnsupportedRpcValue(
-  value: object,
-): value is { unsupported: true; raw: unknown } {
-  return "unsupported" in value && value.unsupported === true && "raw" in value;
-}
-
 /**
  * Encode a value as JSON-safe data with tagged objects: `$bytes` (hex),
  * `$bigint` (decimal), `$unsupported` (an unsupported RPC value), and `$error`.
  * Other errors keep only their name, because messages can be private. A plain
- * object whose only key is one of these tags decodes as the tagged value.
+ * object that looks like a tag, such as RPC data `{ "$error": "..." }`, is
+ * wrapped in `$literal`.
  */
 export function encodeJson(value: unknown, depth = 0): unknown {
   if (depth > 64) throw new RangeError("Error context is nested too deeply");
@@ -359,8 +364,20 @@ export function encodeJson(value: unknown, depth = 0): unknown {
     const encoded = encodeJson(entry, depth + 1);
     if (encoded !== undefined) defineEntry(result, key, encoded);
   }
-  return result;
+  const keys = Object.keys(result);
+  return keys.length === 1 && jsonTags.includes(keys[0]!)
+    ? { $literal: result }
+    : result;
 }
+
+/** Keys that mark a tagged value in serialized errors. */
+export const jsonTags: readonly string[] = [
+  "$bytes",
+  "$bigint",
+  "$unsupported",
+  "$error",
+  "$literal",
+];
 
 /** Set an own data property, so a key such as `__proto__` cannot change the prototype. */
 export function defineEntry(

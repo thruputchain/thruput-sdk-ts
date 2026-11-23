@@ -35,6 +35,12 @@ const unknownFacts = {
   reason: "timeout",
 } as const;
 
+// An unknown outcome can only have a receipt whose execution is unsupported.
+const unsupportedReceipt: TransactionReceipt = {
+  ...receipt,
+  execution: new UnsupportedRpcValue({ result: "future" }),
+};
+
 function failed() {
   return new ThruputError("transactionFailed", "Transaction failed", {
     cause: new Error("private application detail"),
@@ -159,6 +165,9 @@ describe("ThruputError", () => {
       >();
     // @ts-expect-error transaction codes require facts
     void new ThruputError("transactionFailed", "Transaction failed");
+    const either = "rpcIncompatible" as "transactionFailed" | "rpcIncompatible";
+    // @ts-expect-error a union that includes a transaction code requires facts
+    void new ThruputError(either, "failure");
   });
 
   it("recognizes errors from another realm or package copy", () => {
@@ -213,7 +222,7 @@ describe("ThruputError serialization", () => {
         hash: submission.transactionHash,
         outcome: "unknown",
         reason: "timeout",
-        receipt,
+        receipt: unsupportedReceipt,
         submission,
       },
     });
@@ -226,7 +235,7 @@ describe("ThruputError serialization", () => {
     expect(parsed.transaction).toMatchObject({
       outcome: "unknown",
       reason: "timeout",
-      receipt,
+      receipt: unsupportedReceipt,
     });
     expect(parsed.transaction!.hash).toEqual(submission.transactionHash);
     expect(parsed.transaction!.submission!.signedTransaction).toEqual(
@@ -259,6 +268,24 @@ describe("ThruputError serialization", () => {
       transaction: unknownFacts,
     });
     expect(() => JSON.stringify(error)).not.toThrow();
+  });
+
+  it("round-trips RPC data that looks like a serialization tag", () => {
+    const data = {
+      $error: "upstream unavailable",
+      nested: { $bytes: "not hex" },
+    };
+    const error = new ThruputError("rpcError", "failed (RPC -32050)", {
+      context: { code: -32050, rpcMessage: "failed", data, raw: { data } },
+    });
+    const parsed = parseThruputError(JSON.parse(JSON.stringify(error)));
+    expect(parsed.context).toMatchObject({ data, raw: { data } });
+    const single = new ThruputError("rpcValueInvalid", "bad", {
+      context: { path: "/result", raw: { $error: "x" } },
+    });
+    expect(
+      parseThruputError(JSON.parse(JSON.stringify(single))).context,
+    ).toEqual({ path: "/result", raw: { $error: "x" } });
   });
 
   it("keeps only the name of other errors in context", () => {
@@ -316,6 +343,27 @@ describe("ThruputError serialization", () => {
           receipt: {
             transactionHash: { $bytes: failed().toJSON().transaction!.hash },
           },
+        },
+      },
+    ],
+    [
+      "an outcome that contradicts the receipt",
+      {
+        ...failed().toJSON(),
+        transaction: {
+          ...failed().toJSON().transaction,
+          outcome: "notSubmitted",
+        },
+      },
+    ],
+    [
+      "an outcome that contradicts the code",
+      {
+        ...failed().toJSON(),
+        transaction: {
+          ...failed().toJSON().transaction,
+          outcome: "unknown",
+          receipt: undefined,
         },
       },
     ],

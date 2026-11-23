@@ -7,6 +7,6 @@ export type {
   RpcMethod,
   RpcMethods,
 } from "./client.js";
-export { UnsupportedRpcValue } from "./codec.js";
+export { UnsupportedRpcValue, isUnsupportedRpcValue } from "./unsupported.js";
 export { NativeRpcErrorCode } from "./errors.js";
 export type * from "./generated.js";

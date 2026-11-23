@@ -395,6 +395,9 @@ function errorBoundary(error: unknown) {
   }
   // @ts-expect-error transaction codes require facts
   void new ThruputError("transactionFailed", "Transaction failed");
+  const either = "rpcIncompatible" as "transactionFailed" | "rpcIncompatible";
+  // @ts-expect-error a union that includes a transaction code requires facts
+  void new ThruputError(either, "failure");
   if (facts?.outcome === "unknown") {
     const hash: Uint8Array = facts.hash;
     void hash;

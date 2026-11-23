@@ -153,6 +153,23 @@ try {
   const parsed = esm.parseThruputError(JSON.parse(JSON.stringify(error)));
   if (parsed.code !== "rpcIncompatible")
     failures.push("parseThruputError: did not round-trip the code");
+  // An unsupported value from the CJS copy must not read as a failed execution.
+  const receipt = {
+    transactionHash: new Uint8Array(32),
+    blockHeight: 1n,
+    gasUsed: 0n,
+    events: [],
+    execution: new cjs.UnsupportedRpcValue({ result: "future" }),
+  };
+  try {
+    esm.assertTransactionSuccess(receipt);
+    failures.push("assertTransactionSuccess: accepted an unsupported outcome");
+  } catch (outcome) {
+    if (outcome?.code !== "transactionOutcomeUnsupported")
+      failures.push(
+        `assertTransactionSuccess: classified a CJS unsupported value as ${outcome?.code}`,
+      );
+  }
 } catch (error) {
   failures.push(
     `ThruputError: ${error instanceof Error ? error.message : error}`,

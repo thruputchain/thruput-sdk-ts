@@ -1,4 +1,4 @@
-import { UnsupportedRpcValue } from "../rpc/codec.js";
+import { isUnsupportedRpcValue } from "../rpc/unsupported.js";
 import { isThruputError, ThruputError } from "../errors/thruputError.js";
 import { receiptFacts } from "../errors/transaction.js";
 import { contractDecodeFailed } from "../contract/errors.js";
@@ -44,18 +44,20 @@ export function assertTransactionSuccess(
   execution: { result: "return"; returnData: Uint8Array };
 } {
   const hash = toBase58(receipt.transactionHash);
-  if (receipt.execution instanceof UnsupportedRpcValue)
-    throw new ThruputError(
-      "transactionOutcomeUnsupported",
-      `Transaction ${hash} has an unsupported execution outcome`,
-      { transaction: receiptFacts(receipt, "outcomeUnsupported", submission) },
-    );
-  if (receipt.execution.result !== "return")
+  const facts = receiptFacts(receipt, "outcomeUnsupported", submission);
+  if (facts.outcome === "succeeded") return;
+  const { execution } = receipt;
+  if (facts.outcome === "failed" && !isUnsupportedRpcValue(execution))
     throw new ThruputError(
       "transactionFailed",
-      `Transaction ${hash} execution failed (${receipt.execution.result})`,
-      { transaction: receiptFacts(receipt, "executionFailed", submission) },
+      `Transaction ${hash} execution failed (${execution.result})`,
+      { transaction: facts },
     );
+  throw new ThruputError(
+    "transactionOutcomeUnsupported",
+    `Transaction ${hash} has an unsupported execution outcome`,
+    { transaction: facts },
+  );
 }
 
 /**

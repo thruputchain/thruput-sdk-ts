@@ -1,5 +1,8 @@
 import { fromHex0x } from "../actions/hex.js";
-import { UnsupportedRpcValue } from "../rpc/codec.js";
+import {
+  isUnsupportedRpcValue,
+  UnsupportedRpcValue,
+} from "../rpc/unsupported.js";
 import type { TransactionReceipt } from "../types/rpc.js";
 import { createSubmissionEvidence } from "../transaction/submissionEvidence.js";
 import {
@@ -7,8 +10,14 @@ import {
   type ThruputErrorCode,
   type TransactionErrorCode,
 } from "./codes.js";
-import { defineEntry, ThruputError } from "./thruputError.js";
 import {
+  defineEntry,
+  ThruputError,
+  type ThruputErrorOptions,
+  type ThruputErrorRequiredOptions,
+} from "./thruputError.js";
+import {
+  receiptFacts,
   transactionOutcomes,
   transactionReasons,
   type TransactionFactsInput,
@@ -59,17 +68,41 @@ function parse(value: unknown, depth: number): ThruputError {
     transactionErrorCodes.includes(code as TransactionErrorCode)
   )
     invalid(`${code as string} requires transaction`);
-  return new ThruputError(code as ThruputErrorCode, shortMessage as string, {
+  const options: ThruputErrorOptions<ThruputErrorCode> = {
     context: decodeJson(context, depth + 1) as never,
     ...(details === undefined ? {} : { details: details as string }),
     ...(transaction === undefined
       ? {}
-      : { transaction: parseTransaction(transaction, depth + 1) }),
-  });
+      : {
+          transaction: parseTransaction(
+            transaction,
+            code as ThruputErrorCode,
+            depth + 1,
+          ),
+        }),
+  };
+  // The checks above give each code the options it requires.
+  return new ThruputError(
+    code as ThruputErrorCode,
+    shortMessage as string,
+    options as typeof options & ThruputErrorRequiredOptions<ThruputErrorCode>,
+  );
 }
+
+/** The outcome that each built-in transaction code always reports. */
+const codeOutcomes: Partial<Record<ThruputErrorCode, TransactionOutcome>> = {
+  transactionFailed: "failed",
+  transactionOutcomeUnsupported: "unknown",
+  transactionResultUndecodable: "succeeded",
+  transactionResultUnavailable: "succeeded",
+  transactionNotSubmitted: "notSubmitted",
+  transactionOutcomeUnknown: "unknown",
+  transactionAdmissionUnsupported: "unknown",
+};
 
 function parseTransaction(
   value: unknown,
+  code: ThruputErrorCode,
   depth: number,
 ): TransactionFactsInput {
   if (!record(value)) return invalid("transaction must be an object");
@@ -109,7 +142,13 @@ function parseTransaction(
       invalid("transaction.receipt is not a transaction receipt");
     if (!equal(receipt.transactionHash, hash))
       invalid("transaction.receipt does not match transaction.hash");
+    // A restored record must not contradict its proof of execution.
+    if (receiptFacts(receipt, "resultUndecodable").outcome !== value.outcome)
+      invalid("transaction.outcome contradicts transaction.receipt");
   }
+  const expected = codeOutcomes[code];
+  if (expected !== undefined && expected !== value.outcome)
+    invalid(`${code} requires outcome ${expected}`);
   return {
     hash,
     outcome: value.outcome as TransactionOutcome,
@@ -144,6 +183,15 @@ function decodeJson(value: unknown, depth: number): unknown {
       return new UnsupportedRpcValue(
         decodeJson(tagged.$unsupported, depth + 1),
       );
+    if (keys[0] === "$literal") {
+      // A plain object that looked like a tag; decode its entries only.
+      const literal = tagged.$literal;
+      if (!record(literal)) invalid("$literal must be an object");
+      const result: Record<string, unknown> = {};
+      for (const [key, entry] of Object.entries(literal as object))
+        defineEntry(result, key, decodeJson(entry, depth + 1));
+      return result;
+    }
     if (keys[0] === "$error") {
       const error = tagged.$error;
       if (record(error) && error.name === "ThruputError")
@@ -179,7 +227,7 @@ function isReceipt(value: unknown): value is TransactionReceipt {
   )
     return false;
   const { execution } = value;
-  if (execution instanceof UnsupportedRpcValue) return true;
+  if (isUnsupportedRpcValue(execution)) return true;
   if (!record(execution)) return false;
   if (execution.result === "return")
     return execution.returnData instanceof Uint8Array;

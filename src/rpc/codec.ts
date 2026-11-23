@@ -3,12 +3,9 @@ import { fixedFromBase58, toBase58 } from "../encoding.js";
 import { fromHex0x, toHex0x } from "../actions/hex.js";
 import { parseDecimal } from "../actions/decimal.js";
 import { ThruputError } from "../errors/thruputError.js";
+import { UnsupportedRpcValue } from "./unsupported.js";
 
-/** An unfamiliar variant is data, never success, absence, or retry permission. */
-export class UnsupportedRpcValue {
-  readonly unsupported = true;
-  constructor(readonly raw: unknown) {}
-}
+export { UnsupportedRpcValue, isUnsupportedRpcValue } from "./unsupported.js";
 
 /** Malformed known result data, with the complete original result retained. */
 export function rpcValueInvalid(

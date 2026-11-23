@@ -1,4 +1,4 @@
-import { UnsupportedRpcValue } from "../rpc/codec.js";
+import { isUnsupportedRpcValue } from "../rpc/unsupported.js";
 import { isThruputError, ThruputError } from "./thruputError.js";
 import type { TransactionReceipt } from "../types/rpc.js";
 import type { SubmissionEvidence } from "../transaction/submissionEvidence.js";
@@ -113,6 +113,15 @@ export interface TransactionFactsInput {
   readonly submission?: SubmissionEvidence;
 }
 
+/** Reason for each known failed execution result. */
+const failedResults = {
+  abort: "aborted",
+  fault: "faulted",
+  nonDeterministicError: "executionFailed",
+  failedGasSponsorship: "executionFailed",
+  other: "executionFailed",
+} as const satisfies Record<string, TransactionReason>;
+
 /**
  * Facts from a committed receipt. A successful execution uses
  * `successReason`, because the error is about a later step.
@@ -124,16 +133,17 @@ export function receiptFacts(
   submission?: SubmissionEvidence,
 ): TransactionFactsInput {
   const { execution } = receipt;
+  const result = isUnsupportedRpcValue(execution)
+    ? undefined
+    : execution.result;
+  // Only known results count as failed; anything else, including a value from
+  // another package copy, is an unsupported outcome.
   const [outcome, reason]: [TransactionOutcome, TransactionReason] =
-    execution instanceof UnsupportedRpcValue
-      ? ["unknown", "outcomeUnsupported"]
-      : execution.result === "return"
-        ? ["succeeded", successReason]
-        : execution.result === "abort"
-          ? ["failed", "aborted"]
-          : execution.result === "fault"
-            ? ["failed", "faulted"]
-            : ["failed", "executionFailed"];
+    result === "return"
+      ? ["succeeded", successReason]
+      : result !== undefined && Object.hasOwn(failedResults, result)
+        ? ["failed", failedResults[result as keyof typeof failedResults]]
+        : ["unknown", "outcomeUnsupported"];
   return {
     hash: receipt.transactionHash,
     outcome,
