@@ -14,6 +14,7 @@ import { defaultWalletAdapter } from "../../wallet/invocationAdapter.js";
 import { createWalletClient } from "../../wallet/client.js";
 import { prepareContractDeployment } from "../../wallet/deployment.js";
 import { UnsupportedRpcValue } from "../../rpc/codec.js";
+import { ThruputError } from "../../errors/thruputError.js";
 import { sendInvocation, signWalletTransaction } from "./sendInvocation.js";
 import { sendTransaction } from "./sendTransaction.js";
 import { prepareTransaction } from "./prepareTransaction.js";
@@ -190,6 +191,35 @@ describe("high-level native submission", () => {
         ([method]) => method === "getChainTip" || method === "sendTransaction",
       ),
     ).toBe(false);
+  });
+
+  it("reports an in-flight abort as unknown, whatever the abort reason", async () => {
+    const { client, account, request } = await setup();
+    const controller = new AbortController();
+    const reason = new ThruputError(
+      "rpcIncompatible",
+      "from another operation",
+    );
+    const sendTransaction = client.sendTransaction.bind(client);
+    const guardedClient = Object.assign(Object.create(client), {
+      sendTransaction: async (...args: Parameters<typeof sendTransaction>) => {
+        await sendTransaction(...args);
+        controller.abort(reason);
+        throw reason;
+      },
+    });
+    const error = await sendInvocation(
+      guardedClient,
+      account,
+      signingNetwork,
+      request,
+      { signal: controller.signal },
+    ).catch((error) => error);
+    expect(error).toMatchObject({
+      code: "transactionOutcomeUnknown",
+      transaction: { outcome: "unknown", reason: "cancelled" },
+      cause: reason,
+    });
   });
 
   it("does not write when persistence fails", async () => {

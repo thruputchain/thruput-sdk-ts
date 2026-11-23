@@ -19,6 +19,8 @@ import {
   type SubmissionEvidence,
 } from "../transaction/submissionEvidence.js";
 import {
+  isCancellation,
+  isLocalRequestError,
   isNodeRejection,
   reasonAfterDispatch,
   reasonBeforeDispatch,
@@ -124,17 +126,13 @@ export async function submitAndObserve(
       timeoutError("Transaction submission timed out"),
     );
   } catch (cause) {
-    if (
-      wasDispatched?.() === false ||
-      isThruputError(cause, "rpcRequestInvalid") ||
-      isThruputError(cause, "rpcIncompatible")
-    )
+    if (wasDispatched?.() === false || isLocalRequestError(cause, signal))
       throw transactionNotSubmitted(
         submission,
         reasonBeforeDispatch(cause, signal),
         cause,
       );
-    if (isNodeRejection(cause))
+    if (!isCancellation(cause, signal) && isNodeRejection(cause))
       throw transactionOutcomeUnknown(submission, "nodeRejected", cause);
     if (signal?.aborted || performance.now() >= deadline)
       throw transactionOutcomeUnknown(

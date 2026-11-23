@@ -468,10 +468,13 @@ export function createProviderWalletClient(
       fromHex0x(signed.signedTransaction),
       hashFromBase58(networkHash),
     );
+    // Approval is consumed at dispatch, and run() allows one operation at a
+    // time. Only a call that holds the approval can prove the bytes were never
+    // sent; any other failure cannot rule out an earlier dispatch.
+    let ownsApproval = false;
     let dispatched = false;
     return run(async () => {
       guard?.();
-      checkCancellation();
       if (
         !approved ||
         approved.signedTransaction !== signed.signedTransaction ||
@@ -482,6 +485,8 @@ export function createProviderWalletClient(
           "Signed bytes were not approved by this adapter",
         );
       }
+      ownsApproval = true;
+      checkCancellation();
       await checkSession();
       checkCancellation();
       // Consume before crossing the broadcast boundary, including ambiguous failures.
@@ -524,7 +529,7 @@ export function createProviderWalletClient(
         ...(dispatched
           ? { outcome: "unknown", reason: reasonAfterDispatch(error, signal) }
           : {
-              outcome: "notSubmitted",
+              outcome: ownsApproval ? "notSubmitted" : "unknown",
               reason: reasonBeforeDispatch(error, signal),
             }),
       });

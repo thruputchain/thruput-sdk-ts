@@ -1303,14 +1303,34 @@ describe("external provider wallet", () => {
         signed.signedTransaction,
       );
       // The approval is consumed, so a second attempt never reaches the wallet.
+      // It must not downgrade the first attempt: the bytes may be on the network.
       await expect(wallet.submitTransaction(signed)).rejects.toMatchObject({
         code: "walletUnauthorized",
-        transaction: { outcome: "notSubmitted", reason: "notDispatched" },
+        transaction: { outcome: "unknown", reason: "notDispatched" },
       });
       expect(methodCalls(request, "submitTransaction")).toHaveLength(1);
       wallet.dispose();
     },
   );
+
+  it("does not report notSubmitted for bytes that an earlier call submitted", async () => {
+    const { wallet, request } = await setup();
+    const signed = await wallet.signTransaction(
+      await wallet.prepareExecution(execution),
+    );
+    await expect(wallet.submitTransaction(signed)).resolves.toEqual({
+      hash: signed.hash,
+    });
+    const error = await wallet
+      .submitTransaction(signed)
+      .catch((error: unknown) => error);
+    expect(error).toMatchObject({
+      code: "walletUnauthorized",
+      transaction: { outcome: "unknown" },
+    });
+    expect(methodCalls(request, "submitTransaction")).toHaveLength(1);
+    wallet.dispose();
+  });
 
   it("requires exact locally approved bytes, not merely a matching hash", async () => {
     const { wallet, request } = await setup();

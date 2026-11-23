@@ -166,6 +166,23 @@ describe("submitAndObserve reasons", () => {
     },
   );
 
+  it("never reads the code of an abort reason as proof of no dispatch", async () => {
+    const controller = new AbortController();
+    const reason = rpcIncompatible("from another operation");
+    const error = await submitAndObserve(
+      client,
+      evidence,
+      async () => {
+        // The node may have the bytes; the caller then aborts with an SDK error.
+        controller.abort(reason);
+        throw reason;
+      },
+      { signal: controller.signal },
+    ).catch((e) => e);
+    expectFacts(error, "transactionOutcomeUnknown", "unknown", "cancelled");
+    expect(error.cause).toBe(reason);
+  });
+
   it("reports cancellation after dispatch as unknown", async () => {
     const controller = new AbortController();
     const error = await submitAndObserve(

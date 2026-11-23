@@ -75,17 +75,36 @@ export function withSubmission(
   });
 }
 
+/**
+ * True when the error is the caller's abort reason. An abort reason can be any
+ * value, so never read its code as evidence about this transaction.
+ */
+export function isCancellation(
+  cause: unknown,
+  signal: AbortSignal | undefined,
+): boolean {
+  return signal?.aborted === true && cause === signal.reason;
+}
+
+/** True when a local check rejected the request before dispatch. */
+export function isLocalRequestError(
+  cause: unknown,
+  signal: AbortSignal | undefined,
+): boolean {
+  return (
+    !isCancellation(cause, signal) &&
+    (isThruputError(cause, "rpcRequestInvalid") ||
+      isThruputError(cause, "rpcIncompatible"))
+  );
+}
+
 /** A failure before dispatch, after signing and `onSigned`. */
 export function reasonBeforeDispatch(
   cause: unknown,
   signal: AbortSignal | undefined,
 ): TransactionReason {
   if (signal?.aborted) return "cancelled";
-  if (
-    isThruputError(cause, "rpcRequestInvalid") ||
-    isThruputError(cause, "rpcIncompatible")
-  )
-    return "requestInvalid";
+  if (isLocalRequestError(cause, signal)) return "requestInvalid";
   if (isTimeout(cause)) return "timeout";
   return "notDispatched";
 }

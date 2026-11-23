@@ -10,9 +10,9 @@ import {
   assertTransactionAdmission,
   type SubmissionEvidence,
 } from "../../wallet/execution.js";
-import { isThruputError } from "../../errors/thruputError.js";
 import { rpcIncompatible } from "../../rpc/client.js";
 import {
+  isLocalRequestError,
   reasonAfterDispatch,
   reasonBeforeDispatch,
   transactionNotSubmitted,
@@ -97,10 +97,7 @@ export async function sendInvocation(
       { signal: controls.signal },
     );
   } catch (cause) {
-    if (
-      isThruputError(cause, "rpcRequestInvalid") ||
-      isThruputError(cause, "rpcIncompatible")
-    )
+    if (isLocalRequestError(cause, controls.signal))
       throw transactionNotSubmitted(evidence, "requestInvalid", cause);
     throw transactionOutcomeUnknown(
       evidence,
