@@ -148,7 +148,7 @@ export async function requestAirdrop(
             : "nodeRejected"
           : "observationFailed";
     const transaction: TransactionFactsInput | undefined = receipt
-      ? receiptFacts(receipt, "observationFailed")
+      ? receiptFacts(receipt, reason)
       : observed
         ? {
             hash: observed.hash,

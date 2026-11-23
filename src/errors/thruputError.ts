@@ -77,7 +77,12 @@ export interface SerializedThruputError {
  * @example
  * ```ts
  * try {
- *   await contract.view({ client, address });
+ *   await ERC20.v0_1.getBalanceOf.view({
+ *     client,
+ *     address: tokenAddress,
+ *     args: { addr: accountAddress },
+ *     minStateBlockHeight: receipt.blockHeight,
+ *   });
  * } catch (error) {
  *   if (isThruputError(error, "nativeRpcError") &&
  *       error.context.kind === "stateHeightUnavailable") {

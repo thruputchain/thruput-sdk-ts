@@ -532,6 +532,37 @@ describe("single-call funding", () => {
     expect(c.faucet_requestAirdrop).toHaveBeenCalledTimes(1);
   });
 
+  it("reports a stopped attempt with a successful receipt as nodeRejected", async () => {
+    const c = client();
+    c.faucet_requestAirdrop.mockRejectedValue(
+      nativeRpcError(
+        rpcError(
+          NativeRpcErrorCode.FundingAttemptStopped,
+          "stopped",
+          {
+            kind: "fundingAttemptStopped",
+            transactionHash: toBase58(hash),
+            receipt: {
+              transactionHash: toBase58(hash),
+              blockHeight: "9",
+              execution: { result: "return", returnData: "0x" },
+              gasUsed: "5",
+              events: [],
+            },
+          },
+          "faucet_requestAirdrop",
+        ).context,
+        "faucet_requestAirdrop",
+      ),
+    );
+    const error = await requestAirdrop(c, { recipient }).catch((e) => e);
+    expect(error.cause.context.kind).toBe("fundingAttemptStopped");
+    expect(error).toMatchObject({
+      code: "fundingStopped",
+      transaction: { outcome: "succeeded", reason: "nodeRejected" },
+    });
+  });
+
   it("retains commitment from a terminal faucet error without another call", async () => {
     const c = client();
     const rawReceipt = {

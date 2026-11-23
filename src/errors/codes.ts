@@ -99,7 +99,7 @@ export interface FundingStoppedContext {
  * ```
  */
 export interface ThruputErrorContext {
-  // Transactions. These errors always have `transaction` facts.
+  // Transactions. The client always supplies `transaction` facts for these codes.
 
   /** The receipt shows failed execution. Outcome `failed`. */
   transactionFailed: Record<string, never>;
@@ -123,7 +123,9 @@ export interface ThruputErrorContext {
   /**
    * A faucet request stopped. `transaction` is present when the faucet
    * identified a transaction. Never call the faucet with a new nonce
-   * automatically; reconcile with `context.request.clientNonce`.
+   * automatically; reconcile with `context.request.clientNonce`. If the node
+   * stopped the attempt but returned a successful receipt, the facts have
+   * outcome `succeeded` and reason `nodeRejected`.
    */
   fundingStopped: FundingStoppedContext;
 

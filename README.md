@@ -449,7 +449,12 @@ more than one copy of the package.
 import { isThruputError } from "@thruputchain/client";
 
 try {
-  await token.balanceOf.view({ client, address, args });
+  await ERC20.v0_1.getBalanceOf.view({
+    client,
+    address: tokenAddress,
+    args: { addr: accountAddress },
+    minStateBlockHeight: receipt.blockHeight,
+  });
 } catch (error) {
   if (
     isThruputError(error, "nativeRpcError") &&
@@ -489,9 +494,9 @@ outcome `unknown`, because another node or path can still have the transaction.
 
 `message` combines `shortMessage`, `details`, and a link to the code's
 documentation. `details` comes only from a `ThruputError` cause; the client
-never copies messages from your callbacks or signers. Invalid arguments, such as
-a wrong byte length, throw native `TypeError` or `RangeError` before any network
-call.
+never copies messages from your callbacks or signers. Invalid arguments and
+configuration, such as a wrong byte length, throw native errors (`Error`,
+`TypeError`, or `RangeError`) before any network call.
 
 Structured clone keeps only the name, message, stack, and cause of an error. To
 send an error across `postMessage` or store it, use `error.toJSON()` and rebuild
