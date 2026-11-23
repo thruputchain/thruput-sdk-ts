@@ -105,11 +105,9 @@ function parseTransaction(
       ? undefined
       : (decodeJson(value.receipt, depth + 1) as TransactionReceipt);
   if (receipt !== undefined) {
-    if (
-      !record(receipt) ||
-      !(receipt.transactionHash instanceof Uint8Array) ||
-      !equal(receipt.transactionHash, hash)
-    )
+    if (!isReceipt(receipt))
+      invalid("transaction.receipt is not a transaction receipt");
+    if (!equal(receipt.transactionHash, hash))
       invalid("transaction.receipt does not match transaction.hash");
   }
   return {
@@ -161,6 +159,33 @@ function decodeJson(value: unknown, depth: number): unknown {
   for (const key of keys)
     defineEntry(result, key, decodeJson(tagged[key], depth + 1));
   return result;
+}
+
+const failedResults: readonly unknown[] = [
+  "fault",
+  "nonDeterministicError",
+  "failedGasSponsorship",
+  "other",
+];
+
+/** Check the receipt fields that error handling reads. */
+function isReceipt(value: unknown): value is TransactionReceipt {
+  if (
+    !record(value) ||
+    !(value.transactionHash instanceof Uint8Array) ||
+    typeof value.blockHeight !== "bigint" ||
+    typeof value.gasUsed !== "bigint" ||
+    !Array.isArray(value.events)
+  )
+    return false;
+  const { execution } = value;
+  if (execution instanceof UnsupportedRpcValue) return true;
+  if (!record(execution)) return false;
+  if (execution.result === "return")
+    return execution.returnData instanceof Uint8Array;
+  if (execution.result === "abort")
+    return execution.abortData instanceof Uint8Array;
+  return failedResults.includes(execution.result);
 }
 
 function equal(left: Uint8Array, right: Uint8Array): boolean {

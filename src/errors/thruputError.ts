@@ -4,6 +4,7 @@ import type {
   ThruputErrorContext,
   TransactionErrorCode,
 } from "./codes.js";
+import type { SubmissionEvidence } from "../transaction/submissionEvidence.js";
 import type {
   TransactionFacts,
   TransactionFactsInput,
@@ -271,6 +272,7 @@ function createTransactionFacts(
 ): TransactionFacts {
   const hash = new Uint8Array(input.hash);
   const receipt = input.receipt && snapshot(input.receipt);
+  const submission = input.submission && copySubmission(input.submission);
   return Object.freeze({
     get hash() {
       return hash.slice();
@@ -278,8 +280,26 @@ function createTransactionFacts(
     outcome: input.outcome,
     reason: input.reason,
     ...(receipt ? { receipt } : {}),
-    ...(input.submission ? { submission: input.submission } : {}),
+    ...(submission ? { submission } : {}),
   }) as TransactionFacts;
+}
+
+/** Copy submission bytes, so later changes to the caller's arrays cannot change them. */
+function copySubmission(input: SubmissionEvidence): SubmissionEvidence {
+  const signedTransaction = new Uint8Array(input.signedTransaction);
+  const transactionHash = new Uint8Array(input.transactionHash);
+  const networkHash = new Uint8Array(input.networkHash);
+  return Object.freeze({
+    get signedTransaction() {
+      return signedTransaction.slice();
+    },
+    get transactionHash() {
+      return transactionHash.slice();
+    },
+    get networkHash() {
+      return networkHash.slice();
+    },
+  });
 }
 
 function isPlainObject(value: object): boolean {

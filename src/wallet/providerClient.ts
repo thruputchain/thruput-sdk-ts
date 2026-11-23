@@ -28,12 +28,17 @@ import {
   type DeploymentOptions,
 } from "./deployment.js";
 import type { CoreThruputClient } from "../client.js";
-import { toHex0x } from "../actions/hex.js";
+import { fromHex0x, toHex0x } from "../actions/hex.js";
 import { pubkeyAccountPreimage } from "../derivation/pubkeyAccount.js";
 import { prepareTransaction } from "../actions/wallet/prepareTransaction.js";
 import { isThruputError } from "../errors/thruputError.js";
 import { providerError, toAppError } from "./providerErrors.js";
-import { transactionNotSubmitted } from "./transactionErrors.js";
+import {
+  reasonAfterDispatch,
+  reasonBeforeDispatch,
+  transactionNotSubmitted,
+} from "./transactionErrors.js";
+import { withTransactionFacts } from "../errors/transaction.js";
 import {
   type WalletProviderError,
   assertWalletTransaction,
@@ -445,6 +450,7 @@ export function createProviderWalletClient(
     input: SignTransactionResult,
     onDispatch?: () => void,
     signal?: AbortSignal,
+    guard?: () => void,
   ): Promise<SubmitTransactionResult> {
     const checkCancellation = () => {
       if (signal?.aborted) {
@@ -452,9 +458,20 @@ export function createProviderWalletClient(
         signal.throwIfAborted();
       }
     };
+    let signed: SignTransactionResult;
+    try {
+      signed = parseSignTransactionResult(input);
+    } catch (error) {
+      return Promise.reject(toAppError(error));
+    }
+    const submission = createSubmissionEvidence(
+      fromHex0x(signed.signedTransaction),
+      hashFromBase58(networkHash),
+    );
+    let dispatched = false;
     return run(async () => {
+      guard?.();
       checkCancellation();
-      const signed = parseSignTransactionResult(input);
       if (
         !approved ||
         approved.signedTransaction !== signed.signedTransaction ||
@@ -478,7 +495,10 @@ export function createProviderWalletClient(
             signedTransaction: signed.signedTransaction,
           },
         },
-        onDispatch,
+        () => {
+          dispatched = true;
+          onDispatch?.();
+        },
         signal,
       );
       assertActive();
@@ -496,6 +516,18 @@ export function createProviderWalletClient(
       checkCancellation();
       await checkSession();
       return Object.freeze(result);
+    }).catch((error: unknown) => {
+      // Keep the wallet code; add the signed transaction so apps can recover.
+      throw withTransactionFacts(error, {
+        hash: submission.transactionHash,
+        submission,
+        ...(dispatched
+          ? { outcome: "unknown", reason: reasonAfterDispatch(error, signal) }
+          : {
+              outcome: "notSubmitted",
+              reason: reasonBeforeDispatch(error, signal),
+            }),
+      });
     });
   }
 
@@ -721,10 +753,9 @@ export function createProviderWalletClient(
       assertIdle();
       return base.signTransaction(input);
     },
-    submitTransaction: async (input) => {
-      assertIdle();
-      return base.submitTransaction(input);
-    },
+    // The guard runs inside, so a busy adapter still reports transaction facts.
+    submitTransaction: (input) =>
+      submitTransaction(input, undefined, undefined, assertIdle),
     executeAndWait: (input, controls) =>
       execute(() => base.prepareExecution(input), controls),
     async executeCallsAndWait(input, controls) {

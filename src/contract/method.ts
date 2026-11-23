@@ -32,7 +32,7 @@ import {
 } from "./codec.js";
 import { contractDecodeFailed, errorText } from "./errors.js";
 import { isThruputError, ThruputError } from "../errors/thruputError.js";
-import { receiptFacts } from "../errors/transaction.js";
+import { receiptFacts, withTransactionFacts } from "../errors/transaction.js";
 import { contractValueLimits } from "./valueLimits.js";
 import { toHex0x } from "../actions/hex.js";
 import { toBase58 } from "../encoding.js";
@@ -559,7 +559,16 @@ export function defineContractMethodWithExceptions<
       return { kind: "failure", execution, ...metadata };
     },
     decodeReceipt(receipt) {
-      const outcome = method.decodeReceiptOutcome(receipt);
+      let outcome;
+      try {
+        outcome = method.decodeReceiptOutcome(receipt);
+      } catch (error) {
+        // Malformed return or abort bytes must not hide what executed.
+        throw withTransactionFacts(
+          error,
+          receiptFacts(receipt, "resultUndecodable"),
+        );
+      }
       if (outcome.kind === "return")
         return {
           value: outcome.value,

@@ -111,6 +111,33 @@ describe("ThruputError", () => {
     expect(Object.isFrozen(error.transaction)).toBe(true);
   });
 
+  it("copies submission bytes that are plain arrays", () => {
+    // Plain arrays, not the getter copies of createSubmissionEvidence.
+    const signed = submission.signedTransaction;
+    const network = submission.networkHash;
+    const evidence = {
+      signedTransaction: signed,
+      transactionHash: submission.transactionHash,
+      networkHash: network,
+    };
+    const error = new ThruputError("transactionNotSubmitted", "Not sent", {
+      transaction: {
+        hash: evidence.transactionHash,
+        outcome: "notSubmitted",
+        reason: "cancelled",
+        submission: evidence,
+      },
+    });
+    signed.fill(0);
+    network.fill(0);
+    expect(error.transaction!.submission!.signedTransaction).toEqual(
+      signedTransaction,
+    );
+    expect(error.transaction!.submission!.networkHash).toEqual(
+      submission.networkHash,
+    );
+  });
+
   it("narrows by code with isThruputError", () => {
     const error: unknown = failed();
     expect(isThruputError(error)).toBe(true);
@@ -277,6 +304,18 @@ describe("ThruputError serialization", () => {
           ...failed().toJSON().transaction,
           hash: "0x" + "00".repeat(32),
           receipt: undefined,
+        },
+      },
+    ],
+    [
+      "a receipt without an execution result",
+      {
+        ...failed().toJSON(),
+        transaction: {
+          ...failed().toJSON().transaction,
+          receipt: {
+            transactionHash: { $bytes: failed().toJSON().transaction!.hash },
+          },
         },
       },
     ],

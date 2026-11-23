@@ -42,7 +42,7 @@ import { createPubkeyAccount } from "./account.js";
 import { createProviderWalletClient } from "./providerClient.js";
 import { defaultWalletAdapter } from "./invocationAdapter.js";
 import { prepareContractDeployment } from "./deployment.js";
-import { isThruputError } from "../errors/thruputError.js";
+import { isThruputError, type ThruputError } from "../errors/thruputError.js";
 import { DefaultWallet } from "../contracts/default_wallet.js";
 import { Counter } from "../../examples/generated/counter.js";
 import { ed25519Of } from "../testing/signatures.js";
@@ -1287,11 +1287,25 @@ describe("external provider wallet", () => {
           hash: fault === "bad hash" ? "0x" + "00".repeat(32) : signed.hash,
         };
       });
-      await expect(wallet.submitTransaction(signed)).rejects.toSatisfy(
-        (error) => isThruputError(error) && "providerCode" in error.context,
+      const error = await wallet
+        .submitTransaction(signed)
+        .catch((error: unknown) => error);
+      expect(isThruputError(error) && "providerCode" in error.context).toBe(
+        true,
       );
+      // After dispatch the outcome is unknown; keep the hash and signed bytes.
+      expect(error).toMatchObject({
+        transaction: { outcome: "unknown", reason: "submissionFailed" },
+      });
+      const facts = (error as ThruputError).transaction!;
+      expect(toBase58(facts.hash)).toBe(signed.hash);
+      expect(toHex0x(facts.submission!.signedTransaction)).toBe(
+        signed.signedTransaction,
+      );
+      // The approval is consumed, so a second attempt never reaches the wallet.
       await expect(wallet.submitTransaction(signed)).rejects.toMatchObject({
         code: "walletUnauthorized",
+        transaction: { outcome: "notSubmitted", reason: "notDispatched" },
       });
       expect(methodCalls(request, "submitTransaction")).toHaveLength(1);
       wallet.dispose();

@@ -577,7 +577,29 @@ describe("contract method receipts", () => {
       }),
     );
     expect(() => method.decodeReceipt(receipt())).toThrow(
-      expect.objectContaining({ code: "contractDecodeFailed" }),
+      expect.objectContaining({
+        code: "contractDecodeFailed",
+        transaction: expect.objectContaining({
+          outcome: "succeeded",
+          reason: "resultUndecodable",
+        }),
+      }),
+    );
+    // Declared selector 7 without its payload.
+    const badAbort = receipt({
+      execution: {
+        result: "abort",
+        abortData: encode((writer) => writer.writeUint64(7n)),
+      },
+    });
+    expect(() => method.decodeReceipt(badAbort)).toThrow(
+      expect.objectContaining({
+        code: "contractDecodeFailed",
+        transaction: expect.objectContaining({
+          outcome: "failed",
+          reason: "aborted",
+        }),
+      }),
     );
   });
 });

@@ -1,4 +1,5 @@
 import { UnsupportedRpcValue } from "../rpc/codec.js";
+import { isThruputError, ThruputError } from "./thruputError.js";
 import type { TransactionReceipt } from "../types/rpc.js";
 import type { SubmissionEvidence } from "../transaction/submissionEvidence.js";
 
@@ -140,4 +141,21 @@ export function receiptFacts(
     receipt,
     ...(submission ? { submission } : {}),
   };
+}
+
+/**
+ * Add transaction facts to a `ThruputError` that has none, keeping its code.
+ * @internal
+ */
+export function withTransactionFacts(
+  error: unknown,
+  transaction: TransactionFactsInput,
+): unknown {
+  if (!isThruputError(error) || error.transaction) return error;
+  return new ThruputError(error.code, error.shortMessage, {
+    context: error.context,
+    ...(error.details === undefined ? {} : { details: error.details }),
+    ...(error.cause === undefined ? {} : { cause: error.cause }),
+    transaction,
+  });
 }
