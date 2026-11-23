@@ -468,7 +468,9 @@ try {
 
 Every error raised after a transaction is signed has `transaction` facts:
 `hash`, `outcome`, `reason`, and, when known, `receipt` and the signed
-`submission`. Decide what to do from `outcome` only:
+`submission`. After narrowing to a transaction code, such as
+`isThruputError(error, "transactionOutcomeUnknown")`, `error.transaction` is
+always present. Decide what to do from `outcome` only:
 
 | Outcome        | Meaning                                                                       |
 | -------------- | ----------------------------------------------------------------------------- |

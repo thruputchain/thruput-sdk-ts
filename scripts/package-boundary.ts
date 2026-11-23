@@ -389,6 +389,12 @@ function errorBoundary(error: unknown) {
   const facts: TransactionFacts | undefined = isThruputError(error)
     ? error.transaction
     : undefined;
+  if (isThruputError(error, "transactionOutcomeUnknown")) {
+    const required: TransactionFacts = error.transaction;
+    void required;
+  }
+  // @ts-expect-error transaction codes require facts
+  void new ThruputError("transactionFailed", "Transaction failed");
   if (facts?.outcome === "unknown") {
     const hash: Uint8Array = facts.hash;
     void hash;

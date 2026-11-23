@@ -2,7 +2,11 @@ import { fromHex0x } from "../actions/hex.js";
 import { UnsupportedRpcValue } from "../rpc/codec.js";
 import type { TransactionReceipt } from "../types/rpc.js";
 import { createSubmissionEvidence } from "../transaction/submissionEvidence.js";
-import type { ThruputErrorCode } from "./codes.js";
+import {
+  transactionErrorCodes,
+  type ThruputErrorCode,
+  type TransactionErrorCode,
+} from "./codes.js";
 import { defineEntry, ThruputError } from "./thruputError.js";
 import {
   transactionOutcomes,
@@ -50,6 +54,11 @@ function parse(value: unknown, depth: number): ThruputError {
   )
     invalid("details must be a string of at most 4096 characters");
   if (!record(context)) invalid("context must be an object");
+  if (
+    transaction === undefined &&
+    transactionErrorCodes.includes(code as TransactionErrorCode)
+  )
+    invalid(`${code as string} requires transaction`);
   return new ThruputError(code as ThruputErrorCode, shortMessage as string, {
     context: decodeJson(context, depth + 1) as never,
     ...(details === undefined ? {} : { details: details as string }),

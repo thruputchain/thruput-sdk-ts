@@ -99,7 +99,7 @@ export interface FundingStoppedContext {
  * ```
  */
 export interface ThruputErrorContext {
-  // Transactions. The client always supplies `transaction` facts for these codes.
+  // Transactions. See `transactionErrorCodes` for the codes that always have `transaction` facts.
 
   /** The receipt shows failed execution. Outcome `failed`. */
   transactionFailed: Record<string, never>;
@@ -221,3 +221,21 @@ export interface ThruputErrorContext {
 
 /** A stable error code. */
 export type ThruputErrorCode = keyof ThruputErrorContext & string;
+
+/**
+ * Codes that always have `transaction` facts. After narrowing to one of these
+ * codes, `error.transaction` is required.
+ */
+export const transactionErrorCodes = Object.freeze([
+  "transactionFailed",
+  "transactionOutcomeUnsupported",
+  "transactionResultUndecodable",
+  "transactionResultUnavailable",
+  "transactionNotSubmitted",
+  "transactionOutcomeUnknown",
+  "transactionAdmissionUnsupported",
+  "contractCallFailed",
+] as const satisfies readonly ThruputErrorCode[]);
+
+/** A code that always has `transaction` facts. */
+export type TransactionErrorCode = (typeof transactionErrorCodes)[number];

@@ -1,5 +1,9 @@
 import { toHex0x } from "../actions/hex.js";
-import type { ThruputErrorCode, ThruputErrorContext } from "./codes.js";
+import type {
+  ThruputErrorCode,
+  ThruputErrorContext,
+  TransactionErrorCode,
+} from "./codes.js";
 import type {
   TransactionFacts,
   TransactionFactsInput,
@@ -29,19 +33,34 @@ export interface ThruputErrorOptions<TCode extends ThruputErrorCode> {
   readonly transaction?: TransactionFactsInput;
 }
 
-/** Context is optional only for codes whose context has no required fields. */
+/** Options that a code requires: context with required fields, and facts for transaction codes. */
+export type ThruputErrorRequiredOptions<TCode extends ThruputErrorCode> =
+  ({} extends ThruputErrorContext[TCode]
+    ? {}
+    : { readonly context: ThruputErrorContext[TCode] }) &
+    (TCode extends TransactionErrorCode
+      ? { readonly transaction: TransactionFactsInput }
+      : {});
+
+/** Options are optional only for codes that require none of them. */
 export type ThruputErrorArgs<TCode extends ThruputErrorCode> =
-  {} extends ThruputErrorContext[TCode]
+  {} extends ThruputErrorRequiredOptions<TCode>
     ? [options?: ThruputErrorOptions<TCode>]
     : [
-        options: ThruputErrorOptions<TCode> & {
-          readonly context: ThruputErrorContext[TCode];
-        },
+        options: ThruputErrorOptions<TCode> &
+          ThruputErrorRequiredOptions<TCode>,
       ];
 
-/** A {@link ThruputError} for one of the given codes, narrowable on `code`. */
+/**
+ * A {@link ThruputError} for one of the given codes, narrowable on `code`.
+ * `transaction` is required for each {@link TransactionErrorCode}.
+ */
 export type ThruputErrorOf<TCode extends ThruputErrorCode = ThruputErrorCode> =
-  { [K in TCode]: ThruputError<K> }[TCode];
+  {
+    [K in TCode]: K extends TransactionErrorCode
+      ? ThruputError<K> & { readonly transaction: TransactionFacts }
+      : ThruputError<K>;
+  }[TCode];
 
 /** JSON form of a {@link ThruputError}, from `toJSON()`. */
 export interface SerializedThruputError {
@@ -222,7 +241,7 @@ function serialize(error: ThruputError, depth: number): SerializedThruputError {
  * @example
  * ```ts
  * if (isThruputError(error, "transactionFailed")) {
- *   console.log(error.transaction?.receipt);
+ *   console.log(error.transaction.receipt);
  * }
  * ```
  */

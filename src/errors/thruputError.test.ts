@@ -7,6 +7,7 @@ import { UnsupportedRpcValue } from "../rpc/codec.js";
 import type { TransactionReceipt } from "../types/rpc.js";
 import { createSubmissionEvidence } from "../wallet/execution.js";
 import { parseThruputError } from "./serialize.js";
+import type { TransactionFacts } from "./transaction.js";
 import {
   errorDocsBaseUrl,
   isThruputError,
@@ -27,6 +28,12 @@ const receipt: TransactionReceipt = {
   gasUsed: 5n,
   events: [],
 };
+
+const unknownFacts = {
+  hash: submission.transactionHash,
+  outcome: "unknown",
+  reason: "timeout",
+} as const;
 
 function failed() {
   return new ThruputError("transactionFailed", "Transaction failed", {
@@ -115,6 +122,16 @@ describe("ThruputError", () => {
       >();
     if (isThruputError(error) && error.code === "httpResponseError")
       expectTypeOf(error.context.status).toEqualTypeOf<number>();
+    if (isThruputError(error, "transactionOutcomeUnknown"))
+      expectTypeOf(error.transaction).toEqualTypeOf<TransactionFacts>();
+    if (isThruputError(error) && error.code === "contractCallFailed")
+      expectTypeOf(error.transaction).toEqualTypeOf<TransactionFacts>();
+    if (isThruputError(error, "rpcError"))
+      expectTypeOf(error.transaction).toEqualTypeOf<
+        TransactionFacts | undefined
+      >();
+    // @ts-expect-error transaction codes require facts
+    void new ThruputError("transactionFailed", "Transaction failed");
   });
 
   it("recognizes errors from another realm or package copy", () => {
@@ -212,6 +229,7 @@ describe("ThruputError serialization", () => {
     expect(isThruputError(json)).toBe(false);
     const error = new ThruputError("transactionOutcomeUnknown", "Stopped", {
       context: { submissionError: json },
+      transaction: unknownFacts,
     });
     expect(() => JSON.stringify(error)).not.toThrow();
   });
@@ -219,6 +237,7 @@ describe("ThruputError serialization", () => {
   it("keeps only the name of other errors in context", () => {
     const error = new ThruputError("transactionOutcomeUnknown", "Stopped", {
       context: { submissionError: new TypeError("secret") },
+      transaction: unknownFacts,
     });
     const json = error.toJSON();
     expect(JSON.stringify(json)).not.toContain("secret");
@@ -260,6 +279,10 @@ describe("ThruputError serialization", () => {
           receipt: undefined,
         },
       },
+    ],
+    [
+      "a transaction code without facts",
+      { ...failed().toJSON(), transaction: undefined },
     ],
     [
       "a malformed bigint",
