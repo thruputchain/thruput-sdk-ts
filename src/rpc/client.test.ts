@@ -294,6 +294,7 @@ describe("native RPC client", () => {
       endpoint.results.getNetworkInfo = { networkHash: toBase58(expected) };
       await expect(client.refreshDiscovery()).rejects.toMatchObject({
         code: "rpcIncompatible",
+        context: { kind: "network" },
       });
       expect(client.discovery.network.networkHash).toEqual(address);
     },

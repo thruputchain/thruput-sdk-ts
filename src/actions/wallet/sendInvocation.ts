@@ -60,6 +60,7 @@ export async function sendInvocation(
       signingNetwork.some((value, index) => value !== discovered[index])
     )
       throw rpcIncompatible(
+        "network",
         "Signing network does not match endpoint discovery",
       );
   };

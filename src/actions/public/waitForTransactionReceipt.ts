@@ -157,6 +157,7 @@ async function observe(
       known.blockHeight > 9223372036854775807n
     )
       throw rpcIncompatible(
+        "commitment",
         "Known commitment does not match the transaction/network context",
       );
     commitment = {
@@ -192,6 +193,7 @@ async function observe(
       throw stop(
         "commitmentConflict",
         rpcIncompatible(
+          "commitment",
           "Conflicting commitment heights for the same transaction",
         ),
       );
@@ -214,7 +216,7 @@ async function observe(
         if (!equal(network.networkHash, networkHash))
           throw stop(
             "networkChanged",
-            rpcIncompatible("Observation endpoint network changed"),
+            rpcIncompatible("network", "Observation endpoint network changed"),
           );
         networkVerified = true;
         if (commitmentOnly && commitment) return structuredClone(commitment);

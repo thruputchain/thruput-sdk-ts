@@ -253,6 +253,7 @@ export function createWalletClient<
     )
   )
     throw rpcIncompatible(
+      "network",
       "Wallet signing network does not match endpoint discovery",
     );
   const signingNetworkHash = toNetworkHash(

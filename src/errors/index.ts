@@ -19,6 +19,7 @@ export type {
   FundingStoppedContext,
   NativeRpcErrorContext,
   RpcErrorFields,
+  RpcIncompatibleKind,
   ThruputErrorCode,
   ThruputErrorContext,
   TransactionOutcomeUnknownContext,

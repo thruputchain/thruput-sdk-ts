@@ -60,6 +60,7 @@ describe("ThruputError", () => {
       context: { endpoint: "https://rpc.example", method: "getChainTip" },
     });
     const error = new ThruputError("rpcIncompatible", "Endpoint mismatch", {
+      context: { kind: "network" },
       cause,
     });
     expect(error).toBeInstanceOf(Error);
@@ -193,13 +194,18 @@ describe("ThruputError", () => {
       context: { endpoint: "https://rpc.example", method: "getChainTip" },
       cause: root,
     });
-    const top = new ThruputError("rpcIncompatible", "top", { cause: middle });
+    const top = new ThruputError("rpcIncompatible", "top", {
+      context: { kind: "network" },
+      cause: middle,
+    });
     expect(top.walk()).toBe(root);
     expect(
       top.walk((error) => isThruputError(error, "httpRequestFailed")),
     ).toBe(middle);
     expect(top.walk((error) => error === "missing")).toBeNull();
-    const looped = new ThruputError("rpcIncompatible", "loop");
+    const looped = new ThruputError("rpcIncompatible", "loop", {
+      context: { kind: "network" },
+    });
     Object.defineProperty(looped, "cause", { value: looped });
     expect(looped.walk()).toBe(looped);
   });
@@ -215,7 +221,9 @@ describe("ThruputError serialization", () => {
           blockHeight: 9n,
         },
         lastStatus: new UnsupportedRpcValue({ status: "future" }),
-        submissionError: new ThruputError("rpcIncompatible", "Mismatch"),
+        submissionError: new ThruputError("rpcIncompatible", "Mismatch", {
+          context: { kind: "network" },
+        }),
       },
       cause: new Error("not serialized"),
       transaction: {
@@ -253,6 +261,7 @@ describe("ThruputError serialization", () => {
 
   it("shortens long messages so the output always parses", () => {
     const error = new ThruputError("rpcIncompatible", "x".repeat(2000), {
+      context: { kind: "network" },
       details: "y".repeat(5000),
     });
     const parsed = parseThruputError(JSON.parse(JSON.stringify(error)));
@@ -336,6 +345,7 @@ describe("ThruputError serialization", () => {
       shortMessage: { secret: 1 },
     });
     const error = new ThruputError("rpcIncompatible", "Incompatible", {
+      context: { kind: "network" },
       cause: forged,
     });
     expect(error.details).toBeUndefined();

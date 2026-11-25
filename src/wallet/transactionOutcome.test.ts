@@ -130,7 +130,7 @@ describe("submitAndObserve reasons", () => {
 
   it.each([
     rpcRequestInvalid("/params/signedTransaction"),
-    rpcIncompatible("Endpoint does not advertise sendTransaction"),
+    rpcIncompatible("method", "Endpoint does not advertise sendTransaction"),
   ])(
     "reports a local request failure before dispatch: $code",
     async (cause) => {
@@ -152,7 +152,9 @@ describe("submitAndObserve reasons", () => {
     new ThruputError("rpcRequestInvalid", "from a transport", {
       context: { path: "/params" },
     }),
-    new ThruputError("rpcIncompatible", "from a transport"),
+    new ThruputError("rpcIncompatible", "from a transport", {
+      context: { kind: "network" },
+    }),
   ])(
     "keeps a local code that the client did not raise unknown: $code",
     async (cause) => {
@@ -200,7 +202,7 @@ describe("submitAndObserve reasons", () => {
 
   it("never reads the code of an abort reason as proof of no dispatch", async () => {
     const controller = new AbortController();
-    const reason = rpcIncompatible("from another operation");
+    const reason = rpcIncompatible("network", "from another operation");
     const error = await submitAndObserve(
       client,
       evidence,

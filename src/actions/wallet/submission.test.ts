@@ -199,6 +199,7 @@ describe("high-level native submission", () => {
     const reason = new ThruputError(
       "rpcIncompatible",
       "from another operation",
+      { context: { kind: "network" } },
     );
     const sendTransaction = client.sendTransaction.bind(client);
     const guardedClient = Object.assign(Object.create(client), {

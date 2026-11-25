@@ -5,6 +5,7 @@ import { nativeRpcError } from "./errorReader.js";
 import { markLocalError } from "./localError.js";
 import { toHex0x } from "../actions/hex.js";
 import type { Transport, TransportRequestOptions } from "../transport/types.js";
+import type { RpcIncompatibleKind } from "../errors/codes.js";
 import {
   decodeResult,
   encodeRequest,
@@ -70,9 +71,12 @@ export interface RpcClientOptions {
  * Raised by a local check, so it proves that the request was not dispatched.
  */
 export function rpcIncompatible(
+  kind: RpcIncompatibleKind,
   message: string,
 ): ThruputError<"rpcIncompatible"> {
-  return markLocalError(new ThruputError("rpcIncompatible", message));
+  return markLocalError(
+    new ThruputError("rpcIncompatible", message, { context: { kind } }),
+  );
 }
 
 const equal = (a: Uint8Array, b: Uint8Array) =>
@@ -98,7 +102,10 @@ export async function createRpcClient(
   const requireMethods = (methods: readonly RpcMethod[]) => {
     for (const method of methods)
       if (!configured.has(method))
-        throw rpcIncompatible(`Endpoint does not advertise ${method}`);
+        throw rpcIncompatible(
+          "method",
+          `Endpoint does not advertise ${method}`,
+        );
   };
   const requestOnce = async (
     method: RpcMethod,
@@ -129,16 +136,20 @@ export async function createRpcClient(
     // Only the wire identity selects codecs. Release and build versions are diagnostics.
     if (!/^14\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.test(version.wireFormat))
       throw rpcIncompatible(
+        "wireVersion",
         `Unsupported RPC wire format ${version.wireFormat}`,
       );
     const methods = new Set(version.supportedMethods);
     for (const method of ["getVersionInfo", "getNetworkInfo", ...required])
       if (!methods.has(method))
-        throw rpcIncompatible(`Endpoint does not advertise ${method}`);
+        throw rpcIncompatible(
+          "method",
+          `Endpoint does not advertise ${method}`,
+        );
     const network = await read("getNetworkInfo", control);
     const wanted = expected ?? discovery?.network.networkHash;
     if (wanted && !equal(wanted, network.networkHash))
-      throw rpcIncompatible("RPC network identity does not match");
+      throw rpcIncompatible("network", "RPC network identity does not match");
     const limits = methods.has("getServerLimits")
       ? await read("getServerLimits", control)
       : undefined;
@@ -212,7 +223,10 @@ function checkLimits(
 ) {
   if (rpcPageMethods.has(method)) {
     if (!limits)
-      throw rpcIncompatible("History calls require advertised server limits");
+      throw rpcIncompatible(
+        "limits",
+        "History calls require advertised server limits",
+      );
     const cap =
       method === "getEvents"
         ? limits.maxEventsPerPage
@@ -231,6 +245,7 @@ function checkLimits(
   if (method === "simulateInvocation" || method === "simulateInvocations") {
     if (!limits)
       throw rpcIncompatible(
+        "limits",
         "Simulation calls require advertised server limits",
       );
     const calls =
@@ -258,7 +273,10 @@ function checkLimits(
     if (method === "simulateInvocations") {
       const batch = limits.simulationBatch;
       if (!batch)
-        throw rpcIncompatible("Batch simulation limits are unavailable");
+        throw rpcIncompatible(
+          "limits",
+          "Batch simulation limits are unavailable",
+        );
       if (
         calls.length > batch.maxInvocations ||
         bytes > batch.maxCalldataBytes ||

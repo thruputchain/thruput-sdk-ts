@@ -94,7 +94,10 @@ export async function requestAirdrop(
       client.getNetworkInfo({}, { signal }),
     );
     if (network.networkHash.some((v, i) => v !== request.networkHash[i]))
-      throw rpcIncompatible("Funding endpoint network does not match");
+      throw rpcIncompatible(
+        "network",
+        "Funding endpoint network does not match",
+      );
     phase = "faucet";
     lastResponse = await run((signal) =>
       requestAirdropAttempt(

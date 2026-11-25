@@ -147,7 +147,9 @@ for (const [subpath, entry] of Object.entries(pkg.exports)) {
 try {
   const esm = await import(pkg.name);
   const cjs = require(pkg.name);
-  const error = new cjs.ThruputError("rpcIncompatible", "Endpoint mismatch");
+  const error = new cjs.ThruputError("rpcIncompatible", "Endpoint mismatch", {
+    context: { kind: "network" },
+  });
   if (!esm.isThruputError(error, "rpcIncompatible"))
     failures.push("isThruputError: rejected an error from the CJS copy");
   const parsed = esm.parseThruputError(JSON.parse(JSON.stringify(error)));

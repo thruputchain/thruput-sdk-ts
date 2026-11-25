@@ -48,6 +48,22 @@ export type NativeRpcErrorContext = Omit<RpcErrorFields, "data"> & {
     | { readonly kind: "unrecognized"; readonly data?: undefined }
   );
 
+/**
+ * What an `rpcIncompatible` error found:
+ *
+ * - `network`: the endpoint serves another network than the one expected.
+ * - `method`: the endpoint does not advertise a method that the call needs.
+ * - `wireVersion`: the endpoint uses an RPC wire format this client cannot read.
+ * - `limits`: the endpoint does not advertise limits that the call needs.
+ * - `commitment`: commitment heights for one transaction do not agree.
+ */
+export type RpcIncompatibleKind =
+  | "network"
+  | "method"
+  | "wireVersion"
+  | "limits"
+  | "commitment";
+
 /** The app-layer context of a wallet provider error. */
 export interface WalletErrorContext {
   /** The EIP-1193-style numeric code from the wallet provider wire contract. */
@@ -153,8 +169,12 @@ export interface ThruputErrorContext {
   rpcValueInvalid: { readonly path: string; readonly raw: unknown };
   /** A local RPC request value was invalid. The transport was not called. */
   rpcRequestInvalid: { readonly path: string };
-  /** The endpoint, network, or method set does not match what the client requires. */
-  rpcIncompatible: Record<string, never>;
+  /**
+   * The endpoint, network, or method set does not match what the client
+   * requires. Narrow on `context.kind`: for example, `network` means the
+   * endpoint serves another network than the one expected.
+   */
+  rpcIncompatible: { readonly kind: RpcIncompatibleKind };
   /** The endpoint returned a value this client does not support. */
   rpcValueUnsupported: { readonly value: UnsupportedRpcValue };
   /** The endpoint network does not match the cluster descriptor. */
