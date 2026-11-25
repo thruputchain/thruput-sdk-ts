@@ -39,7 +39,9 @@ export interface ThruputErrorOptions<TCode extends ThruputErrorCode> {
   readonly details?: string;
   /**
    * Link to the documentation for this code. Defaults to the client's error
-   * reference. A package that adds codes sets a link to its own page.
+   * reference. A package that adds codes sets a link to its own page. It must be
+   * an https URL of at most 2048 characters, or the constructor throws a
+   * `TypeError`.
    */
   readonly docsUrl?: string;
   /** Facts about the signed transaction. Supply them on every error after signing. */
@@ -163,12 +165,12 @@ export class ThruputError<
     ...[options]: ThruputErrorArgs<TCode>
   ) {
     const details = options?.details ?? detailsFrom(options?.cause);
-    const docsUrl = options?.docsUrl ?? defaultDocsUrl(code);
-    // Check it here, so the serialized form always parses.
-    if (!isDocsUrl(docsUrl))
+    // Check a given link here, so the serialized form can carry it.
+    if (options?.docsUrl !== undefined && !isDocsUrl(options.docsUrl))
       throw new TypeError(
         `docsUrl must be an https URL of at most ${serializedMessageLimits.docsUrl} characters`,
       );
+    const docsUrl = options?.docsUrl ?? defaultDocsUrl(code);
     super(
       [shortMessage, details && `Details: ${details}`, `Docs: ${docsUrl}`]
         .filter(Boolean)
@@ -211,12 +213,15 @@ export class ThruputError<
    * only `name`, `message`, `stack`, and `cause`, so use this across message
    * boundaries and rebuild the error with {@link parseThruputError}. `cause` is
    * not included. Bytes become hex and bigints become decimal strings. Messages
-   * longer than the limits of `parseThruputError` are shortened. Never throws:
-   * context nested more than 64 levels deep, or in a cycle, becomes `null` at
+   * longer than the limits of `parseThruputError` are shortened. Context
+   * nested more than 64 levels deep, as node data can be, becomes `null` at
    * that level, and so does a number that is not finite.
+   *
+   * Context must be a plain tree, as the client builds it: a cycle or a large
+   * shared structure can make `toJSON()` slow.
    */
   toJSON(): SerializedThruputError {
-    return serialize(this, 0, { path: new Set(), nodes: 0 });
+    return serialize(this, 0);
   }
 }
 
@@ -250,11 +255,7 @@ function truncate(text: string, limit: number): string {
   return text.length <= limit ? text : `${text.slice(0, limit - 1)}…`;
 }
 
-function serialize(
-  error: ThruputError,
-  depth: number,
-  state: EncodeState,
-): SerializedThruputError {
+function serialize(error: ThruputError, depth: number): SerializedThruputError {
   const transaction = error.transaction;
   return {
     version: 1,
@@ -272,7 +273,7 @@ function serialize(
     ...(error.docsUrl === defaultDocsUrl(error.code)
       ? {}
       : { docsUrl: error.docsUrl }),
-    context: encodeJson(error.context, depth + 1, state),
+    context: encodeJson(error.context, depth + 1),
     ...(transaction
       ? {
           transaction: {
@@ -281,7 +282,7 @@ function serialize(
             reason: transaction.reason,
             ...(transaction.receipt
               ? {
-                  receipt: encodeJson(transaction.receipt, depth + 1, state),
+                  receipt: encodeJson(transaction.receipt, depth + 1),
                 }
               : {}),
             ...(transaction.submission
@@ -419,15 +420,6 @@ export const maxJsonDepth = 64;
  */
 const nestedErrorDepth = 5;
 
-/** Most objects and arrays that one `toJSON()` call encodes. */
-const maxJsonNodes = 10_000;
-
-/** The objects on the path being encoded, and how many were encoded. */
-interface EncodeState {
-  readonly path: Set<object>;
-  nodes: number;
-}
-
 const tag = (value: object) => Object.prototype.toString.call(value);
 
 /**
@@ -437,15 +429,10 @@ const tag = (value: object) => Object.prototype.toString.call(value);
  * object that looks like a tag, such as RPC data `{ "$error": "..." }`, is
  * wrapped in `$literal`.
  *
- * Never throws, and always ends: a value that would nest deeper than the limit,
- * that repeats an object on its own path (a cycle), or that comes after the
- * node budget becomes `null`, and so does a number that is not finite.
+ * A value that would nest deeper than the limit becomes `null`, and so does a
+ * number that is not finite.
  */
-function encodeJson(
-  value: unknown,
-  depth: number,
-  state: EncodeState,
-): unknown {
+function encodeJson(value: unknown, depth: number): unknown {
   if (typeof value === "bigint") return { $bigint: value.toString() };
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
   if (value === null || typeof value !== "object") {
@@ -456,36 +443,26 @@ function encodeJson(
   // Tag checks, not instanceof, also match values from another realm.
   if (tag(value) === "[object Uint8Array]")
     return { $bytes: toHex0x(value as Uint8Array) };
-  if (
-    depth >= maxJsonDepth ||
-    state.path.has(value) ||
-    ++state.nodes > maxJsonNodes
-  )
-    return null;
-  state.path.add(value);
-  try {
-    return encodeObject(value, depth, state);
-  } finally {
-    state.path.delete(value);
-  }
+  if (depth >= maxJsonDepth) return null;
+  return encodeObject(value, depth);
 }
 
-function encodeObject(value: object, depth: number, state: EncodeState) {
+function encodeObject(value: object, depth: number) {
   if (isThruputError(value))
     // Without room for its context and receipt, a nested error could not be
     // parsed, so drop it whole.
     return depth + nestedErrorDepth >= maxJsonDepth
       ? null
-      : { $error: serialize(value, depth + 1, state) };
+      : { $error: serialize(value, depth + 1) };
   if (value instanceof Error || tag(value) === "[object Error]")
     return { $error: { name: String((value as Error).name) } };
   if (isUnsupportedRpcValue(value))
-    return { $unsupported: encodeJson(value.raw, depth + 1, state) };
+    return { $unsupported: encodeJson(value.raw, depth + 1) };
   if (Array.isArray(value))
-    return value.map((entry) => encodeJson(entry, depth + 1, state) ?? null);
+    return value.map((entry) => encodeJson(entry, depth + 1) ?? null);
   const result: Record<string, unknown> = {};
   for (const [key, entry] of Object.entries(value)) {
-    const encoded = encodeJson(entry, depth + 1, state);
+    const encoded = encodeJson(entry, depth + 1);
     if (encoded !== undefined) defineEntry(result, key, encoded);
   }
   const keys = Object.keys(result);
