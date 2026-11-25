@@ -28,11 +28,25 @@ export type ContractArtifactSpec =
   | { kind: "unsupportedSchema"; schemaVersion: number; bytes: Uint8Array }
   | { kind: "spec"; schemaVersion: 1; spec: ContractSpec };
 
+// Header layout of each readable RV32 artifact format (thruput-tools
+// crates/rv32/artifact/src/format.rs). v7 drops the 8-byte gas-schedule digest
+// of v5 and v6. The initial-memory size follows the code size.
+const v5V6Layout = { headerBytes: 128, codeSizeOffset: 52 };
+const rv32Layouts: ReadonlyMap<
+  number,
+  { headerBytes: number; codeSizeOffset: number }
+> = new Map([
+  [5, v5V6Layout],
+  [6, v5V6Layout],
+  [7, { headerBytes: 120, codeSizeOffset: 44 }],
+]);
+
 /**
  * Verify complete Contract XDR against the requested hash, then read its spec.
  * Rejects malformed known envelopes. Unknown versions remain explicit results.
- * Reads v5 as having no spec. In v6, validates all extension framing and skips
- * unknown kinds. Only the contract-spec extension body is interpreted.
+ * Reads RV32 artifact formats v5, v6 and v7. Reads v5 as having no spec. In v6
+ * and v7, validates all extension framing and skips unknown kinds. Only the
+ * contract-spec extension body is interpreted.
  * This proves byte identity, not deployment, executable validity, or spec truth.
  */
 export function readContractArtifactSpec(
@@ -81,14 +95,18 @@ function readArtifact(
     artifact.byteLength,
   );
   const formatVersion = header.getUint32(8, true);
-  if (formatVersion !== 5 && formatVersion !== 6)
-    return { kind: "unsupportedFormat", formatVersion };
-  if (artifact.length < 128 || header.getUint32(12, true) !== 128) {
+  const layout = rv32Layouts.get(formatVersion);
+  if (layout === undefined) return { kind: "unsupportedFormat", formatVersion };
+  const { headerBytes, codeSizeOffset } = layout;
+  if (
+    artifact.length < headerBytes ||
+    header.getUint32(12, true) !== headerBytes
+  ) {
     throw new Error("Invalid RV32 header size");
   }
-  const codeSize = header.getUint32(52, true);
-  const memorySize = header.getUint32(56, true);
-  const sectionsEnd = 128 + codeSize + memorySize;
+  const codeSize = header.getUint32(codeSizeOffset, true);
+  const memorySize = header.getUint32(codeSizeOffset + 4, true);
+  const sectionsEnd = headerBytes + codeSize + memorySize;
   if (sectionsEnd > artifact.length) {
     throw new Error("Invalid RV32 section layout");
   }

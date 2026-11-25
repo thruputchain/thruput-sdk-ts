@@ -22,7 +22,10 @@ import {
   isThruputError,
 } from "@thruputchain/client";
 import { codec as specCodec, deserialize } from "@thruputchain/contract-spec";
-import { readTransactionInput } from "@thruputchain/client/actions";
+import {
+  getEffectiveContractSpec,
+  readTransactionInput,
+} from "@thruputchain/client/actions";
 import { NativeRpcErrorCode } from "@thruputchain/client/transport";
 import {
   DefaultWallet,
@@ -655,7 +658,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
   );
 
   await t.test(
-    "atomically funds, deploys and initializes a contract, then reads its state and scalar event",
+    "atomically funds, deploys and initializes a contract, then reads its state, spec and scalar event",
     async () => {
       const sender = createPubkeyAccount({
         signer: new Ed25519Signer(randomBytes(32)),
@@ -727,6 +730,21 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       });
       assert.equal(view.output.result, "return");
       assert.equal(deserializeCxs(view.output.returnData, Uint64Codec), 42n);
+      // The fixture is an RV32 v7 artifact; its embedded spec is counter.spec.xdr.
+      const discovered = await getEffectiveContractSpec(client, {
+        address: result.address,
+        context: "root",
+      });
+      assert.equal(discovered.selection?.source, "explicitDeployment");
+      assert.deepEqual(
+        discovered.selection.contract.hash,
+        deployment.contractHash,
+      );
+      assert.deepEqual(discovered.artifactSpec, {
+        kind: "spec",
+        schemaVersion: 1,
+        spec,
+      });
       const ping = defineContractEvent({
         name: event.name.declared,
         signature: event.signature,

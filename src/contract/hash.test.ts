@@ -20,10 +20,10 @@ describe("hashContract", () => {
     } as const;
 
     const contractHash = hashContract(contract);
-    // Independently checked with Python struct.pack(">II", 3, len(artifact)),
-    // XDR zero padding, and hashlib over the deployed v6 Counter fixture.
+    // Independently checked with plain SHA-256 over the big-endian words
+    // (3, len(artifact)), the deployed v7 Counter fixture, and XDR zero padding.
     expect(toHex(contractHash)).toBe(
-      "7f48e0367507204bd87044f91b64ab13ec0d0577fe4d100e1ffca4a8fe068b1a",
+      "0799533b00916a5b7b32823664f15ed6123c4a4f787ca2b5bb822816a4a39ff0",
     );
 
     const address = deriveContractAddress(
@@ -31,8 +31,9 @@ describe("hashContract", () => {
       sha256Hash(new Uint8Array(32).fill(0x22)),
       contractHash,
     );
+    // Independently checked as SHA-256 over deployer, nonce and contract hash.
     expect(toHex(address)).toBe(
-      "8858a11542a3ee66ddeeade4c3e4dda3817577b94b3abfca4114da871b125dd5",
+      "2c671399c80ef070eee797fe2f93e9ac85e35bdb199972f9142e6108e8fcf2e0",
     );
   });
 });
