@@ -8,7 +8,7 @@ on:
         type: boolean
         default: true
       dist_tag:
-        description: npm dist-tag to publish under; anything but latest keeps the current default version
+        description: npm dist-tag to publish under; other tags leave latest unchanged
         type: string
         default: latest
 

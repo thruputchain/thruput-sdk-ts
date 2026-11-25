@@ -8,13 +8,8 @@ case "${DRY_RUN:-true}" in
   *) echo 'DRY_RUN must be true or false' >&2; exit 1 ;;
 esac
 DRY_RUN=${DRY_RUN:-true}
-DIST_TAG=${DIST_TAG:-latest}
-# npm refuses a tag it can read as a version range. Of the lowercase names,
-# those are `x` and `v` followed by a number, such as `v1`.
-if [[ ! "$DIST_TAG" =~ ^[a-z][a-z0-9-]*$ || "$DIST_TAG" =~ ^(x|v[0-9].*)$ ]]; then
-  echo 'DIST_TAG must be a lowercase name such as latest or next, not a version' >&2
-  exit 1
-fi
+source "$(dirname "${BASH_SOURCE[0]}")/lib/dist-tag.sh"
+require_dist_tag
 version=${VERSION:?Set VERSION to the published version to promote}
 if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
   echo 'VERSION must be an exact version such as 1.2.3' >&2
