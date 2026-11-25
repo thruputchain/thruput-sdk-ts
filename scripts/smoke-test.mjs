@@ -92,7 +92,13 @@ const requiredExports = {
     "createPubkeyAccount",
     "defaultWalletAdapter",
     "createProviderWalletClient",
+    "submitAndObserve",
   ],
+};
+// Internal helpers that a wildcard re-export could leak into the public API.
+const forbiddenExports = {
+  ".": ["validateExecutionWait"],
+  "./wallet": ["validateExecutionWait"],
 };
 
 for (const [subpath, entry] of Object.entries(pkg.exports)) {
@@ -125,6 +131,11 @@ for (const [subpath, entry] of Object.entries(pkg.exports)) {
       for (const name of requiredExports[subpath] ?? []) {
         if (!names.includes(name)) {
           failures.push(`${subpath} (${condition}): missing ${name}`);
+        }
+      }
+      for (const name of forbiddenExports[subpath] ?? []) {
+        if (names.includes(name)) {
+          failures.push(`${subpath} (${condition}): exports internal ${name}`);
         }
       }
       if (subpath === "./contracts") {
