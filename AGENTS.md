@@ -44,7 +44,7 @@
 
 ## Release
 
-- Publishing is manual via `.github/workflows/publish.yml`; a version bump does not authorize publishing. The workflow defaults to dry-run and repeats formatting, docs, generated-contract, RPC, type, test, build, smoke, package-boundary and both live-node suites before publishing to npm. See `RELEASING.md` for authentication and release order.
+- Publishing is manual via `.github/workflows/publish.yml`; a version bump does not authorize publishing. The workflow defaults to dry-run and repeats formatting, docs, generated-contract, RPC, type, test, build, smoke, package-boundary and both live-node suites before publishing to npm. Its `dist_tag` input publishes under a tag other than `latest`; `.github/workflows/promote.yml` moves a dist-tag to a published version afterwards. See `RELEASING.md` for authentication and release order.
 
 ## Native RPC boundary
 

@@ -6,6 +6,14 @@ case "${DRY_RUN:-true}" in
   *) echo 'DRY_RUN must be true or false' >&2; exit 1 ;;
 esac
 DRY_RUN=${DRY_RUN:-true}
+# The npm dist-tag the version is published under. `latest` is what a plain
+# `npm install` resolves; any other tag publishes the version without making
+# it the default. scripts/promote-npm.sh moves a tag afterwards.
+DIST_TAG=${DIST_TAG:-latest}
+if [[ ! "$DIST_TAG" =~ ^[a-z][a-z0-9-]*$ ]]; then
+  echo 'DIST_TAG must be a lowercase name such as latest or next' >&2
+  exit 1
+fi
 registry=https://registry.npmjs.org
 npm_args=(--registry="$registry" --@thruputchain:registry="$registry")
 version=$(jq -er .version package.json)
@@ -32,7 +40,7 @@ integrity=$(jq -er '.[0].integrity' "$artifacts/pack.json")
 status=$(curl --silent --show-error --output "$artifacts/registry.json" --write-out '%{http_code}' "$registry/$name/$version")
 case "$status" in
   404)
-    args=("$tarball" --access public --tag latest)
+    args=("$tarball" --access public --tag "$DIST_TAG")
     if [[ "$DRY_RUN" == true ]]; then args+=(--dry-run); fi
     npm "${npm_args[@]}" publish "${args[@]}"
     ;;
