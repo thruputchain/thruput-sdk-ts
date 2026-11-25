@@ -103,6 +103,11 @@ export interface FundingStoppedContext {
  * Codes use camelCase, like the native RPC error kinds. Node.js and ethers use
  * UPPER_SNAKE; this client keeps one style for all of its string unions.
  *
+ * A code names its subject first, then what happened, for example
+ * `transactionFailed` or `rpcValueInvalid`. When a code reports a term from a
+ * standard, it keeps that term: `rpcError` is a JSON-RPC error object, and
+ * `walletInvalidParams` is the JSON-RPC "Invalid params" error (-32602).
+ *
  * Other packages can add codes through declaration merging:
  *
  * @example
