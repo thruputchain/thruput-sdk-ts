@@ -2,7 +2,7 @@ name: Integration CLI
 description: Install the pinned CLI release or build an immutable reviewed tools commit
 inputs:
   app-id:
-    description: Component reader App ID (source builds only)
+    description: Component reader App ID (source builds only; omit to read the public repository)
     required: false
   private-key:
     description: Component reader App private key (source builds only)
@@ -23,8 +23,10 @@ runs:
       with:
         toolchain: stable
 
+    # thruput-tools is public, so the App token is optional: without the App's
+    # ID the checkout below reads the source with the workflow's own token.
     - name: Mint source reader token
-      if: steps.versions.outputs.source-commit != ''
+      if: steps.versions.outputs.source-commit != '' && inputs.app-id != ''
       id: source-token
       uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
       with:
@@ -40,7 +42,7 @@ runs:
       with:
         repository: thruputchain/thruput-tools
         ref: ${{ steps.versions.outputs.source-commit }}
-        token: ${{ steps.source-token.outputs.token }}
+        token: ${{ steps.source-token.outputs.token || github.token }}
         persist-credentials: false
         path: .integration-tools
 
@@ -55,7 +57,7 @@ runs:
         test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_COMMIT"
         export GROUNDHOG_SOURCE_COMMIT="$EXPECTED_SOURCE_COMMIT"
         # Running in the source checkout selects its rust-toolchain.toml.
-        cargo build --release --locked --manifest-path Cargo.toml -p thruput-cli
+        cargo build --release --locked --manifest-path Cargo.toml -p thruput
         echo "THRUPUT_CLI=$PWD/target/release/thruput" >> "$GITHUB_ENV"
         echo "THRUPUT_CLI_SOURCE_COMMIT=$EXPECTED_SOURCE_COMMIT" >> "$GITHUB_ENV"
 

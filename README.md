@@ -986,6 +986,13 @@ with `cargo install thruput@0.47.0 --locked` or set `THRUPUT_CLI` to its
 executable. The harness installs the pinned devnode when no runtime override is
 supplied.
 
+While that file sets `cliSourceCommit`, no released CLI is qualified: CI builds
+the CLI from that commit of `thruputchain/thruput-tools` instead. To match it
+locally, check that commit out, run
+`GROUNDHOG_SOURCE_COMMIT=<commit> cargo build --release --locked -p thruput`,
+and set `THRUPUT_CLI` to `target/release/thruput` and
+`THRUPUT_CLI_SOURCE_COMMIT` to the commit.
+
 ```sh
 npm run test:integration
 ```
