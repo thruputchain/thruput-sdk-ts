@@ -65,6 +65,10 @@ export function httpRequestFailed(
 export function rpcResponseInvalid(
   message: string,
   raw: unknown,
+  cause?: unknown,
 ): ThruputError<"rpcResponseInvalid"> {
-  return new ThruputError("rpcResponseInvalid", message, { context: { raw } });
+  return new ThruputError("rpcResponseInvalid", message, {
+    context: { raw },
+    ...(cause === undefined ? {} : { cause }),
+  });
 }

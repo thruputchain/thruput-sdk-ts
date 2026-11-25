@@ -484,7 +484,11 @@ describe("HTTP batching", () => {
       for (const [index, result] of results.entries()) {
         expect(result.status).toBe("rejected");
         if (result.status !== "rejected") continue;
-        if (kind === "json") expect(result.reason).toBeInstanceOf(SyntaxError);
+        if (kind === "json")
+          expect(result.reason).toMatchObject({
+            code: "rpcResponseInvalid",
+            cause: expect.any(SyntaxError),
+          });
         else {
           expect(result.reason).toMatchObject({
             code: kind === "http" ? "httpResponseError" : "httpRequestFailed",

@@ -185,15 +185,20 @@ export class HttpTransport implements Transport {
       try {
         json = await response.json();
       } catch (cause) {
-        // Fetch reports interrupted body reads as TypeError; JSON syntax errors
-        // must retain their original type and must not trigger retries.
-        if (
-          typeof cause === "object" &&
-          cause !== null &&
-          "name" in cause &&
-          cause.name === "TypeError"
-        )
+        // Fetch reports interrupted body reads as TypeError. A body that is
+        // not JSON is a malformed reply after dispatch, which is never retried.
+        const name =
+          typeof cause === "object" && cause !== null && "name" in cause
+            ? cause.name
+            : undefined;
+        if (name === "TypeError")
           throw httpRequestFailed(new URL(this.#url).origin, method, cause);
+        if (name === "SyntaxError")
+          throw rpcResponseInvalid(
+            `${method}: response body is not JSON`,
+            undefined,
+            cause,
+          );
         throw cause;
       }
     } catch (cause) {

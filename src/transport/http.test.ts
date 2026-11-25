@@ -334,7 +334,7 @@ describe("HttpTransport", () => {
     {
       name: "malformed JSON",
       response: () => new Response("{"),
-      error: SyntaxError,
+      error: "rpcResponseInvalid",
     },
     {
       name: "invalid envelope",
@@ -355,9 +355,7 @@ describe("HttpTransport", () => {
           },
         });
         const result = transport.request("groundhog_version");
-        if (typeof error === "string")
-          await expect(result).rejects.toMatchObject({ code: error });
-        else if (error) await expect(result).rejects.toBeInstanceOf(error);
+        if (error) await expect(result).rejects.toMatchObject({ code: error });
         else await expect(result).resolves.toBe("ok");
         expect(vi.getTimerCount()).toBe(0);
         await vi.advanceTimersByTimeAsync(1_500);
