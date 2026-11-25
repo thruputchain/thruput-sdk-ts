@@ -705,4 +705,43 @@ describe("local wallet submission evidence", () => {
     ).toBeGreaterThan(0);
     expect(submit).not.toHaveBeenCalled();
   });
+  it("does not persist or submit when cancelled during signing", async () => {
+    const client = await createThruputClient({
+        transport: new MockTransport(),
+      }),
+      controller = new AbortController(),
+      reason = Error("cancelled");
+    const submit = vi.spyOn(client, "sendTransaction");
+    const onSigned = vi.fn();
+    const accountSigner = signer();
+    const sign = accountSigner.sign.bind(accountSigner);
+    vi.spyOn(accountSigner, "sign").mockImplementation(async (message) => {
+      const signature = await sign(message);
+      controller.abort(reason);
+      return signature;
+    });
+    const wallet = createWalletClient({
+      client,
+      account: createPubkeyAccount({ signer: accountSigner }),
+      networkHash: testNetworkHash,
+      onSigned,
+    });
+    const error = await wallet
+      .executeAndWait(
+        {
+          invocation: invocation(),
+          gasLimit: gasAmount(100n),
+          blockExpiryHeight: blockHeight(100n),
+        },
+        { signal: controller.signal },
+      )
+      .catch((e) => e);
+    expect(error).toMatchObject({
+      code: "transactionNotSubmitted",
+      transaction: { outcome: "notSubmitted", reason: "cancelled" },
+    });
+    expect(error.cause).toBe(reason);
+    expect(onSigned).not.toHaveBeenCalled();
+    expect(submit).not.toHaveBeenCalled();
+  });
 });
