@@ -10,8 +10,10 @@ DRY_RUN=${DRY_RUN:-true}
 # `npm install` resolves; any other tag publishes the version without making
 # it the default. scripts/promote-npm.sh moves a tag afterwards.
 DIST_TAG=${DIST_TAG:-latest}
-if [[ ! "$DIST_TAG" =~ ^[a-z][a-z0-9-]*$ ]]; then
-  echo 'DIST_TAG must be a lowercase name such as latest or next' >&2
+# npm refuses a tag it can read as a version range. Of the lowercase names,
+# those are `x` and `v` followed by a number, such as `v1`.
+if [[ ! "$DIST_TAG" =~ ^[a-z][a-z0-9-]*$ || "$DIST_TAG" =~ ^(x|v[0-9].*)$ ]]; then
+  echo 'DIST_TAG must be a lowercase name such as latest or next, not a version' >&2
   exit 1
 fi
 registry=https://registry.npmjs.org

@@ -113,7 +113,7 @@ class PublicationTests(unittest.TestCase):
         publishes = [call for call in recorded if call[0] == 'npm' and 'publish' in call]
         self.assertEqual([call[call.index('--tag') + 1] for call in publishes], ['next'])
         # A tag npm could read as a version or an option is refused before any call.
-        for tag in ['', '1.0.0', '--otp', 'Next', 'a b']:
+        for tag in ['', '1.0.0', '--otp', 'Next', 'a b', 'x', 'v1', 'v2-rc']:
             with self.subTest(tag=tag):
                 result, recorded = self.run_script('publish-npm.sh', 'real', DRY_RUN='false', DIST_TAG=tag)
                 self.assertEqual(result.returncode == 0, tag == '', result.stderr)
@@ -136,6 +136,10 @@ class PublicationTests(unittest.TestCase):
             'promote-missing-version': ({'DRY_RUN': 'false', 'VERSION': None}, False, False),
             'promote-range': ({'DRY_RUN': 'false', 'VERSION': '^1.0.0'}, False, False),
             'promote-bad-tag': ({'DRY_RUN': 'false', 'DIST_TAG': '1.0.0'}, False, False),
+            # A dry run refuses what the real run could not set.
+            'promote-range-tag': ({'DRY_RUN': 'true', 'DIST_TAG': 'v1'}, False, False),
+            'promote-any-tag': ({'DRY_RUN': 'true', 'DIST_TAG': 'x'}, False, False),
+            'promote-vnext': ({'DRY_RUN': 'false', 'DIST_TAG': 'vnext'}, True, True),
             'promote-invalid-mode': ({'DRY_RUN': 'maybe'}, False, False),
         }
         for case, (overrides, succeeds, moves) in cases.items():
