@@ -118,6 +118,26 @@ describe("ThruputError", () => {
     expect(Object.isFrozen(error.transaction)).toBe(true);
   });
 
+  it("returns a new copy of the receipt on each read", () => {
+    const error = failed();
+    error.transaction!.receipt!.transactionHash.fill(0);
+    expect(error.transaction!.receipt!.transactionHash).toEqual(
+      submission.transactionHash,
+    );
+    // The error still matches its own hash, so it round-trips.
+    expect(() => parseThruputError(error.toJSON())).not.toThrow();
+  });
+
+  it("copies an unsupported value in context", () => {
+    const raw = { status: "future" };
+    const error = new ThruputError("rpcValueUnsupported", "Unsupported", {
+      context: { value: new UnsupportedRpcValue(raw) },
+    });
+    raw.status = "changed";
+    expect(error.context.value.raw).toEqual({ status: "future" });
+    expect(Object.isFrozen(error.context.value)).toBe(true);
+  });
+
   it("copies submission bytes that are plain arrays", () => {
     // Plain arrays, not the getter copies of createSubmissionEvidence.
     const signed = submission.signedTransaction;

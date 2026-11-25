@@ -460,7 +460,7 @@ describe("single-call funding", () => {
       (error) => error,
     );
     expect(error).toMatchObject({ code: "fundingStopped" });
-    expect(error.cause.context.value).toBe(execution);
+    expect(error.cause.context.value).toEqual(execution);
     expect(error.context.lastResponse).toEqual({
       ...response,
       transactionHash: hash,

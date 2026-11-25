@@ -1,5 +1,8 @@
 import { toHex0x } from "../actions/hex.js";
-import { isUnsupportedRpcValue } from "../rpc/unsupported.js";
+import {
+  isUnsupportedRpcValue,
+  UnsupportedRpcValue,
+} from "../rpc/unsupported.js";
 import type {
   ThruputErrorCode,
   ThruputErrorContext,
@@ -22,7 +25,10 @@ export const errorDocsBaseUrl =
 
 /** Options for a {@link ThruputError}. */
 export interface ThruputErrorOptions<TCode extends ThruputErrorCode> {
-  /** Typed context for the code. The error copies and freezes it. */
+  /**
+   * Typed context for the code. The error copies and freezes it; bytes are
+   * copied but stay writable.
+   */
   readonly context?: ThruputErrorContext[TCode];
   readonly cause?: unknown;
   /**
@@ -111,7 +117,10 @@ export interface SerializedThruputError {
  *
  * `message` combines `shortMessage`, `details`, and a link to the code's
  * documentation. Context and transaction facts are copied and frozen when the
- * error is created.
+ * error is created. `Object.freeze` cannot freeze bytes, so a `Uint8Array` in
+ * `context` is a copy that you can still write to. `transaction.hash`,
+ * `transaction.receipt`, and `transaction.submission` return a new copy on each
+ * read.
  *
  * Custom transports throw this class too, for example
  * `new ThruputError("httpRequestFailed", message, { context, cause })`.
@@ -309,15 +318,21 @@ function createTransactionFacts(
   const hash = new Uint8Array(input.hash);
   const receipt = input.receipt && snapshot(input.receipt);
   const submission = input.submission && copySubmission(input.submission);
-  return Object.freeze({
+  const facts: Record<string, unknown> = {
     get hash() {
       return hash.slice();
     },
     outcome: input.outcome,
     reason: input.reason,
-    ...(receipt ? { receipt } : {}),
-    ...(submission ? { submission } : {}),
-  }) as TransactionFacts;
+  };
+  // A fresh copy on each read, like `hash`, so its bytes cannot change.
+  if (receipt)
+    Object.defineProperty(facts, "receipt", {
+      get: () => snapshot(receipt),
+      enumerable: true,
+    });
+  if (submission) facts.submission = submission;
+  return Object.freeze(facts) as unknown as TransactionFacts;
 }
 
 /** Copy submission bytes, so later changes to the caller's arrays cannot change them. */
@@ -349,6 +364,11 @@ export function snapshot<T>(value: T, seen = new Map<object, unknown>()): T {
   if (seen.has(value)) return seen.get(value) as T;
   // `Buffer#slice` shares memory, so always copy into a new array.
   if (value instanceof Uint8Array) return new Uint8Array(value) as T;
+  if (isUnsupportedRpcValue(value)) {
+    const copy = new UnsupportedRpcValue(snapshot(value.raw, seen));
+    seen.set(value, copy);
+    return Object.freeze(copy) as T;
+  }
   if (Array.isArray(value)) {
     const copy: unknown[] = [];
     seen.set(value, copy);
