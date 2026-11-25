@@ -58,7 +58,9 @@ export function parseThruputError(value: unknown): ThruputError {
 
 function parse(value: unknown, depth: number): ThruputError {
   if (!record(value)) return invalid("expected an object");
-  const { name, code, shortMessage, details, context, transaction } = value;
+  const { version, name, code, shortMessage, details, docsUrl } = value;
+  const { context, transaction } = value;
+  if (version !== 1) invalid("version must be 1");
   if (name !== "ThruputError") invalid("name must be ThruputError");
   if (typeof code !== "string" || !/^[a-z][A-Za-z0-9]{0,63}$/.test(code))
     invalid("code must be a camelCase string");
@@ -75,6 +77,10 @@ function parse(value: unknown, depth: number): ThruputError {
     (typeof details !== "string" || details.length > limits.details)
   )
     invalid(`details must be a string of at most ${limits.details} characters`);
+  if (docsUrl !== undefined && !isDocsUrl(docsUrl, limits.docsUrl))
+    invalid(
+      `docsUrl must be an https URL of at most ${limits.docsUrl} characters`,
+    );
   if (!record(context)) invalid("context must be an object");
   if (
     transaction === undefined &&
@@ -87,6 +93,7 @@ function parse(value: unknown, depth: number): ThruputError {
   const options: ThruputErrorOptions<ThruputErrorCode> = {
     context: decodedContext as never,
     ...(details === undefined ? {} : { details: details as string }),
+    ...(docsUrl === undefined ? {} : { docsUrl: docsUrl as string }),
     ...(transaction === undefined
       ? {}
       : {
@@ -103,6 +110,15 @@ function parse(value: unknown, depth: number): ThruputError {
     shortMessage as string,
     options as typeof options & ThruputErrorRequiredOptions<ThruputErrorCode>,
   );
+}
+
+function isDocsUrl(value: unknown, limit: number): boolean {
+  if (typeof value !== "string" || value.length > limit) return false;
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 /** The outcome that each built-in transaction code always reports. */

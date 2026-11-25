@@ -338,6 +338,19 @@ describe("ThruputError serialization", () => {
     });
   });
 
+  it("keeps a docs link that a package sets for its own code", () => {
+    const docsUrl = "https://example.com/errors/#testkitstepfailed";
+    const error = new ThruputError("rpcIncompatible", "Incompatible", {
+      context: { kind: "network" },
+      docsUrl,
+    });
+    expect(error.message).toContain(`Docs: ${docsUrl}`);
+    expect(error.toJSON()).toMatchObject({ version: 1, docsUrl });
+    expect(parseThruputError(error.toJSON()).docsUrl).toBe(docsUrl);
+    // The default link is not written, because the code gives it.
+    expect(failed().toJSON()).not.toHaveProperty("docsUrl");
+  });
+
   it("takes details only from text in a cause", () => {
     const forged = Object.assign(new Error("forged"), {
       name: "ThruputError",
@@ -355,6 +368,12 @@ describe("ThruputError serialization", () => {
   it.each([
     ["a non-object", "x"],
     ["a live error", failed()],
+    ["another format version", { ...failed().toJSON(), version: 2 }],
+    ["no format version", { ...failed().toJSON(), version: undefined }],
+    [
+      "a docs link that is not https",
+      { ...failed().toJSON(), docsUrl: "javascript:alert(1)" },
+    ],
     [
       "a tag as the whole context",
       { ...failed().toJSON(), context: { $bigint: "5" } },

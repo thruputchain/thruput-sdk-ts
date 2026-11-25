@@ -31,6 +31,11 @@ export interface ThruputErrorOptions<TCode extends ThruputErrorCode> {
    * because they can contain private application data.
    */
   readonly details?: string;
+  /**
+   * Link to the documentation for this code. Defaults to the client's error
+   * reference. A package that adds codes sets a link to its own page.
+   */
+  readonly docsUrl?: string;
   /** Facts about the signed transaction. Supply them on every error after signing. */
   readonly transaction?: TransactionFactsInput;
 }
@@ -75,10 +80,14 @@ export type ThruputErrorOf<TCode extends ThruputErrorCode = ThruputErrorCode> =
 
 /** JSON form of a {@link ThruputError}, from `toJSON()`. */
 export interface SerializedThruputError {
+  /** Format version. A parser accepts only the versions it knows. */
+  readonly version: 1;
   readonly name: "ThruputError";
   readonly code: string;
   readonly shortMessage: string;
   readonly details?: string;
+  /** Present only when the link is not the client's default for the code. */
+  readonly docsUrl?: string;
   readonly context: unknown;
   readonly transaction?: {
     readonly hash: string;
@@ -145,7 +154,7 @@ export class ThruputError<
     ...[options]: ThruputErrorArgs<TCode>
   ) {
     const details = options?.details ?? detailsFrom(options?.cause);
-    const docsUrl = `${errorDocsBaseUrl}#${code.toLowerCase()}`;
+    const docsUrl = options?.docsUrl ?? defaultDocsUrl(code);
     super(
       [shortMessage, details && `Details: ${details}`, `Docs: ${docsUrl}`]
         .filter(Boolean)
@@ -197,8 +206,17 @@ export class ThruputError<
   }
 }
 
-/** Longest `shortMessage` and `details` in serialized form. */
-export const serializedMessageLimits = { shortMessage: 1024, details: 4096 };
+/** The client's documentation link for a code. */
+export function defaultDocsUrl(code: string): string {
+  return `${errorDocsBaseUrl}#${code.toLowerCase()}`;
+}
+
+/** Longest `shortMessage`, `details`, and `docsUrl` in serialized form. */
+export const serializedMessageLimits = Object.freeze({
+  shortMessage: 1024,
+  details: 4096,
+  docsUrl: 2048,
+});
 
 function truncate(text: string, limit: number): string {
   return text.length <= limit ? text : `${text.slice(0, limit - 1)}…`;
@@ -207,6 +225,7 @@ function truncate(text: string, limit: number): string {
 function serialize(error: ThruputError, depth: number): SerializedThruputError {
   const transaction = error.transaction;
   return {
+    version: 1,
     name: "ThruputError",
     code: error.code,
     shortMessage: truncate(
@@ -218,6 +237,9 @@ function serialize(error: ThruputError, depth: number): SerializedThruputError {
       : {
           details: truncate(error.details, serializedMessageLimits.details),
         }),
+    ...(error.docsUrl === defaultDocsUrl(error.code)
+      ? {}
+      : { docsUrl: error.docsUrl }),
     context: encodeJson(error.context, depth + 1),
     ...(transaction
       ? {
