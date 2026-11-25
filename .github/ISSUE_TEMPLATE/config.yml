@@ -4,5 +4,5 @@ contact_links:
     url: https://github.com/thruputchain/thruput-sdk-ts/security/advisories/new
     about: Report security issues privately. Do not open a public issue.
   - name: Documentation
-    url: https://docs.thruput.network/tools/typescript-sdk/
+    url: https://www.thruput.network/docs/typescript/reference/sdk/
     about: SDK guide, tutorials, and the JSON-RPC reference.

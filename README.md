@@ -236,7 +236,7 @@ console.log(formatUnits(amount, 2)); // "12.05"
 
 Parsing rejects malformed input and excess precision rather than rounding.
 Applications still check token positivity and size limits. See the
-[amount guide](https://docs.thruput.network/tools/typescript-sdk/#exact-amounts-and-common-types)
+[amount guide](https://www.thruput.network/docs/typescript/reference/sdk/#exact-amounts-and-common-types)
 for error handling and supported inputs.
 
 ### Cancellable reads
@@ -258,7 +258,7 @@ const balance = await ERC20.v0_1.getBalanceOf.view({
 Call `controller.abort()` from the application's cleanup handler. Bound views also
 accept a signal. `classifyReadError(error, { signal })` helps distinguish cancellation
 from infrastructure failures; applications own retry policy. Canceling observation
-does not cancel a transaction. See [read errors](https://docs.thruput.network/tools/typescript-sdk/#cancellation-and-read-errors).
+does not cancel a transaction. See [read errors](https://www.thruput.network/docs/typescript/reference/sdk/#cancellation-and-read-errors).
 
 ### Inspect arguments
 
@@ -789,7 +789,7 @@ The package exposes focused entry points alongside the root: `./transaction`,
 `./transport`, `./contract`, `./contracts`, `./signers`, `./actions`,
 `./signed-op`, `./wallet`, and `./provider`.
 
-Browser wallets use the framework-neutral [wallet provider contract](https://docs.thruput.network/tools/wallet-provider/). See [Wallet Integration](https://docs.thruput.network/tools/wallet-integration/) for discovery, connection, and the prepare/sign/persist/submit flow.
+Browser wallets use the framework-neutral [wallet provider contract](https://www.thruput.network/docs/typescript/reference/wallet-provider/). See [Wallet Integration](https://www.thruput.network/docs/typescript/wallet-integration/) for discovery, connection, and the prepare/sign/persist/submit flow.
 `./provider` exports wire types, strict validation, and multi-wallet discovery.
 `./wallet` exports the existing local-signer wallet API and
 `createProviderWalletClient`, with separate prepare, sign, and submit steps so apps
@@ -828,10 +828,10 @@ Recover an uncertain submission through its original saved transaction hash.
 
 ## Documentation
 
-- [TypeScript SDK guide](https://docs.thruput.network/tools/typescript-sdk/) and the
-  [end-to-end tutorial](https://docs.thruput.network/tutorials/work-with-thruput-from-typescript/)
+- [TypeScript SDK guide](https://www.thruput.network/docs/typescript/reference/sdk/) and the
+  [end-to-end tutorial](https://www.thruput.network/docs/tutorials/work-with-thruput-from-typescript/)
   on the Thruput developer site.
-- [JSON-RPC API reference](https://docs.thruput.network/reference/json-rpc-api/) for the
+- [JSON-RPC API reference](https://www.thruput.network/docs/reference/json-rpc-api/) for the
   methods behind each action.
 - The TypeDoc API reference is generated from this package's entry points with
   `npm run docs` (see [API docs](#api-docs)).

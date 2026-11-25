@@ -109,7 +109,7 @@ export interface CreateProviderWalletClientOptions {
  * a failed session read, or a mismatched session. Dispose and recreate after a
  * change or reconnect; there is no automatic reconnect or retry.
  *
- * @see https://docs.thruput.network/tools/wallet-integration/
+ * @see https://www.thruput.network/docs/typescript/wallet-integration/
  */
 export interface ProviderWalletClient {
   /** Prepare a root deployment, preserving the explicit signing boundary. */
@@ -250,8 +250,8 @@ export interface ProviderWalletClient {
  * }
  * ```
  *
- * @see https://docs.thruput.network/tools/wallet-integration/
- * @see https://docs.thruput.network/tools/wallet-provider/
+ * @see https://www.thruput.network/docs/typescript/wallet-integration/
+ * @see https://www.thruput.network/docs/typescript/reference/wallet-provider/
  */
 export function createProviderWalletClient(
   options: CreateProviderWalletClientOptions,
