@@ -99,7 +99,9 @@ export interface ExecutionResult {
  * Submit once, then reconcile only by reads. No path replaces or repeats signed
  * bytes. Every failure has `transaction` facts with the signed bytes:
  * `transactionNotSubmitted` before dispatch, otherwise
- * `transactionOutcomeUnknown`.
+ * `transactionOutcomeUnknown`. `wasDispatched` reports whether these bytes have
+ * been sent, by this call or an earlier one; when it is `true`, no failure is
+ * `notSubmitted`.
  */
 export async function submitAndObserve(
   client: Pick<CoreThruputClient, "waitForTransactionReceipt">,
@@ -116,10 +118,13 @@ export async function submitAndObserve(
   validateTimer(timeoutMs, "timeoutMs");
   const deadline = performance.now() + timeoutMs;
   const signal = options?.signal;
-  if (signal?.aborted)
-    throw transactionNotSubmitted(submission, "cancelled", signal.reason);
+  // The caller may know that identical bytes were sent before this call.
+  const stopped = wasDispatched?.()
+    ? transactionOutcomeUnknown
+    : transactionNotSubmitted;
+  if (signal?.aborted) throw stopped(submission, "cancelled", signal.reason);
   if (timeoutMs === 0)
-    throw transactionNotSubmitted(
+    throw stopped(
       submission,
       "timeout",
       timeoutError("Transaction submission timed out before dispatch"),

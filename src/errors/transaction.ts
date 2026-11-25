@@ -9,8 +9,15 @@ import type { SubmissionEvidence } from "../transaction/submissionEvidence.js";
  *
  * - `succeeded`: the receipt shows success. The error is about a later step.
  * - `failed`: the receipt shows failed execution.
- * - `notSubmitted`: the client did not dispatch the transaction.
+ * - `notSubmitted`: this call did not dispatch the transaction.
  * - `unknown`: the client cannot know. **Never resend.** Observe `hash` instead.
+ *
+ * `notSubmitted` covers this call only. A request with an explicit nonce and
+ * expiry signs to the same bytes each time, so an earlier call may have sent
+ * them. The provider wallet remembers the hashes it sent and reports `unknown`
+ * for them. The signer wallet does not, because a long-running process would
+ * keep every hash. When you repeat such a request, observe its hash before you
+ * treat it as unsent.
  */
 export type TransactionOutcome = (typeof transactionOutcomes)[number];
 

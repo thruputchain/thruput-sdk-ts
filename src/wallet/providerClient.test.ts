@@ -1384,9 +1384,13 @@ describe("external provider wallet", () => {
   });
 
   // An explicit nonce and expiry give the same bytes on each execution.
-  async function executeTwice(
-    reason: "cancelled" | "persistenceFailed" | "notDispatched",
-  ) {
+  type Stop =
+    | "cancelledDuringApproval"
+    | "cancelledDuringPersistence"
+    | "persistenceFailed"
+    | "timeout"
+    | "sessionLost";
+  async function executeTwice(stop: Stop) {
     const { client, wallet, request } = await setup();
     vi.spyOn(client, "waitForTransactionReceipt").mockImplementation(
       async (hash) =>
@@ -1403,33 +1407,43 @@ describe("external provider wallet", () => {
     });
     const original = request.getMockImplementation()!;
     const controller = new AbortController();
-    let sessionChecks = 0;
+    let persisted = false;
     request.mockImplementation(async (input) => {
-      // The fourth check is the one right before dispatch.
-      if (
-        reason === "notDispatched" &&
-        input.method === "getSession" &&
-        ++sessionChecks === 4
-      )
+      // Every session check after persistence fails, so nothing is sent.
+      if (stop === "sessionLost" && persisted && input.method === "getSession")
         throw { code: -32603, message: "lost" };
       const result = await original(input);
-      if (reason === "cancelled" && input.method === "signTransaction")
+      if (
+        stop === "cancelledDuringApproval" &&
+        input.method === "signTransaction"
+      )
         controller.abort(new Error("stop"));
       return result;
     });
     const second = wallet.executeAndWait(execution, {
       onSigned: () => {
-        if (reason === "persistenceFailed") throw new Error("db down");
+        persisted = true;
+        if (stop === "persistenceFailed") throw new Error("db down");
+        if (stop === "cancelledDuringPersistence")
+          controller.abort(new Error("stop"));
       },
-      wait: { signal: controller.signal },
+      wait: {
+        signal: controller.signal,
+        ...(stop === "timeout" ? { timeoutMs: 0 } : {}),
+      },
     });
     return { first, second, request, wallet };
   }
 
-  it.each(["cancelled", "persistenceFailed"] as const)(
+  it.each([
+    ["cancelledDuringApproval", "cancelled"],
+    ["cancelledDuringPersistence", "cancelled"],
+    ["persistenceFailed", "persistenceFailed"],
+    ["timeout", "timeout"],
+  ] as const)(
     "does not report notSubmitted when execute stops before resending executed bytes: %s",
-    async (reason) => {
-      const { first, second, request, wallet } = await executeTwice(reason);
+    async (stop, reason) => {
+      const { first, second, request, wallet } = await executeTwice(stop);
       const error = await second.catch((error: unknown) => error);
       expect(error).toMatchObject({
         code: "transactionOutcomeUnknown",
@@ -1444,7 +1458,7 @@ describe("external provider wallet", () => {
 
   it("observes executed bytes when execute cannot resend them", async () => {
     const { first, second, request, wallet } =
-      await executeTwice("notDispatched");
+      await executeTwice("sessionLost");
     await expect(second).resolves.toMatchObject({
       transactionHash: first.transactionHash,
     });
