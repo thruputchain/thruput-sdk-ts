@@ -354,7 +354,11 @@ describe("native read observation", () => {
           blockHeight: 9n,
         },
       }),
-    ).rejects.toThrow("does not match");
+    ).rejects.toThrow(
+      new TypeError(
+        "knownCommitment does not match the transaction hash and network",
+      ),
+    );
     expect(c.getNetworkInfo).not.toHaveBeenCalled();
     const controller = new AbortController();
     controller.abort(Error("cancelled"));

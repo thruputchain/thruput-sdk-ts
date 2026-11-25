@@ -696,7 +696,7 @@ export function defineContractMethodWithExceptions<
       } = (error.context ?? {}) as Partial<typeof error.context>;
       if (
         failedName !== name ||
-        !(failed instanceof Uint8Array) ||
+        !isBytes(failed) ||
         outcome === null ||
         typeof outcome !== "object" ||
         typeof outcome.kind !== "string" ||
@@ -720,6 +720,11 @@ export function defineContractMethodWithExceptions<
   };
 
   return method;
+}
+
+/** A `Uint8Array` from this realm or another. */
+function isBytes(value: unknown): value is Uint8Array {
+  return Object.prototype.toString.call(value) === "[object Uint8Array]";
 }
 
 function copyEntrypoint(value: ContractEntrypointID): ContractEntrypointID {

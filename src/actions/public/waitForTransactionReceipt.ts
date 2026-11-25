@@ -156,9 +156,9 @@ async function observe(
       known.blockHeight < 0n ||
       known.blockHeight > 9223372036854775807n
     )
-      throw rpcIncompatible(
-        "commitment",
-        "Known commitment does not match the transaction/network context",
+      // A caller argument, so a native error, like other invalid arguments.
+      throw new TypeError(
+        "knownCommitment does not match the transaction hash and network",
       );
     commitment = {
       transactionHash: transactionHash.slice(),

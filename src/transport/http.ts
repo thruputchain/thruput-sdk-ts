@@ -185,8 +185,8 @@ export class HttpTransport implements Transport {
       try {
         json = await response.json();
       } catch (cause) {
-        // Fetch reports interrupted body reads as TypeError. A body that is
-        // not JSON is a malformed reply after dispatch, which is never retried.
+        // Fetch reports interrupted body reads as TypeError, a transient
+        // failure. A body that is not JSON is a malformed reply after dispatch.
         const name =
           typeof cause === "object" && cause !== null && "name" in cause
             ? cause.name

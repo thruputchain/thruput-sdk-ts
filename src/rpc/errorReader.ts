@@ -120,8 +120,10 @@ export function nativeRpcError(
   const raw = record(error.raw)
     ? error.raw
     : {
-        code: error.code,
-        message: error.rpcMessage,
+        ...(typeof error.code === "number" ? { code: error.code } : {}),
+        ...(typeof error.rpcMessage === "string"
+          ? { message: error.rpcMessage }
+          : {}),
         ...(error.data === undefined ? {} : { data: error.data }),
       };
   const decoded = decodeRpcError(method, raw, expectedTransactionHash);
