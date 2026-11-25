@@ -688,9 +688,18 @@ export function defineContractMethodWithExceptions<
         !isThruputError(error, "contractCallFailed")
       )
         return undefined;
-      const { method: failedName, entrypoint: failed, outcome } = error.context;
+      // A parsed or forged error can have any context, so check its shape.
+      const {
+        method: failedName,
+        entrypoint: failed,
+        outcome,
+      } = (error.context ?? {}) as Partial<typeof error.context>;
       if (
         failedName !== name ||
+        !(failed instanceof Uint8Array) ||
+        outcome === null ||
+        typeof outcome !== "object" ||
+        typeof outcome.kind !== "string" ||
         failed.length !== entrypoint.length ||
         failed.some((byte, index) => byte !== entrypoint[index])
       )

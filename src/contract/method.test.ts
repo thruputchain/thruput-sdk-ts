@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import { parseThruputError } from "../errors/serialize.js";
+import type { ThruputError } from "../errors/thruputError.js";
 import {
   AuthClaimType,
   bitMap,
@@ -569,6 +571,18 @@ describe("contract method receipts", () => {
       kind: "unknown",
       selector: 7n,
     });
+    // A parsed error is untrusted: a malformed context gives undefined.
+    const parsed = parseThruputError(JSON.parse(JSON.stringify(error)));
+    expect(method.decodeError(parsed)).toMatchObject({ kind: "abort" });
+    const json = (error as ThruputError).toJSON();
+    for (const context of [
+      { method: method.name },
+      { ...(json.context as object), entrypoint: "0x00" },
+      { ...(json.context as object), outcome: null },
+    ])
+      expect(
+        method.decodeError(parseThruputError({ ...json, context })),
+      ).toBeUndefined();
   });
 
   it("preserves faults and rejects truncated successful return bytes", () => {
