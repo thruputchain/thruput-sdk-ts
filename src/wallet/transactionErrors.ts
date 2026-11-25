@@ -3,6 +3,7 @@ import { isThruputError, ThruputError } from "../errors/thruputError.js";
 import type { TransactionOutcomeUnknownContext } from "../errors/codes.js";
 import type { TransactionReason } from "../errors/transaction.js";
 import { classifyReadError } from "../transport/readError.js";
+import { isLocalError } from "../rpc/localError.js";
 import type { SubmissionEvidence } from "../transaction/submissionEvidence.js";
 
 // Internal constructors for transaction errors. Public APIs re-export none of these.
@@ -84,13 +85,18 @@ export function isCancellation(
   return signal?.aborted === true && cause === signal.reason;
 }
 
-/** True when a local check rejected the request before dispatch. */
+/**
+ * True when a local check of this client rejected the request before dispatch.
+ * The code alone is not proof: a transport can throw the same code after it
+ * sent the request.
+ */
 export function isLocalRequestError(
   cause: unknown,
   signal: AbortSignal | undefined,
 ): boolean {
   return (
     !isCancellation(cause, signal) &&
+    isLocalError(cause) &&
     (isThruputError(cause, "rpcRequestInvalid") ||
       isThruputError(cause, "rpcIncompatible"))
   );

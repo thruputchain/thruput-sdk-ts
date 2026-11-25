@@ -4,6 +4,7 @@ import { fromHex0x, toHex0x } from "../actions/hex.js";
 import { parseDecimal } from "../actions/decimal.js";
 import { ThruputError } from "../errors/thruputError.js";
 import { UnsupportedRpcValue } from "./unsupported.js";
+import { markLocalError } from "./localError.js";
 
 export { UnsupportedRpcValue, isUnsupportedRpcValue } from "./unsupported.js";
 
@@ -24,9 +25,11 @@ export function rpcRequestInvalid(
   path: string,
   message = "Invalid native RPC request",
 ): ThruputError<"rpcRequestInvalid"> {
-  return new ThruputError("rpcRequestInvalid", `${message} at ${path}`, {
-    context: { path },
-  });
+  return markLocalError(
+    new ThruputError("rpcRequestInvalid", `${message} at ${path}`, {
+      context: { path },
+    }),
+  );
 }
 
 interface Schema {

@@ -2,6 +2,7 @@ import { codec, deserialize } from "@thruputchain/protocol";
 import { hashSignedTransaction } from "../derivation/transactionHash.js";
 import { isThruputError, ThruputError } from "../errors/thruputError.js";
 import { nativeRpcError } from "./errorReader.js";
+import { markLocalError } from "./localError.js";
 import { toHex0x } from "../actions/hex.js";
 import type { Transport, TransportRequestOptions } from "../transport/types.js";
 import {
@@ -64,11 +65,14 @@ export interface RpcClientOptions {
   signal?: AbortSignal;
 }
 
-/** The endpoint, network, or method set does not match what the client requires. */
+/**
+ * The endpoint, network, or method set does not match what the client requires.
+ * Raised by a local check, so it proves that the request was not dispatched.
+ */
 export function rpcIncompatible(
   message: string,
 ): ThruputError<"rpcIncompatible"> {
-  return new ThruputError("rpcIncompatible", message);
+  return markLocalError(new ThruputError("rpcIncompatible", message));
 }
 
 const equal = (a: Uint8Array, b: Uint8Array) =>

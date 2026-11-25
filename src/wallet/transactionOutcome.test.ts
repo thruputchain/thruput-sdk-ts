@@ -149,6 +149,32 @@ describe("submitAndObserve reasons", () => {
   );
 
   it.each([
+    new ThruputError("rpcRequestInvalid", "from a transport", {
+      context: { path: "/params" },
+    }),
+    new ThruputError("rpcIncompatible", "from a transport"),
+  ])(
+    "keeps a local code that the client did not raise unknown: $code",
+    async (cause) => {
+      // A transport can send the request and then throw a local code, so the
+      // client observes the hash instead of reporting notSubmitted.
+      const receipt: TransactionReceipt = {
+        transactionHash: hash,
+        blockHeight: 1n,
+        events: [],
+        execution: { result: "return", returnData: new Uint8Array() },
+        gasUsed: 0n,
+      };
+      const result = await submitAndObserve(
+        { waitForTransactionReceipt: vi.fn(async () => receipt) },
+        evidence,
+        submit(cause),
+      );
+      expect(result.receipt).toBe(receipt);
+    },
+  );
+
+  it.each([
     "invalidParams",
     "transactionInvalid",
     "transactionRejected",
