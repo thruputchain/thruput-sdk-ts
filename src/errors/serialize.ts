@@ -12,6 +12,7 @@ import {
 } from "./codes.js";
 import {
   defineEntry,
+  isDocsUrl,
   maxJsonDepth,
   serializedMessageLimits,
   ThruputError,
@@ -31,12 +32,16 @@ const invalid = (message: string): never => {
   throw new TypeError(`Invalid serialized ThruputError: ${message}`);
 };
 
-/** A plain object, as `JSON.parse` returns. */
+/** A plain object, as `JSON.parse` returns, from this realm or another. */
 const record = (value: unknown): value is Record<string, unknown> => {
-  if (value === null || typeof value !== "object" || Array.isArray(value))
+  if (
+    value === null ||
+    typeof value !== "object" ||
+    Object.prototype.toString.call(value) !== "[object Object]"
+  )
     return false;
   const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
+  return prototype === null || Object.getPrototypeOf(prototype) === null;
 };
 
 const hex = (value: unknown, field: string): Uint8Array => {
@@ -77,7 +82,7 @@ function parse(value: unknown, depth: number): ThruputError {
     (typeof details !== "string" || details.length > limits.details)
   )
     invalid(`details must be a string of at most ${limits.details} characters`);
-  if (docsUrl !== undefined && !isDocsUrl(docsUrl, limits.docsUrl))
+  if (docsUrl !== undefined && !isDocsUrl(docsUrl))
     invalid(
       `docsUrl must be an https URL of at most ${limits.docsUrl} characters`,
     );
@@ -97,10 +102,12 @@ function parse(value: unknown, depth: number): ThruputError {
     ...(transaction === undefined
       ? {}
       : {
+          // The encoder writes the receipt one level below the error, like
+          // the context, so decode it at the same depth.
           transaction: parseTransaction(
             transaction,
             code as ThruputErrorCode,
-            depth + 1,
+            depth,
           ),
         }),
   };
@@ -110,15 +117,6 @@ function parse(value: unknown, depth: number): ThruputError {
     shortMessage as string,
     options as typeof options & ThruputErrorRequiredOptions<ThruputErrorCode>,
   );
-}
-
-function isDocsUrl(value: unknown, limit: number): boolean {
-  if (typeof value !== "string" || value.length > limit) return false;
-  try {
-    return new URL(value).protocol === "https:";
-  } catch {
-    return false;
-  }
 }
 
 /** The outcome that each built-in transaction code always reports. */

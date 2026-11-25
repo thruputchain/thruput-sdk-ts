@@ -7,6 +7,7 @@ import { UnsupportedRpcValue } from "../rpc/codec.js";
 import type { TransactionReceipt } from "../types/rpc.js";
 import { createSubmissionEvidence } from "../wallet/execution.js";
 import { parseThruputError } from "./serialize.js";
+import { withTransactionFacts } from "./transaction.js";
 import type { TransactionFacts } from "./transaction.js";
 import {
   errorDocsBaseUrl,
@@ -343,6 +344,96 @@ describe("ThruputError serialization", () => {
     expect(parsed.context).toMatchObject({ raw: { nan: null } });
   });
 
+  it("round-trips a receipt and a nested error at the depth limit", () => {
+    const deep = (levels: number, leaf: unknown): unknown => {
+      let value = leaf;
+      for (let level = 0; level < levels; level++) value = { next: value };
+      return value;
+    };
+    // An unsupported execution value comes from a node, at any depth.
+    const unsupported = new ThruputError(
+      "transactionOutcomeUnsupported",
+      "Unsupported",
+      {
+        transaction: {
+          hash: submission.transactionHash,
+          outcome: "unknown",
+          reason: "outcomeUnsupported",
+          receipt: {
+            ...receipt,
+            execution: new UnsupportedRpcValue(deep(80, 1)),
+          },
+        },
+      },
+    );
+    expect(() => parseThruputError(unsupported.toJSON())).not.toThrow();
+    // A nested error is kept whole, with its deepest receipt field, or
+    // dropped; it is never cut into a form that does not parse.
+    const event = {
+      address: new Uint8Array(32),
+      data: new Uint8Array([1]),
+      topics: [new Uint8Array([2])],
+    };
+    const inner = new ThruputError("transactionFailed", "Failed", {
+      transaction: {
+        hash: submission.transactionHash,
+        outcome: "failed",
+        reason: "aborted",
+        receipt: { ...receipt, events: [event] },
+      },
+    });
+    for (let levels = 50; levels <= 64; levels++) {
+      const nested = new ThruputError("rpcValueInvalid", "Invalid", {
+        context: { path: "/result", raw: deep(levels, inner) },
+      });
+      let leaf = (
+        parseThruputError(nested.toJSON()).context as {
+          raw: unknown;
+        }
+      ).raw;
+      while (leaf !== null && typeof leaf === "object" && "next" in leaf)
+        leaf = leaf.next;
+      if (leaf !== null)
+        expect(
+          (leaf as ThruputError).transaction!.receipt!.events[0]!.topics,
+        ).toEqual([new Uint8Array([2])]);
+    }
+  });
+
+  it("ends on cycles with many branches and on large shared graphs", () => {
+    const cyclic: Record<string, unknown> = {};
+    cyclic.a = cyclic;
+    cyclic.b = cyclic;
+    // Each level refers twice to the next, so a full walk visits 2^60 nodes.
+    let shared: unknown = 1;
+    for (let level = 0; level < 60; level++) shared = { a: shared, b: shared };
+    const error = new ThruputError("rpcValueInvalid", "Invalid", {
+      context: { path: "/result", raw: { cyclic, shared } },
+    });
+    expect(
+      parseThruputError(JSON.parse(JSON.stringify(error))).context,
+    ).toMatchObject({
+      raw: { cyclic: { a: null, b: null } },
+    });
+  });
+
+  it("parses a serialized error from another realm", () => {
+    const json = JSON.stringify(failed());
+    const foreign = runInNewContext(`JSON.parse(${JSON.stringify(json)})`);
+    expect(parseThruputError(foreign).code).toBe("transactionFailed");
+  });
+
+  it("copies an unsupported value whose raw data refers back to it", () => {
+    const raw: Record<string, unknown> = {};
+    const value = new UnsupportedRpcValue(raw);
+    raw.self = value;
+    const error = new ThruputError("rpcValueUnsupported", "Unsupported", {
+      context: { value },
+    });
+    const copy = error.context.value;
+    expect((copy.raw as Record<string, unknown>).self).toBe(copy);
+  });
+
   it("keeps only the name of an error from another realm, and its bytes", () => {
     const foreign = runInNewContext(
       'Object.assign(new TypeError("secret"), { apiKey: "sk-secret" })',
@@ -369,6 +460,23 @@ describe("ThruputError serialization", () => {
     expect(parseThruputError(error.toJSON()).docsUrl).toBe(docsUrl);
     // The default link is not written, because the code gives it.
     expect(failed().toJSON()).not.toHaveProperty("docsUrl");
+    // Adding facts keeps the link.
+    expect(
+      withTransactionFacts(error, unknownFacts) as ThruputError,
+    ).toMatchObject({ docsUrl });
+    // A link that the serialized form cannot carry is rejected at once.
+    for (const invalidUrl of [
+      "http://localhost:3000/errors",
+      "/errors",
+      `https://example.com/${"x".repeat(2048)}`,
+    ])
+      expect(
+        () =>
+          new ThruputError("rpcIncompatible", "Incompatible", {
+            context: { kind: "network" },
+            docsUrl: invalidUrl,
+          }),
+      ).toThrow(TypeError);
   });
 
   it("takes details only from text in a cause", () => {

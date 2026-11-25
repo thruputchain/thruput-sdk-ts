@@ -164,6 +164,11 @@ export class ThruputError<
   ) {
     const details = options?.details ?? detailsFrom(options?.cause);
     const docsUrl = options?.docsUrl ?? defaultDocsUrl(code);
+    // Check it here, so the serialized form always parses.
+    if (!isDocsUrl(docsUrl))
+      throw new TypeError(
+        `docsUrl must be an https URL of at most ${serializedMessageLimits.docsUrl} characters`,
+      );
     super(
       [shortMessage, details && `Details: ${details}`, `Docs: ${docsUrl}`]
         .filter(Boolean)
@@ -211,7 +216,21 @@ export class ThruputError<
    * that level, and so does a number that is not finite.
    */
   toJSON(): SerializedThruputError {
-    return serialize(this, 0);
+    return serialize(this, 0, { path: new Set(), nodes: 0 });
+  }
+}
+
+/** An https URL within the serialized length limit. */
+export function isDocsUrl(value: unknown): value is string {
+  if (
+    typeof value !== "string" ||
+    value.length > serializedMessageLimits.docsUrl
+  )
+    return false;
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
   }
 }
 
@@ -231,7 +250,11 @@ function truncate(text: string, limit: number): string {
   return text.length <= limit ? text : `${text.slice(0, limit - 1)}…`;
 }
 
-function serialize(error: ThruputError, depth: number): SerializedThruputError {
+function serialize(
+  error: ThruputError,
+  depth: number,
+  state: EncodeState,
+): SerializedThruputError {
   const transaction = error.transaction;
   return {
     version: 1,
@@ -249,7 +272,7 @@ function serialize(error: ThruputError, depth: number): SerializedThruputError {
     ...(error.docsUrl === defaultDocsUrl(error.code)
       ? {}
       : { docsUrl: error.docsUrl }),
-    context: encodeJson(error.context, depth + 1),
+    context: encodeJson(error.context, depth + 1, state),
     ...(transaction
       ? {
           transaction: {
@@ -257,7 +280,9 @@ function serialize(error: ThruputError, depth: number): SerializedThruputError {
             outcome: transaction.outcome,
             reason: transaction.reason,
             ...(transaction.receipt
-              ? { receipt: encodeJson(transaction.receipt, depth + 1) }
+              ? {
+                  receipt: encodeJson(transaction.receipt, depth + 1, state),
+                }
               : {}),
             ...(transaction.submission
               ? {
@@ -365,8 +390,10 @@ export function snapshot<T>(value: T, seen = new Map<object, unknown>()): T {
   // `Buffer#slice` shares memory, so always copy into a new array.
   if (value instanceof Uint8Array) return new Uint8Array(value) as T;
   if (isUnsupportedRpcValue(value)) {
-    const copy = new UnsupportedRpcValue(snapshot(value.raw, seen));
+    // Register the copy before its contents, so a cycle through `raw` ends.
+    const copy = new UnsupportedRpcValue(undefined);
     seen.set(value, copy);
+    (copy as { raw: unknown }).raw = snapshot(value.raw, seen);
     return Object.freeze(copy) as T;
   }
   if (Array.isArray(value)) {
@@ -386,6 +413,21 @@ export function snapshot<T>(value: T, seen = new Map<object, unknown>()): T {
 /** Deepest nesting of serialized data, in objects and arrays. */
 export const maxJsonDepth = 64;
 
+/**
+ * Levels that a nested error needs below it: its receipt sits two levels down,
+ * and the topics of a receipt event three levels below that.
+ */
+const nestedErrorDepth = 5;
+
+/** Most objects and arrays that one `toJSON()` call encodes. */
+const maxJsonNodes = 10_000;
+
+/** The objects on the path being encoded, and how many were encoded. */
+interface EncodeState {
+  readonly path: Set<object>;
+  nodes: number;
+}
+
 const tag = (value: object) => Object.prototype.toString.call(value);
 
 /**
@@ -393,11 +435,17 @@ const tag = (value: object) => Object.prototype.toString.call(value);
  * `$bigint` (decimal), `$unsupported` (an unsupported RPC value), and `$error`.
  * Other errors keep only their name, because messages can be private. A plain
  * object that looks like a tag, such as RPC data `{ "$error": "..." }`, is
- * wrapped in `$literal`. Never throws: an object or array nested deeper than
- * the limit, for example in data from a node or in a cycle, becomes `null`, and
- * so does a number that is not finite.
+ * wrapped in `$literal`.
+ *
+ * Never throws, and always ends: a value that would nest deeper than the limit,
+ * that repeats an object on its own path (a cycle), or that comes after the
+ * node budget becomes `null`, and so does a number that is not finite.
  */
-export function encodeJson(value: unknown, depth = 0): unknown {
+function encodeJson(
+  value: unknown,
+  depth: number,
+  state: EncodeState,
+): unknown {
   if (typeof value === "bigint") return { $bigint: value.toString() };
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
   if (value === null || typeof value !== "object") {
@@ -408,17 +456,36 @@ export function encodeJson(value: unknown, depth = 0): unknown {
   // Tag checks, not instanceof, also match values from another realm.
   if (tag(value) === "[object Uint8Array]")
     return { $bytes: toHex0x(value as Uint8Array) };
-  if (depth >= maxJsonDepth) return null;
-  if (isThruputError(value)) return { $error: serialize(value, depth + 1) };
+  if (
+    depth >= maxJsonDepth ||
+    state.path.has(value) ||
+    ++state.nodes > maxJsonNodes
+  )
+    return null;
+  state.path.add(value);
+  try {
+    return encodeObject(value, depth, state);
+  } finally {
+    state.path.delete(value);
+  }
+}
+
+function encodeObject(value: object, depth: number, state: EncodeState) {
+  if (isThruputError(value))
+    // Without room for its context and receipt, a nested error could not be
+    // parsed, so drop it whole.
+    return depth + nestedErrorDepth >= maxJsonDepth
+      ? null
+      : { $error: serialize(value, depth + 1, state) };
   if (value instanceof Error || tag(value) === "[object Error]")
     return { $error: { name: String((value as Error).name) } };
   if (isUnsupportedRpcValue(value))
-    return { $unsupported: encodeJson(value.raw, depth + 1) };
+    return { $unsupported: encodeJson(value.raw, depth + 1, state) };
   if (Array.isArray(value))
-    return value.map((entry) => encodeJson(entry, depth + 1) ?? null);
+    return value.map((entry) => encodeJson(entry, depth + 1, state) ?? null);
   const result: Record<string, unknown> = {};
   for (const [key, entry] of Object.entries(value)) {
-    const encoded = encodeJson(entry, depth + 1);
+    const encoded = encodeJson(entry, depth + 1, state);
     if (encoded !== undefined) defineEntry(result, key, encoded);
   }
   const keys = Object.keys(result);
@@ -428,7 +495,7 @@ export function encodeJson(value: unknown, depth = 0): unknown {
 }
 
 /** Keys that mark a tagged value in serialized errors. */
-export const jsonTags: readonly string[] = [
+const jsonTags: readonly string[] = [
   "$bytes",
   "$bigint",
   "$unsupported",

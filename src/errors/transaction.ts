@@ -1,6 +1,6 @@
 import { isUnsupportedRpcValue } from "../rpc/unsupported.js";
 import { toBase58 } from "../encoding.js";
-import { isThruputError, ThruputError } from "./thruputError.js";
+import { isDocsUrl, isThruputError, ThruputError } from "./thruputError.js";
 import type { TransactionReceipt } from "../types/rpc.js";
 import type { SubmissionEvidence } from "../transaction/submissionEvidence.js";
 
@@ -106,9 +106,12 @@ export interface TransactionFacts {
   readonly hash: Uint8Array;
   readonly outcome: TransactionOutcome;
   readonly reason: TransactionReason;
-  /** The committed receipt, when the client has one. */
+  /**
+   * The committed receipt, when the client has one. Each read returns a new
+   * copy, so read it once into a variable rather than in a loop.
+   */
   readonly receipt?: TransactionReceipt;
-  /** The exact signed bytes and network, when the client has them. */
+  /** The exact signed bytes and network, when the client has them. Each read of a byte field returns a new copy. */
   readonly submission?: SubmissionEvidence;
 }
 
@@ -209,6 +212,8 @@ export function withTransactionFacts(
   }
   return new ThruputError(error.code, error.shortMessage, {
     context: error.context,
+    // An error from another copy can carry any value; keep only a valid link.
+    ...(isDocsUrl(error.docsUrl) ? { docsUrl: error.docsUrl } : {}),
     ...(error.details === undefined ? {} : { details: error.details }),
     ...(error.cause === undefined ? {} : { cause: error.cause }),
     transaction,
