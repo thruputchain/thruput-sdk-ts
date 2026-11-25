@@ -15,7 +15,7 @@ declared name).
 | ------------------------- | --------------------------------- | ------------------------------------------------------------------ |
 | `erc20.spec.xdr`          | `src/contracts/erc20.ts`          | `d52ae5f45f4b139e7e713d10d06cb3b81f45cdc91b6e302b62c47cd11ac73f80` |
 | `recursive_type.spec.xdr` | `src/contracts/recursive_type.ts` | `64aa9042721f2c058c67deec49fb832ed8a7066ba7bc01033ffc295991b28aa1` |
-| `default_wallet.spec.xdr` | `src/contracts/default_wallet.ts` | `06fcbb7714bc354faf70fa493377cdcc81ef5208abafe627f4a360ea748ad6c7` |
+| `default_wallet.spec.xdr` | `src/contracts/default_wallet.ts` | `fafad1405c46406ea0be296582cf7be00d4c274541ddadfd91a8e292b737d0de` |
 | `dev_wallet.spec.xdr`     | `src/contracts/dev_wallet.ts`     | `a48e5253d576cf73d85686746edbd7c361acc06a7b06d01f5946dc94703228d2` |
 | `counter.spec.xdr`        | `examples/generated/counter.ts`   | `3e9d774763433068bddf1d24ae52505390f2660f0ba154314b41055d53362849` |
 | `signed_op.spec.xdr`      | `src/contracts/signed_op.ts`      | `0156ff120374fd0d3c6cd231acc74eba827a02bb444236063e8f40d40aca9f05` |
@@ -48,13 +48,22 @@ hogd's `nightly-2026-05-01`:
   `clear_allowance_signed` is now `delete_allowance_signed`.
 - `recursive_type.spec.xdr` is `example-contracts/recursive_type` at the same
   revision. Its bytes are unchanged from the previous pin.
-- `default_wallet.spec.xdr` and `dev_wallet.spec.xdr` are the wallets at
+- `default_wallet.spec.xdr` is the wallet at
+  `thruputchain/thruput-integration-test-contracts@3bc65cfae2e2458f039431b4d5e901807f6e0e32`,
+  the revision `hogd` v0.1.37 builds into hog-devnode 0.1.37. It was built with
+  `thruput build -p default_wallet` from CLI 0.42.0, using that hogd tag's
+  `built_contracts` cargo configuration, toolchain and `Cargo.lock` (SDK
+  0.60.0). `execute` now takes `mints`, at most 16 XDR-encoded `AuthTokenNode`s
+  the wallet mints, before `calls`, and each `WalletCall` ends with `tokens`, at
+  most 64 `WalletTokenRef`s naming the auth tokens to forward to that call.
+  `WalletError` gains `InvalidTokenRef` and `TokenAlreadyForwarded`.
+  hog-devnode 0.1.36 and earlier cannot decode this form, and hog-devnode
+  0.1.37 cannot decode the earlier one.
+- `dev_wallet.spec.xdr` is the DevWallet at
   `thruputchain/thruput-integration-test-contracts@d626338fa651783cfa55916c73a12dcdcc8d0d49`,
-  the revision `hogd` v0.1.31-rc.16 builds into hog-devnode 0.1.31-rc.16. They
-  were built with that hogd tag's `built_contracts` cargo configuration and
-  `Cargo.lock` (SDK 0.56.0, `thruput-erc20-if` 0.1.67). DefaultWallet's
-  `deploy` still takes a native-token `amount` and an optional `WalletInitCall`
-  initializer, but the amount is now `i128`. The DevWallet spec is unchanged.
+  the revision `hogd` v0.1.31-rc.16 builds into hog-devnode 0.1.31-rc.16, built
+  with that hogd tag's `built_contracts` cargo configuration and `Cargo.lock`
+  (SDK 0.56.0, `thruput-erc20-if` 0.1.67).
 - `counter.spec.xdr` is `contracts/counter` at
   `thruputchain/thruput-examples@c82a5d18e7e806ad449b2672124372f74a142c8f`,
   built against SDK 0.57.0; see [fixture provenance](../../examples/fixtures/README.md).

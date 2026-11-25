@@ -43,11 +43,14 @@ export function createDefaultWalletBatchInvocation(
     contractAddress(new Uint8Array(accountAddress)),
     request.gasLimit,
     {
+      // This builder mints no auth tokens and forwards none.
+      mints: [],
       calls: request.invocations.map((inner) => ({
         target: contractAddress(new Uint8Array(inner.invoked_address)),
         entrypoint: fixedBytes(new Uint8Array(inner.entrypoint), 8),
         gas_limit: inner.gas_limit,
         calldata: new Uint8Array(inner.calldata),
+        tokens: [],
       })),
     },
   );

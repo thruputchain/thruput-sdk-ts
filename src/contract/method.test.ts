@@ -291,12 +291,14 @@ describe("contract argument decoding", () => {
         entrypoint: transfer.entrypoint,
         gas_limit: transfer.gas_limit,
         calldata: transfer.calldata,
+        tokens: [],
       },
     ];
     const root = DefaultWallet.v0_1.execute.invocation(
       address,
       gasAmount(200n),
       {
+        mints: [],
         calls,
       },
     );
@@ -310,7 +312,10 @@ describe("contract argument decoding", () => {
         events: [],
       }),
     });
-    expect(wallet.execute.decodeArgs(root.calldata)).toEqual({ calls });
+    expect(wallet.execute.decodeArgs(root.calldata)).toEqual({
+      mints: [],
+      calls,
+    });
     expect(ERC20.v0_1.transfer.decodeArgs(transfer.calldata)).toEqual({
       receiver: caller,
       amount: 42n,
