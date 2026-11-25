@@ -29,15 +29,20 @@ export namespace default_wallet {
         entrypoint: __gh_client_contract.FixedBytes<8>;
         gas_limit: bigint;
         calldata: globalThis.Uint8Array;
+        tokens: __gh_codegen.default_wallet$v0_1$$interface$WalletTokenRef[];
       }
 
-      export type WalletError = 1n | 2n | 3n | 4n | 5n | 6n | 7n;
+      export type WalletError = 1n | 2n | 3n | 4n | 5n | 6n | 7n | 8n | 9n;
 
       export interface WalletInitCall {
         entrypoint: __gh_client_contract.FixedBytes<8>;
         gas_limit: bigint;
         calldata: globalThis.Uint8Array;
       }
+
+      export type WalletTokenRef =
+        | { case: "Minted"; value: readonly [bigint] }
+        | { case: "Returned"; value: { call: bigint; index: bigint } };
     }
   }
 }
@@ -53,6 +58,7 @@ export namespace DefaultWallet {
     export type DeployResult = __gh_protocol.ContractAddress;
 
     export interface ExecuteArgs {
+      mints: globalThis.Uint8Array[];
       calls: __gh_codegen.default_wallet$v0_1$$interface$WalletCall[];
     }
     export type ExecuteResult = globalThis.Uint8Array[];
@@ -138,6 +144,22 @@ export const spec: __gh_client_contract.ContractSpec = {
           name: __gh_s("execute"),
           args: [
             {
+              name: __gh_s("mints"),
+              ty: {
+                v: __gh_contract_spec.ContractTypeKind.Vector,
+                vector: {
+                  element: {
+                    v: __gh_contract_spec.ContractTypeKind.Vector,
+                    vector: {
+                      element: { v: __gh_contract_spec.ContractTypeKind.U8 },
+                      max_len: 4294967295n,
+                    },
+                  },
+                  max_len: 16n,
+                },
+              },
+            },
+            {
               name: __gh_s("calls"),
               ty: {
                 v: __gh_contract_spec.ContractTypeKind.Vector,
@@ -213,6 +235,24 @@ export const spec: __gh_client_contract.ContractSpec = {
               },
             },
           },
+          {
+            name: __gh_s("tokens"),
+            ty: {
+              v: __gh_contract_spec.ContractTypeKind.Vector,
+              vector: {
+                element: {
+                  v: __gh_contract_spec.ContractTypeKind.Named,
+                  named: {
+                    crate_name: __gh_s("default_wallet"),
+                    major: __gh_s("0.1"),
+                    module_path: __gh_s("default_wallet::interface"),
+                    declared: __gh_s("WalletTokenRef"),
+                  },
+                },
+                max_len: 64n,
+              },
+            },
+          },
         ],
       },
     },
@@ -233,6 +273,8 @@ export const spec: __gh_client_contract.ContractSpec = {
           { name: __gh_s("CallAborted"), value: 5n },
           { name: __gh_s("CallFaulted"), value: 6n },
           { name: __gh_s("ReturnDataTooLarge"), value: 7n },
+          { name: __gh_s("InvalidTokenRef"), value: 8n },
+          { name: __gh_s("TokenAlreadyForwarded"), value: 9n },
         ],
       },
     },
@@ -268,6 +310,44 @@ export const spec: __gh_client_contract.ContractSpec = {
                 element: { v: __gh_contract_spec.ContractTypeKind.U8 },
                 max_len: 4294967295n,
               },
+            },
+          },
+        ],
+      },
+    },
+    {
+      v: __gh_contract_spec.ContractTypeDefKind.TypeDefUnion,
+      union_def: {
+        name: {
+          crate_name: __gh_s("default_wallet"),
+          major: __gh_s("0.1"),
+          module_path: __gh_s("default_wallet::interface"),
+          declared: __gh_s("WalletTokenRef"),
+        },
+        cases: [
+          {
+            name: __gh_s("Minted"),
+            discriminant: 0n,
+            case_type: {
+              v: __gh_contract_spec.ContractUnionCaseKind.UnionCaseTuple,
+              tuple: [{ v: __gh_contract_spec.ContractTypeKind.U32 }],
+            },
+          },
+          {
+            name: __gh_s("Returned"),
+            discriminant: 1n,
+            case_type: {
+              v: __gh_contract_spec.ContractUnionCaseKind.UnionCaseStruct,
+              struct_fields: [
+                {
+                  name: __gh_s("call"),
+                  ty: { v: __gh_contract_spec.ContractTypeKind.U32 },
+                },
+                {
+                  name: __gh_s("index"),
+                  ty: { v: __gh_contract_spec.ContractTypeKind.U32 },
+                },
+              ],
             },
           },
         ],
@@ -339,9 +419,14 @@ export const DefaultWallet = {
       effect: spec.interfaces[0]!.methods[1]!.effect,
       args: [
         {
+          abiName: "mints",
+          publicName: "mints",
+          type: spec.interfaces[0]!.methods[1]!.args[0]!.ty,
+        },
+        {
           abiName: "calls",
           publicName: "calls",
-          type: spec.interfaces[0]!.methods[1]!.args[0]!.ty,
+          type: spec.interfaces[0]!.methods[1]!.args[1]!.ty,
         },
       ],
       returnType: spec.interfaces[0]!.methods[1]!.return_type,
@@ -368,6 +453,8 @@ export const default_wallet = {
         CallAborted: 5n,
         CallFaulted: 6n,
         ReturnDataTooLarge: 7n,
+        InvalidTokenRef: 8n,
+        TokenAlreadyForwarded: 9n,
       },
     },
   },
@@ -381,4 +468,6 @@ export namespace __gh_codegen {
     default_wallet.v0_1.$interface.WalletError;
   export type default_wallet$v0_1$$interface$WalletInitCall =
     default_wallet.v0_1.$interface.WalletInitCall;
+  export type default_wallet$v0_1$$interface$WalletTokenRef =
+    default_wallet.v0_1.$interface.WalletTokenRef;
 }

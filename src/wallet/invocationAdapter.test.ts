@@ -86,8 +86,10 @@ describe("wallet invocation adapters", () => {
         entrypoint: inner.entrypoint,
         gas_limit: inner.gas_limit,
         calldata: inner.calldata,
+        tokens: [],
       },
     ]);
+    expect(decoded.mints).toEqual([]);
   });
 
   it("serializes the complete invocation for DevWallet", () => {

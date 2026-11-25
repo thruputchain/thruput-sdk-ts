@@ -18,13 +18,22 @@ export interface WalletRequests {
 /**
  * Interpret a known DefaultWallet root using built-in binding descriptors.
  * Call only after identifying the root as DefaultWallet; matching selectors
- * alone do not establish wallet identity. Malformed recognized inputs throw.
+ * alone do not establish wallet identity. Malformed recognized inputs throw,
+ * as does an `execute` that mints or forwards auth tokens.
  */
 export function decodeDefaultWalletRequests(
   root: Invocation,
 ): WalletRequests | null {
   if (bytesEqual(root.entrypoint, DefaultWallet.v0_1.execute.entrypoint)) {
-    const { calls } = DefaultWallet.v0_1.execute.decodeArgs(root.calldata);
+    const { mints, calls } = DefaultWallet.v0_1.execute.decodeArgs(
+      root.calldata,
+    );
+    // An `Invocation` cannot say that the wallet mints auth tokens or forwards
+    // them to a call, so refuse such a root instead of under-reporting it.
+    if (mints.length > 0 || calls.some((call) => call.tokens.length > 0))
+      throw new Error(
+        "DefaultWallet.execute mints or forwards auth tokens, which requested calls cannot represent",
+      );
     return {
       wrapper: "DefaultWallet.execute",
       requestedCalls: calls.map((call) => ({

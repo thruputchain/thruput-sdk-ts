@@ -429,8 +429,10 @@ async function typedExecutionBoundary(
   );
   const walletArgs: DefaultWallet.v0_1.ExecuteArgs =
     DefaultWallet.v0_1.execute.decodeArgs(
-      DefaultWallet.v0_1.execute.invocation(address, gas, { calls: [] })
-        .calldata,
+      DefaultWallet.v0_1.execute.invocation(address, gas, {
+        mints: [],
+        calls: [],
+      }).calldata,
     );
   const noArgs: void = ERC20.v0_1.getBalance.decodeArgs(new Uint8Array());
   void [transferArgs, walletArgs, noArgs];
@@ -774,8 +776,10 @@ function walletBoundaryTypecheck(
     entrypoint: fixedBytes(invocation.entrypoint, 8),
     gas_limit: invocation.gas_limit,
     calldata: invocation.calldata,
+    tokens: [],
   };
   DefaultWallet.v0_1.execute.invocation(address, invocation.gas_limit, {
+    mints: [],
     calls: [call],
   });
   DevWallet.v0_1.doAction.invocation(address, invocation.gas_limit, {

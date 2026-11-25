@@ -30,6 +30,7 @@ describe("generated wallet contract bindings", () => {
     expect(
       toHex(
         DefaultWallet.v0_1.execute.invocation(address, gasAmount(1n), {
+          mints: [],
           calls: [],
         }).entrypoint,
       ),
@@ -49,12 +50,14 @@ describe("generated wallet contract bindings", () => {
       address,
       gasAmount(10n),
       {
+        mints: [],
         calls: [
           {
             target: address,
             entrypoint: fixedBytes(new Uint8Array(8).fill(0x22), 8),
             gas_limit: 30n,
             calldata: new Uint8Array([1, 2, 3]),
+            tokens: [],
           },
         ],
       },
@@ -73,8 +76,10 @@ describe("generated wallet contract bindings", () => {
         entrypoint: new Uint8Array(8).fill(0x22),
         gas_limit: 30n,
         calldata: new Uint8Array([1, 2, 3]),
+        tokens: [],
       },
     ]);
+    expect(decoded.mints).toEqual([]);
 
     const writer = new CxsWriter();
     writer.writeUint64(0x931d3297d37d1bdfn);

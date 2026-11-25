@@ -41,12 +41,14 @@ const root = DefaultWallet.v0_1.execute.call({
   address,
   gasLimit: gasAmount(20000n),
   args: {
+    mints: [],
     calls: [
       {
         target: child.invoked_address,
         entrypoint: child.entrypoint,
         gas_limit: child.gas_limit,
         calldata: child.calldata,
+        tokens: [],
       },
     ],
   },
@@ -76,6 +78,33 @@ it("keeps unknown selectors separate from malformed known input", () => {
       calldata: calldata(new Uint8Array()),
     }),
   ).toThrow();
+});
+
+it("refuses to report a wallet root that mints or forwards auth tokens", () => {
+  const call = {
+    target: child.invoked_address,
+    entrypoint: child.entrypoint,
+    gas_limit: child.gas_limit,
+    calldata: child.calldata,
+  };
+  const minting = DefaultWallet.v0_1.execute.call({
+    address,
+    gasLimit: gasAmount(20000n),
+    args: {
+      mints: [new Uint8Array([1])],
+      calls: [{ ...call, tokens: [] }],
+    },
+  }).invocation;
+  const forwarding = DefaultWallet.v0_1.execute.call({
+    address,
+    gasLimit: gasAmount(20000n),
+    args: {
+      mints: [],
+      calls: [{ ...call, tokens: [{ case: "Minted", value: [0n] }] }],
+    },
+  }).invocation;
+  expect(() => decodeDefaultWalletRequests(minting)).toThrow("auth tokens");
+  expect(() => decodeDefaultWalletRequests(forwarding)).toThrow("auth tokens");
 });
 
 it("rejects ambiguous selectors and does not depend on subsequent spec mutation", () => {
