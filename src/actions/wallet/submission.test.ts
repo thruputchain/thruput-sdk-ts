@@ -298,6 +298,35 @@ describe("high-level native submission", () => {
     expect(rpc.mock.calls.some(([m]) => m === "sendTransaction")).toBe(false);
   });
 
+  it("does not persist a transaction cancelled while it was signed", async () => {
+    const { client, signer, account, request } = await setup();
+    const controller = new AbortController();
+    const reason = new Error("stop");
+    const sign = signer.sign.bind(signer);
+    vi.spyOn(signer, "sign").mockImplementation(async (message) => {
+      const signature = await sign(message);
+      controller.abort(reason);
+      return signature;
+    });
+    const onSigned = vi.fn();
+    const error = await sendInvocation(
+      client,
+      account,
+      signingNetwork,
+      request,
+      {
+        signal: controller.signal,
+        onSigned,
+      },
+    ).catch((error: unknown) => error);
+    expect(error).toMatchObject({
+      code: "transactionNotSubmitted",
+      transaction: { outcome: "notSubmitted", reason: "cancelled" },
+    });
+    expect((error as Error).cause).toBe(reason);
+    expect(onSigned).not.toHaveBeenCalled();
+  });
+
   it("does not sign after an abort during preparation", async () => {
     const { client, signer, account, request, rpc } = await setup();
     const sign = vi.spyOn(signer, "sign");

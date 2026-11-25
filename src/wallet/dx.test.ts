@@ -18,7 +18,10 @@ import {
   submitAndObserve,
   createSubmissionEvidence,
 } from "./execution.js";
-import type { ThruputError } from "../errors/thruputError.js";
+import {
+  ThruputError as ThruputErrorClass,
+  type ThruputError,
+} from "../errors/thruputError.js";
 import { devWalletAdapter, defaultWalletAdapter } from "./invocationAdapter.js";
 import {
   prepareContractDeployment,
@@ -139,6 +142,35 @@ describe("contract execution DX", () => {
     const call = Counter.v0_1.get.call({ address, gasLimit: gas });
     expect(() => decodeExecution(receipt, [call], devWalletAdapter)).toThrow(
       expect.objectContaining({ code: "transactionResultUnavailable" }),
+    );
+  });
+
+  it("wraps an adapter's own error, so the facts describe this receipt", () => {
+    const call = Counter.v0_1.get.call({ address, gasLimit: gas });
+    const adapter = {
+      ...defaultWalletAdapter,
+      decodeExecutionReturns: () => {
+        throw new ThruputErrorClass("transactionResultUnavailable", "Adapter", {
+          transaction: {
+            hash: new Uint8Array(32).fill(9),
+            outcome: "succeeded",
+            reason: "resultUnavailable",
+          },
+        });
+      },
+    };
+    let error: unknown;
+    try {
+      decodeExecution(receipt, [call], adapter);
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toMatchObject({
+      code: "transactionResultUndecodable",
+      transaction: { outcome: "succeeded", reason: "resultUndecodable" },
+    });
+    expect((error as ThruputError).transaction!.hash).toEqual(
+      receipt.transactionHash,
     );
   });
 

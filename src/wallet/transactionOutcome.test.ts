@@ -148,6 +148,47 @@ describe("submitAndObserve reasons", () => {
     },
   );
 
+  it("observes when the caller reports dispatch, whatever the error code", async () => {
+    const receipt: TransactionReceipt = {
+      transactionHash: hash,
+      blockHeight: 1n,
+      events: [],
+      execution: { result: "return", returnData: new Uint8Array() },
+      gasUsed: 0n,
+    };
+    let dispatched = false;
+    const result = await submitAndObserve(
+      { waitForTransactionReceipt: vi.fn(async () => receipt) },
+      evidence,
+      async () => {
+        dispatched = true;
+        throw rpcIncompatible("method", "after dispatch");
+      },
+      undefined,
+      () => dispatched,
+    );
+    expect(result.receipt).toBe(receipt);
+  });
+
+  it("rejects invalid wait options before it submits", async () => {
+    const submit = vi.fn(async () => {});
+    for (const options of [
+      { pollingIntervalMs: -1 },
+      { timeoutMs: -1 },
+      {
+        knownCommitment: {
+          transactionHash: hash,
+          networkHash,
+          blockHeight: 1n,
+        },
+      },
+    ])
+      await expect(
+        submitAndObserve(client, evidence, submit, options),
+      ).rejects.toThrow();
+    expect(submit).not.toHaveBeenCalled();
+  });
+
   it.each([
     new ThruputError("rpcRequestInvalid", "from a transport", {
       context: { path: "/params" },

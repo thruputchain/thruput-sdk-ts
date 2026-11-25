@@ -78,6 +78,13 @@ export async function sendInvocation(
     serialize(signed, codec.SignedTransaction),
     signingNetwork,
   );
+  // Do not persist a transaction the caller cancelled while it was signed.
+  if (controls.signal?.aborted)
+    throw transactionNotSubmitted(
+      evidence,
+      "cancelled",
+      controls.signal.reason,
+    );
   try {
     await controls.onSigned?.(evidence);
   } catch (cause) {
