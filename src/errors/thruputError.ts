@@ -188,7 +188,9 @@ export class ThruputError<
    * only `name`, `message`, `stack`, and `cause`, so use this across message
    * boundaries and rebuild the error with {@link parseThruputError}. `cause` is
    * not included. Bytes become hex and bigints become decimal strings. Messages
-   * longer than the limits of `parseThruputError` are shortened.
+   * longer than the limits of `parseThruputError` are shortened. Never throws:
+   * context nested more than 64 levels deep, or in a cycle, becomes `null` at
+   * that level, and so does a number that is not finite.
    */
   toJSON(): SerializedThruputError {
     return serialize(this, 0);
@@ -274,7 +276,9 @@ export function isThruputError<
 
 function detailsFrom(cause: unknown): string | undefined {
   if (!isThruputError(cause)) return undefined;
-  return cause.details ?? cause.shortMessage;
+  // A cause can be forged or come from another copy, so accept only text.
+  const text = cause.details ?? cause.shortMessage;
+  return typeof text === "string" ? text : undefined;
 }
 
 function createTransactionFacts(
@@ -337,24 +341,35 @@ export function snapshot<T>(value: T, seen = new Map<object, unknown>()): T {
   return Object.freeze(copy) as T;
 }
 
+/** Deepest nesting of serialized data, in objects and arrays. */
+export const maxJsonDepth = 64;
+
+const tag = (value: object) => Object.prototype.toString.call(value);
+
 /**
  * Encode a value as JSON-safe data with tagged objects: `$bytes` (hex),
  * `$bigint` (decimal), `$unsupported` (an unsupported RPC value), and `$error`.
  * Other errors keep only their name, because messages can be private. A plain
  * object that looks like a tag, such as RPC data `{ "$error": "..." }`, is
- * wrapped in `$literal`.
+ * wrapped in `$literal`. Never throws: an object or array nested deeper than
+ * the limit, for example in data from a node or in a cycle, becomes `null`, and
+ * so does a number that is not finite.
  */
 export function encodeJson(value: unknown, depth = 0): unknown {
-  if (depth > 64) throw new RangeError("Error context is nested too deeply");
   if (typeof value === "bigint") return { $bigint: value.toString() };
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
   if (value === null || typeof value !== "object") {
     return typeof value === "function" || typeof value === "symbol"
       ? undefined
       : value;
   }
-  if (value instanceof Uint8Array) return { $bytes: toHex0x(value) };
+  // Tag checks, not instanceof, also match values from another realm.
+  if (tag(value) === "[object Uint8Array]")
+    return { $bytes: toHex0x(value as Uint8Array) };
+  if (depth >= maxJsonDepth) return null;
   if (isThruputError(value)) return { $error: serialize(value, depth + 1) };
-  if (value instanceof Error) return { $error: { name: value.name } };
+  if (value instanceof Error || tag(value) === "[object Error]")
+    return { $error: { name: String((value as Error).name) } };
   if (isUnsupportedRpcValue(value))
     return { $unsupported: encodeJson(value.raw, depth + 1) };
   if (Array.isArray(value))

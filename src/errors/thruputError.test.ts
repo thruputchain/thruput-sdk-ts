@@ -300,8 +300,74 @@ describe("ThruputError serialization", () => {
     });
   });
 
+  it("never throws for deep, cyclic, or non-finite context, and its output parses", () => {
+    // A node controls RPC error data, so its depth has no limit.
+    let deep: unknown = 1;
+    for (let level = 0; level < 100; level++) deep = { next: deep };
+    const cyclic: Record<string, unknown> = {};
+    cyclic.self = cyclic;
+    const error = new ThruputError("rpcValueInvalid", "Invalid", {
+      context: { path: "/result", raw: { deep, cyclic, nan: Number.NaN } },
+    });
+    expect(() => JSON.stringify(error)).not.toThrow();
+    const parsed = parseThruputError(structuredClone(error.toJSON()));
+    expect(parsed.context).toMatchObject({ raw: { nan: null } });
+  });
+
+  it("keeps only the name of an error from another realm, and its bytes", () => {
+    const foreign = runInNewContext(
+      'Object.assign(new TypeError("secret"), { apiKey: "sk-secret" })',
+    );
+    const bytes = runInNewContext("new Uint8Array([1, 2])");
+    const error = new ThruputError("rpcValueInvalid", "Invalid", {
+      context: { path: "/result", raw: { foreign, bytes } },
+    });
+    const json = JSON.stringify(error);
+    expect(json).not.toContain("secret");
+    expect(parseThruputError(JSON.parse(json)).context).toMatchObject({
+      raw: { foreign: { name: "TypeError" }, bytes: new Uint8Array([1, 2]) },
+    });
+  });
+
+  it("takes details only from text in a cause", () => {
+    const forged = Object.assign(new Error("forged"), {
+      name: "ThruputError",
+      code: "rpcError",
+      shortMessage: { secret: 1 },
+    });
+    const error = new ThruputError("rpcIncompatible", "Incompatible", {
+      cause: forged,
+    });
+    expect(error.details).toBeUndefined();
+    expect(() => JSON.stringify(error)).not.toThrow();
+  });
+
   it.each([
     ["a non-object", "x"],
+    ["a live error", failed()],
+    [
+      "a tag as the whole context",
+      { ...failed().toJSON(), context: { $bigint: "5" } },
+    ],
+    [
+      "a value that is not JSON",
+      { ...failed().toJSON(), context: { value: 5n } },
+    ],
+    [
+      "a reason that contradicts a failed receipt",
+      {
+        ...failed().toJSON(),
+        transaction: { ...failed().toJSON().transaction, reason: "faulted" },
+      },
+    ],
+    [
+      "a failed outcome without a receipt",
+      {
+        ...failed().toJSON(),
+        code: "contractCallFailed",
+        transaction: { ...failed().toJSON().transaction, receipt: undefined },
+      },
+    ],
     ["another name", { ...failed().toJSON(), name: "Error" }],
     ["a malformed code", { ...failed().toJSON(), code: "Bad-Code" }],
     [

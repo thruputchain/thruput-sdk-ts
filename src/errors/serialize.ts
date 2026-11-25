@@ -12,6 +12,7 @@ import {
 } from "./codes.js";
 import {
   defineEntry,
+  maxJsonDepth,
   serializedMessageLimits,
   ThruputError,
   type ThruputErrorOptions,
@@ -30,8 +31,13 @@ const invalid = (message: string): never => {
   throw new TypeError(`Invalid serialized ThruputError: ${message}`);
 };
 
-const record = (value: unknown): value is Record<string, unknown> =>
-  value !== null && typeof value === "object" && !Array.isArray(value);
+/** A plain object, as `JSON.parse` returns. */
+const record = (value: unknown): value is Record<string, unknown> => {
+  if (value === null || typeof value !== "object" || Array.isArray(value))
+    return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+};
 
 const hex = (value: unknown, field: string): Uint8Array => {
   if (typeof value !== "string" || !/^0x(?:[0-9a-f]{2})*$/.test(value))
@@ -75,8 +81,11 @@ function parse(value: unknown, depth: number): ThruputError {
     transactionErrorCodes.includes(code as TransactionErrorCode)
   )
     invalid(`${code as string} requires transaction`);
+  const decodedContext = decodeJson(context, depth + 1);
+  // A tag such as `{ "$bigint": "5" }` decodes to a value that is not a record.
+  if (!record(decodedContext)) invalid("context must be an object");
   const options: ThruputErrorOptions<ThruputErrorCode> = {
-    context: decodeJson(context, depth + 1) as never,
+    context: decodedContext as never,
     ...(details === undefined ? {} : { details: details as string }),
     ...(transaction === undefined
       ? {}
@@ -150,8 +159,20 @@ function parseTransaction(
     if (!equal(receipt.transactionHash, hash))
       invalid("transaction.receipt does not match transaction.hash");
     // A restored record must not contradict its proof of execution.
-    if (receiptFacts(receipt, "resultUndecodable").outcome !== value.outcome)
+    const proven = receiptFacts(receipt, "resultUndecodable");
+    if (proven.outcome !== value.outcome)
       invalid("transaction.outcome contradicts transaction.receipt");
+    // A failed receipt fixes the reason. A successful one only rules out the
+    // failure reasons: a stopped faucet attempt can report `timeout`.
+    if (
+      proven.outcome === "failed"
+        ? proven.reason !== value.reason
+        : proven.outcome === "succeeded" &&
+          receiptReasons.includes(value.reason as TransactionReason)
+    )
+      invalid("transaction.reason contradicts transaction.receipt");
+  } else if (value.outcome === "succeeded" || value.outcome === "failed") {
+    invalid(`outcome ${value.outcome as string} requires transaction.receipt`);
   }
   const expected = codeOutcomes[code];
   if (expected !== undefined && expected !== value.outcome)
@@ -165,17 +186,28 @@ function parseTransaction(
   };
 }
 
+/** Reasons that only a failed or unsupported receipt can give. */
+const receiptReasons: readonly TransactionReason[] = [
+  "aborted",
+  "faulted",
+  "executionFailed",
+  "outcomeUnsupported",
+];
+
 function decodeJson(value: unknown, depth: number): unknown {
-  if (depth > 64) invalid("value is nested too deeply");
-  if (value === null || typeof value !== "object") {
-    if (typeof value === "number" && !Number.isFinite(value))
-      invalid("numbers must be finite");
+  if (depth > maxJsonDepth) invalid("value is nested too deeply");
+  if (value === null || typeof value === "string" || typeof value === "boolean")
+    return value;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) invalid("numbers must be finite");
     return value;
   }
   if (Array.isArray(value))
     return value.map((entry) => decodeJson(entry, depth + 1));
+  // Only JSON data: not bigints, functions, bytes, or other live objects.
+  if (!record(value)) return invalid("values must be JSON data");
   const keys = Object.keys(value);
-  const tagged = value as Record<string, unknown>;
+  const tagged = value;
   if (keys.length === 1) {
     if (keys[0] === "$bytes") return hex(tagged.$bytes, "$bytes");
     if (keys[0] === "$bigint") {
