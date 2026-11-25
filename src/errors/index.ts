@@ -6,14 +6,9 @@
 export {
   ThruputError,
   isThruputError,
-  errorDocsBaseUrl,
-  type SerializedThruputError,
-  type ThruputErrorArgs,
   type ThruputErrorOf,
   type ThruputErrorOptions,
-  type ThruputErrorRequiredOptions,
 } from "./thruputError.js";
-export { parseThruputError } from "./serialize.js";
 export { transactionErrorCodes, type TransactionErrorCode } from "./codes.js";
 export type {
   FundingStoppedContext,

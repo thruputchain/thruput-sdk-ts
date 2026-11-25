@@ -66,9 +66,8 @@ export function withSubmission(
       error,
       extra,
     );
-  return new ThruputError("transactionOutcomeUnknown", error.shortMessage, {
+  return new ThruputError("transactionOutcomeUnknown", error.message, {
     context: { ...error.context, ...extra },
-    ...(error.details === undefined ? {} : { details: error.details }),
     ...(error.cause === undefined ? {} : { cause: error.cause }),
     transaction: { ...error.transaction, submission },
   });

@@ -48,7 +48,7 @@ describe("txInvalidDetail", () => {
       attached: 5,
       max: 4,
     });
-    const foreign = new ThruputError("nativeRpcError", error.shortMessage, {
+    const foreign = new ThruputError("nativeRpcError", error.message, {
       context: {
         ...error.context,
         data: {

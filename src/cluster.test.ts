@@ -281,7 +281,7 @@ describe("createThruputClient", () => {
     expect(() => assertNetworkMatchesCluster(cluster, actual)).toThrow(
       expect.objectContaining({
         code: "networkMismatch",
-        shortMessage: `Network mismatch for mainnet: expected network ${toBase58(cluster.networkHash!)}, received network ${toBase58(actual.networkHash)}`,
+        message: `Network mismatch for mainnet: expected network ${toBase58(cluster.networkHash!)}, received network ${toBase58(actual.networkHash)}`,
         context: { cluster, actual },
       }),
     );

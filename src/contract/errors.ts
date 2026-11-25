@@ -1,4 +1,4 @@
-import { isThruputError, ThruputError } from "../errors/thruputError.js";
+import { ThruputError } from "../errors/thruputError.js";
 
 /** Contract bytes do not match their declared ABI type. */
 export function contractDecodeFailed(
@@ -16,8 +16,7 @@ export function contractVerificationFailed(
   return new ThruputError("contractVerificationFailed", message, options);
 }
 
-/** One-line text of an error for a wrapping message: `shortMessage` for a `ThruputError`. */
+/** Text of an error for a wrapping message. */
 export function errorText(cause: unknown): string | undefined {
-  if (isThruputError(cause)) return cause.shortMessage;
   return cause instanceof Error ? cause.message : undefined;
 }

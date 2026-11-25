@@ -251,7 +251,7 @@ describe("HTTP batching", () => {
       status: "rejected",
       reason: {
         code: "rpcResponseInvalid",
-        shortMessage: "Invalid JSON-RPC error response",
+        message: "Invalid JSON-RPC error response",
       },
     });
     expect(results[1]).toEqual({ status: "fulfilled", value: 1 });

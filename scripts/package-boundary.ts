@@ -36,7 +36,6 @@ import {
   parseUnits,
   formatUnits,
   isThruputError,
-  parseThruputError,
   ThruputError,
   type ThruputErrorCode,
   type TransactionFacts,
@@ -393,11 +392,6 @@ function errorBoundary(error: unknown) {
     const required: TransactionFacts = error.transaction;
     void required;
   }
-  // @ts-expect-error transaction codes require facts
-  void new ThruputError("transactionFailed", "Transaction failed");
-  const either = "rpcIncompatible" as "transactionFailed" | "rpcIncompatible";
-  // @ts-expect-error a union that includes a transaction code requires facts
-  void new ThruputError(either, "failure");
   if (facts?.outcome === "unknown") {
     const hash: Uint8Array = facts.hash;
     void hash;
@@ -406,13 +400,11 @@ function errorBoundary(error: unknown) {
     context: { endpoint: "https://rpc.example", method: "getChainTip" },
     cause: error,
   });
-  // @ts-expect-error httpRequestFailed requires its context
-  void new ThruputError("httpRequestFailed", "request failed");
   const augmented = new ThruputError("boundaryTestFailed", "step failed", {
     context: { step: "setup" },
   });
   const step: string = augmented.context.step;
-  const code: ThruputErrorCode = parseThruputError(custom.toJSON()).code;
+  const code: ThruputErrorCode = custom.code;
   void [step, code];
 }
 void errorBoundary;

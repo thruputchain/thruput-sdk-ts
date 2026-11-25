@@ -18,7 +18,6 @@ import {
 import type { TransactionReceipt } from "../../types/rpc.js";
 import vectors from "../../../specs/test-vectors/pubkey_auth.json";
 import { fromHex0x, toHex0x } from "../hex.js";
-import { parseThruputError } from "../../errors/serialize.js";
 import { toBase58 } from "../../encoding.js";
 import { NativeRpcErrorCode } from "../../rpc/errors.js";
 
@@ -133,7 +132,7 @@ describe("native read observation", () => {
       caught = error;
     }
     expect(caught).toMatchObject({ code: "transactionFailed" });
-    expect((caught as ThruputError).shortMessage).toBe(
+    expect((caught as ThruputError).message).toBe(
       `Transaction ${toBase58(hash)} execution failed (abort)`,
     );
     expect((caught as ThruputError).transaction).toMatchObject({
@@ -158,10 +157,10 @@ describe("native read observation", () => {
     } catch (caught) {
       error = caught as ThruputError;
     }
-    expect(error.shortMessage).toBe(
+    expect(error.message).toBe(
       `Transaction ${toBase58(hash)} has an unsupported execution outcome`,
     );
-    expect(error.shortMessage).not.toMatch(/failed/);
+    expect(error.message).not.toMatch(/failed/);
     expect(error.transaction).toMatchObject({
       outcome: "unknown",
       reason: "outcomeUnsupported",
@@ -465,10 +464,7 @@ describe("single-call funding", () => {
     );
     expect(error).toMatchObject({ code: "fundingStopped" });
     expect(error.cause.context.value).toEqual(execution);
-    expect(error.context.lastResponse).toEqual({
-      ...response,
-      transactionHash: hash,
-    });
+    expect(error.context.lastResponse).toEqual(response);
     expect(error.transaction).toMatchObject({
       outcome: "unknown",
       reason: "outcomeUnsupported",
@@ -636,10 +632,7 @@ describe("single-call funding", () => {
       reason: "nodeRejected",
     });
     expect(error.transaction.submission.signedTransaction).toEqual(signedBytes);
-    const restored = parseThruputError(JSON.parse(JSON.stringify(error)));
-    expect(restored.transaction?.submission?.transactionHash).toEqual(
-      signedHash,
-    );
+    expect(error.transaction.submission.transactionHash).toEqual(signedHash);
   });
 
   it("retains commitment from a terminal faucet error without another call", async () => {

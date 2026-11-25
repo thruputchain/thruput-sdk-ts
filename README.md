@@ -494,19 +494,16 @@ try {
 `cancelled`, `nodeRejected`, or `persistenceFailed`. A node rejection keeps the
 outcome `unknown`, because another node or path can still have the transaction.
 
-`message` combines `shortMessage`, `details`, and a link to the code's
-documentation. `details` comes only from a `ThruputError` cause; the client
-never copies messages from your callbacks or signers. Invalid arguments and
+The client's messages never include the message of a cause from your callbacks,
+signers, or wallet; read it from `error.cause`. Invalid arguments and
 configuration, such as a wrong byte length, throw native errors (`Error`,
 `TypeError`, or `RangeError`) before any network call. A call that you cancel
 rejects with your `signal.reason`, and a request that times out rejects with a
 `DOMException` named `TimeoutError`. Once a transaction is signed, both become a
 `ThruputError` with `transaction` facts, reason `cancelled` or `timeout`.
 
-Structured clone keeps only the name, message, stack, and cause of an error. To
-send an error across `postMessage` or store it, use `error.toJSON()` and rebuild
-it with `parseThruputError(value)`. Generated contract methods read their typed
-failure from an error with `method.decodeError(error)`.
+Generated contract methods read their typed failure from an error with
+`method.decodeError(error)`.
 
 Custom transports report failures with the same class, for example
 `new ThruputError("httpRequestFailed", message, { context, cause })`. Other

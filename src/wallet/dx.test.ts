@@ -156,7 +156,14 @@ describe("contract execution DX", () => {
       decodeExecution(original, [
         Counter.v0_1.get.call({ address, gasLimit: gas }),
       ]),
-    ).toThrow(/expected 1/);
+    ).toThrow(
+      expect.objectContaining({
+        code: "transactionResultUndecodable",
+        cause: expect.objectContaining({
+          message: expect.stringMatching(/expected 1/),
+        }),
+      }),
+    );
     expect(original.execution.returnData).toBe(data);
   });
 
@@ -295,7 +302,13 @@ describe("deployment descriptions", () => {
         plan,
         defaultWalletAdapter,
       ),
-    ).toThrow(/expected/);
+    ).toThrow(
+      expect.objectContaining({
+        cause: expect.objectContaining({
+          message: expect.stringMatching(/expected/),
+        }),
+      }),
+    );
     plan.deploymentNonce.fill(1);
     expect(() =>
       deploymentRequest(

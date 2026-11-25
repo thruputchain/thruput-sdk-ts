@@ -21,7 +21,6 @@ const requiredExports = {
   ".": [
     "ThruputError",
     "isThruputError",
-    "parseThruputError",
     "HttpTransport",
     "Ed25519Signer",
     "createThruputClient",
@@ -152,9 +151,6 @@ try {
   });
   if (!esm.isThruputError(error, "rpcIncompatible"))
     failures.push("isThruputError: rejected an error from the CJS copy");
-  const parsed = esm.parseThruputError(JSON.parse(JSON.stringify(error)));
-  if (parsed.code !== "rpcIncompatible")
-    failures.push("parseThruputError: did not round-trip the code");
   // An unsupported value from the CJS copy must not read as a failed execution.
   const receipt = {
     transactionHash: new Uint8Array(32),
