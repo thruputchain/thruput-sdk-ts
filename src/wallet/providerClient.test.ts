@@ -1383,6 +1383,135 @@ describe("external provider wallet", () => {
     wallet.dispose();
   });
 
+  // An explicit nonce and expiry give the same bytes on each execution.
+  async function executeTwice(
+    reason: "cancelled" | "persistenceFailed" | "notDispatched",
+  ) {
+    const { client, wallet, request } = await setup();
+    vi.spyOn(client, "waitForTransactionReceipt").mockImplementation(
+      async (hash) =>
+        ({
+          transactionHash: hash,
+          blockHeight: 1n,
+          events: [],
+          execution: { result: "return", returnData: new Uint8Array() },
+          gasUsed: 0n,
+        }) as never,
+    );
+    const first = await wallet.executeAndWait(execution, {
+      onSigned: () => {},
+    });
+    const original = request.getMockImplementation()!;
+    const controller = new AbortController();
+    let sessionChecks = 0;
+    request.mockImplementation(async (input) => {
+      // The fourth check is the one right before dispatch.
+      if (
+        reason === "notDispatched" &&
+        input.method === "getSession" &&
+        ++sessionChecks === 4
+      )
+        throw { code: -32603, message: "lost" };
+      const result = await original(input);
+      if (reason === "cancelled" && input.method === "signTransaction")
+        controller.abort(new Error("stop"));
+      return result;
+    });
+    const second = wallet.executeAndWait(execution, {
+      onSigned: () => {
+        if (reason === "persistenceFailed") throw new Error("db down");
+      },
+      wait: { signal: controller.signal },
+    });
+    return { first, second, request, wallet };
+  }
+
+  it.each(["cancelled", "persistenceFailed"] as const)(
+    "does not report notSubmitted when execute stops before resending executed bytes: %s",
+    async (reason) => {
+      const { first, second, request, wallet } = await executeTwice(reason);
+      const error = await second.catch((error: unknown) => error);
+      expect(error).toMatchObject({
+        code: "transactionOutcomeUnknown",
+        transaction: { outcome: "unknown", reason },
+      });
+      assert(isThruputError(error));
+      expect(error.transaction!.hash).toEqual(first.transactionHash);
+      expect(methodCalls(request, "submitTransaction")).toHaveLength(1);
+      wallet.dispose();
+    },
+  );
+
+  it("observes executed bytes when execute cannot resend them", async () => {
+    const { first, second, request, wallet } =
+      await executeTwice("notDispatched");
+    await expect(second).resolves.toMatchObject({
+      transactionHash: first.transactionHash,
+    });
+    expect(methodCalls(request, "submitTransaction")).toHaveLength(1);
+    wallet.dispose();
+  });
+
+  it("reports notSubmitted when submit fails before dispatch while holding the approval", async () => {
+    const { wallet, request } = await setup();
+    const signed = await wallet.signTransaction(
+      await wallet.prepareExecution(execution),
+    );
+    const original = request.getMockImplementation()!;
+    request.mockImplementation((input) =>
+      input.method === "getSession"
+        ? Promise.reject({ code: 4100, message: "gone" })
+        : original(input),
+    );
+    const error = await wallet
+      .submitTransaction(signed)
+      .catch((error: unknown) => error);
+    expect(error).toMatchObject({
+      code: "walletUnauthorized",
+      context: { providerCode: 4100 },
+      transaction: { outcome: "notSubmitted", reason: "notDispatched" },
+    });
+    assert(isThruputError(error));
+    expect(toBase58(error.transaction!.hash)).toBe(signed.hash);
+    expect(methodCalls(request, "submitTransaction")).toHaveLength(0);
+    wallet.dispose();
+  });
+
+  it("does not persist or submit when the caller cancels during the signing prompt", async () => {
+    const { wallet, request } = await setup();
+    const controller = new AbortController();
+    const original = request.getMockImplementation()!;
+    const prompt = deferred<void>();
+    const entered = deferred<void>();
+    request.mockImplementation(async (input) => {
+      if (input.method === "signTransaction") {
+        entered.resolve();
+        await prompt.promise;
+      }
+      return original(input);
+    });
+    const onSigned = vi.fn();
+    const pending = wallet
+      .executeAndWait(execution, {
+        onSigned,
+        wait: { signal: controller.signal },
+      })
+      .catch((error: unknown) => error);
+    await entered.promise;
+    const reason = new Error("user navigated away");
+    controller.abort(reason);
+    prompt.resolve();
+    const error = await pending;
+    expect(error).toMatchObject({
+      code: "transactionNotSubmitted",
+      transaction: { outcome: "notSubmitted", reason: "cancelled" },
+    });
+    expect((error as Error).cause).toBe(reason);
+    expect(onSigned).not.toHaveBeenCalled();
+    expect(methodCalls(request, "submitTransaction")).toHaveLength(0);
+    wallet.dispose();
+  });
+
   it("adds facts when the session fails after a valid signature", async () => {
     const { wallet, request } = await setup();
     const transaction = await wallet.prepareExecution(execution);

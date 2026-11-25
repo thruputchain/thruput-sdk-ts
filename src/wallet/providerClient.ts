@@ -313,8 +313,9 @@ export function createProviderWalletClient(
   let busy = false;
   let sessionSnapshot: string | undefined;
   let approved: SignTransactionResult | undefined;
-  // Hashes this adapter has dispatched. Deterministic signing can approve the
-  // same bytes again, so a later failure for one of these is never notSubmitted.
+  // Hashes this adapter has dispatched. The same transaction can be approved
+  // again, and its hash does not cover signatures, so a later failure for one
+  // of these hashes is never notSubmitted.
   const sent = new Set<string>();
   const invalidate = () => {
     invalidated = true;
@@ -722,10 +723,17 @@ export function createProviderWalletClient(
         serialize(signedTransaction, codec.SignedTransaction),
         hashFromBase58(networkHash),
       );
+      // Identical bytes (for example from an explicit nonce and expiry) may
+      // already be on the network, so a failure before dispatch cannot prove
+      // that they were never submitted.
+      const alreadySent = sent.has(signed.hash);
+      const stoppedBeforeDispatch = alreadySent
+        ? transactionOutcomeUnknown
+        : transactionNotSubmitted;
       // Do not persist a transaction the caller cancelled during approval.
       if (signal?.aborted) {
         approved = undefined;
-        throw transactionNotSubmitted(evidence, "cancelled", signal.reason);
+        throw stoppedBeforeDispatch(evidence, "cancelled", signal.reason);
       }
       try {
         await options.onSigned(
@@ -737,7 +745,7 @@ export function createProviderWalletClient(
         );
       } catch (cause) {
         approved = undefined;
-        throw transactionNotSubmitted(evidence, "persistenceFailed", cause);
+        throw stoppedBeforeDispatch(evidence, "persistenceFailed", cause);
       }
       if (signal?.aborted) approved = undefined;
       let submissionDispatched = false;
@@ -759,7 +767,7 @@ export function createProviderWalletClient(
             networkHash,
           ) as import("@thruputchain/protocol").NetworkHash,
         },
-        () => submissionDispatched,
+        () => submissionDispatched || alreadySent,
       );
       if (requireSuccess)
         assertTransactionSuccess(result.receipt, result.submission);
