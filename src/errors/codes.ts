@@ -177,12 +177,17 @@ export interface ThruputErrorContext {
   /**
    * The endpoint, network, or method set does not match what the client
    * requires. Narrow on `context.kind`: for example, `network` means the
-   * endpoint serves another network than the one expected.
+   * endpoint serves another network than the one expected. This is what
+   * `createThruputClient` throws when a pinned cluster's network does not match.
    */
   rpcIncompatible: { readonly kind: RpcIncompatibleKind };
   /** The endpoint returned a value this client does not support. */
   rpcValueUnsupported: { readonly value: UnsupportedRpcValue };
-  /** The endpoint network does not match the cluster descriptor. */
+  /**
+   * The network that you pass to `assertNetworkMatchesCluster` does not match
+   * the cluster descriptor. `createThruputClient` reports a pinned network that
+   * does not match as `rpcIncompatible` with `context.kind` `network`.
+   */
   networkMismatch: {
     readonly cluster: Cluster;
     readonly actual: NetworkInfo;

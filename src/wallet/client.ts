@@ -41,10 +41,10 @@ import {
   assertTransactionSuccess,
   assertTransactionAdmission,
   decodeExecution,
-  validateExecutionWait,
   type CallResults,
   type ExecutionResult,
 } from "./execution.js";
+import { validateExecutionWait } from "./executionWait.js";
 import { transactionNotSubmitted } from "./transactionErrors.js";
 import { rpcIncompatible } from "../rpc/client.js";
 import type { ContractCall } from "../contract/method.js";

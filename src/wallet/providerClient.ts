@@ -14,12 +14,12 @@ import { fixedFromBase58, hashFromBase58, toBase58 } from "../encoding.js";
 import {
   submitAndObserve,
   createSubmissionEvidence,
-  validateExecutionWait,
   assertTransactionSuccess,
   decodeExecution,
   type CallResults,
   type ExecutionResult,
 } from "./execution.js";
+import { validateExecutionWait } from "./executionWait.js";
 import type { ContractCall } from "../contract/method.js";
 import type { WaitForTransactionReceiptOptions } from "../actions/public/waitForTransactionReceipt.js";
 import {
