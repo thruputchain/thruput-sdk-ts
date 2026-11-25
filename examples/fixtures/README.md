@@ -1,24 +1,17 @@
 # Counter artifact
 
-`counter.rv32a` is a local RV32 v6 candidate with XDR extensions. It is not
-release-qualified.
+`counter.rv32a` is an RV32 v7 artifact with an embedded contract spec. It is
+the output of `thruput build -p counter` with CLI 0.47.0 (commit `61ddf183`) in
+thruput-examples at commit `afeacac`.
 
-- Artifact SHA-256: `a30a03b40c243f94478169ba9a2f8e4367e1ec0d5a043971a5f6238c6f12f6e2`.
-- Artifact size: 6,433 bytes, including a 548-byte embedded spec.
-- Format fingerprint: `0x0e336ac8e46602e1`.
+- Artifact SHA-256: `b35387f3de1943072bd0130966b957886f497601ed8297cebec4a55d03c747c1`.
+- Artifact size: 6,425 bytes, including a 548-byte embedded spec.
+- Header: 120 bytes, syscall API version 1.1.
+- Format fingerprint: `0x95cbfa8b3b2f37da`.
+- Contract SDK: `thruput-sdk` 0.62.0.
 - Compiler: `rustc 1.98.0-nightly (f46ec5218 2026-06-30)`.
-- Container writer: tools #706, commit `1d26e7020a9a5b4f4b22aeb4bc10ea0d399cb06b`.
 
 The embedded spec is byte-identical to `specs/contracts/counter.spec.xdr`.
-The container was regenerated from the earlier fixed-header v6 fixture
-(`2fd701db90657fd4caae5e2e70739e90cd73ea59b408228e4bba92f19db14f82`)
-with `build_artifact_with_spec`. Code, initial memory, execution header fields,
-and spec bytes are unchanged. Only the container encoding changed.
-The matching runtime retains v5 execution support. Published integration pins
-and explorer's counter fixture must be aligned during the coordinated release.
-
-Exact committed build provenance and independent reproduction remain release
-requirements. This fixture alone does not establish either.
 
 Regenerating TypeScript alone does not change an older artifact's embedded spec.
 Rebuild the artifact and regenerate bindings together when adopting an SDK

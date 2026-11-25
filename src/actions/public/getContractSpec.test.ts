@@ -7,11 +7,12 @@ import { toHex0x } from "../hex.js";
 import { getContractSpec } from "./getContractSpec.js";
 
 const address = new Uint8Array(32).fill(7);
-const data = new Uint8Array(136);
+// A v7 artifact: a 120-byte header, 4 bytes of code, and an empty extension list.
+const data = new Uint8Array(128);
 data.set(new TextEncoder().encode("GHRV32A1"));
-new DataView(data.buffer).setUint32(8, 6, true);
-new DataView(data.buffer).setUint32(12, 128, true);
-new DataView(data.buffer).setUint32(52, 4, true);
+new DataView(data.buffer).setUint32(8, 7, true);
+new DataView(data.buffer).setUint32(12, 120, true);
+new DataView(data.buffer).setUint32(44, 4, true);
 const contract = {
   contract_type: ContractType.kRv32,
   rv32_contract: { data },

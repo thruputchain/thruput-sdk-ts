@@ -58,7 +58,8 @@ hogd's `nightly-2026-05-01`:
 - `counter.spec.xdr` is `contracts/counter` at
   `thruputchain/thruput-examples@c82a5d18e7e806ad449b2672124372f74a142c8f`,
   built against SDK 0.57.0; see [fixture provenance](../../examples/fixtures/README.md).
-  Its bytes are unchanged from the previous pin.
+  Its bytes are unchanged from the previous pin. The v7 Counter artifact,
+  rebuilt at `afeacac` with SDK 0.62.0, embeds byte-identical spec bytes.
 
 ## Artifact reader fixture
 

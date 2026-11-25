@@ -17,6 +17,10 @@ const spec = new Uint8Array(
     new URL("../../specs/contracts/erc20.spec.xdr", import.meta.url),
   ),
 );
+// A v7 header is 120 bytes, with the code size at 44 and the initial-memory
+// size at 48.
+const headerBytes = 120;
+const codeSizeOffset = 44;
 function artifact(schema = 1, metadata = spec) {
   const body = new XdrWriter();
   body.writeUint32(BigInt(schema));
@@ -32,17 +36,18 @@ function withExtensions(extensions: { kind: number; body: Uint8Array }[]) {
   }
   return withRawExtensions(writer.finish());
 }
+// Four bytes of code, no initial memory, then the raw extension list.
 function withRawExtensions(extensions: Uint8Array) {
-  const bytes = new Uint8Array(132 + extensions.length);
+  const bytes = new Uint8Array(headerBytes + 4 + extensions.length);
   bytes.set(new TextEncoder().encode("GHRV32A1"));
   const header = new DataView(bytes.buffer);
   for (const [offset, value] of [
-    [8, 6],
-    [12, 128],
-    [52, 4],
+    [8, 7],
+    [12, headerBytes],
+    [codeSizeOffset, 4],
   ] as const)
     header.setUint32(offset, value, true);
-  bytes.set(extensions, 132);
+  bytes.set(extensions, headerBytes + 4);
   return bytes;
 }
 function words(...values: number[]) {
@@ -80,24 +85,45 @@ describe("authenticated embedded specs", () => {
       schemaVersion: 0,
       bytes: new Uint8Array(),
     });
-    const old = withRawExtensions(new Uint8Array());
-    new DataView(old.buffer).setUint32(8, 5, true);
-    expect(inspect(old)).toEqual({ kind: "absent" });
-    const trailing = withExtensions([]);
-    new DataView(trailing.buffer).setUint32(8, 5, true);
+  });
+  it("reads v5, which ends after initial memory, as having no spec", () => {
+    // A 128-byte v5 header with 4 bytes of code at offset 52, then the code.
+    const v5 = new Uint8Array(132);
+    v5.set(new TextEncoder().encode("GHRV32A1"));
+    const header = new DataView(v5.buffer);
+    for (const [offset, value] of [
+      [8, 5],
+      [12, 128],
+      [52, 4],
+    ] as const)
+      header.setUint32(offset, value, true);
+    expect(inspect(v5)).toEqual({ kind: "absent" });
+    const trailing = new Uint8Array(v5.length + 4);
+    trailing.set(v5);
     expect(() => inspect(trailing)).toThrow("layout");
-    new DataView(old.buffer).setUint32(8, 7, true);
-    expect(inspect(old)).toEqual({
+  });
+  it("returns an unknown format as unsupported", () => {
+    const bytes = artifact();
+    new DataView(bytes.buffer).setUint32(8, 8, true);
+    expect(inspect(bytes)).toEqual({
       kind: "unsupportedFormat",
-      formatVersion: 7,
+      formatVersion: 8,
     });
+  });
+  it("rejects a v7 header that declares the 128 bytes of v6", () => {
+    const bytes = artifact();
+    new DataView(bytes.buffer).setUint32(12, 128, true);
+    expect(() => inspect(bytes)).toThrow("header size");
   });
   it("rejects malformed section bounds even when their hash matches", () => {
     expect(() => inspect(artifact().slice(0, -1))).toThrow();
     expect(() => inspect(artifact(1, new Uint8Array()))).toThrow();
-    const overflow = artifact();
-    new DataView(overflow.buffer).setUint32(52, 0xffffffff, true);
-    expect(() => inspect(overflow)).toThrow("layout");
+    // Overflow the code size, then the initial-memory size that follows it.
+    for (const offset of [codeSizeOffset, codeSizeOffset + 4]) {
+      const overflow = artifact();
+      new DataView(overflow.buffer).setUint32(offset, 0xffffffff, true);
+      expect(() => inspect(overflow)).toThrow("layout");
+    }
   });
   it("skips opaque unknown kinds but validates the entire list", () => {
     const body = words(99, 0);
@@ -155,7 +181,7 @@ describe("authenticated embedded specs", () => {
         expect.objectContaining({ code: "contractVerificationFailed" }),
       );
   });
-  it("reads the fixture regenerated with tools #706", () => {
+  it("reads the previous format, v6, from the fixture regenerated with tools #706", () => {
     const bytes = new Uint8Array(
       readFileSync(
         new URL(
@@ -166,7 +192,7 @@ describe("authenticated embedded specs", () => {
     );
     expect(inspect(bytes)).toEqual({ kind: "absent" });
   });
-  it("reads a spec-bearing container produced by the tools #706 writer", () => {
+  it("reads the spec from the v7 Counter artifact built by CLI 0.47.0", () => {
     const bytes = new Uint8Array(
       readFileSync(
         new URL("../../examples/fixtures/counter.rv32a", import.meta.url),
