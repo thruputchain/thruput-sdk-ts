@@ -1,26 +1,23 @@
 import { Buffer } from "node:buffer";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RpcClient } from "../../rpc/client.js";
-import { UnsupportedRpcValue, RpcDecodingError } from "../../rpc/codec.js";
-import { NativeRpcError } from "../../rpc/errorReader.js";
-import { JsonRpcError } from "../../transport/http.js";
+import { rpcValueInvalid, UnsupportedRpcValue } from "../../rpc/codec.js";
+import { nativeRpcError } from "../../rpc/errorReader.js";
+import { rpcError } from "../../transport/errors.js";
+import { ThruputError } from "../../errors/thruputError.js";
 import {
   waitForTransactionReceipt,
   waitForCommitment,
-  TransactionReceiptObservationError,
 } from "./waitForTransactionReceipt.js";
-import { requestAirdrop, FundingObservationError } from "./requestAirdrop.js";
+import { requestAirdrop } from "./requestAirdrop.js";
 import {
   assertTransactionSuccess,
   createSubmissionEvidence,
   submitAndObserve,
-  TransactionObservationError,
-  TransactionExecutionError,
-  UnsupportedTransactionOutcomeError,
 } from "../../wallet/execution.js";
 import type { TransactionReceipt } from "../../types/rpc.js";
 import vectors from "../../../specs/test-vectors/pubkey_auth.json";
-import { fromHex0x } from "../hex.js";
+import { fromHex0x, toHex0x } from "../hex.js";
 import { toBase58 } from "../../encoding.js";
 import { NativeRpcErrorCode } from "../../rpc/errors.js";
 
@@ -80,7 +77,7 @@ describe("native read observation", () => {
         return { networkHash };
       });
       Object.assign(c.discovery.network, { networkHash: inputNetwork });
-      const cause = new RpcDecodingError("getTransactionReceipt", {
+      const cause = rpcValueInvalid("getTransactionReceipt", {
         malformed: true,
       });
       c.getTransactionReceipt.mockRejectedValue(cause);
@@ -96,10 +93,10 @@ describe("native read observation", () => {
       inputNetwork.fill(8);
       release();
       const error = await outcome;
-      expect(error).toBeInstanceOf(TransactionReceiptObservationError);
+      expect(error).toMatchObject({ code: "transactionOutcomeUnknown" });
       expect(error.cause).toBe(cause);
-      expect(error.transactionHash).toEqual(hash);
-      expect(error.knownCommitment).toEqual({
+      expect(error.transaction.hash).toEqual(hash);
+      expect(error.context.knownCommitment).toEqual({
         transactionHash: hash,
         networkHash,
         blockHeight: 9n,
@@ -134,11 +131,15 @@ describe("native read observation", () => {
     } catch (error) {
       caught = error;
     }
-    expect(caught).toBeInstanceOf(TransactionExecutionError);
-    expect((caught as TransactionExecutionError).message).toBe(
+    expect(caught).toMatchObject({ code: "transactionFailed" });
+    expect((caught as ThruputError).message).toBe(
       `Transaction ${toBase58(hash)} execution failed (abort)`,
     );
-    expect((caught as TransactionExecutionError).receipt).toBe(failed);
+    expect((caught as ThruputError).transaction).toMatchObject({
+      outcome: "failed",
+      reason: "aborted",
+      receipt: failed,
+    });
   });
   it("does not interpret an unknown execution variant", async () => {
     const c = client();
@@ -148,14 +149,42 @@ describe("native read observation", () => {
     });
     const result = await waitForTransactionReceipt(c, hash);
     expect(() => assertTransactionSuccess(result)).toThrow(
-      UnsupportedTransactionOutcomeError,
+      expect.objectContaining({ code: "transactionOutcomeUnsupported" }),
     );
-    const error = new UnsupportedTransactionOutcomeError(result);
+    let error!: ThruputError;
+    try {
+      assertTransactionSuccess(result);
+    } catch (caught) {
+      error = caught as ThruputError;
+    }
     expect(error.message).toBe(
       `Transaction ${toBase58(hash)} has an unsupported execution outcome`,
     );
     expect(error.message).not.toMatch(/failed/);
-    expect(error.receipt).toBe(result);
+    expect(error.transaction).toMatchObject({
+      outcome: "unknown",
+      reason: "outcomeUnsupported",
+      receipt: result,
+    });
+  });
+  it.each([
+    // An UnsupportedRpcValue from another package copy, such as the CJS build.
+    [
+      "a foreign unsupported value",
+      { unsupported: true, raw: { result: "x" } },
+    ],
+    ["an unknown result", { result: "future" }],
+  ])("treats %s as an unsupported outcome, not a failure", (_, execution) => {
+    const result = { ...receipt, execution } as unknown as TransactionReceipt;
+    expect(() => assertTransactionSuccess(result)).toThrow(
+      expect.objectContaining({
+        code: "transactionOutcomeUnsupported",
+        transaction: expect.objectContaining({
+          outcome: "unknown",
+          reason: "outcomeUnsupported",
+        }),
+      }),
+    );
   });
   it("keeps commitment through retry, dropped, unknown and lookup errors", async () => {
     vi.useFakeTimers();
@@ -178,12 +207,15 @@ describe("native read observation", () => {
     }).catch((error) => error);
     await vi.advanceTimersByTimeAsync(70);
     const error = await outcome;
-    expect(error.knownCommitment).toEqual({
+    expect(error.context.knownCommitment).toEqual({
       transactionHash: hash,
       networkHash,
       blockHeight: 9n,
     });
-    expect(error.lastStatus).toEqual({ status: "committed", blockHeight: 9n });
+    expect(error.context.lastStatus).toEqual({
+      status: "committed",
+      blockHeight: 9n,
+    });
   });
   it("reports retry diagnostics and retains them on timeout without writing", async () => {
     vi.useFakeTimers();
@@ -210,12 +242,12 @@ describe("native read observation", () => {
     await vi.advanceTimersByTimeAsync(11);
     const error = await outcome;
     expect(onStatus).toHaveBeenCalledTimes(1);
-    expect(error.lastStatus).toEqual({
+    expect(error.context.lastStatus).toEqual({
       status: "retry",
       error: { source: "executor", code: 3 },
       recentFailure: { attemptBlockHeight: 7n, cause: { kind: "other" } },
     });
-    expect(error.knownCommitment).toBeUndefined();
+    expect(error.context.knownCommitment).toBeUndefined();
     expect(c.faucet_requestAirdrop).not.toHaveBeenCalled();
   });
 
@@ -240,10 +272,10 @@ describe("native read observation", () => {
     }).catch((error) => error);
     await vi.advanceTimersByTimeAsync(11);
     const error = await outcome;
-    expect(error.lastStatus.recentFailure.cause).toBeInstanceOf(
+    expect(error.context.lastStatus.recentFailure.cause).toBeInstanceOf(
       UnsupportedRpcValue,
     );
-    expect(error.lastStatus.recentFailure.cause.raw).toEqual({
+    expect(error.context.lastStatus.recentFailure.cause.raw).toEqual({
       kind: "futureFailure",
       details: [1, { code: "futureCode" }],
     });
@@ -273,14 +305,17 @@ describe("native read observation", () => {
     await vi.advanceTimersByTimeAsync(11);
     const error = await outcome;
     expect(onStatus).toHaveBeenCalledWith(status);
-    expect(error.lastStatus).toEqual({ status: "committed", blockHeight: 9n });
-    expect(error.knownCommitment.blockHeight).toBe(9n);
+    expect(error.context.lastStatus).toEqual({
+      status: "committed",
+      blockHeight: 9n,
+    });
+    expect(error.context.knownCommitment.blockHeight).toBe(9n);
     expect(c.faucet_requestAirdrop).not.toHaveBeenCalled();
   });
   it("stops on malformed status rather than polling until timeout", async () => {
     const c = client();
     c.getTransactionReceipt.mockResolvedValue(null);
-    const cause = new RpcDecodingError("status", {
+    const cause = rpcValueInvalid("status", {
       status: "committed",
       blockHeight: 2,
     });
@@ -305,7 +340,7 @@ describe("native read observation", () => {
       },
     }).catch((error) => error);
     expect(error.cause).toBe(cause);
-    expect(error.knownCommitment.blockHeight).toBe(9n);
+    expect(error.context.knownCommitment.blockHeight).toBe(9n);
     expect(c.getTransactionStatus).toHaveBeenCalledTimes(1);
   });
   it("checks known commitment identity before reads and retains it on cancellation", async () => {
@@ -318,7 +353,11 @@ describe("native read observation", () => {
           blockHeight: 9n,
         },
       }),
-    ).rejects.toThrow("does not match");
+    ).rejects.toThrow(
+      new TypeError(
+        "knownCommitment does not match the transaction hash and network",
+      ),
+    );
     expect(c.getNetworkInfo).not.toHaveBeenCalled();
     const controller = new AbortController();
     controller.abort(Error("cancelled"));
@@ -326,7 +365,7 @@ describe("native read observation", () => {
       knownCommitment: { transactionHash: hash, networkHash, blockHeight: 9n },
       signal: controller.signal,
     }).catch((e) => e);
-    expect(error.knownCommitment.blockHeight).toBe(9n);
+    expect(error.context.knownCommitment.blockHeight).toBe(9n);
     expect(error.cause.message).toBe("cancelled");
   });
   it("returns commitment without waiting for receipt recovery", async () => {
@@ -345,9 +384,9 @@ describe("native read observation", () => {
   it("rejects a changed network before querying transaction evidence", async () => {
     const c = client();
     c.getNetworkInfo.mockResolvedValue({ networkHash: recipient });
-    await expect(waitForTransactionReceipt(c, hash)).rejects.toBeInstanceOf(
-      TransactionReceiptObservationError,
-    );
+    await expect(waitForTransactionReceipt(c, hash)).rejects.toMatchObject({
+      code: "transactionOutcomeUnknown",
+    });
     expect(c.getTransactionReceipt).not.toHaveBeenCalled();
   });
 });
@@ -391,9 +430,9 @@ describe("single-call funding", () => {
       inputNetwork.fill(8);
       release();
       const error = await outcome;
-      expect(error).toBeInstanceOf(FundingObservationError);
+      expect(error).toMatchObject({ code: "fundingStopped" });
       expect(error.cause).toBe(cause);
-      expect(error.request).toEqual({
+      expect(error.context.request).toEqual({
         recipient,
         clientNonce: new Uint8Array([4, 5]),
         networkHash,
@@ -423,16 +462,21 @@ describe("single-call funding", () => {
     const error = await requestAirdrop(c, { recipient }).catch(
       (error) => error,
     );
-    expect(error).toBeInstanceOf(FundingObservationError);
-    expect(error.cause).toBe(execution);
-    expect(error.lastResponse).toBe(response);
-    expect(error.knownCommitment).toEqual({
+    expect(error).toMatchObject({ code: "fundingStopped" });
+    expect(error.cause.context.value).toEqual(execution);
+    expect(error.context.lastResponse).toEqual(response);
+    expect(error.transaction).toMatchObject({
+      outcome: "unknown",
+      reason: "outcomeUnsupported",
+    });
+    expect(error.transaction.hash).toEqual(hash);
+    expect(error.context.knownCommitment).toEqual({
       networkHash,
       transactionHash: hash,
       blockHeight: 9n,
     });
     response.transactionHash.fill(8);
-    expect(error.knownCommitment.transactionHash).toEqual(hash);
+    expect(error.context.knownCommitment.transactionHash).toEqual(hash);
     expect(c.faucet_requestAirdrop).toHaveBeenCalledTimes(1);
     expect(c.getTransactionReceipt).not.toHaveBeenCalled();
     expect(c.getTransactionStatus).not.toHaveBeenCalled();
@@ -448,16 +492,24 @@ describe("single-call funding", () => {
       blockHeight: 9n,
     });
   });
-  it("stops on pending without a hash", async () => {
+  it("stops on a valid pending response without a hash", async () => {
     const c = client();
-    c.faucet_requestAirdrop.mockResolvedValue({
+    const response = {
       attemptStatus: "pending",
       recipient,
       rawAmount: 42n,
-    } as never);
-    await expect(requestAirdrop(c, { recipient })).rejects.toBeInstanceOf(
-      FundingObservationError,
-    );
+      retryAfterSeconds: 5n,
+    } as const;
+    c.faucet_requestAirdrop.mockResolvedValue(response as never);
+    const error = await requestAirdrop(c, { recipient }).catch((e) => e);
+    expect(error).toMatchObject({
+      code: "fundingStopped",
+      context: { lastResponse: response },
+    });
+    expect(error.context.request.clientNonce).toBeInstanceOf(Uint8Array);
+    expect(error).not.toHaveProperty("transaction");
+    // The response is valid, so it is not reported as malformed.
+    expect(error.cause).not.toMatchObject({ code: "rpcValueInvalid" });
     expect(c.faucet_requestAirdrop).toHaveBeenCalledTimes(1);
     expect(c.getTransactionReceipt).not.toHaveBeenCalled();
   });
@@ -470,7 +522,7 @@ describe("single-call funding", () => {
       clientNonce: new Uint8Array([1]),
     }).catch((e) => e);
     expect(error.cause).toBe(cause);
-    expect(error.request).toMatchObject({
+    expect(error.context.request).toMatchObject({
       recipient,
       networkHash,
       clientNonce: new Uint8Array([1]),
@@ -485,10 +537,112 @@ describe("single-call funding", () => {
       execution: { result: "fault" },
     } as TransactionReceipt);
     const error = await requestAirdrop(c, { recipient }).catch((e) => e);
-    expect(error.knownCommitment.blockHeight).toBe(9n);
-    expect(error.cause.receipt.execution.result).toBe("fault");
+    expect(error.context.knownCommitment.blockHeight).toBe(9n);
+    expect(error.cause.transaction.receipt.execution.result).toBe("fault");
+    expect(error.transaction).toMatchObject({
+      outcome: "failed",
+      reason: "faulted",
+    });
     expect(c.faucet_requestAirdrop).toHaveBeenCalledTimes(1);
   });
+  it("reports no transaction facts when a transient faucet error has no hash", async () => {
+    const c = client();
+    const cause = nativeRpcError(
+      rpcError(-32053, "busy", { kind: "overloaded" }).context,
+      "faucet_requestAirdrop",
+    );
+    expect(cause.context.kind).toBe("overloaded");
+    c.faucet_requestAirdrop.mockRejectedValue(cause);
+    const error = await requestAirdrop(c, { recipient }).catch((e) => e);
+    expect(error).toMatchObject({ code: "fundingStopped", cause });
+    expect(error.transaction).toBeUndefined();
+    expect(error.context.request.clientNonce).toBeInstanceOf(Uint8Array);
+    expect(c.faucet_requestAirdrop).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports a stopped attempt with a successful receipt as nodeRejected", async () => {
+    const c = client();
+    c.faucet_requestAirdrop.mockRejectedValue(
+      nativeRpcError(
+        rpcError(
+          NativeRpcErrorCode.FundingAttemptStopped,
+          "stopped",
+          {
+            kind: "fundingAttemptStopped",
+            transactionHash: toBase58(hash),
+            receipt: {
+              transactionHash: toBase58(hash),
+              blockHeight: "9",
+              execution: { result: "return", returnData: "0x" },
+              gasUsed: "5",
+              events: [],
+            },
+          },
+          "faucet_requestAirdrop",
+        ).context,
+        "faucet_requestAirdrop",
+      ),
+    );
+    const error = await requestAirdrop(c, { recipient }).catch((e) => e);
+    expect(error.cause.context.kind).toBe("fundingAttemptStopped");
+    expect(error).toMatchObject({
+      code: "fundingStopped",
+      transaction: { outcome: "succeeded", reason: "nodeRejected" },
+    });
+  });
+
+  it("takes no transaction evidence from an abort reason", async () => {
+    const c = client();
+    const previous = new ThruputError("transactionFailed", "Earlier failure", {
+      transaction: {
+        hash: new Uint8Array(32).fill(9),
+        outcome: "failed",
+        reason: "aborted",
+      },
+    });
+    const error = await requestAirdrop(c, {
+      recipient,
+      signal: AbortSignal.abort(previous),
+    }).catch((e) => e);
+    expect(error).toMatchObject({ code: "fundingStopped", cause: previous });
+    expect(error.transaction).toBeUndefined();
+    expect(error.context.knownCommitment).toBeUndefined();
+    expect(c.faucet_requestAirdrop).not.toHaveBeenCalled();
+  });
+
+  it("keeps verified signed bytes from a stopped faucet attempt", async () => {
+    const c = client();
+    const signedBytes = fromHex0x(
+      "0x" + vectors.signing[0]!.signed_transaction_xdr,
+    );
+    const signedHash = createSubmissionEvidence(
+      signedBytes,
+      networkHash,
+    ).transactionHash;
+    const cause = nativeRpcError(
+      rpcError(
+        NativeRpcErrorCode.FundingAttemptStopped,
+        "stopped",
+        {
+          kind: "fundingAttemptStopped",
+          transactionHash: toBase58(signedHash),
+          signedTransaction: toHex0x(signedBytes),
+        },
+        "faucet_requestAirdrop",
+      ).context,
+      "faucet_requestAirdrop",
+    );
+    expect(cause.context.kind).toBe("fundingAttemptStopped");
+    c.faucet_requestAirdrop.mockRejectedValue(cause);
+    const error = await requestAirdrop(c, { recipient }).catch((e) => e);
+    expect(error.transaction).toMatchObject({
+      outcome: "unknown",
+      reason: "nodeRejected",
+    });
+    expect(error.transaction.submission.signedTransaction).toEqual(signedBytes);
+    expect(error.transaction.submission.transactionHash).toEqual(signedHash);
+  });
+
   it("retains commitment from a terminal faucet error without another call", async () => {
     const c = client();
     const rawReceipt = {
@@ -498,8 +652,8 @@ describe("single-call funding", () => {
       gasUsed: "5",
       events: [],
     };
-    const cause = new NativeRpcError(
-      new JsonRpcError(
+    const cause = nativeRpcError(
+      rpcError(
         NativeRpcErrorCode.FundingAttemptStopped,
         "stopped",
         {
@@ -508,14 +662,14 @@ describe("single-call funding", () => {
           receipt: rawReceipt,
         },
         "faucet_requestAirdrop",
-      ),
+      ).context,
       "faucet_requestAirdrop",
     );
-    expect(cause.decoded.classification).toBe("known");
+    expect(cause.context.kind).not.toBe("unrecognized");
     c.faucet_requestAirdrop.mockRejectedValue(cause);
     const error = await requestAirdrop(c, { recipient }).catch((e) => e);
     expect(error.cause).toBe(cause);
-    expect(error.knownCommitment).toEqual({
+    expect(error.context.knownCommitment).toEqual({
       networkHash,
       transactionHash: hash,
       blockHeight: 9n,
@@ -529,7 +683,7 @@ describe("single-call funding", () => {
     controller.abort();
     await expect(
       requestAirdrop(c, { recipient, signal: controller.signal }),
-    ).rejects.toBeInstanceOf(FundingObservationError);
+    ).rejects.toMatchObject({ code: "fundingStopped" });
     expect(c.faucet_requestAirdrop).not.toHaveBeenCalled();
   });
 });
@@ -580,11 +734,13 @@ describe("submission evidence", () => {
       submit,
       { signal: controller.signal },
     ).catch((e) => e);
-    expect(error).toBeInstanceOf(TransactionObservationError);
-    expect(error.phase).toBe("beforeSubmission");
-    expect(error.submission.signedTransaction).toEqual(bytes);
-    error.submission.signedTransaction.fill(0);
-    expect(error.submission.signedTransaction).toEqual(bytes);
+    expect(error).toMatchObject({
+      code: "transactionNotSubmitted",
+      transaction: { outcome: "notSubmitted", reason: "cancelled" },
+    });
+    expect(error.transaction.submission.signedTransaction).toEqual(bytes);
+    error.transaction.submission.signedTransaction.fill(0);
+    expect(error.transaction.submission.signedTransaction).toEqual(bytes);
     expect(submit).not.toHaveBeenCalled();
     expect(waitForTransactionReceipt).not.toHaveBeenCalled();
   });
@@ -616,20 +772,35 @@ describe("submission evidence", () => {
         transactionHash: evidence.transactionHash,
         blockHeight: 9n,
       };
-    const observation = new TransactionReceiptObservationError(
-      evidence.transactionHash,
-      knownCommitment,
-      { status: "committed", blockHeight: 9n },
-      Error("cancel"),
+    const observation = new ThruputError(
+      "transactionOutcomeUnknown",
+      "Could not observe transaction",
+      {
+        context: {
+          knownCommitment,
+          lastStatus: { status: "committed", blockHeight: 9n },
+        },
+        cause: Error("cancel"),
+        transaction: {
+          hash: evidence.transactionHash,
+          outcome: "unknown",
+          reason: "cancelled",
+        },
+      },
     );
     const error = await submitAndObserve(
       { waitForTransactionReceipt: vi.fn().mockRejectedValue(observation) },
       evidence,
       vi.fn().mockRejectedValue(submitCause),
     ).catch((e) => e);
-    expect(error.submissionCause).toBe(submitCause);
-    expect(error.cause).toBe(observation);
-    expect(error.knownCommitment).toEqual(knownCommitment);
+    expect(error.context.submissionError).toEqual(submitCause);
+    expect(error.cause).toBe(observation.cause);
+    expect(error.context.knownCommitment).toEqual(knownCommitment);
+    expect(error.transaction).toMatchObject({
+      outcome: "unknown",
+      reason: "cancelled",
+      submission: { transactionHash: evidence.transactionHash },
+    });
   });
 });
 
@@ -638,15 +809,15 @@ describe("observation failure timing", () => {
     vi.useFakeTimers();
     const c = client();
     c.getTransactionReceipt.mockResolvedValue(null);
-    const error = new NativeRpcError(
-      new JsonRpcError(-32053, "busy", {
+    const error = nativeRpcError(
+      rpcError(-32053, "busy", {
         kind: "overloaded",
         retryAfterMs: "5000",
-      }),
+      }).context,
       "getTransactionStatus",
       hash,
     );
-    expect(error.decoded.classification).toBe("known");
+    expect(error.context.kind).not.toBe("unrecognized");
     c.getTransactionStatus.mockRejectedValue(error);
     const outcome = waitForTransactionReceipt(c, hash, {
       timeoutMs: 6000,
@@ -690,7 +861,7 @@ describe("observation failure timing", () => {
       { timeoutMs: 10 },
     ).catch((e) => e);
     await vi.advanceTimersByTimeAsync(11);
-    expect((await outcome).phase).toBe("submission");
+    expect((await outcome).transaction.outcome).toBe("unknown");
     expect(submissionSignal?.aborted).toBe(true);
     expect(waitForTransactionReceipt).not.toHaveBeenCalled();
   });
@@ -716,8 +887,8 @@ describe("observation failure timing", () => {
     ).catch((e) => e);
     controller.abort(Error("cancelled after dispatch"));
     const error = await outcome;
-    expect(error.phase).toBe("submission");
-    expect(error.submission.signedTransaction).toEqual(
+    expect(error.transaction.outcome).toBe("unknown");
+    expect(error.transaction.submission.signedTransaction).toEqual(
       evidence.signedTransaction,
     );
     resolve();
@@ -740,7 +911,7 @@ it("zero submission budget is pre-dispatch evidence", async () => {
     submit,
     { timeoutMs: 0 },
   ).catch((e) => e);
-  expect(error.phase).toBe("beforeSubmission");
+  expect(error.transaction.outcome).toBe("notSubmitted");
   expect(submit).not.toHaveBeenCalled();
   expect(waitForTransactionReceipt).not.toHaveBeenCalled();
 });

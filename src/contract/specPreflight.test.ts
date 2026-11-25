@@ -6,7 +6,6 @@ import {
   contractSpecCodecLimits,
   preflightContractSpec,
 } from "./specPreflight.js";
-import { ContractDecodeError } from "./errors.js";
 
 // Same wire fixtures as tools' contract_spec/bounded/tests.rs.
 function nestedReturn(depth: number, kind: number): Uint8Array {
@@ -56,10 +55,10 @@ it("accepts depth 64 and rejects 65 for every recursive constructor", () => {
 it("rejects deep and impossible collections with a typed error before generated decoding", () => {
   expect(() =>
     preflightContractSpec(nestedReturn(20_000, ContractTypeKind.Option)),
-  ).toThrow(ContractDecodeError);
+  ).toThrow(expect.objectContaining({ code: "contractDecodeFailed" }));
   expect(() =>
     preflightContractSpec(new Uint8Array([255, 255, 255, 255])),
-  ).toThrow(ContractDecodeError);
+  ).toThrow(expect.objectContaining({ code: "contractDecodeFailed" }));
 });
 
 it("round-trips a spec near the schema work limit with the shared codec limits", () => {
@@ -86,6 +85,6 @@ it("accepts standard specs and rejects every truncated prefix", () => {
   expect(() => preflightContractSpec(bytes)).not.toThrow();
   for (let end = 0; end < bytes.length; end++)
     expect(() => preflightContractSpec(bytes.subarray(0, end))).toThrow(
-      ContractDecodeError,
+      expect.objectContaining({ code: "contractDecodeFailed" }),
     );
 });

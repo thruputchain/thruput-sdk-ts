@@ -4,6 +4,7 @@ import { CxsWriter } from "@thruputchain/xdr";
 import { ERC20 } from "../../contracts/index.js";
 import { testRpc } from "../../testing/nativeRpc.js";
 import { toHex0x } from "../hex.js";
+import { assertViewFreshness } from "../viewFreshness.js";
 const address = contractAddress(new Uint8Array(32));
 const writer = new CxsWriter();
 writer.writeInt128(12n);
@@ -68,6 +69,15 @@ describe("native simulation freshness", () => {
         address,
         minStateBlockHeight: 5n,
       }),
-    ).rejects.toThrow();
+    ).rejects.toMatchObject({ code: "rpcValueInvalid" });
+  });
+  it("gives a stale height from a custom client the code rpcValueInvalid", () => {
+    expect(() => assertViewFreshness(4n, 5n)).toThrow(
+      expect.objectContaining({
+        code: "rpcValueInvalid",
+        context: { path: "/result/stateBlockHeight", raw: 4n },
+      }),
+    );
+    expect(() => assertViewFreshness(5n, 5n)).not.toThrow();
   });
 });

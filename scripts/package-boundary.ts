@@ -35,7 +35,10 @@ import {
   mainnet,
   parseUnits,
   formatUnits,
-  ParseUnitsError,
+  isThruputError,
+  ThruputError,
+  type ThruputErrorCode,
+  type TransactionFacts,
   contractAddress,
   blockHeight,
   sha256Hash,
@@ -172,7 +175,6 @@ async function typedSnapshotBoundary(
 }
 void typedSnapshotBoundary;
 import {
-  ContractDecodeError,
   defineContractMethod,
   fixedBytes,
 } from "@thruputchain/client/contract";
@@ -364,11 +366,52 @@ const readErrorKind: ReadErrorKind = classifyReadError(
 );
 void readErrorKind;
 const formattedUnits: string = formatUnits(units, 2);
-const parseErrorCode: "malformed" | "precision" = new ParseUnitsError(
-  "precision",
-  2,
-).code;
-void [formattedUnits, parseErrorCode];
+void formattedUnits;
+
+// Errors: one class, typed context per code, transaction facts, and augmentation.
+declare module "@thruputchain/client" {
+  interface ThruputErrorContext {
+    boundaryTestFailed: { readonly step: string };
+  }
+}
+function errorBoundary(error: unknown) {
+  if (isThruputError(error, "amountInvalid")) {
+    const kind: "malformed" | "precision" = error.context.kind;
+    void kind;
+  }
+  if (isThruputError(error) && error.code === "nativeRpcError") {
+    if (error.context.kind === "transactionInvalid") {
+      const admission: "notAttempted" = error.context.data.admission;
+      void admission;
+    }
+  }
+  const facts: TransactionFacts | undefined = isThruputError(error)
+    ? error.transaction
+    : undefined;
+  if (isThruputError(error, "transactionOutcomeUnknown")) {
+    const required: TransactionFacts = error.transaction;
+    void required;
+  }
+  if (facts?.outcome === "unknown") {
+    const hash: Uint8Array = facts.hash;
+    void hash;
+  }
+  const custom = new ThruputError("httpRequestFailed", "request failed", {
+    context: { endpoint: "https://rpc.example", method: "getChainTip" },
+    cause: error,
+  });
+  // @ts-expect-error httpRequestFailed requires its context
+  void new ThruputError("httpRequestFailed", "request failed");
+  // @ts-expect-error an added code with required fields requires its context
+  void new ThruputError("boundaryTestFailed", "step failed");
+  const augmented = new ThruputError("boundaryTestFailed", "step failed", {
+    context: { step: "setup" },
+  });
+  const step: string = augmented.context.step;
+  const code: ThruputErrorCode = custom.code;
+  void [step, code];
+}
+void errorBoundary;
 
 async function typedExecutionBoundary(
   wallet: ProviderWalletClient,
@@ -579,7 +622,6 @@ async function packageBoundaryTypecheck(
   void invocation;
   void balance.value;
   void outcome.kind;
-  void ContractDecodeError;
   void defineContractMethod;
 
   const attempt: Promise<AirdropResponse> = client.requestAirdropAttempt(
@@ -754,8 +796,6 @@ import {
   UnsupportedRpcValue,
   type RpcClient,
   type RpcParams,
-  RpcResponseError,
-  NativeRpcError,
 } from "@thruputchain/client";
 async function nativeConsumer(rpc: RpcClient) {
   const receipt = await rpc.getTransactionReceipt({
@@ -785,10 +825,4 @@ async function nativeConsumer(rpc: RpcClient) {
   await rpc.getBlockByHeight({ blockHeight: 1 });
 }
 const namedParams: RpcParams = { blockHeight: "1" };
-void [
-  createRpcClient,
-  nativeConsumer,
-  namedParams,
-  RpcResponseError,
-  NativeRpcError,
-];
+void [createRpcClient, nativeConsumer, namedParams];

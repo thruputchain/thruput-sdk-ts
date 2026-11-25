@@ -19,15 +19,12 @@ const failures = [];
 let checked = 0;
 const requiredExports = {
   ".": [
-    "ContractViewError",
-    "HttpResponseError",
+    "ThruputError",
+    "isThruputError",
     "HttpTransport",
-    "TransactionReceiptObservationError",
     "Ed25519Signer",
     "createThruputClient",
     "createRpcClient",
-    "NativeRpcError",
-    "FundingObservationError",
     "createPubkeyAccount",
     "createSourceAddressAccount",
     "createTransaction",
@@ -49,14 +46,10 @@ const requiredExports = {
   "./transport": [
     "NativeRpcErrorCode",
     "txInvalidDetail",
-    "HttpResponseError",
     "HttpTransport",
-    "JsonRpcError",
     "MockTransport",
   ],
   "./contract": [
-    "ContractDecodeError",
-    "ContractViewError",
     "createContractCodecContext",
     "defineContractEvent",
     "defineContractMethod",
@@ -76,7 +69,6 @@ const requiredExports = {
   ],
   "./signers": ["Ed25519Signer", "MlDsa65Signer", "verifyMlDsa65"],
   "./actions": [
-    "TransactionReceiptObservationError",
     "waitForCommitment",
     "iterateEventPages",
     "iterateTransactionsByRootAddress",
@@ -147,6 +139,39 @@ for (const [subpath, entry] of Object.entries(pkg.exports)) {
       failures.push(`${subpath} (${condition}): ${message}`);
     }
   }
+}
+
+// The ESM and CJS builds are two copies of the package. isThruputError must
+// recognize an error from either copy, which instanceof cannot do.
+try {
+  const esm = await import(pkg.name);
+  const cjs = require(pkg.name);
+  const error = new cjs.ThruputError("rpcIncompatible", "Endpoint mismatch", {
+    context: { kind: "network" },
+  });
+  if (!esm.isThruputError(error, "rpcIncompatible"))
+    failures.push("isThruputError: rejected an error from the CJS copy");
+  // An unsupported value from the CJS copy must not read as a failed execution.
+  const receipt = {
+    transactionHash: new Uint8Array(32),
+    blockHeight: 1n,
+    gasUsed: 0n,
+    events: [],
+    execution: new cjs.UnsupportedRpcValue({ result: "future" }),
+  };
+  try {
+    esm.assertTransactionSuccess(receipt);
+    failures.push("assertTransactionSuccess: accepted an unsupported outcome");
+  } catch (outcome) {
+    if (outcome?.code !== "transactionOutcomeUnsupported")
+      failures.push(
+        `assertTransactionSuccess: classified a CJS unsupported value as ${outcome?.code}`,
+      );
+  }
+} catch (error) {
+  failures.push(
+    `ThruputError: ${error instanceof Error ? error.message : error}`,
+  );
 }
 
 if (failures.length > 0) {

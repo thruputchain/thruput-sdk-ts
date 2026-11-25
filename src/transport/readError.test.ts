@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { runInNewContext } from "node:vm";
 import { classifyReadError } from "./readError.js";
-import { HttpRequestError, HttpResponseError, JsonRpcError } from "./http.js";
-import { ContractDecodeError } from "../contract/errors.js";
-import { ContractViewError } from "../contract/method.js";
-import { RpcDecodingError } from "../rpc/codec.js";
-import { NativeRpcError } from "../rpc/errorReader.js";
+import { httpRequestFailed, httpResponseError, rpcError } from "./errors.js";
+import { contractDecodeFailed } from "../contract/errors.js";
+import { ThruputError } from "../errors/thruputError.js";
+import { rpcValueInvalid } from "../rpc/codec.js";
+import { nativeRpcError } from "../rpc/errorReader.js";
 
 describe("read error classification", () => {
   it.each([408, 429, 500, 502, 503, 504])(
     "classifies HTTP %s as transient",
     (status) => {
-      expect(classifyReadError(new HttpResponseError(status, "retry"))).toBe(
+      expect(classifyReadError(httpResponseError(status, "retry"))).toBe(
         "transient",
       );
     },
@@ -19,7 +19,7 @@ describe("read error classification", () => {
   it.each([400, 401, 403, 404, 501, 505, 511])(
     "classifies HTTP %s as permanent",
     (status) => {
-      expect(classifyReadError(new HttpResponseError(status, "stop"))).toBe(
+      expect(classifyReadError(httpResponseError(status, "stop"))).toBe(
         "permanent",
       );
     },
@@ -34,21 +34,19 @@ describe("read error classification", () => {
     (code, kind, expected) => {
       expect(
         classifyReadError(
-          new NativeRpcError(
-            new JsonRpcError(code, "failure", { kind }),
+          nativeRpcError(
+            rpcError(code, "failure", { kind }).context,
             "getTransactionStatus",
           ),
         ),
       ).toBe(expected);
-      expect(classifyReadError(new JsonRpcError(code, "failure"))).toBe(
-        "unknown",
-      );
+      expect(classifyReadError(rpcError(code, "failure"))).toBe("unknown");
     },
   );
 
   it("distinguishes network errors from unrelated TypeErrors", () => {
     const cause = new TypeError("fetch failed");
-    const error = new HttpRequestError(
+    const error = httpRequestFailed(
       "https://rpc.example",
       "groundhog_view",
       cause,
@@ -59,7 +57,7 @@ describe("read error classification", () => {
   });
 
   it("preserves plain wrapper causes and terminates cycles", () => {
-    const cause = new HttpResponseError(503, "unavailable");
+    const cause = httpResponseError(503, "unavailable");
     const wrapped = new Error("read failed", { cause });
     expect(classifyReadError(wrapped)).toBe("transient");
     expect(wrapped.cause).toBe(cause);
@@ -68,15 +66,21 @@ describe("read error classification", () => {
   });
 
   it("does not unwrap domain or malformed-response errors into retries", () => {
-    const cause = new HttpResponseError(503, "unavailable");
+    const cause = httpResponseError(503, "unavailable");
     for (const error of [
-      new ContractDecodeError("bad calldata", { cause }),
-      new RpcDecodingError("receipt", { cause }),
-      new ContractViewError({
-        kind: "fault",
-        stateBlockHeight: 1n,
-        gasUsed: 42n,
-        events: [],
+      contractDecodeFailed("bad calldata", { cause }),
+      rpcValueInvalid("/result", cause),
+      new ThruputError("contractViewFailed", "Contract view faulted", {
+        context: {
+          method: "Counter.get",
+          entrypoint: new Uint8Array(4),
+          outcome: {
+            kind: "fault",
+            stateBlockHeight: 1n,
+            gasUsed: 42n,
+            events: [],
+          },
+        },
       }),
       new SyntaxError("bad JSON"),
       new Error("Invalid JSON-RPC response"),
@@ -98,6 +102,13 @@ describe("read error classification", () => {
         signal: AbortSignal.abort("user stopped"),
       }),
     ).toBe("cancelled");
+  });
+
+  it("recognizes a ThruputError from another realm or package copy", () => {
+    const error = runInNewContext(
+      'Object.assign(new Error("x"), { name: "ThruputError", code: "httpRequestFailed", context: {} })',
+    );
+    expect(classifyReadError(error)).toBe("transient");
   });
 
   it("recognizes named cancellation from another realm", () => {

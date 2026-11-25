@@ -16,7 +16,8 @@ import type {
 } from "../types/rpc.js";
 import type { ContractCodecContext } from "./codec.js";
 import { createContractCodecContext, resolveContextCodec } from "./codec.js";
-import { ContractDecodeError } from "./errors.js";
+import { contractDecodeFailed, errorText } from "./errors.js";
+import { isThruputError } from "../errors/thruputError.js";
 import { contractValueLimits } from "./valueLimits.js";
 import {
   ContractTypeKind,
@@ -45,9 +46,7 @@ export function createContractEventDecoder(
   const events = spec.events.map((event) => {
     const key = event.signature.join(",");
     if (signatures.has(key)) {
-      throw new ContractDecodeError(
-        "Duplicate event signature in contract spec",
-      );
+      throw contractDecodeFailed("Duplicate event signature in contract spec");
     }
     signatures.add(key);
     return defineContractEvent<
@@ -296,12 +295,12 @@ export function defineContractEvent<
           fields: decodedFields,
         } as DecodedContractEvent<TName, TTopics, TFields>;
       } catch (cause) {
-        if (cause instanceof ContractDecodeError) throw cause;
-        const detail = cause instanceof Error ? `: ${cause.message}` : "";
-        throw new ContractDecodeError(
-          `Failed to decode ${eventName}${detail}`,
-          { cause },
-        );
+        if (isThruputError(cause, "contractDecodeFailed")) throw cause;
+        const text = errorText(cause);
+        const detail = text === undefined ? "" : `: ${text}`;
+        throw contractDecodeFailed(`Failed to decode ${eventName}${detail}`, {
+          cause,
+        });
       }
     },
 
@@ -486,7 +485,8 @@ function encodeTopic(
         topic.codec.encode(writer, value);
         assertScalarRange(topic, value as bigint);
       } catch (cause) {
-        const detail = cause instanceof Error ? `: ${cause.message}` : "";
+        const text = errorText(cause);
+        const detail = text === undefined ? "" : `: ${text}`;
         throw new Error(
           `${eventName} topic "${topic.name}" failed to encode${detail}`,
           { cause },

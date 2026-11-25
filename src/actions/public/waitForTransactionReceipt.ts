@@ -1,12 +1,9 @@
 import { toBase58 } from "../../encoding.js";
+import { isThruputError, ThruputError } from "../../errors/thruputError.js";
+import type { TransactionReason } from "../../errors/transaction.js";
 import type { RpcClient } from "../../rpc/client.js";
-import { RpcCompatibilityError } from "../../rpc/client.js";
-import { NativeRpcError } from "../../rpc/errorReader.js";
-import {
-  UnsupportedRpcValue,
-  RpcDecodingError,
-  RpcRequestValidationError,
-} from "../../rpc/codec.js";
+import { rpcIncompatible } from "../../rpc/client.js";
+import { UnsupportedRpcValue } from "../../rpc/codec.js";
 import type { TransactionReceipt, TransactionStatus } from "../../types/rpc.js";
 import { classifyReadError } from "../../transport/readError.js";
 import { beforeDeadline, validateTimer, waitDelay } from "../deadline.js";
@@ -26,32 +23,51 @@ export interface WaitForTransactionReceiptOptions {
   timeoutMs?: number;
   pollingIntervalMs?: number;
 }
-/** Observation stopped; neither timeout nor cancellation proves nonexecution. */
-export class TransactionReceiptObservationError extends Error {
-  constructor(
-    readonly transactionHash: Uint8Array,
-    readonly knownCommitment: KnownCommitment | undefined,
-    readonly lastStatus: TransactionStatus | undefined,
-    cause: unknown,
-  ) {
-    super(`Could not observe transaction ${toBase58(transactionHash)}`, {
-      cause,
-    });
-    this.name = "TransactionReceiptObservationError";
-  }
+/**
+ * Observation stopped: code `transactionOutcomeUnknown`. Neither a timeout nor
+ * cancellation proves that the transaction did not execute.
+ */
+function outcomeUnknown(
+  transactionHash: Uint8Array,
+  reason: TransactionReason,
+  timedOut: boolean,
+  cause: unknown,
+  knownCommitment: KnownCommitment | undefined,
+  lastStatus: TransactionStatus | undefined,
+): ThruputError<"transactionOutcomeUnknown"> {
+  return new ThruputError(
+    "transactionOutcomeUnknown",
+    timedOut
+      ? `Timed out waiting for transaction ${toBase58(transactionHash)}`
+      : `Could not observe transaction ${toBase58(transactionHash)}`,
+    {
+      context: {
+        ...(knownCommitment ? { knownCommitment } : {}),
+        ...(lastStatus ? { lastStatus } : {}),
+      },
+      ...(cause === undefined ? {} : { cause }),
+      transaction: { hash: transactionHash, outcome: "unknown", reason },
+    },
+  );
 }
-export class TransactionReceiptTimeoutError extends TransactionReceiptObservationError {
-  constructor(
-    transactionHash: Uint8Array,
-    knownCommitment: KnownCommitment | undefined,
-    lastStatus: TransactionStatus | undefined,
-    cause?: unknown,
-  ) {
-    super(transactionHash, knownCommitment, lastStatus, cause);
-    this.name = "TransactionReceiptTimeoutError";
-    this.message = `Timed out waiting for transaction ${toBase58(transactionHash)}`;
-  }
+
+/** The observation deadline. Private, so read-error handling never retries it. */
+class ObservationTimeout extends Error {}
+
+/** The reason for a timeout: the last read failure or node status, when known. */
+function timeoutReason(
+  lastFailure: unknown,
+  lastStatus: TransactionStatus | undefined,
+): TransactionReason {
+  if (lastFailure !== undefined) return "disconnected";
+  if (lastStatus === undefined) return "timeout";
+  if (lastStatus instanceof UnsupportedRpcValue) return "statusUnknown";
+  if (lastStatus.status === "unknown" || lastStatus.status === "other")
+    return "statusUnknown";
+  if (lastStatus.status === "recentFailure") return "recentFailure";
+  return "timeout";
 }
+
 const equal = (a: Uint8Array, b: Uint8Array) =>
   a.length === b.length && a.every((v, i) => v === b[i]);
 /** Read-only capabilities used by commitment and receipt observation. */
@@ -64,7 +80,11 @@ export type ReceiptObserver = Pick<
   | "requireMethods"
 >;
 
-/** Return any committed receipt, including failed execution. Never sign or resubmit. */
+/**
+ * Return any committed receipt, including failed execution. Never sign or resubmit.
+ * When observation stops, throws code `transactionOutcomeUnknown` with
+ * `transaction.reason` set to why it stopped.
+ */
 export async function waitForTransactionReceipt(
   client: ReceiptObserver,
   transactionHash: Uint8Array,
@@ -136,8 +156,9 @@ async function observe(
       known.blockHeight < 0n ||
       known.blockHeight > 9223372036854775807n
     )
-      throw new RpcCompatibilityError(
-        "Known commitment does not match the transaction/network context",
+      // A caller argument, so a native error, like other invalid arguments.
+      throw new TypeError(
+        "knownCommitment does not match the transaction hash and network",
       );
     commitment = {
       transactionHash: transactionHash.slice(),
@@ -154,19 +175,27 @@ async function observe(
   const deadline = performance.now() + timeoutMs;
   let lastFailure: unknown;
   let failures = 0;
-  const timeout = () =>
-    new TransactionReceiptTimeoutError(
-      transactionHash.slice(),
-      commitment && structuredClone(commitment),
-      lastStatus,
-      lastFailure,
-    );
+  let timedOut = false;
+  // Set where the reason is known at the throw site; other failures are classified below.
+  let stopReason: TransactionReason | undefined;
+  const stop = (reason: TransactionReason, error: unknown) => {
+    stopReason = reason;
+    return error;
+  };
+  const timeout = () => {
+    timedOut = true;
+    return new ObservationTimeout("Transaction observation timed out");
+  };
   const run = <T>(operation: (signal: AbortSignal) => Promise<T>) =>
     beforeDeadline(operation, deadline, options.signal, timeout);
   const retain = (blockHeight: bigint) => {
     if (commitment && commitment.blockHeight !== blockHeight)
-      throw new RpcCompatibilityError(
-        "Conflicting commitment heights for the same transaction",
+      throw stop(
+        "commitmentConflict",
+        rpcIncompatible(
+          "commitment",
+          "Conflicting commitment heights for the same transaction",
+        ),
       );
     commitment = {
       transactionHash: transactionHash.slice(),
@@ -185,8 +214,9 @@ async function observe(
           client.getNetworkInfo({}, { signal }),
         );
         if (!equal(network.networkHash, networkHash))
-          throw new RpcCompatibilityError(
-            "Observation endpoint network changed",
+          throw stop(
+            "networkChanged",
+            rpcIncompatible("network", "Observation endpoint network changed"),
           );
         networkVerified = true;
         if (commitmentOnly && commitment) return structuredClone(commitment);
@@ -198,13 +228,13 @@ async function observe(
           return commitmentOnly ? structuredClone(commitment!) : receipt;
         }
       } catch (cause) {
+        // An abort reason can be another transaction's error; read nothing from it.
+        if (cause instanceof ObservationTimeout || options.signal?.aborted)
+          throw cause;
         lastFailure = cause;
         failed = true;
-        if (
-          cause instanceof NativeRpcError &&
-          cause.decoded.classification === "known"
-        ) {
-          const data = cause.decoded.data;
+        if (isThruputError(cause, "nativeRpcError") && cause.context.data) {
+          const data = cause.context.data;
           if (data.kind === "backendDataInvalid" && data.observation) {
             retain(data.observation.blockHeight);
             if (commitmentOnly) return structuredClone(commitment!);
@@ -233,9 +263,10 @@ async function observe(
           observedStatus = status;
         } catch (cause) {
           if (
-            cause instanceof RpcCompatibilityError ||
-            cause instanceof RpcDecodingError ||
-            cause instanceof RpcRequestValidationError ||
+            cause instanceof ObservationTimeout ||
+            isThruputError(cause, "rpcIncompatible") ||
+            isThruputError(cause, "rpcValueInvalid") ||
+            isThruputError(cause, "rpcRequestInvalid") ||
             classifyReadError(cause, options) === "permanent"
           )
             throw cause;
@@ -243,11 +274,11 @@ async function observe(
           lastFailure = cause;
           failed = true;
           if (
-            cause instanceof NativeRpcError &&
-            cause.decoded.classification === "known" &&
-            "retryAfterMs" in cause.decoded.data
+            isThruputError(cause, "nativeRpcError") &&
+            cause.context.data &&
+            "retryAfterMs" in cause.context.data
           ) {
-            const hint = cause.decoded.data.retryAfterMs;
+            const hint = cause.context.data.retryAfterMs;
             if (
               hint !== undefined &&
               (retryAfterMs === undefined || hint > retryAfterMs)
@@ -281,12 +312,18 @@ async function observe(
       );
     }
   } catch (cause) {
-    if (cause instanceof TransactionReceiptTimeoutError) throw cause;
-    throw new TransactionReceiptObservationError(
+    const reason: TransactionReason = options.signal?.aborted
+      ? "cancelled"
+      : timedOut
+        ? timeoutReason(lastFailure, lastStatus)
+        : (stopReason ?? "observationFailed");
+    throw outcomeUnknown(
       transactionHash,
+      reason,
+      timedOut && reason !== "cancelled",
+      cause instanceof ObservationTimeout ? lastFailure : cause,
       commitment && structuredClone(commitment),
       lastStatus,
-      cause,
     );
   }
 }

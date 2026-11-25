@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { hashFromHex } from "./actions/hex.js";
 import { networkHash } from "@thruputchain/protocol";
 import {
-  NetworkMismatchError,
+  assertNetworkMatchesCluster,
   defineCluster,
   devnet,
   futurenet,
@@ -15,7 +15,6 @@ import {
 } from "./cluster.js";
 import { withNativeDiscovery } from "./testing/nativeRpc.js";
 import { MockTransport } from "./transport/mock.js";
-import { RpcCompatibilityError } from "./rpc/client.js";
 import { createThruputClient } from "./client.js";
 import type { Transport } from "./transport/types.js";
 
@@ -263,17 +262,28 @@ describe("createThruputClient", () => {
       transport: networkTransport("44"),
     });
 
-    await expect(connection).rejects.toBeInstanceOf(RpcCompatibilityError);
+    await expect(connection).rejects.toMatchObject({ code: "rpcIncompatible" });
     await expect(connection).rejects.toThrow(
       "RPC network identity does not match",
     );
   });
 
-  it("constructs a diagnostic safely for an unpinned cluster", () => {
+  it("accepts any network for an unpinned cluster", () => {
     const actual = { networkHash: protocolNetworkHash("44") };
 
-    expect(new NetworkMismatchError(mainnet(), actual).message).toBe(
-      "Network mismatch for mainnet: expected an unpinned network, received network 5bV6jUfhDHCQVA1WfKBUnXUsboJgoKgkzkKcxr3joew5",
+    expect(() => assertNetworkMatchesCluster(mainnet(), actual)).not.toThrow();
+  });
+
+  it("reports a pinned network mismatch with code networkMismatch", () => {
+    const cluster = mainnet({ networkHash: protocolNetworkHash("11") });
+    const actual = { networkHash: protocolNetworkHash("44") };
+
+    expect(() => assertNetworkMatchesCluster(cluster, actual)).toThrow(
+      expect.objectContaining({
+        code: "networkMismatch",
+        message: `Network mismatch for mainnet: expected network ${toBase58(cluster.networkHash!)}, received network ${toBase58(actual.networkHash)}`,
+        context: { cluster, actual },
+      }),
     );
   });
 });

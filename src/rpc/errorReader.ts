@@ -1,7 +1,8 @@
 import { codec, deserialize } from "@thruputchain/protocol";
 import { hashSignedTransaction } from "../derivation/transactionHash.js";
-import { JsonRpcError } from "../transport/http.js";
-import { decodeErrorData, RpcDecodingError } from "./codec.js";
+import type { RpcErrorFields } from "../errors/codes.js";
+import { isThruputError, ThruputError } from "../errors/thruputError.js";
+import { decodeErrorData } from "./codec.js";
 import type { RpcErrorData } from "./generated.js";
 
 export type DecodedRpcError =
@@ -57,7 +58,7 @@ export function decodeRpcError(
     }
     return { classification: "known", data, raw };
   } catch (error) {
-    if (error instanceof RpcDecodingError) return unclassified();
+    if (isThruputError(error, "rpcValueInvalid")) return unclassified();
     throw error;
   }
 }
@@ -106,16 +107,39 @@ function validFunding(data: RpcErrorData): boolean {
   return true;
 }
 
-/** A native RPC failure retains the transport error and a conservative typed interpretation. */
-export class NativeRpcError extends JsonRpcError {
-  readonly decoded: DecodedRpcError;
-  constructor(
-    error: JsonRpcError,
-    method: string,
-    expectedTransactionHash?: Uint8Array,
-  ) {
-    super(error.code, error.rpcMessage, error.data, method, error.raw);
-    this.name = "NativeRpcError";
-    this.decoded = decodeRpcError(method, error.raw, expectedTransactionHash);
-  }
+/**
+ * Wrap a JSON-RPC error from a native method. Keep the complete raw error and a
+ * conservative typed reading; unknown or contradictory evidence is `unrecognized`.
+ */
+export function nativeRpcError(
+  error: RpcErrorFields,
+  method: string,
+  expectedTransactionHash?: Uint8Array,
+): ThruputError<"nativeRpcError"> {
+  // A custom transport can leave out `raw`; rebuild it from the typed fields.
+  const raw = record(error.raw)
+    ? error.raw
+    : {
+        ...(typeof error.code === "number" ? { code: error.code } : {}),
+        ...(typeof error.rpcMessage === "string"
+          ? { message: error.rpcMessage }
+          : {}),
+        ...(error.data === undefined ? {} : { data: error.data }),
+      };
+  const decoded = decodeRpcError(method, raw, expectedTransactionHash);
+  return new ThruputError(
+    "nativeRpcError",
+    `${method}: ${error.rpcMessage} (RPC ${error.code})`,
+    {
+      context: {
+        code: error.code,
+        rpcMessage: error.rpcMessage,
+        method,
+        raw,
+        ...(decoded.classification === "known"
+          ? { kind: decoded.data.kind, data: decoded.data }
+          : { kind: "unrecognized" }),
+      } as ThruputError<"nativeRpcError">["context"],
+    },
+  );
 }

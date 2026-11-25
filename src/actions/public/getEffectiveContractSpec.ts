@@ -4,11 +4,12 @@ import {
 } from "@thruputchain/protocol";
 import { hashContract } from "../../contract/hash.js";
 import { bytesEqual } from "../../contract/event.js";
-import { ContractVerificationError } from "../../contract/errors.js";
+import { contractVerificationFailed } from "../../contract/errors.js";
 import type { ContractArtifactSpec } from "../../contract/artifact.js";
 import { spec as defaultWalletSpec } from "../../contracts/default_wallet.js";
 import type { ContractSpec } from "../../contract/spec.js";
-import { RpcCompatibilityError, type RpcClient } from "../../rpc/client.js";
+import type { RpcClient } from "../../rpc/client.js";
+import { ThruputError } from "../../errors/thruputError.js";
 import type { RpcEffectiveContractResult } from "../../rpc/generated.js";
 import { UnsupportedRpcValue } from "../../rpc/codec.js";
 import type { TransportRequestOptions } from "../../transport/types.js";
@@ -44,15 +45,19 @@ export async function getEffectiveContractSpec(
     options,
   );
   if (!bytesEqual(address, result.address) || result.context !== context)
-    throw new ContractVerificationError(
+    throw contractVerificationFailed(
       "Effective contract request identity mismatch",
     );
   if (result.selection instanceof UnsupportedRpcValue)
-    throw new RpcCompatibilityError("Unsupported effective contract selection");
+    throw new ThruputError(
+      "rpcValueUnsupported",
+      "Unsupported effective contract selection",
+      { context: { value: result.selection } },
+    );
   if (result.selection === null)
     return { ...result, artifactSpec: null, nativeInterface: null };
   if (context === "nested" && result.selection.source === "networkDefault")
-    throw new ContractVerificationError(
+    throw contractVerificationFailed(
       "Network default cannot apply to a nested invocation",
     );
   const contract = result.selection.contract;

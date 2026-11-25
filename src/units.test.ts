@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatUnits, parseUnits, ParseUnitsError } from "./units.js";
+import { formatUnits, parseUnits } from "./units.js";
 
 describe("exact unit conversion", () => {
   it.each([
@@ -41,9 +41,11 @@ describe("exact unit conversion", () => {
     "--1",
     "NaN",
   ])("rejects malformed input %j", (text) => {
-    expect(() => parseUnits(text, 7)).toThrow(ParseUnitsError);
     expect(() => parseUnits(text, 7)).toThrow(
-      expect.objectContaining({ code: "malformed" }),
+      expect.objectContaining({
+        code: "amountInvalid",
+        context: { kind: "malformed", decimals: 7 },
+      }),
     );
   });
 
@@ -53,7 +55,10 @@ describe("exact unit conversion", () => {
     ["1.0", 0],
   ] as const)("rejects excess precision in %s", (text, decimals) => {
     expect(() => parseUnits(text, decimals)).toThrow(
-      expect.objectContaining({ code: "precision" }),
+      expect.objectContaining({
+        code: "amountInvalid",
+        context: { kind: "precision", decimals },
+      }),
     );
   });
 
@@ -66,7 +71,9 @@ describe("exact unit conversion", () => {
   );
 
   it("rejects numbers passed at runtime rather than silently losing precision", () => {
-    expect(() => parseUnits(1 as never, 7)).toThrow(ParseUnitsError);
+    expect(() => parseUnits(1 as never, 7)).toThrow(
+      expect.objectContaining({ code: "amountInvalid" }),
+    );
     expect(() => formatUnits(1 as never, 7)).toThrow(TypeError);
   });
 });

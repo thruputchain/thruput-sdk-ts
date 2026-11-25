@@ -5,7 +5,7 @@ import {
   contractSpecCodecLimits,
   preflightContractSpec,
 } from "./specPreflight.js";
-import { ContractVerificationError } from "./errors.js";
+import { contractVerificationFailed, errorText } from "./errors.js";
 import {
   codec,
   ContractType,
@@ -42,8 +42,8 @@ export function readContractArtifactSpec(
   try {
     return readArtifact(contractXdr, expectedHash);
   } catch (cause) {
-    throw new ContractVerificationError(
-      cause instanceof Error ? cause.message : "Invalid contract artifact",
+    throw contractVerificationFailed(
+      errorText(cause) ?? "Invalid contract artifact",
       { cause },
     );
   }

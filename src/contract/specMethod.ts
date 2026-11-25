@@ -1,7 +1,7 @@
 import type { Invocation } from "@thruputchain/protocol";
 import { deriveEntrypointID } from "../derivation/entrypointId.js";
 import { createContractCodecContext } from "./codec.js";
-import { ContractDecodeError } from "./errors.js";
+import { contractDecodeFailed } from "./errors.js";
 import {
   defineContractMethodWithExceptions,
   resolveContractExceptions,
@@ -55,15 +55,13 @@ export function createContractCallDecoder(
         ",",
       );
       if (methods.has(key))
-        throw new ContractDecodeError(
+        throw contractDecodeFailed(
           "Duplicate method selector in contract spec",
         );
       if (
         new Set(method.args.map((arg) => arg.name)).size !== method.args.length
       ) {
-        throw new ContractDecodeError(
-          "Duplicate argument name in contract spec",
-        );
+        throw contractDecodeFailed("Duplicate argument name in contract spec");
       }
       const descriptor = defineContractMethodWithExceptions<
         Record<string, unknown> | void,

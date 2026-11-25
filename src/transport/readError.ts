@@ -1,5 +1,4 @@
-import { NativeRpcError } from "../rpc/errorReader.js";
-import { HttpRequestError, HttpResponseError } from "./http.js";
+import { isThruputError } from "../errors/thruputError.js";
 import type { TransportRequestOptions } from "./types.js";
 
 /** Infrastructure failure classification; retry budgets remain with the caller. */
@@ -9,11 +8,12 @@ export type ReadErrorKind = "transient" | "permanent" | "cancelled" | "unknown";
  * Classify an infrastructure read failure without replacing the original error.
  *
  * Pass the caller's signal to distinguish explicit cancellation from a transport
- * timeout. Plain Error wrappers are inspected through their causes; domain errors
- * and unrecognized failures remain unknown. A bare TypeError is not evidence of
- * a network failure. Custom transports should use HttpRequestError for that case.
- * Transaction-not-found remains operation-specific rather than a general retry.
- * This classification never authorizes transaction resubmission.
+ * timeout. Plain Error wrappers are inspected through their causes; other
+ * `ThruputError` codes and unrecognized failures remain unknown. A bare TypeError
+ * is not evidence of a network failure. Custom transports should throw code
+ * `httpRequestFailed` for that case. Transaction-not-found remains
+ * operation-specific rather than a general retry. This classification never
+ * authorizes transaction resubmission.
  */
 export function classifyReadError(
   error: unknown,
@@ -23,15 +23,14 @@ export function classifyReadError(
   const seen = new Set<unknown>();
   while (error !== null && typeof error === "object" && !seen.has(error)) {
     seen.add(error);
-    if (error instanceof HttpRequestError) return "transient";
-    if (error instanceof HttpResponseError) {
-      return [408, 429, 500, 502, 503, 504].includes(error.status)
+    if (isThruputError(error, "httpRequestFailed")) return "transient";
+    if (isThruputError(error, "httpResponseError")) {
+      return [408, 429, 500, 502, 503, 504].includes(error.context.status)
         ? "transient"
         : "permanent";
     }
-    if (error instanceof NativeRpcError) {
-      if (error.decoded.classification !== "known") return "unknown";
-      switch (error.decoded.data.kind) {
+    if (isThruputError(error, "nativeRpcError")) {
+      switch (error.context.kind) {
         case "backendUnavailable":
         case "stateHeightUnavailable":
         case "backendTimeout":

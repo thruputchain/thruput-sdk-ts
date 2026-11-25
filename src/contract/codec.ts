@@ -8,7 +8,8 @@ import {
 } from "./spec.js";
 import { buildNamedCodecs } from "./codegen.js";
 import { enableResolvedCodecCache, resolveCodec } from "./encode.js";
-import { ContractDecodeError } from "./errors.js";
+import { contractDecodeFailed, errorText } from "./errors.js";
+import { isThruputError } from "../errors/thruputError.js";
 import { contractValueLimits } from "./valueLimits.js";
 
 /** Complete-input codec used by generated contract descriptors. */
@@ -162,9 +163,10 @@ export function decodeComplete<T>(
     }
     return value as T;
   } catch (cause) {
-    if (cause instanceof ContractDecodeError) throw cause;
-    const detail = cause instanceof Error ? `: ${cause.message}` : "";
-    throw new ContractDecodeError(`Failed to decode ${label}${detail}`, {
+    if (isThruputError(cause, "contractDecodeFailed")) throw cause;
+    const text = errorText(cause);
+    const detail = text === undefined ? "" : `: ${text}`;
+    throw contractDecodeFailed(`Failed to decode ${label}${detail}`, {
       cause,
     });
   }

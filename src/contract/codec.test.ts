@@ -15,7 +15,6 @@ import {
   type ContractCodecContext,
 } from "./codec.js";
 import { resolveCodec } from "./encode.js";
-import { ContractDecodeError } from "./errors.js";
 import type { ContractType, ContractTypeDef } from "./spec.js";
 import { specIdKey } from "./spec.js";
 
@@ -87,7 +86,9 @@ describe("contract codecs", () => {
     const trailing = new Uint8Array(encoded.length + 1);
     trailing.set(encoded);
 
-    expect(() => codec.decode(trailing)).toThrowError(ContractDecodeError);
+    expect(() => codec.decode(trailing)).toThrow(
+      expect.objectContaining({ code: "contractDecodeFailed" }),
+    );
     expect(() => codec.decode(trailing)).toThrow(
       /Failed to decode signed amount: 1 trailing bytes/,
     );
@@ -102,7 +103,7 @@ describe("contract codecs", () => {
       codec.decode(new Uint8Array());
       throw new Error("expected decode to fail");
     } catch (error) {
-      expect(error).toBeInstanceOf(ContractDecodeError);
+      expect(error).toMatchObject({ code: "contractDecodeFailed" });
       expect((error as Error).cause).toBeInstanceOf(Error);
     }
   });
@@ -112,8 +113,8 @@ describe("contract codecs", () => {
       v: ContractTypeKind.String,
     });
 
-    expect(() => codec.decode(Uint8Array.of(1, 0xff))).toThrowError(
-      ContractDecodeError,
+    expect(() => codec.decode(Uint8Array.of(1, 0xff))).toThrow(
+      expect.objectContaining({ code: "contractDecodeFailed" }),
     );
   });
 

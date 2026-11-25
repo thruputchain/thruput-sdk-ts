@@ -1,5 +1,5 @@
 /** Native JSON-RPC calls, validated codecs and explicit endpoint discovery. */
-export { createRpcClient, RpcCompatibilityError } from "./client.js";
+export { createRpcClient } from "./client.js";
 export type {
   RpcClient,
   RpcClientOptions,
@@ -7,13 +7,6 @@ export type {
   RpcMethod,
   RpcMethods,
 } from "./client.js";
-export {
-  UnsupportedRpcValue,
-  RpcDecodingError,
-  RpcRequestValidationError,
-} from "./codec.js";
+export { UnsupportedRpcValue, isUnsupportedRpcValue } from "./unsupported.js";
 export { NativeRpcErrorCode } from "./errors.js";
 export type * from "./generated.js";
-
-export { NativeRpcError } from "./errorReader.js";
-export type { DecodedRpcError } from "./errorReader.js";

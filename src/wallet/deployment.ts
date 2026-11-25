@@ -21,9 +21,10 @@ import type { PrepareTransactionRequest } from "../actions/wallet/prepareTransac
 import { toBase58 } from "../encoding.js";
 import {
   assertTransactionSuccess,
-  ExecutionDecodeError,
   type SubmissionEvidence,
 } from "./execution.js";
+import { transactionResultUndecodable } from "../errors/transaction.js";
+import { contractDecodeFailed } from "../contract/errors.js";
 
 /** Stable deployment identity, available before transaction preparation. */
 export interface ContractDeployment {
@@ -129,14 +130,16 @@ export function decodeDeployment(
   assertTransactionSuccess(receipt, submission);
   try {
     if (!adapter.decodeDeploymentReceipt)
-      throw new Error("Wallet adapter does not support deployment decoding");
+      throw contractDecodeFailed(
+        "Wallet adapter does not support deployment decoding",
+      );
     const address = adapter.decodeDeploymentReceipt(receipt);
     if (!bytesEqual(address, deployment.address))
-      throw new Error(
+      throw contractDecodeFailed(
         `Deployment ${toBase58(receipt.transactionHash)} returned ${toBase58(address)}, expected ${toBase58(deployment.address)}`,
       );
     return address;
   } catch (cause) {
-    throw new ExecutionDecodeError(receipt, cause, submission);
+    throw transactionResultUndecodable(receipt, cause, submission);
   }
 }

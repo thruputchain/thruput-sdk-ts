@@ -4,12 +4,7 @@ import { runInNewContext } from "node:vm";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import openrpcSpec from "../../specs/native-openrpc.json";
-import {
-  HttpRequestError,
-  HttpResponseError,
-  HttpTransport,
-  JsonRpcError,
-} from "./http.js";
+import { HttpTransport } from "./http.js";
 import { classifyReadError } from "./readError.js";
 
 function documentedErrorCodes() {
@@ -93,8 +88,11 @@ describe("HttpTransport", () => {
     );
     const request = transport.request("groundhog_networkInfo");
     await expect(request).rejects.toMatchObject({
-      endpoint: "https://rpc.example",
-      method: "groundhog_networkInfo",
+      code: "httpRequestFailed",
+      context: {
+        endpoint: "https://rpc.example",
+        method: "groundhog_networkInfo",
+      },
       cause,
     });
     await expect(request).rejects.toThrow(
@@ -127,14 +125,11 @@ describe("HttpTransport", () => {
       fetch: fetchMock,
     }).request("groundhog_version");
 
-    await expect(request).rejects.toBeInstanceOf(HttpResponseError);
-    await expect(request).rejects.toEqual(
-      expect.objectContaining({
-        name: "HttpResponseError",
-        status: 401,
-        statusText: "Unauthorized",
-      }),
-    );
+    await expect(request).rejects.toMatchObject({
+      name: "ThruputError",
+      code: "httpResponseError",
+      context: { status: 401, statusText: "Unauthorized" },
+    });
   });
 
   it("sends JSON-RPC requests with custom fetch and headers", async () => {
@@ -168,7 +163,7 @@ describe("HttpTransport", () => {
     });
   });
 
-  it("includes the RPC method on JsonRpcError", async () => {
+  it("includes the RPC method on rpcError", async () => {
     const fetchMock: typeof fetch = async () =>
       new Response(
         JSON.stringify({
@@ -187,10 +182,12 @@ describe("HttpTransport", () => {
       );
       throw new Error("expected request to fail");
     } catch (error) {
-      expect(error).toBeInstanceOf(JsonRpcError);
       expect(error).toMatchObject({
-        code: NativeRpcErrorCode.BackendUnavailable,
-        method: "groundhog_version",
+        code: "rpcError",
+        context: {
+          code: NativeRpcErrorCode.BackendUnavailable,
+          method: "groundhog_version",
+        },
       });
     }
   });
@@ -269,10 +266,12 @@ describe("HttpTransport", () => {
         },
       );
       const result = transport.request("groundhog_version");
-      await expect(result).rejects.toBeInstanceOf(HttpRequestError);
       await expect(result).rejects.toMatchObject({
-        endpoint: `http://127.0.0.1:${address.port}`,
-        method: "groundhog_version",
+        code: "httpRequestFailed",
+        context: {
+          endpoint: `http://127.0.0.1:${address.port}`,
+          method: "groundhog_version",
+        },
         cause: expect.any(TypeError),
       });
       await result.catch((error: unknown) => {
@@ -320,7 +319,7 @@ describe("HttpTransport", () => {
     {
       name: "HTTP error",
       response: () => new Response(null, { status: 503 }),
-      error: HttpResponseError,
+      error: "httpResponseError",
     },
     {
       name: "JSON-RPC error",
@@ -330,17 +329,17 @@ describe("HttpTransport", () => {
           id: 1,
           error: { code: -32602, message: "invalid params" },
         }),
-      error: JsonRpcError,
+      error: "rpcError",
     },
     {
       name: "malformed JSON",
       response: () => new Response("{"),
-      error: SyntaxError,
+      error: "rpcResponseInvalid",
     },
     {
       name: "invalid envelope",
       response: () => Response.json([]),
-      error: Error,
+      error: "rpcResponseInvalid",
     },
   ])(
     "clears the timer after $name without changing error classification",
@@ -356,7 +355,7 @@ describe("HttpTransport", () => {
           },
         });
         const result = transport.request("groundhog_version");
-        if (error) await expect(result).rejects.toBeInstanceOf(error);
+        if (error) await expect(result).rejects.toMatchObject({ code: error });
         else await expect(result).resolves.toBe("ok");
         expect(vi.getTimerCount()).toBe(0);
         await vi.advanceTimersByTimeAsync(1_500);

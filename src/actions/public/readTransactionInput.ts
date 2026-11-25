@@ -6,7 +6,10 @@ import {
   type Transaction,
 } from "@thruputchain/protocol";
 import { bytesEqual } from "../../contract/event.js";
-import { ContractVerificationError } from "../../contract/errors.js";
+import {
+  contractVerificationFailed,
+  errorText,
+} from "../../contract/errors.js";
 import type { RpcClient } from "../../rpc/client.js";
 import { UnsupportedRpcValue } from "../../rpc/codec.js";
 import type { TransportRequestOptions } from "../../transport/types.js";
@@ -61,8 +64,8 @@ export async function readTransactionInput(
     }
     return { ...result, transaction };
   } catch (cause) {
-    throw new ContractVerificationError(
-      cause instanceof Error ? cause.message : "Invalid transaction input",
+    throw contractVerificationFailed(
+      errorText(cause) ?? "Invalid transaction input",
       { cause },
     );
   }

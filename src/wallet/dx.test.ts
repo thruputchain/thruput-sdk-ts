@@ -15,12 +15,10 @@ import { getContract } from "../contract/instance.js";
 import {
   decodeExecution,
   walletGasLimit,
-  ExecutionReturnUnavailableError,
   submitAndObserve,
   createSubmissionEvidence,
-  TransactionObservationError,
-  TransactionExecutionError,
 } from "./execution.js";
+import type { ThruputError } from "../errors/thruputError.js";
 import { devWalletAdapter, defaultWalletAdapter } from "./invocationAdapter.js";
 import {
   prepareContractDeployment,
@@ -65,8 +63,8 @@ describe("contract execution DX", () => {
           decodeExecution(failed, calls);
           expect.fail("Expected a transaction execution error");
         } catch (error) {
-          expect(error).toBeInstanceOf(TransactionExecutionError);
-          expect((error as TransactionExecutionError).receipt).toBe(failed);
+          expect(error).toMatchObject({ code: "transactionFailed" });
+          expect((error as ThruputError).transaction?.receipt).toEqual(failed);
         }
       }
     }
@@ -90,11 +88,15 @@ describe("contract execution DX", () => {
         throw submissionCause;
       },
     );
-    await expect(pending).rejects.toBeInstanceOf(TransactionObservationError);
     await expect(pending).rejects.toMatchObject({
-      transactionHash: expect.any(Uint8Array),
+      code: "transactionOutcomeUnknown",
+      transaction: {
+        hash: expect.any(Uint8Array),
+        outcome: "unknown",
+        reason: "observationFailed",
+      },
       cause,
-      submissionCause,
+      context: { submissionError: submissionCause },
     });
   });
   it("keeps method identity, types, and bound read metadata", async () => {
@@ -136,7 +138,7 @@ describe("contract execution DX", () => {
   it("does not pretend a wallet that discards returns exposes a typed value", () => {
     const call = Counter.v0_1.get.call({ address, gasLimit: gas });
     expect(() => decodeExecution(receipt, [call], devWalletAdapter)).toThrow(
-      ExecutionReturnUnavailableError,
+      expect.objectContaining({ code: "transactionResultUnavailable" }),
     );
   });
 
@@ -154,7 +156,14 @@ describe("contract execution DX", () => {
       decodeExecution(original, [
         Counter.v0_1.get.call({ address, gasLimit: gas }),
       ]),
-    ).toThrow(/expected 1/);
+    ).toThrow(
+      expect.objectContaining({
+        code: "transactionResultUndecodable",
+        cause: expect.objectContaining({
+          message: expect.stringMatching(/expected 1/),
+        }),
+      }),
+    );
     expect(original.execution.returnData).toBe(data);
   });
 
@@ -293,7 +302,13 @@ describe("deployment descriptions", () => {
         plan,
         defaultWalletAdapter,
       ),
-    ).toThrow(/expected/);
+    ).toThrow(
+      expect.objectContaining({
+        cause: expect.objectContaining({
+          message: expect.stringMatching(/expected/),
+        }),
+      }),
+    );
     plan.deploymentNonce.fill(1);
     expect(() =>
       deploymentRequest(

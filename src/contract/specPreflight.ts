@@ -5,7 +5,8 @@ import {
   ContractTypeDefKind,
   ContractUnionCaseKind,
 } from "@thruputchain/contract-spec";
-import { ContractDecodeError } from "./errors.js";
+import { contractDecodeFailed } from "./errors.js";
+import { isThruputError } from "../errors/thruputError.js";
 
 // Generated XDR counts envelope/option/container levels and value visits,
 // unlike schema-1's type levels and collection entries. Preflight remains the
@@ -23,22 +24,18 @@ export const contractSpecCodecLimits: CodecLimits = {
  */
 export function preflightContractSpec(bytes: Uint8Array): void {
   if (bytes.length > 16 * 1024 * 1024)
-    throw new ContractDecodeError(
-      "Contract spec exceeds byte limit (16777216)",
-    );
+    throw contractDecodeFailed("Contract spec exceeds byte limit (16777216)");
   const reader = new XdrReader(bytes);
   let work = 100_000;
   const spend = (count: number) => {
     work -= count;
     if (work < 0)
-      throw new ContractDecodeError(
-        "Contract spec exceeds work limit (100000)",
-      );
+      throw contractDecodeFailed("Contract spec exceeds work limit (100000)");
   };
   const list = (item: () => void) => {
     const count = Number(reader.readUint32());
     if (count > Math.floor(reader.remaining / 4))
-      throw new ContractDecodeError("Truncated contract spec collection");
+      throw contractDecodeFailed("Truncated contract spec collection");
     spend(count);
     for (let i = 0; i < count; i++) item();
   };
@@ -50,7 +47,7 @@ export function preflightContractSpec(bytes: Uint8Array): void {
   };
   const type = (depth = 1): void => {
     if (depth > 64)
-      throw new ContractDecodeError(
+      throw contractDecodeFailed(
         "Contract spec exceeds type nesting limit (64)",
       );
     spend(1);
@@ -89,7 +86,7 @@ export function preflightContractSpec(bytes: Uint8Array): void {
         if (reader.readBool()) type(depth + 1);
         return;
       default:
-        throw new ContractDecodeError(`Unknown contract spec type ${kind}`);
+        throw contractDecodeFailed(`Unknown contract spec type ${kind}`);
     }
   };
   const field = () => {
@@ -138,14 +135,14 @@ export function preflightContractSpec(bytes: Uint8Array): void {
                 list(field);
                 break;
               default:
-                throw new ContractDecodeError(
+                throw contractDecodeFailed(
                   `Unknown contract spec union case ${kind}`,
                 );
             }
           });
           break;
         default:
-          throw new ContractDecodeError(
+          throw contractDecodeFailed(
             `Unknown contract spec definition ${kind}`,
           );
       }
@@ -157,9 +154,9 @@ export function preflightContractSpec(bytes: Uint8Array): void {
       list(field);
     });
     if (reader.remaining !== 0)
-      throw new ContractDecodeError("Trailing contract spec bytes");
+      throw contractDecodeFailed("Trailing contract spec bytes");
   } catch (cause) {
-    if (cause instanceof ContractDecodeError) throw cause;
-    throw new ContractDecodeError("Invalid contract spec XDR", { cause });
+    if (isThruputError(cause, "contractDecodeFailed")) throw cause;
+    throw contractDecodeFailed("Invalid contract spec XDR", { cause });
   }
 }

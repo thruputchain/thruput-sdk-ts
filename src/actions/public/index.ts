@@ -1,14 +1,11 @@
 export {
   requestAirdrop,
   requestAirdropAttempt,
-  FundingObservationError,
   type RequestAirdropOptions,
 } from "./requestAirdrop.js";
 export {
   waitForCommitment,
   waitForTransactionReceipt,
-  TransactionReceiptTimeoutError,
-  TransactionReceiptObservationError,
   type KnownCommitment,
   type ReceiptObserver,
   type WaitForTransactionReceiptOptions,
@@ -26,7 +23,7 @@ export {
   type ReadViewsResponse,
 } from "./readViews.js";
 
-export { HistoryWalkError, type HistoryCompletion } from "./historyWalk.js";
+export type { HistoryCompletion } from "./historyWalk.js";
 export {
   iterateTransactionsByRootAddress,
   iterateTransactionsByBlock,

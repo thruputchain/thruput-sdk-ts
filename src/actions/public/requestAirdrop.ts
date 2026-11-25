@@ -1,22 +1,29 @@
 import type { RpcClient } from "../../rpc/client.js";
-import { NativeRpcError } from "../../rpc/errorReader.js";
-import { RpcCompatibilityError } from "../../rpc/client.js";
-import { UnsupportedRpcValue } from "../../rpc/codec.js";
+import { rpcIncompatible } from "../../rpc/client.js";
+import {
+  isUnsupportedRpcValue,
+  type UnsupportedRpcValue,
+} from "../../rpc/codec.js";
+import { isThruputError, ThruputError } from "../../errors/thruputError.js";
+import type {
+  TransactionFactsInput,
+  TransactionReason,
+} from "../../errors/transaction.js";
+import { receiptFacts } from "../../errors/transaction.js";
 import type { TransportRequestOptions } from "../../transport/types.js";
 import type {
   AirdropAttemptRequest,
   AirdropResponse,
   AirdropSucceeded,
 } from "../../types/rpc.js";
+import { waitForTransactionReceipt } from "./waitForTransactionReceipt.js";
+import { assertTransactionSuccess } from "../../wallet/execution.js";
+import { classifyReadError } from "../../transport/readError.js";
+import { isCancellation } from "../../wallet/transactionErrors.js";
 import {
-  waitForTransactionReceipt,
-  TransactionReceiptObservationError,
-  type KnownCommitment,
-} from "./waitForTransactionReceipt.js";
-import {
-  TransactionExecutionError,
-  assertTransactionSuccess,
-} from "../../wallet/execution.js";
+  createSubmissionEvidence,
+  type SubmissionEvidence,
+} from "../../transaction/submissionEvidence.js";
 import { beforeDeadline, validateTimer } from "../deadline.js";
 
 export interface RequestAirdropOptions {
@@ -26,18 +33,6 @@ export interface RequestAirdropOptions {
   readonly timeoutMs?: number;
   readonly signal?: AbortSignal;
 }
-/** Funding stopped without permission to call the faucet again. */
-export class FundingObservationError extends Error {
-  constructor(
-    readonly request: AirdropAttemptRequest & { networkHash: Uint8Array },
-    readonly lastResponse: AirdropResponse | undefined,
-    cause: unknown,
-    readonly knownCommitment?: KnownCommitment,
-  ) {
-    super("Funding observation stopped", { cause });
-    this.name = "FundingObservationError";
-  }
-}
 /** Perform exactly one faucet call. It neither polls nor repeats an ambiguous attempt. */
 export async function requestAirdropAttempt(
   client: Pick<RpcClient, "faucet_requestAirdrop">,
@@ -46,7 +41,12 @@ export async function requestAirdropAttempt(
 ): Promise<AirdropResponse> {
   return client.faucet_requestAirdrop(request, options);
 }
-/** Call the faucet once, then observe a returned pending hash using read-only calls. */
+/**
+ * Call the faucet once, then observe a returned pending hash using read-only calls.
+ * When funding stops, throws code `fundingStopped` without permission to call the
+ * faucet again. `transaction` is present when the faucet identified a
+ * transaction; reconcile with `context.request.clientNonce`.
+ */
 export async function requestAirdrop(
   client: RpcClient,
   options: RequestAirdropOptions,
@@ -79,17 +79,25 @@ export async function requestAirdrop(
   ]);
   const deadline = performance.now() + timeoutMs;
   let lastResponse: AirdropResponse | undefined;
-  const timeout = () => new Error("Funding observation timed out");
+  let timedOut = false;
+  const timeout = () => {
+    timedOut = true;
+    return new DOMException("Funding observation timed out", "TimeoutError");
+  };
   const run = <T>(operation: (signal: AbortSignal) => Promise<T>) =>
     beforeDeadline(operation, deadline, options.signal, timeout);
+  // Evidence must come from this faucet call or from observing its hash.
+  let phase: "network" | "faucet" | "observe" = "network";
   try {
     const network = await run((signal) =>
       client.getNetworkInfo({}, { signal }),
     );
     if (network.networkHash.some((v, i) => v !== request.networkHash[i]))
-      throw new RpcCompatibilityError(
+      throw rpcIncompatible(
+        "network",
         "Funding endpoint network does not match",
       );
+    phase = "faucet";
     lastResponse = await run((signal) =>
       requestAirdropAttempt(
         client,
@@ -97,14 +105,21 @@ export async function requestAirdrop(
         { signal },
       ),
     );
-    if (lastResponse instanceof UnsupportedRpcValue) throw lastResponse;
+    if (isUnsupportedRpcValue(lastResponse))
+      throw unsupported("Unsupported faucet response", lastResponse);
     if (lastResponse.attemptStatus === "succeeded") {
-      if (lastResponse.execution instanceof UnsupportedRpcValue)
-        throw lastResponse.execution;
+      if (isUnsupportedRpcValue(lastResponse.execution))
+        throw unsupported(
+          "Unsupported faucet execution outcome",
+          lastResponse.execution,
+        );
       return lastResponse;
     }
+    // A pending attempt may not have a transaction yet. That is valid, but
+    // there is no hash to observe, so stop and keep the response.
     if (!lastResponse.transactionHash)
-      throw new Error("Pending funding did not identify a transaction");
+      throw new Error("The faucet attempt is pending without a transaction");
+    phase = "observe";
     const receipt = await waitForTransactionReceipt(
       client,
       lastResponse.transactionHash,
@@ -124,33 +139,125 @@ export async function requestAirdrop(
       execution: receipt.execution,
     };
   } catch (cause) {
-    const nativeReceipt =
-      cause instanceof NativeRpcError &&
-      cause.decoded.classification === "known" &&
-      "receipt" in cause.decoded.data
-        ? cause.decoded.data.receipt
+    // An abort reason can be any value, so take no evidence from it.
+    const cancelled = isCancellation(cause, options.signal);
+    const response = isUnsupportedRpcValue(lastResponse)
+      ? undefined
+      : lastResponse;
+    const native =
+      !cancelled &&
+      phase === "faucet" &&
+      isThruputError(cause, "nativeRpcError")
+        ? cause.context.data
         : undefined;
-    const committedResult =
-      cause instanceof TransactionExecutionError
-        ? cause.receipt
-        : (nativeReceipt ??
-          (!(lastResponse instanceof UnsupportedRpcValue) &&
-          lastResponse?.attemptStatus === "succeeded"
-            ? lastResponse
-            : undefined));
-    throw new FundingObservationError(
-      request,
-      lastResponse,
-      cause,
-      cause instanceof TransactionReceiptObservationError
-        ? cause.knownCommitment
-        : committedResult
+    const observed =
+      !cancelled &&
+      phase === "observe" &&
+      isThruputError(cause) &&
+      cause.transaction &&
+      response?.transactionHash &&
+      bytesEqual(cause.transaction.hash, response.transactionHash)
+        ? cause.transaction
+        : undefined;
+    const receipt =
+      observed?.receipt ??
+      (native && "receipt" in native ? native.receipt : undefined);
+    const hash =
+      receipt?.transactionHash ??
+      observed?.hash ??
+      (native && "transactionHash" in native
+        ? native.transactionHash
+        : undefined) ??
+      response?.transactionHash;
+    // The native reader checked these signed bytes against the hash.
+    const signed =
+      native && "signedTransaction" in native
+        ? native.signedTransaction
+        : undefined;
+    const submission =
+      signed && hash
+        ? fundingSubmission(signed, request.networkHash, hash)
+        : undefined;
+    const reason: TransactionReason = options.signal?.aborted
+      ? "cancelled"
+      : timedOut
+        ? "timeout"
+        : native
+          ? classifyReadError(cause) === "transient"
+            ? "disconnected"
+            : "nodeRejected"
+          : "observationFailed";
+    const extra = submission ? { submission } : {};
+    const transaction: TransactionFactsInput | undefined = receipt
+      ? { ...receiptFacts(receipt, reason), ...extra }
+      : observed
+        ? {
+            hash: observed.hash,
+            outcome: observed.outcome,
+            reason: observed.reason,
+          }
+        : hash
+          ? {
+              hash,
+              outcome: "unknown",
+              // A succeeded attempt reaches here only with an unsupported execution value.
+              reason:
+                response?.attemptStatus === "succeeded"
+                  ? "outcomeUnsupported"
+                  : reason,
+              ...extra,
+            }
+          : undefined;
+    const committed =
+      receipt ??
+      (response?.attemptStatus === "succeeded" ? response : undefined);
+    const knownCommitment =
+      observed && isThruputError(cause, "transactionOutcomeUnknown")
+        ? cause.context.knownCommitment
+        : committed
           ? {
               networkHash: request.networkHash.slice(),
-              transactionHash: new Uint8Array(committedResult.transactionHash),
-              blockHeight: committedResult.blockHeight,
+              transactionHash: new Uint8Array(committed.transactionHash),
+              blockHeight: committed.blockHeight,
             }
-          : undefined,
-    );
+          : undefined;
+    throw new ThruputError("fundingStopped", "Funding observation stopped", {
+      context: {
+        request,
+        ...(lastResponse === undefined ? {} : { lastResponse }),
+        ...(knownCommitment ? { knownCommitment } : {}),
+      },
+      cause,
+      ...(transaction ? { transaction } : {}),
+    });
   }
+}
+
+/** Signed faucet bytes as submission evidence, when they match the hash. */
+function fundingSubmission(
+  signedTransaction: Uint8Array,
+  networkHash: Uint8Array,
+  hash: Uint8Array,
+): SubmissionEvidence | undefined {
+  try {
+    const evidence = createSubmissionEvidence(signedTransaction, networkHash);
+    return bytesEqual(evidence.transactionHash, hash) ? evidence : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
+  return (
+    left.length === right.length && left.every((byte, i) => byte === right[i])
+  );
+}
+
+function unsupported(
+  message: string,
+  value: UnsupportedRpcValue,
+): ThruputError<"rpcValueUnsupported"> {
+  return new ThruputError("rpcValueUnsupported", message, {
+    context: { value },
+  });
 }

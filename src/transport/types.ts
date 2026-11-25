@@ -4,6 +4,28 @@
  * Implement this interface to plug the SDK into a custom runtime, test harness,
  * or request pipeline. The transport is responsible for sending a JSON-RPC
  * method name and named params object, then returning the raw decoded `result` value.
+ *
+ * Report failures with `ThruputError`, imported from `@thruputchain/client`, so
+ * native clients can classify them:
+ *
+ * - A JSON-RPC error object: code `rpcError`, with the complete object in
+ *   `context.raw`. Without `raw`, the client rebuilds it from `code`,
+ *   `rpcMessage`, and `data`.
+ * - A network failure: code `httpRequestFailed`.
+ * - A failed HTTP status: code `httpResponseError`.
+ * - A malformed reply: code `rpcResponseInvalid`.
+ *
+ * For cancellation, reject with `options.signal.reason` unchanged. For a
+ * deadline, reject with a `DOMException` named `TimeoutError`. The client passes
+ * any other value through unchanged and does not classify it, so a transaction
+ * that fails that way has outcome `unknown`.
+ *
+ * @example
+ * ```ts
+ * throw new ThruputError("rpcError", "getChainTip: Overloaded (RPC -32053)", {
+ *   context: { code: -32053, rpcMessage: "Overloaded", method: "getChainTip", raw },
+ * });
+ * ```
  */
 export interface Transport {
   /**

@@ -4,7 +4,6 @@ import {
   iterateTransactionsByRootAddress,
   iterateTransactionsByBlock,
 } from "./iterateTransactionPages.js";
-import { HistoryWalkError } from "./historyWalk.js";
 import type { EventPage, TransactionRefPage } from "../../types/rpc.js";
 const address = new Uint8Array(32).fill(1);
 const query: EventWalkQuery = {
@@ -107,7 +106,9 @@ describe("fixed native history walks", () => {
         .mockResolvedValueOnce(second),
       walk = iterateEventPages({ getEvents }, query);
     await walk.next();
-    await expect(walk.next()).rejects.toBeInstanceOf(HistoryWalkError);
+    await expect(walk.next()).rejects.toMatchObject({
+      code: "historyWalkFailed",
+    });
     expect(getEvents).toHaveBeenCalledTimes(2);
   });
   it("propagates errors and cancellation without retrying or starting a replacement walk", async () => {

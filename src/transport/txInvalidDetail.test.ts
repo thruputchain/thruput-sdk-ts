@@ -1,16 +1,17 @@
 import { NativeRpcErrorCode } from "../rpc/errors.js";
-import { NativeRpcError } from "../rpc/errorReader.js";
+import { nativeRpcError } from "../rpc/errorReader.js";
 import { describe, expect, it } from "vitest";
-import { JsonRpcError } from "./http.js";
+import { rpcError } from "./errors.js";
 import { txInvalidDetail } from "./txInvalidDetail.js";
+import { ThruputError } from "../errors/thruputError.js";
 
-function txInvalid(data: unknown): JsonRpcError {
-  return new NativeRpcError(
-    new JsonRpcError(
-      NativeRpcErrorCode.TransactionInvalid,
-      "Invalid transaction",
-      { kind: "transactionInvalid", admission: "notAttempted", detail: data },
-    ),
+function txInvalid(data: unknown) {
+  return nativeRpcError(
+    rpcError(NativeRpcErrorCode.TransactionInvalid, "Invalid transaction", {
+      kind: "transactionInvalid",
+      admission: "notAttempted",
+      detail: data,
+    }).context,
     "sendTransaction",
   );
 }
@@ -41,6 +42,24 @@ describe("txInvalidDetail", () => {
     expect(txInvalidDetail(txInvalid(detail))).toEqual(detail);
   });
 
+  it("rejects an unsupported detail from another package copy", () => {
+    const error = txInvalid({
+      reason: "tooManyContracts",
+      attached: 5,
+      max: 4,
+    });
+    const foreign = new ThruputError("nativeRpcError", error.message, {
+      context: {
+        ...error.context,
+        data: {
+          ...(error.context.data as object),
+          detail: { unsupported: true, raw: "future" },
+        },
+      } as ThruputError<"nativeRpcError">["context"],
+    });
+    expect(txInvalidDetail(foreign)).toBeNull();
+  });
+
   it("preserves additive fields alongside validated known evidence", () => {
     expect(
       txInvalidDetail(
@@ -62,7 +81,7 @@ describe("txInvalidDetail", () => {
   it.each([
     [
       "another error code",
-      new JsonRpcError(NativeRpcErrorCode.TransactionRejected, "x", {
+      rpcError(NativeRpcErrorCode.TransactionRejected, "x", {
         reason: "tooManyContracts",
         attached: 5,
         max: 4,
