@@ -6,7 +6,7 @@
     "type": "git",
     "url": "git+https://github.com/thruputchain/thruput-sdk-ts.git"
   },
-  "homepage": "https://docs.thruput.network/tools/typescript-sdk/",
+  "homepage": "https://www.thruput.network/docs/typescript/reference/sdk/",
   "bugs": {
     "url": "https://github.com/thruputchain/thruput-sdk-ts/issues"
   },

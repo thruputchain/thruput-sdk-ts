@@ -10,8 +10,8 @@
  * Serialized transaction and signed-transaction XDR remain canonical 0x hex;
  * signatures inside XDR retain their binary representation.
  *
- * @see https://docs.thruput.network/tools/wallet-provider/
- * @see https://docs.thruput.network/tools/wallet-integration/
+ * @see https://www.thruput.network/docs/typescript/reference/wallet-provider/
+ * @see https://www.thruput.network/docs/typescript/wallet-integration/
  * @module
  */
 export * from "./types.js";

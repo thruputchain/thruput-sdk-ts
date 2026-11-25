@@ -439,7 +439,7 @@ function walletPublicKey(account: WalletAccount): PublicKey {
  * Requires Web Crypto (HTTPS or localhost in browsers). Invalid signing results
  * throw code -32603; invalid expected inputs fail their boundary validation first.
  *
- * @see https://docs.thruput.network/tools/wallet-provider/
+ * @see https://www.thruput.network/docs/typescript/reference/wallet-provider/
  */
 export async function verifySignTransactionResult(
   value: unknown,
