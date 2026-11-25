@@ -1,5 +1,5 @@
 import { isUnsupportedRpcValue } from "../rpc/unsupported.js";
-import { isThruputError, ThruputError } from "../errors/thruputError.js";
+import { ThruputError } from "../errors/thruputError.js";
 import {
   receiptFacts,
   transactionResultUndecodable,
@@ -114,8 +114,9 @@ export async function submitAndObserve(
     evidence.signedTransaction,
     evidence.networkHash,
   );
+  // An invalid option must fail before the transaction can be sent.
+  validateExecutionWait(options);
   const timeoutMs = options?.timeoutMs ?? 30000;
-  validateTimer(timeoutMs, "timeoutMs");
   const deadline = performance.now() + timeoutMs;
   const signal = options?.signal;
   // The caller may know that identical bytes were sent before this call.
@@ -135,7 +136,13 @@ export async function submitAndObserve(
       timeoutError("Transaction submission timed out"),
     );
   } catch (cause) {
-    if (wasDispatched?.() === false || isLocalRequestError(cause, signal))
+    // When the caller tracks dispatch, only its answer can prove the
+    // transaction was not sent; an error code alone cannot.
+    const dispatched = wasDispatched?.();
+    if (
+      dispatched === false ||
+      (dispatched === undefined && isLocalRequestError(cause, signal))
+    )
       throw transactionNotSubmitted(
         submission,
         reasonBeforeDispatch(cause, signal),
@@ -213,20 +220,25 @@ export function decodeExecution<T extends readonly ContractCall[]>(
 ): CallResults<T> {
   // Even one child call can fail in the wallet root; its abort bytes are not a child receipt.
   assertTransactionSuccess(receipt, submission);
+  let results: CallResults<T> | undefined;
   try {
     const buffers = adapter.decodeExecutionReturns?.(receipt);
-    if (buffers == null) throw resultUnavailable(receipt, submission);
-    if (buffers.length !== calls.length)
-      throw contractDecodeFailed(
-        `Returned ${buffers.length} child results; expected ${calls.length}`,
-      );
-    return calls.map((call, index) =>
-      call.method.decodeReturn(buffers[index]!),
-    ) as CallResults<T>;
+    if (buffers != null) {
+      if (buffers.length !== calls.length)
+        throw contractDecodeFailed(
+          `Returned ${buffers.length} child results; expected ${calls.length}`,
+        );
+      results = calls.map((call, index) =>
+        call.method.decodeReturn(buffers[index]!),
+      ) as CallResults<T>;
+    }
   } catch (cause) {
-    if (isThruputError(cause, "transactionResultUnavailable")) throw cause;
+    // Wrap everything, even a ThruputError from the adapter, so the facts
+    // always describe this receipt.
     throw transactionResultUndecodable(receipt, cause, submission);
   }
+  if (results === undefined) throw resultUnavailable(receipt, submission);
+  return results;
 }
 
 /** Execution succeeded, but this wallet does not preserve child return buffers. */
