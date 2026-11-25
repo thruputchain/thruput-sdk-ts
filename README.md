@@ -871,6 +871,9 @@ Browser wallets use the framework-neutral [wallet provider contract](https://doc
 `./wallet` exports the existing local-signer wallet API and
 `createProviderWalletClient`, with separate prepare, sign, and submit steps so apps
 can persist the canonical transaction hash before requesting broadcast.
+Wallets report numeric EIP-1193 codes on the wire, and `createProviderWalletClient`
+turns each into a named code with the number in `context.providerCode`: for
+example, 4001 becomes `isThruputError(error, "userRejected")`.
 
 ### Atomic batches with an external wallet
 
