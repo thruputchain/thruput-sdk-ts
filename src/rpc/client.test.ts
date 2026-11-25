@@ -8,7 +8,13 @@ import { fromHex0x, toHex0x } from "../actions/hex.js";
 import { toBase58 } from "../encoding.js";
 import { hashSignedTransaction } from "../derivation/transactionHash.js";
 import { HttpTransport } from "../transport/http.js";
-import type { ThruputError } from "../errors/thruputError.js";
+import {
+  ThruputError as ThruputErrorClass,
+  type ThruputError,
+} from "../errors/thruputError.js";
+import { MockTransport } from "../transport/mock.js";
+import { classifyReadError } from "../transport/readError.js";
+import type { Transport } from "../transport/types.js";
 import { createRpcClient, type RpcMethod } from "./client.js";
 import { decodeResult, encodeRequest, UnsupportedRpcValue } from "./codec.js";
 import type { RpcRequests } from "./generated.js";
@@ -264,6 +270,8 @@ function server(
     transport: new HttpTransport("https://rpc.test", { fetch, batch }),
   };
 }
+
+const overloaded = { kind: "overloaded" };
 
 describe("native RPC client", () => {
   it.each(["Uint8Array", "Buffer"])(
@@ -538,6 +546,38 @@ describe("native RPC client", () => {
     }
     expect(endpoint.fetch).toHaveBeenCalledTimes(count + 1);
   });
+  it.each([
+    ["with raw", { code: -32053, message: "Overloaded", data: overloaded }],
+    ["without raw", undefined],
+  ])(
+    "classifies an rpcError that a custom transport builds %s",
+    async (_, raw) => {
+      const mock = new MockTransport();
+      let failing = false;
+      const transport: Transport = {
+        async request(method, params, options) {
+          if (failing)
+            throw new ThruputErrorClass("rpcError", "Overloaded", {
+              context: {
+                code: -32053,
+                rpcMessage: "Overloaded",
+                data: overloaded,
+                raw,
+              },
+            });
+          return mock.request(method, params, options);
+        },
+      };
+      const client = await createRpcClient({ transport });
+      failing = true;
+      const error = await client.getChainTip().catch((error: unknown) => error);
+      expect(error).toMatchObject({
+        code: "nativeRpcError",
+        context: { kind: "overloaded", raw: { code: -32053 } },
+      });
+      expect(classifyReadError(error)).toBe("transient");
+    },
+  );
   it("enforces response identity, page caps and non-progress without rejecting empty nonterminal pages", async () => {
     const endpoint = server();
     const client = await createRpcClient({ transport: endpoint.transport });

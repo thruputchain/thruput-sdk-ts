@@ -116,7 +116,15 @@ export function nativeRpcError(
   method: string,
   expectedTransactionHash?: Uint8Array,
 ): ThruputError<"nativeRpcError"> {
-  const decoded = decodeRpcError(method, error.raw, expectedTransactionHash);
+  // A custom transport can leave out `raw`; rebuild it from the typed fields.
+  const raw = record(error.raw)
+    ? error.raw
+    : {
+        code: error.code,
+        message: error.rpcMessage,
+        ...(error.data === undefined ? {} : { data: error.data }),
+      };
+  const decoded = decodeRpcError(method, raw, expectedTransactionHash);
   return new ThruputError(
     "nativeRpcError",
     `${method}: ${error.rpcMessage} (RPC ${error.code})`,
@@ -125,7 +133,7 @@ export function nativeRpcError(
         code: error.code,
         rpcMessage: error.rpcMessage,
         method,
-        raw: error.raw,
+        raw,
         ...(decoded.classification === "known"
           ? { kind: decoded.data.kind, data: decoded.data }
           : { kind: "unrecognized" }),

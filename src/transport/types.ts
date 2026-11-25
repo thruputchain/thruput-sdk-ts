@@ -8,10 +8,17 @@
  * Report failures with `ThruputError`, imported from `@thruputchain/client`, so
  * native clients can classify them:
  *
- * - A JSON-RPC error object: code `rpcError`, with the complete object in `context.raw`.
+ * - A JSON-RPC error object: code `rpcError`, with the complete object in
+ *   `context.raw`. Without `raw`, the client rebuilds it from `code`,
+ *   `rpcMessage`, and `data`.
  * - A network failure: code `httpRequestFailed`.
  * - A failed HTTP status: code `httpResponseError`.
  * - A malformed reply: code `rpcResponseInvalid`.
+ *
+ * For cancellation, reject with `options.signal.reason` unchanged. For a
+ * deadline, reject with a `DOMException` named `TimeoutError`. The client passes
+ * any other value through unchanged and does not classify it, so a transaction
+ * that fails that way has outcome `unknown`.
  *
  * @example
  * ```ts
