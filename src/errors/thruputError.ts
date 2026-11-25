@@ -36,12 +36,14 @@ export type ThruputErrorOf<TCode extends ThruputErrorCode = ThruputErrorCode> =
  * The one error class of the client. Identify an error by its stable `code`
  * with {@link isThruputError}, and read typed data from `context`.
  *
- * Every error raised after a transaction is signed has `transaction` facts.
- * Use `transaction.outcome` to decide what to do: an `unknown` outcome never
- * permits a resend.
+ * The transaction workflows, such as `executeAndWait` and the `sendTransaction`
+ * action, add `transaction` facts to every error after signing; raw RPC methods
+ * do not. Use `transaction.outcome` to decide what to do: an `unknown` outcome
+ * never permits a resend.
  *
  * The client's messages never include the message of a cause from your
- * callbacks, signers, or wallet; read it from `cause`. The error freezes
+ * callbacks or signers; read it from `cause`. A provider wallet's error message
+ * is forwarded as the message of its named code. The error freezes
  * `context` and `transaction`, and copies `transaction.hash`; other byte arrays
  * are not copied.
  *

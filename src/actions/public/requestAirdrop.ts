@@ -2,7 +2,6 @@ import type { RpcClient } from "../../rpc/client.js";
 import { rpcIncompatible } from "../../rpc/client.js";
 import {
   isUnsupportedRpcValue,
-  rpcValueInvalid,
   type UnsupportedRpcValue,
 } from "../../rpc/codec.js";
 import { isThruputError, ThruputError } from "../../errors/thruputError.js";
@@ -116,8 +115,10 @@ export async function requestAirdrop(
         );
       return lastResponse;
     }
+    // A pending attempt may not have a transaction yet. That is valid, but
+    // there is no hash to observe, so stop and keep the response.
     if (!lastResponse.transactionHash)
-      throw rpcValueInvalid("/result/transactionHash", lastResponse);
+      throw new Error("The faucet attempt is pending without a transaction");
     phase = "observe";
     const receipt = await waitForTransactionReceipt(
       client,

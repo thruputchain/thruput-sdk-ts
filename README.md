@@ -466,9 +466,15 @@ try {
 }
 ```
 
-Every error raised after a transaction is signed has `transaction` facts:
-`hash`, `outcome`, `reason`, and, when known, `receipt` and the signed
-`submission`. After narrowing to a transaction code, such as
+The transaction workflows attach `transaction` facts to every error after
+signing: `hash`, `outcome`, `reason`, and, when known, `receipt` and the signed
+`submission`. These workflows are the wallets' `executeAndWait`,
+`executeCallsAndWait`, `deployContractAndWait`, and `sendInvocation`; a provider
+wallet's `submitTransaction`; the `sendTransaction`, `sendInvocation`, and
+`requestAirdrop` actions; `waitForTransactionReceipt`; and receipt decoding. The
+raw RPC method `client.sendTransaction`, which a wallet also exposes, throws RPC
+and transport errors without facts: you already hold the hash of the bytes you
+sent. After narrowing to a transaction code, such as
 `isThruputError(error, "transactionOutcomeUnknown")`, `error.transaction` is
 always present. Decide what to do from `outcome` only:
 
@@ -476,7 +482,7 @@ always present. Decide what to do from `outcome` only:
 | -------------- | ----------------------------------------------------------------------------- |
 | `succeeded`    | The receipt shows success. The error is about a later step, such as decoding. |
 | `failed`       | The receipt shows failed execution.                                           |
-| `notSubmitted` | The client did not dispatch the transaction.                                  |
+| `notSubmitted` | This call did not dispatch the transaction.                                   |
 | `unknown`      | The client cannot know. Never send it again. Observe `hash` instead.          |
 
 ```ts
@@ -493,9 +499,13 @@ try {
 `reason` tells you why the operation stopped, for example `timeout`,
 `cancelled`, `nodeRejected`, or `persistenceFailed`. A node rejection keeps the
 outcome `unknown`, because another node or path can still have the transaction.
+`notSubmitted` covers this call only: if an earlier call sent the same bytes,
+for example with the same explicit nonce and expiry, observe the original hash.
 
-The client's messages never include the message of a cause from your callbacks,
-signers, or wallet; read it from `error.cause`. Invalid arguments and
+The client's messages never include the message of a cause from your callbacks
+or signers; read it from `error.cause`. A provider wallet's error message is
+forwarded as the `message` of its named code, such as `userRejected`, so treat
+it like any other text from the wallet before you log it. Invalid arguments and
 configuration, such as a wrong byte length, throw native errors (`Error`,
 `TypeError`, or `RangeError`) before any network call. A call that you cancel
 rejects with your `signal.reason`, and a request that times out rejects with a
@@ -690,6 +700,7 @@ const transaction = await wallet.prepareTransaction({
   expiryBlocks: 100n,
 });
 const signed = await wallet.signTransaction(transaction);
+// The raw RPC method: its errors have no `transaction` facts, so keep the hash.
 const { transactionHash: submittedHash } = await wallet.sendTransaction({
   signedTransaction: serializeSignedTransaction(signed),
 });

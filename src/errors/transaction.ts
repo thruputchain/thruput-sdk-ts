@@ -86,7 +86,7 @@ export const transactionReasons = Object.freeze([
 
 /**
  * Facts about one signed transaction, present on every {@link ThruputError}
- * raised after signing.
+ * that a transaction workflow raises after signing.
  *
  * @example
  * ```ts

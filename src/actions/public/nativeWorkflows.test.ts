@@ -492,16 +492,24 @@ describe("single-call funding", () => {
       blockHeight: 9n,
     });
   });
-  it("stops on pending without a hash", async () => {
+  it("stops on a valid pending response without a hash", async () => {
     const c = client();
-    c.faucet_requestAirdrop.mockResolvedValue({
+    const response = {
       attemptStatus: "pending",
       recipient,
       rawAmount: 42n,
-    } as never);
-    await expect(requestAirdrop(c, { recipient })).rejects.toMatchObject({
+      retryAfterSeconds: 5n,
+    } as const;
+    c.faucet_requestAirdrop.mockResolvedValue(response as never);
+    const error = await requestAirdrop(c, { recipient }).catch((e) => e);
+    expect(error).toMatchObject({
       code: "fundingStopped",
+      context: { lastResponse: response },
     });
+    expect(error.context.request.clientNonce).toBeInstanceOf(Uint8Array);
+    expect(error).not.toHaveProperty("transaction");
+    // The response is valid, so it is not reported as malformed.
+    expect(error.cause).not.toMatchObject({ code: "rpcValueInvalid" });
     expect(c.faucet_requestAirdrop).toHaveBeenCalledTimes(1);
     expect(c.getTransactionReceipt).not.toHaveBeenCalled();
   });
