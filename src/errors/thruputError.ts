@@ -6,17 +6,20 @@ import {
 } from "./codes.js";
 import type { TransactionFacts, TransactionFactsInput } from "./transaction.js";
 
-/** Options for a {@link ThruputError}. */
-export interface ThruputErrorOptions<TCode extends ThruputErrorCode> {
-  /** Typed context for the code. */
-  readonly context?: ThruputErrorContext[TCode];
+/**
+ * Options for a {@link ThruputError}. `context` is required when the code's
+ * context has required fields.
+ */
+export type ThruputErrorOptions<TCode extends ThruputErrorCode> = {
   readonly cause?: unknown;
   /**
    * Facts about the signed transaction. Required for each
    * {@link TransactionErrorCode}, and supplied on every error after signing.
    */
   readonly transaction?: TransactionFactsInput;
-}
+} & ({} extends ThruputErrorContext[TCode]
+  ? { readonly context?: ThruputErrorContext[TCode] }
+  : { readonly context: ThruputErrorContext[TCode] });
 
 /**
  * A {@link ThruputError} for one of the given codes, narrowable on `code`.
@@ -75,7 +78,12 @@ export class ThruputError<
   constructor(
     code: TCode,
     message: string,
-    options: ThruputErrorOptions<TCode> = {},
+    // Options can be left out only when the code needs no context.
+    ...[
+      options = {} as ThruputErrorOptions<TCode>,
+    ]: {} extends ThruputErrorContext[TCode]
+      ? [options?: ThruputErrorOptions<TCode>]
+      : [options: ThruputErrorOptions<TCode>]
   ) {
     if (
       !options.transaction &&

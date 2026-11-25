@@ -56,6 +56,18 @@ describe("ThruputError", () => {
     expect(Object.isFrozen(withFacts.transaction)).toBe(true);
   });
 
+  it("requires context for a code whose context has required fields", () => {
+    // @ts-expect-error fundingStopped requires its context
+    void (() => new ThruputError("fundingStopped", "Stopped"));
+    const empty = {};
+    // @ts-expect-error the context needs its required fields
+    void (() => new ThruputError("httpRequestFailed", "x", { context: empty }));
+    // Codes with an empty context need no options.
+    expect(
+      new ThruputError("contractDecodeFailed", "Bad bytes").context,
+    ).toEqual({});
+  });
+
   it("requires facts for a transaction code", () => {
     expect(
       () =>

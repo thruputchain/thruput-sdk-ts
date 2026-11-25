@@ -400,6 +400,10 @@ function errorBoundary(error: unknown) {
     context: { endpoint: "https://rpc.example", method: "getChainTip" },
     cause: error,
   });
+  // @ts-expect-error httpRequestFailed requires its context
+  void new ThruputError("httpRequestFailed", "request failed");
+  // @ts-expect-error an added code with required fields requires its context
+  void new ThruputError("boundaryTestFailed", "step failed");
   const augmented = new ThruputError("boundaryTestFailed", "step failed", {
     context: { step: "setup" },
   });
