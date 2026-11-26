@@ -21,6 +21,21 @@ then packs the client and previews publication. A dry-run does not publish or ta
 
 Versions are immutable on npm. Never reuse a version number.
 
+## Publishing without changing the default version
+
+`npm install @thruputchain/client` resolves the `latest` dist-tag. The workflow
+publishes under `latest` unless its `dist_tag` input names another tag, such as
+`next`. A version published that way is public and installable by its exact
+version or by the tag, but `latest` stays where it was. Use this when a release
+targets a runtime that the public networks do not run yet.
+
+To make such a version the default later, run the manual **Promote npm
+dist-tag** workflow on `main` with the version and `dist_tag: latest`. It
+defaults to `dry_run: true`, which checks the version and prints the current
+dist-tags. It only accepts a version that is on npm and has this repository's
+`npm-v<version>` tag, and it republishes nothing. It can also point `latest`
+back at an earlier version.
+
 ## Authentication
 
 `publishConfig` selects the public npm registry. The workflow authenticates

@@ -1,0 +1,48 @@
+name: Promote npm dist-tag
+
+# Points an npm dist-tag, by default `latest`, at a version this repository has
+# already published. Use it after publishing under another tag with the
+# Release package workflow. Nothing is republished.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published version to promote, for example 1.2.3
+        type: string
+        required: true
+      dist_tag:
+        description: npm dist-tag to point at that version
+        type: string
+        default: latest
+      dry_run:
+        description: Check the version and show the current dist-tags without changing them
+        type: boolean
+        default: true
+
+concurrency:
+  group: release-package
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          scope: "@thruputchain"
+
+      - name: Move npm dist-tag
+        run: bash scripts/promote-npm.sh
+        env:
+          VERSION: ${{ inputs.version }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

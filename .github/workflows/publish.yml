@@ -7,6 +7,10 @@ on:
         description: Verify and preview publication without publishing or tagging
         type: boolean
         default: true
+      dist_tag:
+        description: npm dist-tag to publish under; other tags leave latest unchanged
+        type: string
+        default: latest
 
 concurrency:
   group: release-package
@@ -81,4 +85,5 @@ jobs:
         run: bash scripts/publish-npm.sh
         env:
           DRY_RUN: ${{ inputs.dry_run }}
+          DIST_TAG: ${{ inputs.dist_tag }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
