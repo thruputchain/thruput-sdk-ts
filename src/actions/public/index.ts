@@ -38,6 +38,9 @@ export {
 } from "./getEffectiveContractSpec.js";
 export {
   decodeDefaultWalletRequests,
+  describeDefaultWalletRequests,
+  type WalletMint,
+  type WalletRequestDescription,
   type WalletRequests,
 } from "./decodeWalletRequests.js";
 export {
