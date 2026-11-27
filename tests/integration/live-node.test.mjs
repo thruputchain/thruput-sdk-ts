@@ -831,9 +831,11 @@ test("built SDK against a real local node", { timeout }, async (t) => {
     await client.dev_setBlockDriver({ mode: "manual" });
     try {
       // A time jump moves the next block, and a view sees it.
+      const start = await client.dev_produceBlock();
       const { nextBlockTimepoint: target } = await client.dev_increaseTime({
         nanoseconds: 30n * day,
       });
+      assert.ok(target >= start.blockTimepoint + 30n * day);
       const jumped = await client.dev_produceBlock();
       assert.ok(jumped.blockTimepoint >= target);
       const seen = await now(jumped.blockHeight);
@@ -852,8 +854,11 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       assert.equal(await now(next.blockHeight), pinned);
     } finally {
       // Later subtests expect the wall clock and instant blocks.
-      await client.dev_setBlockTimeStep({});
-      await client.dev_setBlockDriver({ mode: "instant" });
+      try {
+        await client.dev_setBlockTimeStep({});
+      } finally {
+        await client.dev_setBlockDriver({ mode: "instant" });
+      }
     }
   });
 
