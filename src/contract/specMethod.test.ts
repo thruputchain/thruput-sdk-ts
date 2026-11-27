@@ -19,7 +19,7 @@ import { createContractCallDecoder } from "./specMethod.js";
 import {
   decodeDefaultWalletRequests,
   describeDefaultWalletRequests,
-} from "../actions/index.js";
+} from "../actions/public/decodeWalletRequests.js";
 import { deriveContractAddress } from "../derivation/contractAddress.js";
 
 const address = contractAddress(new Uint8Array(32).fill(3));

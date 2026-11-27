@@ -69,24 +69,28 @@ export function decodeDefaultWalletRequests(
 ): WalletRequests | null {
   const requests = readWalletRequests(root);
   if (!requests) return null;
+  // A list of invocations would omit the authority the wallet grants to calls.
   if (
-    requests.mints.length ||
-    requests.calls.some((call) => call.tokens.length)
-  )
+    requests.mints.length > 0 ||
+    requests.calls.some((call) => call.tokens.length > 0)
+  ) {
     throw new Error(
       "DefaultWallet.execute mints or forwards auth tokens, which requested calls cannot represent",
     );
+  }
   return {
     wrapper: requests.wrapper,
     requestedCalls: requests.calls.map((call) => call.invocation),
   };
 }
 
-function readWalletRequests(root: Invocation): {
+interface RawWalletRequests {
   wrapper: WalletRequests["wrapper"];
-  calls: WalletRequestDescription["calls"];
   mints: Uint8Array[];
-} | null {
+  calls: WalletRequestDescription["calls"];
+}
+
+function readWalletRequests(root: Invocation): RawWalletRequests | null {
   if (bytesEqual(root.entrypoint, DefaultWallet.v0_1.execute.entrypoint)) {
     const { mints, calls } = DefaultWallet.v0_1.execute.decodeArgs(
       root.calldata,
@@ -114,7 +118,6 @@ function readWalletRequests(root: Invocation): {
       calls: init
         ? [
             {
-              tokens: [],
               invocation: {
                 invoked_address: deriveContractAddress(
                   root.invoked_address,
@@ -125,6 +128,7 @@ function readWalletRequests(root: Invocation): {
                 gas_limit: gasAmount(init.gas_limit),
                 calldata: calldata(init.calldata),
               },
+              tokens: [],
             },
           ]
         : [],
