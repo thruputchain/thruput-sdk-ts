@@ -1,6 +1,5 @@
 {
-  "cli": "0.47.0",
+  "cli": "0.48.0",
   "devnode": "0.1.37",
-  "wireFormat": "14.7.0",
-  "cliSourceCommit": "76ea6c38ab0cbce86045fe85649f00d0f3037aa4"
+  "wireFormat": "14.7.0"
 }

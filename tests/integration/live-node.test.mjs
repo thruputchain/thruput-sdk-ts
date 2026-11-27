@@ -790,6 +790,73 @@ test("built SDK against a real local node", { timeout }, async (t) => {
     },
   );
 
+  await t.test("a contract view sees moved and frozen block time", async () => {
+    const day = 24n * 60n * 60n * 1_000_000_000n;
+    const sender = createPubkeyAccount({
+      signer: new Ed25519Signer(randomBytes(32)),
+    });
+    const wallet = createWalletClient({ client, account: sender });
+    await wallet.requestAirdrop({ timeoutMs: airdropTimeoutMs });
+    const deployment = prepareContractDeployment({
+      deployer: sender.address,
+      contract: await readFile(
+        new URL("fixtures/block-clock.rv32a", import.meta.url),
+      ),
+    });
+    const { address } = await wallet.deployContractAndWait(
+      deployment,
+      { gasLimit: gasAmount(10_000_000n), amount: 50_000_000n },
+      { timeoutMs: receiptTimeoutMs },
+    );
+    const { artifactSpec } = await getEffectiveContractSpec(client, {
+      address,
+      context: "root",
+    });
+    const iface = artifactSpec.spec.interfaces.find(
+      (entry) => entry.name === "BlockClock",
+    );
+    assert.ok(iface);
+    // Floor each read at the produced block, or it can run on the block before.
+    const now = async (minStateBlockHeight) => {
+      const view = await client.simulateInvocation({
+        address,
+        entrypoint: deriveEntrypointID(iface.name, iface.vers, "now"),
+        calldata: encodeCalldata(artifactSpec.spec, iface.name, "now", [], {}),
+        minStateBlockHeight,
+      });
+      assert.equal(view.output.result, "return");
+      return deserializeCxs(view.output.returnData, Uint64Codec);
+    };
+
+    await client.dev_setBlockDriver({ mode: "manual" });
+    try {
+      // A time jump moves the next block, and a view sees it.
+      const { nextBlockTimepoint: target } = await client.dev_increaseTime({
+        nanoseconds: 30n * day,
+      });
+      const jumped = await client.dev_produceBlock();
+      assert.ok(jumped.blockTimepoint >= target);
+      const seen = await now(jumped.blockHeight);
+      assert.ok(seen >= jumped.blockTimepoint && seen < target + day);
+
+      // On a frozen clock, a view sees exactly the pinned time.
+      const pinned = jumped.blockTimepoint + day;
+      const tick = await client.dev_produceBlock({ blockTimepoint: pinned });
+      const frozen = await client.dev_setBlockTimeStep({
+        stepNanoseconds: 0n,
+      });
+      assert.equal(frozen.nextBlockTimepoint, pinned);
+      assert.equal(await now(tick.blockHeight), pinned);
+      const next = await client.dev_produceBlock();
+      assert.equal(next.blockTimepoint, pinned);
+      assert.equal(await now(next.blockHeight), pinned);
+    } finally {
+      // Later subtests expect the wall clock and instant blocks.
+      await client.dev_setBlockTimeStep({});
+      await client.dev_setBlockDriver({ mode: "instant" });
+    }
+  });
+
   await t.test("preserves a real JSON-RPC invalid-params error", async () => {
     await assert.rejects(
       transport.request("sendTransaction", {
