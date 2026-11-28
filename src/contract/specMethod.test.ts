@@ -3,11 +3,24 @@ import * as codecs from "./codec.js";
 import { contractSpecString } from "@thruputchain/contract-spec";
 import { CxsWriter } from "@thruputchain/xdr";
 import { ContractTypeKind } from "./spec.js";
-import { calldata, contractAddress, gasAmount } from "@thruputchain/protocol";
+import {
+  authTokenPayload,
+  calldata,
+  codec,
+  contractAddress,
+  gasAmount,
+  serialize,
+  sha256Hash,
+  type AuthTokenNode,
+} from "@thruputchain/protocol";
 import { DefaultWallet, spec } from "../contracts/default_wallet.js";
 import { ERC20 } from "../contracts/erc20.js";
 import { createContractCallDecoder } from "./specMethod.js";
-import { decodeDefaultWalletRequests } from "../actions/public/decodeWalletRequests.js";
+import {
+  decodeDefaultWalletRequests,
+  describeDefaultWalletRequests,
+} from "../actions/public/decodeWalletRequests.js";
+import { deriveContractAddress } from "../derivation/contractAddress.js";
 
 const address = contractAddress(new Uint8Array(32).fill(3));
 
@@ -61,11 +74,23 @@ it("decodes wallet arguments with the same codecs as generated bindings", () => 
     DefaultWallet.v0_1.execute.decodeArgs(root.calldata),
   );
   expect(decodeDefaultWalletRequests(root)?.requestedCalls).toEqual([child]);
+  expect(describeDefaultWalletRequests(root)).toEqual({
+    wrapper: "DefaultWallet.execute",
+    mints: [],
+    calls: [{ invocation: child, tokens: [] }],
+  });
 });
 
 it("keeps unknown selectors separate from malformed known input", () => {
   expect(createContractCallDecoder(spec)(child)).toBeNull();
   expect(decodeDefaultWalletRequests(child)).toBeNull();
+  expect(describeDefaultWalletRequests(child)).toBeNull();
+  expect(() =>
+    describeDefaultWalletRequests({
+      ...root,
+      calldata: calldata(new Uint8Array()),
+    }),
+  ).toThrow();
   expect(() =>
     createContractCallDecoder(spec)({
       ...root,
@@ -105,6 +130,74 @@ it("refuses to report a wallet root that mints or forwards auth tokens", () => {
   }).invocation;
   expect(() => decodeDefaultWalletRequests(minting)).toThrow("auth tokens");
   expect(() => decodeDefaultWalletRequests(forwarding)).toThrow("auth tokens");
+});
+
+it("preserves unreadable mints and ordered references alongside decoded grants", () => {
+  const leaf = {
+    consumer_address: address,
+    payload: authTokenPayload(Uint8Array.of(42)),
+    child_nodes: [],
+  };
+  const node: AuthTokenNode = { ...leaf, child_nodes: [leaf] };
+  const encoded = serialize(node, codec.AuthTokenNode);
+  const unreadable = Uint8Array.of(...encoded, 0);
+  const call = DefaultWallet.v0_1.execute.decodeArgs(root.calldata).calls[0]!;
+  const tokens: typeof call.tokens = [
+    { case: "Returned", value: { call: 0n, index: 2n } },
+    { case: "Minted", value: [1n] },
+  ];
+  const batch = DefaultWallet.v0_1.execute.call({
+    address,
+    gasLimit: root.gas_limit,
+    args: { mints: [unreadable, encoded], calls: [call, { ...call, tokens }] },
+  }).invocation;
+  expect(describeDefaultWalletRequests(batch)).toEqual({
+    wrapper: "DefaultWallet.execute",
+    mints: [
+      { kind: "unreadable", bytes: unreadable },
+      { kind: "decoded", node },
+    ],
+    calls: [
+      { invocation: child, tokens: [] },
+      { invocation: child, tokens },
+    ],
+  });
+});
+
+it("includes only the requested deployment initializer and no grants", () => {
+  const hash = sha256Hash(new Uint8Array(32).fill(8));
+  const nonce = sha256Hash(new Uint8Array(32).fill(9));
+  const init = {
+    entrypoint: child.entrypoint,
+    gas_limit: child.gas_limit,
+    calldata: child.calldata,
+  };
+  for (const initializer of [null, init]) {
+    const deploy = DefaultWallet.v0_1.deploy.call({
+      address,
+      gasLimit: root.gas_limit,
+      args: { contractHash: hash, nonce, amount: 0n, initializer },
+    }).invocation;
+    const calls = initializer
+      ? [
+          {
+            invocation: {
+              ...child,
+              invoked_address: deriveContractAddress(address, nonce, hash),
+            },
+            tokens: [],
+          },
+        ]
+      : [];
+    expect(describeDefaultWalletRequests(deploy)).toEqual({
+      wrapper: "DefaultWallet.deploy",
+      mints: [],
+      calls,
+    });
+    expect(decodeDefaultWalletRequests(deploy)?.requestedCalls).toEqual(
+      calls.map((call) => call.invocation),
+    );
+  }
 });
 
 it("rejects ambiguous selectors and does not depend on subsequent spec mutation", () => {
