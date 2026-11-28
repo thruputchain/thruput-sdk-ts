@@ -791,7 +791,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
   );
 
   await t.test("a contract view sees moved and frozen block time", async () => {
-    const day = 24n * 60n * 60n * 1_000_000_000n;
+    const dayNs = 24n * 60n * 60n * 1_000_000_000n;
     const sender = createPubkeyAccount({
       signer: new Ed25519Signer(randomBytes(32)),
     });
@@ -817,7 +817,7 @@ test("built SDK against a real local node", { timeout }, async (t) => {
     );
     assert.ok(iface);
     // Floor each read at the produced block, or it can run on the block before.
-    const now = async (minStateBlockHeight) => {
+    const readBlockTime = async (minStateBlockHeight) => {
       const view = await client.simulateInvocation({
         address,
         entrypoint: deriveEntrypointID(iface.name, iface.vers, "now"),
@@ -833,27 +833,28 @@ test("built SDK against a real local node", { timeout }, async (t) => {
       // A time jump moves the next block, and a view sees it.
       const start = await client.dev_produceBlock();
       const { nextBlockTimepoint: target } = await client.dev_increaseTime({
-        nanoseconds: 30n * day,
+        nanoseconds: 30n * dayNs,
       });
-      assert.ok(target >= start.blockTimepoint + 30n * day);
+      assert.ok(target >= start.blockTimepoint + 30n * dayNs);
       const jumped = await client.dev_produceBlock();
       assert.ok(jumped.blockTimepoint >= target);
-      const seen = await now(jumped.blockHeight);
-      assert.ok(seen >= jumped.blockTimepoint && seen < target + day);
+      const seen = await readBlockTime(jumped.blockHeight);
+      assert.ok(seen >= jumped.blockTimepoint && seen < target + dayNs);
 
       // On a frozen clock, a view sees exactly the pinned time.
-      const pinned = jumped.blockTimepoint + day;
+      const pinned = jumped.blockTimepoint + dayNs;
       const tick = await client.dev_produceBlock({ blockTimepoint: pinned });
       const frozen = await client.dev_setBlockTimeStep({
         stepNanoseconds: 0n,
       });
       assert.equal(frozen.nextBlockTimepoint, pinned);
-      assert.equal(await now(tick.blockHeight), pinned);
+      assert.equal(await readBlockTime(tick.blockHeight), pinned);
       const next = await client.dev_produceBlock();
       assert.equal(next.blockTimepoint, pinned);
-      assert.equal(await now(next.blockHeight), pinned);
+      assert.equal(await readBlockTime(next.blockHeight), pinned);
     } finally {
-      // Later subtests expect the wall clock and instant blocks.
+      // Later subtests expect the wall clock and instant blocks. An empty
+      // request restores the default time step.
       try {
         await client.dev_setBlockTimeStep({});
       } finally {
